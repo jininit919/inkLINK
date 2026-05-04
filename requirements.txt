@@ -1,0 +1,9 @@
+flask
+flask-limiter
+werkzeug
+resend
+stripe
+boto3
+gunicorn
+psycopg2-binary
+pywebpush>=2.0.0

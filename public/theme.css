@@ -1,0 +1,99 @@
+/* ── Dark theme (black / white) — default ───────────────────────────────────── */
+html[data-theme="dark"] {
+  --red:     #333333;
+  --red2:    #e8e8e8;
+  --red3:    #ffffff;
+  --redglow: rgba(232,232,232,0.07);
+}
+
+html[data-theme="dark"] nav {
+  background: rgba(0,0,0,0.95);
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--red2); }
+
+/* ── Purple theme (black / purple) ─────────────────────────────────────────── */
+html[data-theme="purple"] {
+  --red:     #3b1a6e;
+  --red2:    #6929c4;
+  --red3:    #7c3aed;
+  --redglow: rgba(105,41,196,0.12);
+  --bg:      #000000;
+  --bg2:     #06010e;
+  --bg3:     #0d0520;
+  --bg4:     #150a2e;
+  --border:  #1a1a1a;
+  --border2: #2a1a40;
+  --gold:    #a855f7;
+  --gold2:   #c084fc;
+}
+
+html[data-theme="purple"] nav {
+  background: rgba(6,1,14,0.95);
+}
+
+html[data-theme="purple"] .playing-bar {
+  background: rgba(6,1,14,0.98);
+}
+
+html[data-theme="purple"] #mobileBottomNav {
+  background: rgba(6,1,14,0.98);
+}
+
+html[data-theme="purple"] ::-webkit-scrollbar-thumb { background: var(--red2); }
+
+/* ── Light theme (white / black) ────────────────────────────────────────────── */
+html[data-theme="light"] {
+  --red:     #888888;
+  --red2:    #111111;
+  --red3:    #000000;
+  --redglow: rgba(0,0,0,0.06);
+  --txt:     #0f0f0f;
+  --txt2:    #333333;
+  --txt3:    #888888;
+  --border:  #dedede;
+  --border2: #cccccc;
+  --bg:      #f5f5f5;
+  --bg2:     #ffffff;
+  --bg3:     #ececec;
+  --bg4:     #e0e0e0;
+}
+
+html[data-theme="light"] body {
+  background: var(--bg);
+  color: var(--txt);
+}
+
+html[data-theme="light"] nav {
+  background: rgba(245,245,245,0.95);
+  border-bottom-color: var(--border);
+}
+
+html[data-theme="light"] .playing-bar {
+  background: rgba(245,245,245,0.98);
+  border-top-color: var(--border);
+}
+
+html[data-theme="light"] #mobileBottomNav {
+  background: rgba(245,245,245,0.98);
+  border-top-color: var(--border);
+}
+
+html[data-theme="light"] .modal-overlay {
+  background: rgba(0,0,0,0.45);
+}
+
+html[data-theme="light"] .modal,
+html[data-theme="light"] .detail-modal {
+  background: #ffffff;
+  border-color: var(--border2);
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  color-scheme: light;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg); }
+html[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--red2); }

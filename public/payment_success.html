@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment successful — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;color:#ccc;font-family:'DM Mono',monospace;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{max-width:480px;width:100%;background:#080808;border:1px solid #1a1a1a;padding:40px 32px;text-align:center}
+.icon{font-size:48px;margin-bottom:20px}
+h1{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.12em;color:#e8e8e8;margin-bottom:8px}
+.sub{font-size:14px;color:#666;letter-spacing:0.08em;margin-bottom:28px}
+.code-box{background:#0e0e0e;border:1px solid #222;border-left:3px solid #8b0000;padding:14px 18px;margin:20px 0;text-align:left}
+.code-label{font-size:12px;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.code-val{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.15em;color:#c62828}
+.detail-row{display:flex;justify-content:space-between;font-size:14px;color:#888;padding:5px 0;border-bottom:1px solid #111;letter-spacing:0.04em}
+.detail-row:last-child{border-bottom:none}
+.detail-val{color:#ccc}
+.btn{display:inline-block;margin-top:28px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.15em;padding:12px 32px;background:#8b0000;color:#fff;text-decoration:none;border:none;cursor:pointer;transition:background 0.15s}
+.btn:hover{background:#b20000}
+.loading{color:#555;font-size:14px;letter-spacing:0.08em}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">✓</div>
+  <h1>Payment successful</h1>
+  <p class="sub">Thank you for your purchase</p>
+  <div id="orderInfo"><p class="loading">Loading order details…</p></div>
+  <a href="/" class="btn">Back to InkLink</a>
+</div>
+<script>
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const sid  = params.get('session_id');
+  const type = params.get('type');
+  const el   = document.getElementById('orderInfo');
+  if (!sid) { el.innerHTML = ''; return; }
+
+  const res = await fetch(`/api/orders/verify?session_id=${encodeURIComponent(sid)}`);
+  if (!res.ok) { el.innerHTML = '<p style="color:#555;font-size:14px">Order details not available.</p>'; return; }
+  const order = await res.json();
+
+  const statusLabel = order.status === 'paid' ? '✓ Paid' : '⏳ Awaiting confirmation';
+  const statusColor = order.status === 'paid' ? '#2e7d32' : '#e65100';
+
+  let codeHtml = '';
+  if (type === 'ticket' && order.ticket_code) {
+    codeHtml = `
+      <div class="code-box">
+        <div class="code-label">Ticket code</div>
+        <div class="code-val">${order.ticket_code}</div>
+      </div>
+      <p style="font-size:12px;color:#444;letter-spacing:0.06em;margin-top:8px">Keep this code — you will need it at the event entrance.</p>`;
+  } else if (type === 'listing' && order.ticket_code) {
+    codeHtml = `
+      <div class="code-box">
+        <div class="code-label">Order number</div>
+        <div class="code-val">${order.ticket_code}</div>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div class="detail-row"><span>Stav</span><span class="detail-val" style="color:${statusColor}">${statusLabel}</span></div>
+      <div class="detail-row"><span>Amount</span><span class="detail-val">${Number(order.amount).toLocaleString('en-US')} ${order.currency}</span></div>
+      <div class="detail-row"><span>Type</span><span class="detail-val">${type === 'ticket' ? 'Ticket' : 'Marketplace listing'}</span></div>
+    </div>
+    ${codeHtml}`;
+})();
+</script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

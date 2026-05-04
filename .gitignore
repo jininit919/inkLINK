@@ -1,0 +1,22 @@
+# Databáze a nahrané soubory (budou na serveru)
+inklink.db
+uploads/
+
+# Citlivé soubory
+.session_secret
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logy
+server.log
+*.log
+
+# macOS
+.DS_Store
+
+# Node (Capacitor)
+node_modules/

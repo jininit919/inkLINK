@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InkLink — Sign in</title>
+<meta name="description" content="Sign in or create your account on InkLink — the global network for independent artists.">
+<meta property="og:title" content="InkLink — Tattoo Booking Network">
+<meta property="og:description" content="A global network for independent artists. Share tracks, find collaborations, sell gear.">
+<meta property="og:image" content="https://inklink.app/icons/icon-512.png">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#8b0000;--red2:#b20000;--red3:#cc0000;
+  --txt:#e8e8e8;--txt2:#888;--txt3:#444;
+  --border:#1a1a1a;--border2:#222;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--red)}
+
+.brand{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.2em;color:var(--red2);margin-bottom:4px;text-align:center}
+.brand-sub{font-size:10px;color:var(--txt3);letter-spacing:0.15em;text-align:center;margin-bottom:40px}
+
+.card{width:100%;max-width:400px;background:var(--bg2);border:1px solid var(--border2)}
+
+.tabs{display:flex;border-bottom:1px solid var(--border2)}
+.tab{flex:1;padding:14px;text-align:center;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt3);cursor:pointer;transition:all 0.15s;border:none;background:none;font-family:'DM Mono',monospace}
+.tab.active{color:var(--red2);border-bottom:2px solid var(--red2)}
+.tab:hover:not(.active){color:var(--txt2)}
+
+.form{padding:28px;display:none;flex-direction:column;gap:16px}
+.form.active{display:flex}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3)}
+.field input,.field select{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;letter-spacing:0.05em;outline:none;transition:border-color 0.2s;width:100%}
+.field input::placeholder{color:var(--txt3)}
+.field input:focus{border-color:var(--red)}
+
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.submit-btn{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.15em;padding:14px;background:var(--red2);color:white;border:none;cursor:pointer;transition:all 0.15s;margin-top:4px}
+.submit-btn:hover{background:var(--red3)}
+.submit-btn:disabled{opacity:0.5;cursor:not-allowed}
+
+.error-msg{font-size:11px;color:var(--red3);letter-spacing:0.04em;padding:10px 14px;background:rgba(139,0,0,0.1);border:1px solid rgba(139,0,0,0.3);display:none}
+.error-msg.visible{display:block}
+
+.hint{font-size:9px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div class="brand">INKLINK</div>
+<div class="brand-sub">Tattoo Booking Network</div>
+
+<div class="card">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('login')">Sign in</button>
+    <button class="tab" onclick="switchTab('register')">Sign up</button>
+  </div>
+
+  <!-- LOGIN -->
+  <form class="form active" id="loginForm" onsubmit="doLogin(event)">
+    <div class="error-msg" id="loginError"></div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="loginUsername" placeholder="username" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="••••••" autocomplete="current-password" required>
+    </div>
+    <button class="submit-btn" type="submit" id="loginBtn">SIGN IN</button>
+    <div class="hint"><a href="/forgot-password" style="color:#555">Forgot your password?</a></div>
+  </form>
+
+  <!-- REGISTER -->
+  <form class="form" id="registerForm" onsubmit="doRegister(event)">
+    <div class="error-msg" id="registerError"></div>
+    <div class="field">
+      <label>Username *</label>
+      <input type="text" id="regUsername" placeholder="letters and numbers only" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label>Artist name / nickname *</label>
+      <input type="text" id="regDisplayName" placeholder="how the world will see you" required>
+    </div>
+    <div class="field">
+      <label>E-mail *</label>
+      <input type="email" id="regEmail" placeholder="you@email.com" autocomplete="email" required>
+    </div>
+    <div class="field">
+      <label>Phone (optional)</label>
+      <input type="tel" id="regPhone" placeholder="+1 xxx xxx xxxx" autocomplete="tel">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>City</label>
+        <input type="text" id="regCity" placeholder="New York, LA...">
+      </div>
+      <div class="field">
+        <label>Genre(s)</label>
+        <input type="text" id="regGenres" placeholder="Hip-Hop, Techno...">
+      </div>
+    </div>
+    <div class="field">
+      <label>Password * (min. 6 characters)</label>
+      <input type="password" id="regPassword" placeholder="••••••" autocomplete="new-password" required>
+    </div>
+    <div class="field" style="flex-direction:row;align-items:flex-start;gap:10px">
+      <input type="checkbox" id="regTerms" required style="width:auto;margin-top:2px;accent-color:var(--red2)">
+      <label for="regTerms" style="font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-transform:none;cursor:pointer">I agree to the <a href="/terms" style="color:#666" target="_blank">terms of use</a> and <a href="/privacy" style="color:#666" target="_blank">privacy policy</a></label>
+    </div>
+    <button class="submit-btn" type="submit" id="registerBtn">CREATE ACCOUNT</button>
+    <div class="hint">We'll send a verification code to your email to confirm your account.</div>
+  </form>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
+  document.getElementById('loginForm').classList.toggle('active', tab === 'login');
+  document.getElementById('registerForm').classList.toggle('active', tab === 'register');
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+function hideError(id) {
+  document.getElementById(id).classList.remove('visible');
+}
+
+async function doLogin(e) {
+  e.preventDefault();
+  hideError('loginError');
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'SIGNING IN...';
+
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      username: document.getElementById('loginUsername').value,
+      password: document.getElementById('loginPassword').value
+    })
+  });
+  const data = await res.json();
+
+  if (data.ok) {
+    window.location.href = '/';
+  } else {
+    showError('loginError', data.error || 'Sign in failed');
+    btn.disabled = false;
+    btn.textContent = 'SIGN IN';
+  }
+}
+
+async function doRegister(e) {
+  e.preventDefault();
+  hideError('registerError');
+  const btn = document.getElementById('registerBtn');
+  btn.disabled = true;
+  btn.textContent = 'CREATING ACCOUNT...';
+
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      username:     document.getElementById('regUsername').value,
+      display_name: document.getElementById('regDisplayName').value,
+      email:        document.getElementById('regEmail').value,
+      phone:        document.getElementById('regPhone').value,
+      city:         document.getElementById('regCity').value,
+      genres:       document.getElementById('regGenres').value,
+      password:     document.getElementById('regPassword').value
+    })
+  });
+  const data = await res.json();
+
+  if (data.ok) {
+    window.location.href = data.verify ? '/verify' : '/';
+  } else {
+    showError('registerError', data.error || 'Registration failed');
+    btn.disabled = false;
+    btn.textContent = 'CREATE ACCOUNT';
+  }
+}
+</script>
+
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

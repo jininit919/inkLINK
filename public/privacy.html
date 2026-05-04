@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ochrana osobních údajů — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;color:#ccc;font-family:'DM Mono',monospace;font-size:15px;line-height:1.8;min-height:100vh}
+a{color:#c62828;text-decoration:none}
+a:hover{text-decoration:underline}
+.page{max-width:760px;margin:0 auto;padding:48px 24px}
+.nav-back{display:inline-flex;align-items:center;gap:8px;color:#555;font-size:15px;letter-spacing:0.1em;text-decoration:none;margin-bottom:40px;transition:color 0.15s}
+.nav-back:hover{color:#c62828;text-decoration:none}
+h1{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.1em;color:#eee;margin-bottom:6px}
+.subtitle{font-size:14px;color:#555;letter-spacing:0.08em;margin-bottom:40px}
+h2{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.1em;color:#ddd;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid #1a1a1a}
+p{margin-bottom:12px;color:#aaa}
+ul{margin:8px 0 12px 20px;color:#aaa}
+ul li{margin-bottom:6px}
+.highlight{background:#0e0e0e;border:1px solid #1a1a1a;border-left:3px solid #8b0000;padding:14px 16px;border-radius:2px;margin:16px 0}
+.highlight p{margin:0;color:#bbb}
+.contact-box{background:#0a0a0a;border:1px solid #222;padding:20px;margin-top:16px;border-radius:3px}
+.contact-box p{margin:0;line-height:2}
+.updated{font-size:14px;color:#444;margin-top:40px;padding-top:16px;border-top:1px solid #111}
+</style>
+</head>
+<body>
+<main class="page" role="main">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:40px">
+    <a href="/" class="nav-back" aria-label="Zpět na hlavní stránku" style="margin-bottom:0">← Zpět na InkLink</a>
+    <button id="themeToggle" onclick="toggleTheme()" title="Přepnout motiv" style="background:none;border:none;cursor:pointer;font-size:18px;color:#555">☀</button>
+  </div>
+
+  <h1>Zásady ochrany osobních údajů</h1>
+  <p class="subtitle">Platné od 1. 1. 2025 · Aktualizováno 30. 4. 2026</p>
+
+  <div class="highlight">
+    <p>Vaše soukromí je pro nás důležité. Snažíme se sbírat jen data, která opravdu potřebujeme pro provoz služby, a neprodáváme je třetím stranám.</p>
+  </div>
+
+  <h2>1. Kdo jsme</h2>
+  <p>Provozovatelem platformy InkLink je:</p>
+  <div class="contact-box">
+    <p>
+      <strong>InkLink s.r.o.</strong><br>
+      IČO: 00000000<br>
+      Sídlo: [ulice, město, PSČ], Česká republika<br>
+      E-mail: <a href="mailto:info@inklink.cz">info@inklink.cz</a><br>
+      Telefon: +420 000 000 000
+    </p>
+  </div>
+
+  <h2>2. Jaká data sbíráme</h2>
+  <p>Při registraci a používání služby zpracováváme tyto osobní údaje:</p>
+  <ul>
+    <li><strong>Registrační údaje:</strong> uživatelské jméno, e-mailová adresa, heslo (uloženo jako hash — nikdy v čitelné podobě)</li>
+    <li><strong>Profilové údaje:</strong> zobrazované jméno, město, žánrové preference, profilová fotka, bio — vše zadáváte dobrovolně</li>
+    <li><strong>Obsah:</strong> nahrané skladby, obrázky, texty příspěvků, komentáře, zprávy</li>
+    <li><strong>Technická data:</strong> IP adresa (pro zabezpečení), typ prohlížeče, časy přihlášení</li>
+    <li><strong>Aktivita:</strong> přehrané tracky, lajky, sledování, uložené položky</li>
+  </ul>
+
+  <h2>3. Proč data zpracováváme</h2>
+  <ul>
+    <li><strong>Plnění smlouvy:</strong> provoz uživatelského účtu, nahrávání a sdílení hudby, komunikace mezi uživateli</li>
+    <li><strong>Oprávněný zájem:</strong> zabezpečení platformy, prevence podvodů, technická diagnostika</li>
+    <li><strong>Souhlas:</strong> marketingová komunikace — pouze pokud jste ji výslovně odsouhlasili</li>
+  </ul>
+
+  <h2>4. Cookies</h2>
+  <p>Používáme tyto typy cookies:</p>
+  <ul>
+    <li><strong>Nezbytné cookies:</strong> session cookie pro přihlášení (bez nich služba nefunguje). Tyto cookies nevyžadují váš souhlas.</li>
+    <li><strong>Analytické cookies:</strong> pouze s vaším souhlasem — pomáhají nám zlepšovat platformu.</li>
+    <li><strong>Marketingové cookies:</strong> nepoužíváme.</li>
+  </ul>
+  <p>Svůj souhlas s cookies můžete kdykoliv změnit v nastavení prohlížeče nebo kliknutím na odkaz v patičce stránky.</p>
+
+  <h2>5. Komu data předáváme</h2>
+  <p>Vaše data <strong>neprodáváme</strong> třetím stranám. Předáváme je pouze:</p>
+  <ul>
+    <li>Poskytovatelům hostingu a cloudové infrastruktury (pouze v rámci EHP)</li>
+    <li>Platebním zprostředkovatelům (pouze při zpracování transakce, pouze nezbytné údaje)</li>
+    <li>Orgánům veřejné moci — pouze na základě zákonné povinnosti</li>
+  </ul>
+
+  <h2>6. Jak dlouho data uchováváme</h2>
+  <ul>
+    <li>Uživatelský účet a jeho obsah: po dobu existence účtu + 30 dní od smazání</li>
+    <li>Logy a technická data: max. 90 dní</li>
+    <li>Záznamy o transakcích: 10 let (zákonná povinnost)</li>
+  </ul>
+
+  <h2>7. Vaše práva (GDPR)</h2>
+  <p>Podle nařízení GDPR máte právo:</p>
+  <ul>
+    <li><strong>Na přístup</strong> — požádat o přehled osobních údajů, které o vás zpracováváme</li>
+    <li><strong>Na opravu</strong> — opravit nepřesné nebo neúplné údaje (přímo v nastavení profilu)</li>
+    <li><strong>Na výmaz</strong> — požádat o smazání vašeho účtu a všech osobních dat</li>
+    <li><strong>Na přenositelnost</strong> — získat svá data ve strojově čitelném formátu</li>
+    <li><strong>Na omezení zpracování</strong> — v zákonem stanovených případech</li>
+    <li><strong>Vznést námitku</strong> — proti zpracování na základě oprávněného zájmu</li>
+  </ul>
+  <div class="highlight">
+    <p>Pro uplatnění jakéhokoliv práva nás kontaktujte na <a href="mailto:info@inklink.cz">info@inklink.cz</a>. Na vaši žádost odpovíme do 30 dnů. Smazání účtu lze také provést přímo v nastavení profilu.</p>
+  </div>
+  <p>Máte také právo podat stížnost u dozorového úřadu — v České republice je to <a href="https://www.uoou.cz" target="_blank" rel="noopener">Úřad pro ochranu osobních údajů (ÚOOÚ)</a>.</p>
+
+  <h2>8. Zabezpečení</h2>
+  <p>Hesla ukládáme jako kryptografický hash (bcrypt). Komunikace je šifrována pomocí HTTPS. Přístup k databázi mají pouze oprávnění provozovatelé.</p>
+
+  <h2>9. Kontakt pro záležitosti GDPR</h2>
+  <div class="contact-box">
+    <p>
+      E-mail: <a href="mailto:gdpr@inklink.cz">gdpr@inklink.cz</a><br>
+      Poštou: InkLink s.r.o., [adresa], Česká republika
+    </p>
+  </div>
+
+  <p class="updated">Tyto zásady byly naposledy aktualizovány dne 30. 4. 2026. Změny vám oznámíme e-mailem nebo upozorněním v aplikaci.</p>
+</main>
+<script src="/legal.js"></script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>
