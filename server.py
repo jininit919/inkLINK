@@ -15,7 +15,7 @@ import math
 import uuid
 import random
 import resend
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import stripe
 import boto3
 from botocore.client import Config
@@ -32,10 +32,18 @@ else:
     app.secret_key = uuid.uuid4().hex + uuid.uuid4().hex
     open(_secret_file, 'w').write(app.secret_key)
 
-# Session cookie security
+# Trust proxy headers (Railway / Heroku / nginx) — aby Flask viděl skutečné
+# scheme=https a remote IP přes X-Forwarded-* hlavičky.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Session cookie security — Secure se aktivuje automaticky když request je https
+# (díky ProxyFix), takže lokálně přes http session funguje a v produkci je Secure.
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE']   = os.environ.get('HTTPS', '') == '1'
+@app.before_request
+def _set_secure_cookie():
+    app.config['SESSION_COOKIE_SECURE'] = (request.scheme == 'https')
 
 # Rate limiter
 limiter = Limiter(
@@ -202,88 +210,55 @@ def init_db():
             except Exception:
                 pass
 
+    # ── users ───────────────────────────────────────────────────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
         username      TEXT UNIQUE NOT NULL,
         display_name  TEXT NOT NULL,
         city          TEXT DEFAULT '',
-        genres        TEXT DEFAULT '',
         bio           TEXT DEFAULT '',
         avatar        TEXT DEFAULT '',
-        photo1        TEXT DEFAULT '',
-        photo2        TEXT DEFAULT '',
-        photo3        TEXT DEFAULT '',
-        photo4        TEXT DEFAULT '',
         emoji         TEXT DEFAULT '',
         password_hash TEXT NOT NULL,
         created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-
-    # migrate existing users table
-    for col in ('bio TEXT DEFAULT ""', 'avatar TEXT DEFAULT ""',
-                'photo1 TEXT DEFAULT ""', 'photo2 TEXT DEFAULT ""',
-                'photo3 TEXT DEFAULT ""', 'photo4 TEXT DEFAULT ""',
-                'emoji TEXT DEFAULT ""',
-                'lat  REAL DEFAULT NULL',
-                'lng  REAL DEFAULT NULL',
-                'email TEXT DEFAULT ""',
-                'phone TEXT DEFAULT ""',
+    for col in ('lat REAL DEFAULT NULL', 'lng REAL DEFAULT NULL',
+                'email TEXT DEFAULT ""', 'phone TEXT DEFAULT ""',
                 'verified INTEGER DEFAULT 1',
                 'verify_code TEXT DEFAULT NULL',
                 'verify_expires TEXT DEFAULT NULL',
+                # Legacy from hear-me-out fork — kept so old SELECTs don't break
+                'genres TEXT DEFAULT ""',
+                'photo1 TEXT DEFAULT ""', 'photo2 TEXT DEFAULT ""',
+                'photo3 TEXT DEFAULT ""', 'photo4 TEXT DEFAULT ""',
                 'pro INTEGER DEFAULT 0',
-                'pro_expires TEXT DEFAULT NULL',
-                'stripe_customer_id TEXT DEFAULT NULL'):
+                # InkLink: artist-specific fields on users
+                'is_artist INTEGER DEFAULT 0',
+                'artist_slug TEXT DEFAULT NULL',
+                'studio TEXT DEFAULT ""',
+                'instagram TEXT DEFAULT ""',
+                'styles TEXT DEFAULT ""',
+                'deposit_pct_default INTEGER DEFAULT 30',
+                'stripe_account_id TEXT DEFAULT NULL',
+                'stripe_charges_enabled INTEGER DEFAULT 0',
+                'stripe_payouts_enabled INTEGER DEFAULT 0',
+                'stripe_details_submitted INTEGER DEFAULT 0',
+                'verified_artist_at TEXT DEFAULT NULL',
+                # Default hodinová sazba (předvyplní se v každém novém bloku)
+                'hourly_rate_min INTEGER DEFAULT NULL',
+                'hourly_rate_max INTEGER DEFAULT NULL',
+                # M7: defaultní platební režim tatéra
+                # 'deposit' (jen záloha + doplatek na místě), 'full' (vše předem),
+                # 'client_choice' (klient si vybere v modalu)
+                "default_payment_mode TEXT DEFAULT 'deposit'"):
         add_col('users', col)
     conn.commit()
 
-    c.execute('''CREATE TABLE IF NOT EXISTS tracks (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id    INTEGER NOT NULL,
-        title      TEXT NOT NULL,
-        genre      TEXT DEFAULT '',
-        city       TEXT DEFAULT '',
-        filename   TEXT NOT NULL,
-        cover      TEXT DEFAULT '',
-        duration   TEXT DEFAULT '',
-        caption    TEXT DEFAULT '',
-        like_count INTEGER DEFAULT 0,
-        play_count INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )''')
-
-    for col in ('cover TEXT DEFAULT ""', 'video TEXT DEFAULT ""'):
-        add_col('tracks', col)
-    conn.commit()
-
-    c.execute('''CREATE TABLE IF NOT EXISTS play_logs (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        track_id   INTEGER NOT NULL,
-        user_id    INTEGER DEFAULT NULL,
-        city       TEXT    DEFAULT '',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS likes (
-        user_id  INTEGER NOT NULL,
-        track_id INTEGER NOT NULL,
-        PRIMARY KEY (user_id, track_id)
-    )''')
-    add_col('likes', 'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-    conn.commit()
-
+    # ── follows / messages / favorite_cities (kept from hear-me-out) ────────
     c.execute('''CREATE TABLE IF NOT EXISTS follows (
         follower_id  INTEGER NOT NULL,
         following_id INTEGER NOT NULL,
         PRIMARY KEY (follower_id, following_id)
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS reposts (
-        user_id    INTEGER NOT NULL,
-        track_id   INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (user_id, track_id)
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS messages (
@@ -298,9 +273,6 @@ def init_db():
         FOREIGN KEY (sender_id)   REFERENCES users(id),
         FOREIGN KEY (receiver_id) REFERENCES users(id)
     )''')
-    for col in ('content_type TEXT DEFAULT "text"', 'image TEXT DEFAULT ""'):
-        add_col('messages', col)
-    conn.commit()
 
     c.execute('''CREATE TABLE IF NOT EXISTS favorite_cities (
         user_id  INTEGER NOT NULL,
@@ -311,26 +283,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS playlists (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id    INTEGER NOT NULL,
-        name       TEXT NOT NULL,
-        is_public  INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS playlist_tracks (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        playlist_id INTEGER NOT NULL,
-        track_id    INTEGER NOT NULL,
-        position    INTEGER DEFAULT 0,
-        added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(playlist_id, track_id),
-        FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
-        FOREIGN KEY (track_id)    REFERENCES tracks(id)    ON DELETE CASCADE
-    )''')
-
+    # ── events / event_saves (kept) ─────────────────────────────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS events (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id     INTEGER NOT NULL,
@@ -352,39 +305,6 @@ def init_db():
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
-    for col in ('lat REAL DEFAULT NULL', 'lng REAL DEFAULT NULL',
-                'photo1 TEXT DEFAULT ""', 'photo2 TEXT DEFAULT ""',
-                'photo3 TEXT DEFAULT ""', 'photo4 TEXT DEFAULT ""',
-                'photo5 TEXT DEFAULT ""'):
-        add_col('events', col)
-    conn.commit()
-
-    c.execute('''CREATE TABLE IF NOT EXISTS listings (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id     INTEGER NOT NULL,
-        title       TEXT NOT NULL,
-        description TEXT DEFAULT '',
-        price       INTEGER NOT NULL,
-        currency    TEXT DEFAULT 'CZK',
-        condition   TEXT DEFAULT 'used',
-        category    TEXT DEFAULT '',
-        city        TEXT DEFAULT '',
-        status      TEXT DEFAULT 'active',
-        boosted     INTEGER DEFAULT 0,
-        photo1      TEXT DEFAULT '',
-        photo2      TEXT DEFAULT '',
-        photo3      TEXT DEFAULT '',
-        photo4      TEXT DEFAULT '',
-        photo5      TEXT DEFAULT '',
-        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS listing_likes (
-        user_id    INTEGER NOT NULL,
-        listing_id INTEGER NOT NULL,
-        PRIMARY KEY (user_id, listing_id)
-    )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS event_saves (
         user_id  INTEGER NOT NULL,
@@ -392,38 +312,7 @@ def init_db():
         PRIMARY KEY (user_id, event_id)
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS skill_listings (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id      INTEGER NOT NULL,
-        title        TEXT NOT NULL,
-        description  TEXT DEFAULT '',
-        category     TEXT NOT NULL,
-        subcategory  TEXT DEFAULT '',
-        price_from   INTEGER DEFAULT 0,
-        price_to     INTEGER DEFAULT 0,
-        currency     TEXT DEFAULT 'CZK',
-        delivery_days INTEGER DEFAULT 7,
-        city         TEXT DEFAULT '',
-        remote       INTEGER DEFAULT 1,
-        status       TEXT DEFAULT 'active',
-        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS skill_likes (
-        user_id  INTEGER NOT NULL,
-        skill_id INTEGER NOT NULL,
-        PRIMARY KEY (user_id, skill_id)
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS comments (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        track_id   INTEGER NOT NULL,
-        user_id    INTEGER NOT NULL,
-        text       TEXT    NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-
+    # ── notifications / push_subscriptions / password_reset_tokens (kept) ───
     c.execute('''CREATE TABLE IF NOT EXISTS notifications (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id    INTEGER NOT NULL,
@@ -435,39 +324,6 @@ def init_db():
         read       INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS news (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id    INTEGER NOT NULL,
-        text       TEXT    NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS ticket_types (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        event_id   INTEGER NOT NULL,
-        name       TEXT    NOT NULL,
-        price      INTEGER NOT NULL,
-        currency   TEXT    DEFAULT 'CZK',
-        capacity   INTEGER DEFAULT 0,
-        sold       INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS orders (
-        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id             INTEGER NOT NULL,
-        item_type           TEXT    NOT NULL,
-        item_id             INTEGER NOT NULL,
-        stripe_session_id   TEXT,
-        amount              INTEGER NOT NULL,
-        platform_fee        INTEGER NOT NULL DEFAULT 0,
-        currency            TEXT    DEFAULT 'CZK',
-        status              TEXT    DEFAULT 'pending',
-        ticket_code         TEXT,
-        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-    add_col('orders', 'platform_fee INTEGER NOT NULL DEFAULT 0')
 
     c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -485,6 +341,109 @@ def init_db():
         expires_at TEXT    NOT NULL,
         used       INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # ── InkLink-specific: portfolio_items ───────────────────────────────────
+    c.execute('''CREATE TABLE IF NOT EXISTS portfolio_items (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL,
+        image      TEXT NOT NULL,
+        caption    TEXT DEFAULT '',
+        kind       TEXT DEFAULT 'done',
+        styles     TEXT DEFAULT '',
+        like_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )''')
+    # Tatér může u sketche / návrhu navrhnout fixní celkovou cenu + odhad délky
+    add_col('portfolio_items', 'price_kc INTEGER DEFAULT NULL')
+    add_col('portfolio_items', 'estimated_hours REAL DEFAULT NULL')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS portfolio_likes (
+        user_id     INTEGER NOT NULL,
+        item_id     INTEGER NOT NULL,
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, item_id)
+    )''')
+
+    # ── InkLink-specific: slots (bloky dostupnosti tatérů) ──────────────────
+    # price_unit='hour' (default) → price_min/max je sazba ZA HODINU; klient
+    # si rezervuje sub-range a deposit se počítá z duration*hourly*pct.
+    # price_unit='flat' → price_min/max je TOTAL pro celý slot (legacy);
+    # rezervace zabere celý blok najednou.
+    c.execute('''CREATE TABLE IF NOT EXISTS slots (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id             INTEGER NOT NULL,
+        start_at            TEXT NOT NULL,
+        end_at              TEXT NOT NULL,
+        status              TEXT DEFAULT 'free',
+        price_min           INTEGER DEFAULT 0,
+        price_max           INTEGER DEFAULT 0,
+        deposit_pct         INTEGER DEFAULT NULL,
+        note                TEXT DEFAULT '',
+        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )''')
+    add_col('slots', "price_unit TEXT DEFAULT 'hour'")
+    add_col('slots', 'min_duration_hours INTEGER DEFAULT 1')
+
+    # ── InkLink-specific: bookings ──────────────────────────────────────────
+    c.execute('''CREATE TABLE IF NOT EXISTS bookings (
+        id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+        slot_id                  INTEGER NOT NULL,
+        artist_id                INTEGER NOT NULL,
+        client_id                INTEGER NOT NULL,
+        status                   TEXT DEFAULT 'pending_payment',
+        deposit_cents            INTEGER NOT NULL DEFAULT 0,
+        platform_fee_cents       INTEGER NOT NULL DEFAULT 0,
+        currency                 TEXT DEFAULT 'CZK',
+        stripe_payment_intent_id TEXT DEFAULT NULL,
+        stripe_charge_id         TEXT DEFAULT NULL,
+        refund_cents             INTEGER NOT NULL DEFAULT 0,
+        onsite_amount_cents      INTEGER NOT NULL DEFAULT 0,
+        design_note              TEXT DEFAULT '',
+        cancellation_actor       TEXT DEFAULT NULL,
+        created_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        confirmed_at             TIMESTAMP DEFAULT NULL,
+        cancelled_at             TIMESTAMP DEFAULT NULL,
+        completed_at             TIMESTAMP DEFAULT NULL,
+        FOREIGN KEY (slot_id)    REFERENCES slots(id),
+        FOREIGN KEY (artist_id)  REFERENCES users(id),
+        FOREIGN KEY (client_id)  REFERENCES users(id)
+    )''')
+    # Sub-range a velikost rezervace v rámci slot bloku
+    add_col('bookings', 'booking_start_at TEXT DEFAULT NULL')
+    add_col('bookings', 'booking_end_at TEXT DEFAULT NULL')
+    add_col('bookings', 'duration_hours REAL DEFAULT NULL')
+    add_col('bookings', "size_label TEXT DEFAULT ''")
+    # Klient se může rezervovat na konkrétní portfolio sketch — pak se cena fixuje
+    add_col('bookings', 'portfolio_item_id INTEGER DEFAULT NULL')
+    # M7: Plná platba předem + doplatek přes platformu
+    add_col('bookings', "payment_mode TEXT DEFAULT 'deposit'")          # 'deposit'|'full'
+    add_col('bookings', 'total_price_cents INTEGER NOT NULL DEFAULT 0') # celková cena při bookingu
+    add_col('bookings', 'balance_due_cents INTEGER NOT NULL DEFAULT 0') # zbývá doplatit
+    add_col('bookings', 'balance_paid_cents INTEGER NOT NULL DEFAULT 0')# kolik už doplaceno přes platformu
+    add_col('bookings', 'balance_payment_intent_id TEXT DEFAULT NULL')
+    # Aktuální vystavený doplatek (čeká na zaplacení); v demo se naplní hned,
+    # v live se napárlujeme se Stripe PaymentIntent.amount
+    add_col('bookings', 'balance_charge_cents INTEGER NOT NULL DEFAULT 0')
+    add_col('bookings', 'balance_charge_fee_cents INTEGER NOT NULL DEFAULT 0')
+
+    # ── InkLink: reviews (klient hodnotí dokončené sezení) ──────────────────
+    c.execute('''CREATE TABLE IF NOT EXISTS reviews (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id   INTEGER NOT NULL UNIQUE,
+        client_id    INTEGER NOT NULL,
+        artist_id    INTEGER NOT NULL,
+        rating       INTEGER NOT NULL,
+        text         TEXT DEFAULT '',
+        response     TEXT DEFAULT '',
+        response_at  TIMESTAMP DEFAULT NULL,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+        FOREIGN KEY (client_id)  REFERENCES users(id),
+        FOREIGN KEY (artist_id)  REFERENCES users(id)
     )''')
 
     conn.commit()
@@ -654,8 +613,6 @@ def logo_download():
 
 @app.route('/')
 def index():
-    if 'user_id' not in session:
-        return redirect('/login')
     return send_from_directory('public', 'index.html')
 
 
@@ -672,11 +629,14 @@ def verify_page():
     return send_from_directory('public', 'verify.html')
 
 
-@app.route('/upload')
-def upload_page():
-    if 'user_id' not in session:
-        return redirect('/login')
-    return send_from_directory('public', 'upload.html')
+@app.route('/artist-setup')
+def artist_setup_page():
+    return send_from_directory('public', 'artist-setup.html')
+
+
+@app.route('/my-bookings')
+def my_bookings_page():
+    return send_from_directory('public', 'my-bookings.html')
 
 
 @app.route('/uploads/<path:filename>')
@@ -689,71 +649,75 @@ def serve_upload(filename):
 # ── Auth API ──────────────────────────────────────────────────────────────────
 
 @app.route('/api/register', methods=['POST'])
-@limiter.limit('5 per hour')
+@limiter.limit('30 per hour')
 def register():
     data         = request.get_json()
     username     = data.get('username', '').strip().lower()
     display_name = data.get('display_name', '').strip()
     city         = data.get('city', '').strip()
-    genres       = data.get('genres', '').strip()
     password     = data.get('password', '')
     email        = data.get('email', '').strip().lower()
     phone        = data.get('phone', '').strip()
 
     if not username or not display_name or not password or not email:
-        return jsonify({'error': 'Please enter a username, display name, email and password'}), 400
+        return jsonify({'error': 'Vyplň uživatelské jméno, jméno, e-mail a heslo'}), 400
     if len(username) > 30:
-        return jsonify({'error': 'Username is too long (max 30 characters)'}), 400
+        return jsonify({'error': 'Username je příliš dlouhý (max 30 znaků)'}), 400
     if len(display_name) > 60:
-        return jsonify({'error': 'Display name is too long (max 60 characters)'}), 400
+        return jsonify({'error': 'Jméno je příliš dlouhé (max 60 znaků)'}), 400
     if len(password) < 6:
-        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        return jsonify({'error': 'Heslo musí mít aspoň 6 znaků'}), 400
     if len(password) > 128:
-        return jsonify({'error': 'Password is too long (max 128 characters)'}), 400
+        return jsonify({'error': 'Heslo je příliš dlouhé (max 128 znaků)'}), 400
     if len(email) > 254:
-        return jsonify({'error': 'Email is too long'}), 400
+        return jsonify({'error': 'E-mail je příliš dlouhý'}), 400
     if not username.replace('_', '').isalnum():
-        return jsonify({'error': 'Username may only contain letters, numbers and underscores'}), 400
+        return jsonify({'error': 'Username může obsahovat jen písmena, čísla a podtržítka'}), 400
     if '@' not in email or '.' not in email:
-        return jsonify({'error': 'Please enter a valid email address'}), 400
+        return jsonify({'error': 'Zadej platný e-mail'}), 400
 
-    code    = str(random.randint(100000, 999999))
-    expires = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
+    # Pokud Resend není nakonfigurovaný, ověření e-mailem přeskočíme (dev fallback).
+    require_verify = bool(RESEND_API_KEY)
+    code    = str(random.randint(100000, 999999)) if require_verify else None
+    expires = (datetime.utcnow() + timedelta(minutes=15)).isoformat() if require_verify else None
+    verified_flag = 0 if require_verify else 1
 
     conn = get_db()
     existing_email = conn.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
     if existing_email:
         conn.close()
-        return jsonify({'error': 'This email is already registered'}), 400
+        return jsonify({'error': 'Tento e-mail je již zaregistrován'}), 400
     try:
         conn.execute(
-            'INSERT INTO users (username, display_name, city, genres, password_hash, email, phone, verified, verify_code, verify_expires) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
-            (username, display_name, city, genres,
+            'INSERT INTO users (username, display_name, city, password_hash, email, phone, verified, verify_code, verify_expires) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (username, display_name, city,
              generate_password_hash(password, method='pbkdf2:sha256'),
-             email, phone, code, expires)
+             email, phone, verified_flag, code, expires)
         )
         conn.commit()
         user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-        session['user_id']           = user['id']
-        session['username']          = user['username']
-        session['display_name']      = user['display_name']
-        session['pending_verify']    = True
+        session['user_id']      = user['id']
+        session['username']     = user['username']
+        session['display_name'] = user['display_name']
+        if require_verify:
+            session['pending_verify'] = True
     except sqlite3.IntegrityError:
         conn.close()
-        return jsonify({'error': 'Username already taken'}), 400
+        return jsonify({'error': 'Username je už obsazený'}), 400
     finally:
         conn.close()
 
-    send_email(email, 'InkLink — verify your account', f'''
-    <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
-      <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:8px">INKLINK</div>
-      <div style="font-size:12px;color:#555;margin-bottom:32px;letter-spacing:0.1em">Tattoo Booking Network</div>
-      <p style="margin-bottom:16px">Hi <strong>{display_name}</strong>, enter this code to verify your account:</p>
-      <div style="font-size:40px;letter-spacing:0.3em;color:#c62828;background:#0e0e0e;padding:20px;text-align:center;border:1px solid #1a1a1a;margin:24px 0">{code}</div>
-      <p style="color:#555;font-size:12px">Code valid for 15 minutes. If you didn't sign up, ignore this email.</p>
-    </div>''')
+    if require_verify:
+        send_email(email, 'InkLink — ověření účtu', f'''
+        <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
+          <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:8px">INKLINK</div>
+          <div style="font-size:12px;color:#555;margin-bottom:32px;letter-spacing:0.1em">Tattoo Booking Network</div>
+          <p style="margin-bottom:16px">Ahoj <strong>{display_name}</strong>, použij tento kód pro ověření účtu:</p>
+          <div style="font-size:40px;letter-spacing:0.3em;color:#c62828;background:#0e0e0e;padding:20px;text-align:center;border:1px solid #1a1a1a;margin:24px 0">{code}</div>
+          <p style="color:#555;font-size:12px">Platnost 15 minut. Pokud ses neregistroval(a), e-mail ignoruj.</p>
+        </div>''')
 
-    return jsonify({'ok': True, 'verify': True})
+    return jsonify({'ok': True, 'verify': require_verify})
 
 
 @app.route('/api/verify-email', methods=['POST'])
@@ -926,52 +890,64 @@ def browse_artists():
 
 @app.route('/api/search')
 def global_search():
+    """Globální vyhledávání pro nav search bar — tatéři, portfolio, eventy."""
     q = request.args.get('q', '').strip()
     if len(q) < 2:
-        return jsonify({'tracks': [], 'artists': [], 'events': [], 'listings': []})
+        return jsonify({'artists': [], 'portfolio': [], 'events': []})
     conn = get_db()
     like = f'%{q}%'
 
-    tracks = conn.execute('''
-        SELECT t.id, t.title, t.genre, u.username, u.display_name, t.cover
-        FROM tracks t JOIN users u ON u.id = t.user_id
-        WHERE t.title LIKE ? OR t.genre LIKE ? OR u.display_name LIKE ? OR u.username LIKE ?
-        ORDER BY t.created_at DESC LIMIT 6
-    ''', (like, like, like, like)).fetchall()
-
     artists = conn.execute('''
-        SELECT id, username, display_name, city, avatar
+        SELECT id, username, display_name, city, studio, avatar, styles,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
+               (SELECT COUNT(*)   FROM reviews WHERE artist_id = users.id) AS rating_count
         FROM users
-        WHERE display_name LIKE ? OR username LIKE ? OR city LIKE ?
-        LIMIT 6
-    ''', (like, like, like)).fetchall()
+        WHERE is_artist = 1
+          AND (display_name LIKE ? OR username LIKE ? OR city LIKE ?
+               OR studio LIKE ? OR styles LIKE ?)
+        ORDER BY rating_count DESC, display_name ASC
+        LIMIT 8
+    ''', (like, like, like, like, like)).fetchall()
+
+    portfolio = conn.execute('''
+        SELECT p.id, p.image, p.caption, p.kind, p.price_kc, p.estimated_hours,
+               u.username, u.display_name, u.avatar
+        FROM portfolio_items p
+        JOIN users u ON u.id = p.user_id
+        WHERE u.is_artist = 1
+          AND (p.caption LIKE ? OR p.styles LIKE ? OR u.display_name LIKE ? OR u.styles LIKE ?)
+        ORDER BY p.created_at DESC
+        LIMIT 8
+    ''', (like, like, like, like)).fetchall()
 
     events = conn.execute('''
         SELECT e.id, e.title, e.date, e.city, e.genre
         FROM events e
         WHERE e.title LIKE ? OR e.city LIKE ? OR e.genre LIKE ?
-        ORDER BY e.date ASC LIMIT 6
-    ''', (like, like, like)).fetchall()
-
-    listings = conn.execute('''
-        SELECT id, title, price, currency, city
-        FROM listings
-        WHERE (title LIKE ? OR city LIKE ?) AND status = "active"
+        ORDER BY e.date ASC
         LIMIT 6
-    ''', (like, like)).fetchall()
+    ''', (like, like, like)).fetchall()
 
     conn.close()
     return jsonify({
-        'tracks':   [{'id': r['id'], 'title': r['title'], 'genre': r['genre'] or '',
-                      'username': r['username'], 'display_name': r['display_name'],
-                      'cover': f'/uploads/{r["cover"]}' if r['cover'] else ''} for r in tracks],
-        'artists':  [{'id': r['id'], 'username': r['username'], 'display_name': r['display_name'],
-                      'city': r['city'] or '',
-                      'avatar': f'/uploads/{r["avatar"]}' if r['avatar'] else ''} for r in artists],
-        'events':   [{'id': r['id'], 'title': r['title'], 'date': r['date'],
-                      'city': r['city'] or '', 'genre': r['genre'] or ''} for r in events],
-        'listings': [{'id': r['id'], 'title': r['title'], 'price': r['price'],
-                      'currency': r['currency'], 'city': r['city'] or ''} for r in listings],
+        'artists': [{
+            'id': r['id'], 'username': r['username'], 'display_name': r['display_name'],
+            'city': r['city'] or '', 'studio': r['studio'] or '',
+            'styles': r['styles'] or '',
+            'avatar_url': f'/uploads/{r["avatar"]}' if r['avatar'] else None,
+            'rating_avg':   round(r['rating_avg'], 2) if r['rating_avg'] else None,
+            'rating_count': r['rating_count'] or 0,
+        } for r in artists],
+        'portfolio': [{
+            'id': r['id'], 'image': r['image'], 'caption': r['caption'] or '',
+            'kind': r['kind'] or 'done',
+            'price_kc': r['price_kc'], 'estimated_hours': r['estimated_hours'],
+            'username': r['username'], 'display_name': r['display_name'],
+        } for r in portfolio],
+        'events':   [{
+            'id': r['id'], 'title': r['title'], 'date': r['date'],
+            'city': r['city'] or '', 'genre': r['genre'] or '',
+        } for r in events],
     })
 
 
@@ -1026,18 +1002,23 @@ def me():
     if 'user_id' not in session:
         return jsonify(None), 200
     conn = get_db()
-    user = conn.execute('SELECT id, username, display_name, city, genres, avatar, pro, pro_expires FROM users WHERE id = ?',
+    user = conn.execute('''SELECT id, username, display_name, city, avatar, emoji,
+                                  is_artist, artist_slug, studio, instagram, styles,
+                                  deposit_pct_default, hourly_rate_min, hourly_rate_max,
+                                  default_payment_mode,
+                                  stripe_account_id, stripe_charges_enabled,
+                                  stripe_payouts_enabled, stripe_details_submitted
+                           FROM users WHERE id = ?''',
                         (session['user_id'],)).fetchone()
+    push_n = conn.execute('SELECT COUNT(*) FROM push_subscriptions WHERE user_id=?',
+                          (session['user_id'],)).fetchone()[0]
     conn.close()
     d = dict(user)
-    if d.get('avatar'):
-        d['avatar_url'] = f'/uploads/{d["avatar"]}'
-    else:
-        d['avatar_url'] = None
-    # check if PRO has expired
-    if d.get('pro') and d.get('pro_expires'):
-        if d['pro_expires'] < datetime.utcnow().isoformat():
-            d['pro'] = 0
+    d['avatar_url'] = f'/uploads/{d["avatar"]}' if d.get('avatar') else None
+    d['is_artist'] = bool(d.get('is_artist'))
+    d['can_accept_bookings'] = bool(d.get('stripe_charges_enabled'))
+    d['push_subscriptions'] = push_n
+    d['push_available'] = bool(VAPID_PUBLIC_KEY)
     return jsonify(d)
 
 
@@ -1045,427 +1026,100 @@ def me():
 
 @app.route('/api/feed')
 def feed():
+    """Vrací nejnovější portfolio_items od ověřených tatérů jako InkLink feed."""
     uid = session.get('user_id', 0)
 
-    city_filter = request.args.get('city', '').strip()
-    genre_filter = request.args.get('genre', '').strip()
-    search       = request.args.get('q', '').strip()
-    offset       = int(request.args.get('offset', 0))
-    # GPS radius filter
+    city_filter   = request.args.get('city', '').strip()
+    style_filter  = request.args.get('style', '').strip()
+    kind_filter   = request.args.get('kind', '').strip().lower()
+    search        = request.args.get('q', '').strip()
+    offset        = int(request.args.get('offset', 0))
     try:
-        flat    = float(request.args.get('lat', ''))
-        flng    = float(request.args.get('lng', ''))
-        fradius = float(request.args.get('radius', 50))
+        flat, flng = float(request.args.get('lat', '')), float(request.args.get('lng', ''))
+        fradius    = float(request.args.get('radius', 50))
         gps_filter = True
     except (ValueError, TypeError):
         gps_filter = False
 
     conn   = get_db()
-    params = [uid, uid]
+    params = [uid]
 
     query = '''
-        SELECT t.*,
-               u.username, u.display_name, u.city AS user_city, u.genres, u.emoji,
-               u.avatar, u.lat, u.lng, u.pro AS user_pro,
-               EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND track_id = t.id) AS liked,
-               EXISTS(SELECT 1 FROM reposts WHERE user_id = ? AND track_id = t.id) AS reposted,
-               (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
-               (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count
-        FROM tracks t
-        JOIN users u ON t.user_id = u.id
+        SELECT p.*,
+               u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
+               u.emoji, u.avatar, u.lat, u.lng,
+               u.is_artist, u.studio, u.stripe_charges_enabled,
+               EXISTS(SELECT 1 FROM portfolio_likes WHERE user_id = ? AND item_id = p.id) AS liked
+        FROM portfolio_items p
+        JOIN users u ON p.user_id = u.id
+        WHERE u.is_artist = 1
     '''
 
-    conditions = []
     if city_filter and city_filter != 'All':
-        conditions.append('(t.city = ? OR u.city = ?)')
-        params += [city_filter, city_filter]
-    if genre_filter:
-        conditions.append('(t.genre LIKE ? OR u.genres LIKE ?)')
-        params += [f'%{genre_filter}%', f'%{genre_filter}%']
+        query += ' AND u.city = ?'
+        params.append(city_filter)
+    if style_filter:
+        query += ' AND (p.styles LIKE ? OR u.styles LIKE ?)'
+        params += [f'%{style_filter}%', f'%{style_filter}%']
+    if kind_filter in ('sketch', 'done'):
+        query += ' AND p.kind = ?'
+        params.append(kind_filter)
     if search:
-        conditions.append('(t.title LIKE ? OR u.display_name LIKE ? OR t.genre LIKE ?)')
+        query += ' AND (p.caption LIKE ? OR u.display_name LIKE ? OR u.styles LIKE ?)'
         params += [f'%{search}%', f'%{search}%', f'%{search}%']
 
-    if conditions:
-        query += ' WHERE ' + ' AND '.join(conditions)
-
-    query += ' ORDER BY t.created_at DESC LIMIT 200 OFFSET ?'
+    query += ' ORDER BY p.created_at DESC LIMIT 200 OFFSET ?'
     params.append(offset)
 
     rows = conn.execute(query, params).fetchall()
     conn.close()
 
-    # apply GPS radius filter in Python (SQLite has no trig functions by default)
     if gps_filter:
         rows = [r for r in rows if r['lat'] is not None and r['lng'] is not None
                 and haversine(flat, flng, r['lat'], r['lng']) <= fradius]
     rows = rows[:20]
 
     result = []
-    for t in rows:
-        track_city = t['city'] or t['user_city'] or ''
+    for p in rows:
         result.append({
-            'id':            t['id'],
-            'title':         t['title'],
-            'genre':         t['genre'],
-            'city':          track_city,
-            'filename':      t['filename'],
-            'cover':         t['cover'] if t['cover'] else '',
-            'video':         t['video'] if t['video'] else '',
-            'duration':      t['duration'],
-            'caption':       t['caption'],
-            'like_count':    t['like_count'],
-            'play_count':    t['play_count'],
-            'liked':         bool(t['liked']),
-            'reposted':      bool(t['reposted']),
-            'repost_count':  t['repost_count'],
-            'comment_count': t['comment_count'],
-            'created_at':    time_ago(t['created_at']),
+            'id':            p['id'],
+            'image':         p['image'],
+            'caption':       p['caption'] or '',
+            'kind':          p['kind'] or 'done',
+            'styles':        p['styles'] or '',
+            'like_count':    p['like_count'],
+            'liked':         bool(p['liked']),
+            'price_kc':        p['price_kc'],
+            'estimated_hours': p['estimated_hours'],
+            'created_at':    time_ago(p['created_at']),
             'user': {
-                'username':     t['username'],
-                'display_name': t['display_name'],
-                'city':         t['user_city'],
-                'genres':       t['genres'],
-                'emoji':        t['emoji'] or '',
-                'initials':     initials(t['display_name']),
-                'avatar':       f'/uploads/{t["avatar"]}' if t['avatar'] else None,
-                'lat':          t['lat'],
-                'lng':          t['lng'],
-                'pro':          bool(t['user_pro']),
+                'username':     p['username'],
+                'display_name': p['display_name'],
+                'city':         p['user_city'],
+                'studio':       p['studio'] or '',
+                'styles':       p['user_styles'] or '',
+                'emoji':        p['emoji'] or '',
+                'initials':     initials(p['display_name']),
+                'avatar':       f'/uploads/{p["avatar"]}' if p['avatar'] else None,
+                'lat':          p['lat'],
+                'lng':          p['lng'],
+                'is_artist':    bool(p['is_artist']),
+                'can_book':     bool(p['stripe_charges_enabled']),
             }
         })
-
     return jsonify(result)
 
 
 # ── Upload API ────────────────────────────────────────────────────────────────
 
-@app.route('/api/upload', methods=['POST'])
-@limiter.limit('20 per hour')
-def upload_track():
-    err = require_login()
-    if err:
-        return err
-
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-
-    f = request.files['file']
-    if not f.filename:
-        return jsonify({'error': 'No file provided'}), 400
-    if not allowed_audio(f):
-        return jsonify({'error': 'Unsupported format or corrupted file. Please use MP3, WAV, OGG, FLAC or AAC'}), 400
-    ext = f.filename.rsplit('.', 1)[-1].lower()
-    if ext == 'wav':
-        conn = get_db()
-        user = conn.execute('SELECT pro FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-        conn.close()
-        if not user or not user['pro']:
-            return jsonify({'error': 'WAV files are available to PRO users only. Upgrade to PRO or upload an MP3.', 'pro_required': True}), 403
-
-    title    = request.form.get('title', '').strip()
-    genre    = request.form.get('genre', '').strip()
-    city     = request.form.get('city', '').strip()
-    caption  = request.form.get('caption', '').strip()
-    duration = request.form.get('duration', '').strip()
-
-    if not title:
-        return jsonify({'error': 'Please enter a track title'}), 400
-
-    safe   = secure_filename(f.filename)
-    unique = f"{session['user_id']}_{int(time.time())}_{safe}"
-    save_upload(f, unique)
-
-    # optional cover image
-    cover_unique = ''
-    cover_file   = request.files.get('cover')
-    if cover_file and cover_file.filename:
-        if allowed_image(cover_file):
-            cext         = cover_file.filename.rsplit('.', 1)[-1].lower()
-            csafe        = secure_filename(cover_file.filename)
-            cover_unique = f"cover_{session['user_id']}_{int(time.time())}_{csafe}"
-            save_upload(cover_file, cover_unique)
-
-    # optional video (PRO only)
-    video_unique = ''
-    video_file   = request.files.get('video')
-    if video_file and video_file.filename:
-        conn_check = get_db()
-        user_check = conn_check.execute('SELECT pro FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-        conn_check.close()
-        if user_check and user_check['pro']:
-            if allowed_video(video_file):
-                vext         = video_file.filename.rsplit('.', 1)[-1].lower()
-                vsafe        = secure_filename(video_file.filename)
-                video_unique = f"video_{session['user_id']}_{int(time.time())}_{vsafe}"
-                save_upload(video_file, video_unique)
-
-    conn = get_db()
-    conn.execute(
-        'INSERT INTO tracks (user_id, title, genre, city, filename, cover, video, duration, caption) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (session['user_id'], title, genre, city, unique, cover_unique, video_unique, duration, caption)
-    )
-    track_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-    uploader = conn.execute('SELECT display_name FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-    followers = conn.execute(
-        'SELECT follower_id FROM follows WHERE following_id = ? LIMIT 100',
-        (session['user_id'],)
-    ).fetchall()
-    for f in followers:
-        push_notif(conn, f['follower_id'], session['user_id'], 'new_track', track_id, 'track',
-                   f"{uploader['display_name']} nahrál(a) nový track: \"{title}\"")
-    conn.commit()
-    conn.close()
-
-    return jsonify({'ok': True})
-
-
-@app.route('/api/tracks/<int:track_id>', methods=['PATCH'])
-def edit_track(track_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    row = conn.execute('SELECT * FROM tracks WHERE id = ?', (track_id,)).fetchone()
-    if not row:
-        conn.close(); return jsonify({'error': 'Track not found'}), 404
-    if row['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Forbidden'}), 403
-
-    title   = request.form.get('title', row['title']).strip() or row['title']
-    genre   = request.form.get('genre', row['genre']).strip()
-    city    = request.form.get('city', row['city']).strip()
-    caption = request.form.get('caption', row['caption']).strip()
-
-    cover_unique = row['cover']
-    cover_file = request.files.get('cover')
-    if cover_file and cover_file.filename:
-        if allowed_image(cover_file):
-            csafe = secure_filename(cover_file.filename)
-            cover_unique = f"cover_{session['user_id']}_{int(time.time())}_{csafe}"
-            save_upload(cover_file, cover_unique)
-
-    conn.execute(
-        'UPDATE tracks SET title=?, genre=?, city=?, caption=?, cover=? WHERE id=?',
-        (title, genre, city, caption, cover_unique, track_id)
-    )
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/tracks/<int:track_id>', methods=['DELETE'])
-def delete_track(track_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    row = conn.execute('SELECT * FROM tracks WHERE id = ?', (track_id,)).fetchone()
-    if not row:
-        conn.close(); return jsonify({'error': 'Track not found'}), 404
-    if row['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Forbidden'}), 403
-    conn.execute('DELETE FROM tracks WHERE id = ?', (track_id,))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
 
 # ── Like API ──────────────────────────────────────────────────────────────────
-
-@app.route('/api/favorites/tracks')
-def get_favorite_tracks():
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    rows = conn.execute(
-        '''SELECT t.id, t.title, t.genre, t.filename, t.cover, u.username, u.display_name, u.emoji
-           FROM likes l
-           JOIN tracks t ON l.track_id = t.id
-           JOIN users u ON t.user_id = u.id
-           WHERE l.user_id = ?
-           ORDER BY l.rowid DESC''',
-        (session['user_id'],)
-    ).fetchall()
-    conn.close()
-    return jsonify([{
-        'id':           r['id'],
-        'title':        r['title'],
-        'genre':        r['genre'],
-        'filename':     r['filename'],
-        'cover':        r['cover'],
-        'username':     r['username'],
-        'display_name': r['display_name'],
-        'emoji':        r['emoji'] or '',
-        'initials':     initials(r['display_name']),
-    } for r in rows])
-
-
-@app.route('/api/like/<int:track_id>', methods=['POST'])
-def toggle_like(track_id):
-    err = require_login()
-    if err:
-        return err
-
-    conn     = get_db()
-    existing = conn.execute('SELECT 1 FROM likes WHERE user_id = ? AND track_id = ?',
-                            (session['user_id'], track_id)).fetchone()
-    if existing:
-        conn.execute('DELETE FROM likes WHERE user_id = ? AND track_id = ?',
-                     (session['user_id'], track_id))
-        conn.execute('UPDATE tracks SET like_count = MAX(0, like_count - 1) WHERE id = ?', (track_id,))
-        liked = False
-    else:
-        conn.execute('INSERT INTO likes (user_id, track_id) VALUES (?, ?)',
-                     (session['user_id'], track_id))
-        conn.execute('UPDATE tracks SET like_count = like_count + 1 WHERE id = ?', (track_id,))
-        liked = True
-
-    if liked:
-        t = conn.execute('SELECT user_id, title FROM tracks WHERE id = ?', (track_id,)).fetchone()
-        if t:
-            actor = conn.execute('SELECT display_name FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-            push_notif(conn, t['user_id'], session['user_id'], 'like_track', track_id, 'track',
-                       f"{actor['display_name']} se líbí tvůj track \"{t['title']}\"")
-    conn.commit()
-    count = conn.execute('SELECT like_count FROM tracks WHERE id = ?', (track_id,)).fetchone()['like_count']
-    conn.close()
-
-    return jsonify({'liked': liked, 'count': count})
 
 
 # ── Repost ───────────────────────────────────────────────────────────────────
 
-@app.route('/api/repost/<int:track_id>', methods=['POST'])
-def toggle_repost(track_id):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    existing = conn.execute('SELECT 1 FROM reposts WHERE user_id = ? AND track_id = ?',
-                            (session['user_id'], track_id)).fetchone()
-    if existing:
-        conn.execute('DELETE FROM reposts WHERE user_id = ? AND track_id = ?',
-                     (session['user_id'], track_id))
-        reposted = False
-    else:
-        track_owner = conn.execute('SELECT user_id FROM tracks WHERE id = ?', (track_id,)).fetchone()
-        if track_owner and track_owner['user_id'] == session['user_id']:
-            conn.close(); return jsonify({'error': "You can't repost your own track"}), 400
-        conn.execute('INSERT INTO reposts (user_id, track_id) VALUES (?, ?)',
-                     (session['user_id'], track_id))
-        reposted = True
-    conn.commit()
-    count = conn.execute('SELECT COUNT(*) FROM reposts WHERE track_id = ?', (track_id,)).fetchone()[0]
-    conn.close()
-    return jsonify({'reposted': reposted, 'count': count})
-
-@app.route('/api/profile/<username>/reposts')
-def get_profile_reposts(username):
-    uid = session.get('user_id', 0)
-    conn = get_db()
-    u = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
-    if not u: conn.close(); return jsonify([])
-    rows = conn.execute('''
-        SELECT t.*, u2.username, u2.display_name, u2.avatar,
-               r.created_at AS reposted_at,
-               EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND track_id = t.id) AS liked
-        FROM reposts r
-        JOIN tracks t ON t.id = r.track_id
-        JOIN users u2 ON u2.id = t.user_id
-        WHERE r.user_id = ?
-        ORDER BY r.created_at DESC
-    ''', (uid, u['id'])).fetchall()
-    conn.close()
-    return jsonify([{
-        'id': t['id'], 'title': t['title'], 'genre': t['genre'],
-        'filename': t['filename'], 'cover': t['cover'], 'duration': t['duration'],
-        'like_count': t['like_count'], 'play_count': t['play_count'],
-        'liked': bool(t['liked']),
-        'user': {'username': t['username'], 'display_name': t['display_name'],
-                 'initials': initials(t['display_name']),
-                 'avatar': f'/uploads/{t["avatar"]}' if t['avatar'] else None}
-    } for t in rows])
-
 
 # ── Comments ─────────────────────────────────────────────────────────────────
-
-@app.route('/api/tracks/<int:track_id>/comments')
-def get_comments(track_id):
-    uid  = session.get('user_id', 0)
-    conn = get_db()
-    rows = conn.execute('''
-        SELECT c.id, c.text, c.created_at, c.user_id,
-               u.username, u.display_name, u.avatar, u.emoji
-        FROM comments c
-        JOIN users u ON c.user_id = u.id
-        WHERE c.track_id = ?
-        ORDER BY c.created_at ASC
-    ''', (track_id,)).fetchall()
-    conn.close()
-    return jsonify([{
-        'id':           r['id'],
-        'text':         r['text'],
-        'created_at':   time_ago(r['created_at']),
-        'user_id':      r['user_id'],
-        'is_own':       uid != 0 and r['user_id'] == uid,
-        'username':     r['username'],
-        'display_name': r['display_name'],
-        'avatar':       f'/uploads/{r["avatar"]}' if r['avatar'] else None,
-        'emoji':        r['emoji'] or '',
-        'initials':     initials(r['display_name']),
-    } for r in rows])
-
-
-@app.route('/api/tracks/<int:track_id>/comments', methods=['POST'])
-@limiter.limit('30 per hour')
-def add_comment(track_id):
-    err = require_login()
-    if err: return err
-    text = (request.json or {}).get('text', '').strip()
-    if not text or len(text) > 500:
-        return jsonify({'error': 'Invalid comment'}), 400
-    conn = get_db()
-    if not conn.execute('SELECT 1 FROM tracks WHERE id = ?', (track_id,)).fetchone():
-        conn.close(); return jsonify({'error': 'Track not found'}), 404
-    cur = conn.execute(
-        'INSERT INTO comments (track_id, user_id, text) VALUES (?, ?, ?)',
-        (track_id, session['user_id'], text)
-    )
-    comment_id = cur.lastrowid
-    t = conn.execute('SELECT user_id, title FROM tracks WHERE id = ?', (track_id,)).fetchone()
-    row = conn.execute(
-        'SELECT u.username, u.display_name, u.avatar, u.emoji FROM users WHERE id = ?',
-        (session['user_id'],)
-    ).fetchone()
-    if t:
-        preview = text[:60] + ('…' if len(text) > 60 else '')
-        push_notif(conn, t['user_id'], session['user_id'], 'comment_track', track_id, 'track',
-                   f"{row['display_name']} komentoval tvůj track \"{t['title']}\": {preview}")
-    conn.commit()
-    conn.close()
-    return jsonify({
-        'id':           comment_id,
-        'text':         text,
-        'created_at':   'just now',
-        'user_id':      session['user_id'],
-        'is_own':       True,
-        'username':     row['username'],
-        'display_name': row['display_name'],
-        'avatar':       f'/uploads/{row["avatar"]}' if row['avatar'] else None,
-        'emoji':        row['emoji'] or '',
-        'initials':     initials(row['display_name']),
-    }), 201
-
-
-@app.route('/api/comments/<int:comment_id>', methods=['DELETE'])
-def delete_comment(comment_id):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    row = conn.execute('SELECT user_id FROM comments WHERE id = ?', (comment_id,)).fetchone()
-    if not row:
-        conn.close(); return jsonify({'error': 'Comment not found'}), 404
-    if row['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Forbidden'}), 403
-    conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
 
 
 # ── Notifications ────────────────────────────────────────────────────────────
@@ -1477,6 +1131,11 @@ NOTIF_ICONS = {
     'new_track':    '♪',
     'listing_like': '🛒',
     'event_save':   '◷',
+    # InkLink specific
+    'booking':           '◷',  # nová rezervace tatérovi
+    'booking_cancelled': '✕',
+    'balance_charge':    '€',  # vystaven doplatek klientovi
+    'balance_paid':      '✓',  # klient zaplatil doplatek
 }
 
 @app.route('/api/notifications')
@@ -1545,84 +1204,8 @@ def delete_notification(nid):
 
 # ── News ─────────────────────────────────────────────────────────────────────
 
-@app.route('/api/news')
-def get_news():
-    conn = get_db()
-    rows = conn.execute('''
-        SELECT n.id, n.text, n.created_at, n.user_id,
-               u.username, u.display_name, u.avatar
-        FROM news n
-        JOIN users u ON u.id = n.user_id
-        ORDER BY n.created_at DESC
-        LIMIT 50
-    ''').fetchall()
-    conn.close()
-    return jsonify([{
-        'id': r['id'], 'text': r['text'], 'created_at': r['created_at'],
-        'user_id': r['user_id'], 'username': r['username'],
-        'display_name': r['display_name'] or r['username'],
-        'avatar': r['avatar']
-    } for r in rows])
-
-@app.route('/api/news', methods=['POST'])
-@limiter.limit('20 per hour')
-def post_news():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    data = request.get_json()
-    text = (data.get('text') or '').strip()
-    if not text:
-        return jsonify({'error': 'Post cannot be empty'}), 400
-    if len(text) > 300:
-        return jsonify({'error': 'Max 300 characters'}), 400
-    conn = get_db()
-    cur = conn.execute('INSERT INTO news (user_id, text) VALUES (?, ?)', (session['user_id'], text))
-    conn.commit()
-    nid = cur.lastrowid
-    row = conn.execute('''
-        SELECT n.id, n.text, n.created_at, n.user_id,
-               u.username, u.display_name, u.avatar
-        FROM news n JOIN users u ON u.id = n.user_id WHERE n.id = ?
-    ''', (nid,)).fetchone()
-    conn.close()
-    return jsonify({
-        'id': row['id'], 'text': row['text'], 'created_at': row['created_at'],
-        'user_id': row['user_id'], 'username': row['username'],
-        'display_name': row['display_name'] or row['username'],
-        'avatar': row['avatar']
-    }), 201
-
-@app.route('/api/news/<int:nid>', methods=['DELETE'])
-def delete_news(nid):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    row = conn.execute('SELECT user_id FROM news WHERE id = ?', (nid,)).fetchone()
-    if not row:
-        conn.close(); return jsonify({'error': 'Not found'}), 404
-    if row['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Forbidden'}), 403
-    conn.execute('DELETE FROM news WHERE id = ?', (nid,))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
 
 # ── Play count ────────────────────────────────────────────────────────────────
-
-@app.route('/api/play/<int:track_id>', methods=['POST'])
-def record_play(track_id):
-    uid  = session.get('user_id')
-    city = ''
-    conn = get_db()
-    if uid:
-        u = conn.execute('SELECT city FROM users WHERE id = ?', (uid,)).fetchone()
-        if u:
-            city = u['city'] or ''
-    conn.execute('UPDATE tracks SET play_count = play_count + 1 WHERE id = ?', (track_id,))
-    conn.execute('INSERT INTO play_logs (track_id, user_id, city) VALUES (?, ?, ?)', (track_id, uid, city))
-    conn.commit()
-    conn.close()
-    return jsonify({'ok': True})
 
 
 # ── Follow API ────────────────────────────────────────────────────────────────
@@ -1657,26 +1240,6 @@ def toggle_follow(user_id):
 
 # ── Trending ──────────────────────────────────────────────────────────────────
 
-@app.route('/api/trending')
-def trending():
-    conn  = get_db()
-    rows  = conn.execute('''
-        SELECT t.id, t.title, t.like_count, t.play_count, u.display_name, u.avatar
-        FROM tracks t JOIN users u ON t.user_id = u.id
-        ORDER BY t.like_count DESC, t.play_count DESC
-        LIMIT 5
-    ''').fetchall()
-    conn.close()
-    return jsonify([{
-        'id':         r['id'],
-        'title':      r['title'],
-        'like_count': r['like_count'],
-        'play_count': r['play_count'],
-        'artist':     r['display_name'],
-        'initials':   initials(r['display_name']),
-        'avatar':     f'/uploads/{r["avatar"]}' if r['avatar'] else None,
-    } for r in rows])
-
 
 # ── Suggested users ───────────────────────────────────────────────────────────
 
@@ -1710,22 +1273,6 @@ def suggested():
 
 # ── Genres list ──────────────────────────────────────────────────────────────
 
-@app.route('/api/genres')
-def genres():
-    conn = get_db()
-    rows = conn.execute('SELECT genre FROM tracks WHERE genre != "" UNION SELECT genres FROM users WHERE genres != ""').fetchall()
-    conn.close()
-    seen = set()
-    result = []
-    for r in rows:
-        for g in r[0].split(','):
-            g = g.strip()
-            if g and g not in seen:
-                seen.add(g)
-                result.append(g)
-    result.sort()
-    return jsonify(result)
-
 
 # ── Cities list ───────────────────────────────────────────────────────────────
 
@@ -1747,30 +1294,17 @@ def cities():
 
 @app.route('/profile/<username>')
 def profile_page(username):
-    if 'user_id' not in session:
-        return redirect('/login')
     return send_from_directory('public', 'profile.html')
 
 
 @app.route('/events')
 def events_page():
-    if 'user_id' not in session:
-        return redirect('/login')
     return send_from_directory('public', 'events.html')
 
 
 @app.route('/messages')
 def messages_page():
-    if 'user_id' not in session:
-        return redirect('/login')
     return send_from_directory('public', 'messages.html')
-
-
-@app.route('/bazar')
-def bazar_page():
-    if 'user_id' not in session:
-        return redirect('/login')
-    return send_from_directory('public', 'bazar.html')
 
 
 @app.route('/privacy')
@@ -1788,20 +1322,53 @@ def terms_page():
 def get_profile(username):
     uid  = session.get('user_id', 0)
     conn = get_db()
-    u = conn.execute('SELECT id, username, display_name, city, genres, bio, avatar, emoji, photo1, photo2, photo3, photo4, lat, lng, created_at, pro FROM users WHERE username = ?', (username,)).fetchone()
+    u = conn.execute('''SELECT id, username, display_name, city, bio, avatar, emoji,
+                               lat, lng, created_at,
+                               is_artist, artist_slug, studio, instagram, styles,
+                               deposit_pct_default, hourly_rate_min, hourly_rate_max,
+                               default_payment_mode,
+                               stripe_charges_enabled
+                        FROM users WHERE username = ?''', (username,)).fetchone()
     if not u:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
 
-    tracks = conn.execute('''
-        SELECT t.*, EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND track_id = t.id) AS liked
-        FROM tracks t WHERE t.user_id = ?
-        ORDER BY t.created_at DESC
+    portfolio = conn.execute('''
+        SELECT p.*, EXISTS(SELECT 1 FROM portfolio_likes WHERE user_id = ? AND item_id = p.id) AS liked
+        FROM portfolio_items p WHERE p.user_id = ?
+        ORDER BY p.created_at DESC
     ''', (uid, u['id'])).fetchall()
+
+    now_iso = datetime.utcnow().isoformat()
+    slots = conn.execute('''
+        SELECT * FROM slots
+        WHERE user_id = ? AND status IN ('free','held') AND start_at >= ?
+        ORDER BY start_at ASC
+        LIMIT 60
+    ''', (u['id'], now_iso)).fetchall()
+
+    # k slotům dotáhni obsazené sub-rangy (jen pro 'hour' bloky to dává smysl)
+    slot_ids = [s['id'] for s in slots]
+    occupied_by_slot = {sid: [] for sid in slot_ids}
+    if slot_ids:
+        placeholders = ','.join(['?'] * len(slot_ids))
+        rows = conn.execute(f'''SELECT slot_id, booking_start_at, booking_end_at
+                                FROM bookings
+                                WHERE slot_id IN ({placeholders})
+                                  AND status IN ('pending_payment','confirmed')
+                                  AND booking_start_at IS NOT NULL''', slot_ids).fetchall()
+        for r in rows:
+            occupied_by_slot.setdefault(r['slot_id'], []).append(
+                {'start_at': r['booking_start_at'], 'end_at': r['booking_end_at']}
+            )
 
     followers = conn.execute('SELECT COUNT(*) FROM follows WHERE following_id = ?', (u['id'],)).fetchone()[0]
     following_count = conn.execute('SELECT COUNT(*) FROM follows WHERE follower_id = ?', (u['id'],)).fetchone()[0]
     is_following = bool(conn.execute('SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?', (uid, u['id'])).fetchone())
+    review_agg = conn.execute('SELECT AVG(rating) AS avg, COUNT(*) AS cnt FROM reviews WHERE artist_id=?',
+                              (u['id'],)).fetchone()
+    rating_avg = round(review_agg['avg'], 2) if review_agg['avg'] else None
+    rating_count = review_agg['cnt'] or 0
     conn.close()
 
     return jsonify({
@@ -1809,34 +1376,55 @@ def get_profile(username):
         'username':        u['username'],
         'display_name':    u['display_name'],
         'city':            u['city'],
-        'genres':          u['genres'],
         'bio':             u['bio'],
         'avatar':          u['avatar'],
+        'avatar_url':      f'/uploads/{u["avatar"]}' if u['avatar'] else None,
         'emoji':           u['emoji'],
-        'photos':          [u['photo1'], u['photo2'], u['photo3'], u['photo4']],
         'lat':             u['lat'],
         'lng':             u['lng'],
         'initials':        initials(u['display_name']),
-        'pro':             bool(u['pro']),
+        'is_artist':       bool(u['is_artist']),
+        'artist_slug':     u['artist_slug'],
+        'studio':          u['studio'] or '',
+        'instagram':       u['instagram'] or '',
+        'styles':          u['styles'] or '',
+        'deposit_pct':     u['deposit_pct_default'] or 30,
+        'hourly_rate_min': u['hourly_rate_min'],
+        'hourly_rate_max': u['hourly_rate_max'],
+        'default_payment_mode': u['default_payment_mode'] or 'deposit',
+        'can_book':        bool(u['stripe_charges_enabled']),
         'is_own':          uid != 0 and u['id'] == uid,
         'is_following':    is_following,
         'followers':       followers,
         'following_count': following_count,
-        'track_count':     len(tracks),
-        'tracks': [{
-            'id':         t['id'],
-            'title':      t['title'],
-            'genre':      t['genre'],
-            'city':       t['city'],
-            'filename':   t['filename'],
-            'cover':      t['cover'],
-            'duration':   t['duration'],
-            'caption':    t['caption'],
-            'like_count': t['like_count'],
-            'play_count': t['play_count'],
-            'liked':      bool(t['liked']),
-            'created_at': time_ago(t['created_at']),
-        } for t in tracks]
+        'rating_avg':      rating_avg,
+        'rating_count':    rating_count,
+        'portfolio_count': len(portfolio),
+        'portfolio': [{
+            'id':              p['id'],
+            'image':           p['image'],
+            'caption':         p['caption'] or '',
+            'kind':            p['kind'] or 'done',
+            'styles':          p['styles'] or '',
+            'like_count':      p['like_count'],
+            'liked':           bool(p['liked']),
+            'price_kc':        p['price_kc'],
+            'estimated_hours': p['estimated_hours'],
+            'created_at':      time_ago(p['created_at']),
+        } for p in portfolio],
+        'slots': [{
+            'id':          s['id'],
+            'start_at':    s['start_at'],
+            'end_at':      s['end_at'],
+            'status':      s['status'],
+            'price_min':   s['price_min'],
+            'price_max':   s['price_max'],
+            'price_unit':  (s['price_unit'] if 'price_unit' in s.keys() else 'hour') or 'hour',
+            'min_duration_hours': (s['min_duration_hours'] if 'min_duration_hours' in s.keys() else 1) or 1,
+            'deposit_pct': s['deposit_pct'] if s['deposit_pct'] is not None else (u['deposit_pct_default'] or 30),
+            'note':        s['note'] or '',
+            'occupied':    occupied_by_slot.get(s['id'], []),
+        } for s in slots],
     })
 
 
@@ -1855,6 +1443,13 @@ def update_profile_emoji():
     return jsonify({'ok': True, 'emoji': emoji})
 
 
+ALLOWED_TATTOO_STYLES = (
+    'Realism', 'Traditional', 'Neo-Traditional', 'Black & Grey',
+    'Blackwork', 'Minimalist', 'Geometric', 'Dotwork', 'Watercolor',
+    'Japanese', 'Tribal', 'Lettering', 'Anime', 'Fineline', 'Surreal',
+)
+
+
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
     err = require_login()
@@ -1862,9 +1457,30 @@ def update_profile():
 
     display_name = request.form.get('display_name', '').strip()
     city         = request.form.get('city', '').strip()
-    genres       = request.form.get('genres', '').strip()
     bio          = request.form.get('bio', '').strip()
-    emoji        = request.form.get('emoji', '').strip()
+    studio       = request.form.get('studio', '').strip()
+    instagram    = request.form.get('instagram', '').strip().lstrip('@')
+    styles_raw   = request.form.get('styles', '').strip()
+    try:
+        deposit_pct = int(request.form.get('deposit_pct_default', '30'))
+    except (ValueError, TypeError):
+        deposit_pct = 30
+    deposit_pct = max(0, min(100, deposit_pct))
+
+    def _opt_int(name):
+        v = request.form.get(name, '').strip()
+        if not v:
+            return None
+        try:
+            return max(0, int(v))
+        except (ValueError, TypeError):
+            return None
+    hourly_min = _opt_int('hourly_rate_min')
+    hourly_max = _opt_int('hourly_rate_max')
+    pay_mode = (request.form.get('default_payment_mode', '') or 'deposit').strip().lower()
+    if pay_mode not in ('deposit', 'full', 'client_choice'):
+        pay_mode = 'deposit'
+
     try:
         lat = float(request.form.get('lat', ''))
     except (ValueError, TypeError):
@@ -1874,47 +1490,48 @@ def update_profile():
     except (ValueError, TypeError):
         lng = None
 
-    allowed_emojis = ('🎙️', '🎛️', '🎹', '📹', '📸', '')
-    if emoji not in allowed_emojis:
-        emoji = ''
-
     if not display_name:
-        return jsonify({'error': 'Display name cannot be empty'}), 400
+        return jsonify({'error': 'Jméno nemůže být prázdné'}), 400
     if len(display_name) > 60:
-        return jsonify({'error': 'Display name is too long (max 60 characters)'}), 400
+        return jsonify({'error': 'Jméno je příliš dlouhé (max 60)'}), 400
     if len(bio) > 500:
-        return jsonify({'error': 'Bio is too long (max 500 characters)'}), 400
-    if len(city) > 80:
-        return jsonify({'error': 'City name is too long'}), 400
-    if len(genres) > 200:
-        return jsonify({'error': 'Genres field is too long'}), 400
+        return jsonify({'error': 'Bio je příliš dlouhé (max 500)'}), 400
+    if len(city) > 80 or len(studio) > 100 or len(instagram) > 50:
+        return jsonify({'error': 'Některé pole je příliš dlouhé'}), 400
+
+    # validate styles against allowed list
+    chosen = [s.strip() for s in styles_raw.split(',') if s.strip()]
+    chosen = [s for s in chosen if s in ALLOWED_TATTOO_STYLES][:6]
+    styles = ','.join(chosen)
 
     conn = get_db()
     if lat is not None and lng is not None:
-        conn.execute('UPDATE users SET display_name=?, city=?, genres=?, bio=?, emoji=?, lat=?, lng=? WHERE id=?',
-                     (display_name, city, genres, bio, emoji, lat, lng, session['user_id']))
+        conn.execute('''UPDATE users SET display_name=?, city=?, bio=?, studio=?, instagram=?,
+                                          styles=?, deposit_pct_default=?,
+                                          hourly_rate_min=?, hourly_rate_max=?,
+                                          default_payment_mode=?,
+                                          lat=?, lng=?
+                        WHERE id=?''',
+                     (display_name, city, bio, studio, instagram, styles, deposit_pct,
+                      hourly_min, hourly_max, pay_mode, lat, lng,
+                      session['user_id']))
     else:
-        conn.execute('UPDATE users SET display_name=?, city=?, genres=?, bio=?, emoji=? WHERE id=?',
-                     (display_name, city, genres, bio, emoji, session['user_id']))
+        conn.execute('''UPDATE users SET display_name=?, city=?, bio=?, studio=?, instagram=?,
+                                          styles=?, deposit_pct_default=?,
+                                          hourly_rate_min=?, hourly_rate_max=?,
+                                          default_payment_mode=?
+                        WHERE id=?''',
+                     (display_name, city, bio, studio, instagram, styles, deposit_pct,
+                      hourly_min, hourly_max, pay_mode,
+                      session['user_id']))
 
-    def save_img(field, col):
-        f = request.files.get(field)
-        if f and f.filename:
-            ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower()
-            if ext in ('jpg', 'jpeg', 'png', 'webp') and allowed_image(f):
-                name = f'{field}_{session["user_id"]}_{int(time.time())}.{ext}'
-                save_upload(f, name)
-                conn.execute(f'UPDATE users SET {col}=? WHERE id=?', (name, session['user_id']))
-
-    save_img('avatar', 'avatar')
-    save_img('photo1', 'photo1')
-    save_img('photo2', 'photo2')
-    save_img('photo3', 'photo3')
-    save_img('photo4', 'photo4')
-
-    for slot in ('photo1', 'photo2', 'photo3', 'photo4'):
-        if request.form.get(f'remove_{slot}'):
-            conn.execute(f'UPDATE users SET {slot}="" WHERE id=?', (session['user_id'],))
+    f = request.files.get('avatar')
+    if f and f.filename:
+        ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower()
+        if ext in ('jpg', 'jpeg', 'png', 'webp') and allowed_image(f):
+            name = f'avatar_{session["user_id"]}_{int(time.time())}.{ext}'
+            save_upload(f, name)
+            conn.execute('UPDATE users SET avatar=? WHERE id=?', (name, session['user_id']))
 
     conn.commit()
     u = conn.execute('SELECT display_name FROM users WHERE id=?', (session['user_id'],)).fetchone()
@@ -1922,6 +1539,1766 @@ def update_profile():
 
     session['display_name'] = u['display_name']
     return jsonify({'ok': True})
+
+
+# ── InkLink: artist setup, portfolio, slots ───────────────────────────────────
+
+def _slugify(s: str) -> str:
+    import re, unicodedata
+    s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii')
+    s = re.sub(r'[^a-zA-Z0-9]+', '-', s).strip('-').lower()
+    return s[:60] or 'artist'
+
+
+@app.route('/api/me/become-artist', methods=['POST'])
+def become_artist():
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    u = conn.execute('SELECT username, display_name, is_artist, artist_slug FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
+    if u['is_artist']:
+        conn.close()
+        return jsonify({'ok': True, 'artist_slug': u['artist_slug']})
+    base = _slugify(u['display_name'] or u['username'])
+    slug = base
+    n = 1
+    while conn.execute('SELECT 1 FROM users WHERE artist_slug=?', (slug,)).fetchone():
+        n += 1
+        slug = f'{base}-{n}'
+    conn.execute('UPDATE users SET is_artist=1, artist_slug=? WHERE id=?', (slug, session['user_id']))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'artist_slug': slug})
+
+
+@app.route('/api/portfolio', methods=['POST'])
+@limiter.limit('30 per hour')
+def create_portfolio_item():
+    err = require_login()
+    if err: return err
+
+    f = request.files.get('image')
+    if not f or not f.filename:
+        return jsonify({'error': 'Obrázek je povinný'}), 400
+    ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower()
+    if ext not in ('jpg', 'jpeg', 'png', 'webp') or not allowed_image(f):
+        return jsonify({'error': 'Povolené formáty: JPG, PNG, WEBP'}), 400
+
+    caption    = (request.form.get('caption') or '').strip()[:500]
+    kind       = (request.form.get('kind') or 'done').strip()
+    if kind not in ('sketch', 'done'):
+        kind = 'done'
+    styles_raw = (request.form.get('styles') or '').strip()
+    chosen = [s.strip() for s in styles_raw.split(',') if s.strip() in ALLOWED_TATTOO_STYLES][:4]
+    styles = ','.join(chosen)
+
+    # volitelná navrhovaná cena + odhad délky (pro sketche / fixed-price návrhy)
+    def _opt_pos_int(name):
+        v = (request.form.get(name) or '').strip()
+        if not v:
+            return None
+        try: return max(0, int(v))
+        except: return None
+    def _opt_pos_float(name):
+        v = (request.form.get(name) or '').strip()
+        if not v:
+            return None
+        try: return max(0.5, float(v))
+        except: return None
+    price_kc        = _opt_pos_int('price_kc')
+    estimated_hours = _opt_pos_float('estimated_hours')
+
+    name = f'portfolio_{session["user_id"]}_{int(time.time()*1000)}.{ext}'
+    save_upload(f, name)
+
+    conn = get_db()
+    # auto-promote to artist if not yet
+    u = conn.execute('SELECT is_artist, artist_slug, display_name, username FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
+    if not u['is_artist']:
+        base = _slugify(u['display_name'] or u['username'])
+        slug = base
+        n = 1
+        while conn.execute('SELECT 1 FROM users WHERE artist_slug=?', (slug,)).fetchone():
+            n += 1
+            slug = f'{base}-{n}'
+        conn.execute('UPDATE users SET is_artist=1, artist_slug=? WHERE id=?', (slug, session['user_id']))
+    conn.execute('''INSERT INTO portfolio_items (user_id, image, caption, kind, styles, price_kc, estimated_hours)
+                    VALUES (?,?,?,?,?,?,?)''',
+                 (session['user_id'], name, caption, kind, styles, price_kc, estimated_hours))
+    conn.commit()
+    item_id = conn.execute('SELECT id FROM portfolio_items WHERE user_id=? ORDER BY id DESC LIMIT 1',
+                           (session['user_id'],)).fetchone()['id']
+    conn.close()
+    return jsonify({'ok': True, 'id': item_id, 'image': name})
+
+
+@app.route('/api/portfolio/<int:item_id>', methods=['DELETE'])
+def delete_portfolio_item(item_id):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = conn.execute('SELECT user_id FROM portfolio_items WHERE id=?', (item_id,)).fetchone()
+    if not row or row['user_id'] != session['user_id']:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    conn.execute('DELETE FROM portfolio_likes WHERE item_id=?', (item_id,))
+    conn.execute('DELETE FROM portfolio_items WHERE id=?', (item_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/portfolio/<int:item_id>', methods=['PATCH'])
+def update_portfolio_item(item_id):
+    """Tatér mění popis, cenu a odhad délky u svého portfolio sketche."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = conn.execute('SELECT user_id FROM portfolio_items WHERE id=?', (item_id,)).fetchone()
+    if not row or row['user_id'] != session['user_id']:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    sets, params = [], []
+
+    if 'caption' in data:
+        sets.append('caption=?'); params.append((data['caption'] or '').strip()[:500])
+    if 'kind' in data:
+        kind = (data['kind'] or 'done').strip()
+        if kind not in ('sketch', 'done'): kind = 'done'
+        sets.append('kind=?'); params.append(kind)
+    if 'price_kc' in data:
+        v = data['price_kc']
+        if v in (None, '', 0):
+            sets.append('price_kc=NULL')
+        else:
+            try: pv = max(0, int(v))
+            except (ValueError, TypeError):
+                conn.close(); return jsonify({'error': 'Špatná cena'}), 400
+            sets.append('price_kc=?'); params.append(pv)
+    if 'estimated_hours' in data:
+        v = data['estimated_hours']
+        if v in (None, '', 0):
+            sets.append('estimated_hours=NULL')
+        else:
+            try: hv = max(0.5, float(v))
+            except (ValueError, TypeError):
+                conn.close(); return jsonify({'error': 'Špatná délka'}), 400
+            sets.append('estimated_hours=?'); params.append(hv)
+
+    if not sets:
+        conn.close()
+        return jsonify({'ok': True})
+
+    params.append(item_id)
+    conn.execute(f'UPDATE portfolio_items SET {", ".join(sets)} WHERE id=?', tuple(params))
+    conn.commit()
+    updated = conn.execute('SELECT * FROM portfolio_items WHERE id=?', (item_id,)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'item': dict(updated)})
+
+
+@app.route('/api/portfolio/<int:item_id>/like', methods=['POST'])
+def toggle_portfolio_like(item_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    row = conn.execute('SELECT 1 FROM portfolio_likes WHERE user_id=? AND item_id=?',
+                       (uid, item_id)).fetchone()
+    if row:
+        conn.execute('DELETE FROM portfolio_likes WHERE user_id=? AND item_id=?', (uid, item_id))
+        conn.execute('UPDATE portfolio_items SET like_count = MAX(like_count - 1, 0) WHERE id=?',
+                     (item_id,))
+        liked = False
+    else:
+        conn.execute('INSERT INTO portfolio_likes (user_id, item_id) VALUES (?,?)', (uid, item_id))
+        conn.execute('UPDATE portfolio_items SET like_count = like_count + 1 WHERE id=?', (item_id,))
+        liked = True
+    conn.commit()
+    cnt = conn.execute('SELECT like_count FROM portfolio_items WHERE id=?', (item_id,)).fetchone()
+    conn.close()
+    return jsonify({'liked': liked, 'like_count': cnt['like_count'] if cnt else 0})
+
+
+@app.route('/api/slots', methods=['POST'])
+def create_slot():
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or request.form
+    start_at = (data.get('start_at') or '').strip()
+    end_at   = (data.get('end_at') or '').strip()
+    if not start_at or not end_at:
+        return jsonify({'error': 'Vyplň start a konec termínu (ISO 8601)'}), 400
+    try:
+        s_dt = datetime.fromisoformat(start_at.replace('Z', '+00:00'))
+        e_dt = datetime.fromisoformat(end_at.replace('Z', '+00:00'))
+    except ValueError:
+        return jsonify({'error': 'Špatný formát datumu (použij ISO 8601)'}), 400
+    if e_dt <= s_dt:
+        return jsonify({'error': 'Konec termínu musí být po startu'}), 400
+    if s_dt < datetime.utcnow() - timedelta(minutes=5):
+        return jsonify({'error': 'Termín nemůže být v minulosti'}), 400
+
+    try:
+        price_min = int(data.get('price_min') or 0)
+        price_max = int(data.get('price_max') or 0)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Špatná cena'}), 400
+    deposit_pct = data.get('deposit_pct')
+    try:
+        deposit_pct = int(deposit_pct) if deposit_pct not in (None, '') else None
+    except (ValueError, TypeError):
+        deposit_pct = None
+    if deposit_pct is not None:
+        deposit_pct = max(0, min(100, deposit_pct))
+    note = (data.get('note') or '').strip()[:200]
+
+    price_unit = (data.get('price_unit') or 'hour').strip().lower()
+    if price_unit not in ('hour', 'flat'):
+        price_unit = 'hour'
+    try:
+        min_dur = int(data.get('min_duration_hours') or 1)
+    except (ValueError, TypeError):
+        min_dur = 1
+    min_dur = max(1, min(24, min_dur))
+
+    conn = get_db()
+    conn.execute('''INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max,
+                                       deposit_pct, note, price_unit, min_duration_hours)
+                    VALUES (?,?,?,'free',?,?,?,?,?,?)''',
+                 (session['user_id'], s_dt.isoformat(), e_dt.isoformat(),
+                  price_min, price_max, deposit_pct, note, price_unit, min_dur))
+    # auto-promote to artist
+    u = conn.execute('SELECT is_artist, artist_slug, display_name, username FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
+    if not u['is_artist']:
+        base = _slugify(u['display_name'] or u['username'])
+        slug = base
+        n = 1
+        while conn.execute('SELECT 1 FROM users WHERE artist_slug=?', (slug,)).fetchone():
+            n += 1
+            slug = f'{base}-{n}'
+        conn.execute('UPDATE users SET is_artist=1, artist_slug=? WHERE id=?', (slug, session['user_id']))
+    conn.commit()
+    sid = conn.execute('SELECT id FROM slots WHERE user_id=? ORDER BY id DESC LIMIT 1',
+                       (session['user_id'],)).fetchone()['id']
+    conn.close()
+    return jsonify({'ok': True, 'id': sid})
+
+
+@app.route('/api/slots/<int:slot_id>', methods=['DELETE'])
+def delete_slot(slot_id):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = conn.execute('SELECT user_id, status FROM slots WHERE id=?', (slot_id,)).fetchone()
+    if not row or row['user_id'] != session['user_id']:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if row['status'] == 'booked':
+        conn.close()
+        return jsonify({'error': 'Nelze smazat termín s aktivní rezervací — nejdřív rezervaci zruš'}), 409
+    # bezpečnostní check: žádná aktivní booking ve slotu (i pro hour bloky kde status zůstává 'free')
+    active = conn.execute('''SELECT 1 FROM bookings
+                             WHERE slot_id=? AND status IN ('pending_payment','confirmed')
+                             LIMIT 1''', (slot_id,)).fetchone()
+    if active:
+        conn.close()
+        return jsonify({'error': 'Blok má aktivní rezervace — nejprve je vyřeš.'}), 409
+    conn.execute('DELETE FROM slots WHERE id=?', (slot_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/slots/<int:slot_id>', methods=['PATCH'])
+def update_slot(slot_id):
+    """Tatér edituje sazbu, zálohu, min délku, poznámku u existujícího bloku.
+    Časy (start_at/end_at) lze měnit jen když ve slotu nejsou aktivní rezervace."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = conn.execute('SELECT * FROM slots WHERE id=?', (slot_id,)).fetchone()
+    if not row or row['user_id'] != session['user_id']:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    sets, params = [], []
+
+    if 'price_min' in data:
+        try: pv = max(0, int(data['price_min'] or 0))
+        except (ValueError, TypeError):
+            conn.close(); return jsonify({'error': 'Špatná cena'}), 400
+        sets.append('price_min=?'); params.append(pv)
+    if 'price_max' in data:
+        try: pv = max(0, int(data['price_max'] or 0))
+        except (ValueError, TypeError):
+            conn.close(); return jsonify({'error': 'Špatná cena'}), 400
+        sets.append('price_max=?'); params.append(pv)
+    if 'deposit_pct' in data:
+        v = data['deposit_pct']
+        if v in (None, ''):
+            sets.append('deposit_pct=NULL')
+        else:
+            try: dv = max(0, min(100, int(v)))
+            except (ValueError, TypeError):
+                conn.close(); return jsonify({'error': 'Špatná záloha'}), 400
+            sets.append('deposit_pct=?'); params.append(dv)
+    if 'min_duration_hours' in data:
+        try: mv = max(1, min(24, int(data['min_duration_hours'] or 1)))
+        except (ValueError, TypeError):
+            conn.close(); return jsonify({'error': 'Špatná délka'}), 400
+        sets.append('min_duration_hours=?'); params.append(mv)
+    if 'note' in data:
+        sets.append('note=?'); params.append((data['note'] or '').strip()[:200])
+    if 'price_unit' in data:
+        unit = (data['price_unit'] or 'hour').strip().lower()
+        if unit not in ('hour', 'flat'): unit = 'hour'
+        sets.append('price_unit=?'); params.append(unit)
+
+    # Změna časů — jen pokud nejsou aktivní rezervace
+    if 'start_at' in data or 'end_at' in data:
+        active = conn.execute('''SELECT 1 FROM bookings
+                                 WHERE slot_id=? AND status IN ('pending_payment','confirmed')
+                                 LIMIT 1''', (slot_id,)).fetchone()
+        if active:
+            conn.close()
+            return jsonify({'error': 'Časy nelze měnit — ve slotu jsou aktivní rezervace.'}), 409
+        if 'start_at' in data:
+            try:
+                s_dt = datetime.fromisoformat((data['start_at'] or '').replace('Z', '+00:00'))
+                if s_dt.tzinfo is not None:
+                    s_dt = s_dt.astimezone(timezone.utc).replace(tzinfo=None)
+            except ValueError:
+                conn.close(); return jsonify({'error': 'Špatný formát start_at'}), 400
+            sets.append('start_at=?'); params.append(s_dt.isoformat())
+        if 'end_at' in data:
+            try:
+                e_dt = datetime.fromisoformat((data['end_at'] or '').replace('Z', '+00:00'))
+                if e_dt.tzinfo is not None:
+                    e_dt = e_dt.astimezone(timezone.utc).replace(tzinfo=None)
+            except ValueError:
+                conn.close(); return jsonify({'error': 'Špatný formát end_at'}), 400
+            sets.append('end_at=?'); params.append(e_dt.isoformat())
+
+    if not sets:
+        conn.close()
+        return jsonify({'ok': True, 'no_changes': True})
+
+    params.append(slot_id)
+    conn.execute(f'UPDATE slots SET {", ".join(sets)} WHERE id=?', tuple(params))
+    conn.commit()
+    updated = conn.execute('SELECT * FROM slots WHERE id=?', (slot_id,)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'slot': dict(updated)})
+
+
+@app.route('/api/me/slots')
+def list_my_slots():
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute('''SELECT * FROM slots WHERE user_id=?
+                           ORDER BY start_at DESC LIMIT 200''',
+                        (session['user_id'],)).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/me/calendar')
+def my_calendar():
+    """Vrací sloty + jejich bookings v daném týdenním okně.
+    Query: ?from=YYYY-MM-DD (pondělí) — vrátí sloty od pondělí 00:00 do neděle 23:59.
+           Pokud chybí, vrátí aktuální týden v lokálním čase serveru.
+    """
+    err = require_login()
+    if err: return err
+
+    from_str = (request.args.get('from') or '').strip()
+    if from_str:
+        try:
+            week_start = datetime.fromisoformat(from_str)
+        except ValueError:
+            return jsonify({'error': 'Špatný formát from (YYYY-MM-DD)'}), 400
+    else:
+        today = datetime.now()
+        week_start = today - timedelta(days=today.weekday())  # pondělí
+
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_end   = week_start + timedelta(days=7)
+
+    conn = get_db()
+    slots = conn.execute('''SELECT * FROM slots
+                            WHERE user_id=? AND start_at < ? AND end_at > ?
+                            ORDER BY start_at ASC''',
+                         (session['user_id'], week_end.isoformat(), week_start.isoformat())).fetchall()
+    slot_ids = [s['id'] for s in slots]
+
+    bookings_by_slot = {sid: [] for sid in slot_ids}
+    if slot_ids:
+        placeholders = ','.join(['?'] * len(slot_ids))
+        b_rows = conn.execute(f'''
+            SELECT b.id, b.slot_id, b.booking_start_at, b.booking_end_at, b.duration_hours,
+                   b.size_label, b.status, b.deposit_cents, b.payment_mode,
+                   b.client_id, uc.username AS c_username, uc.display_name AS c_display_name,
+                   uc.avatar AS c_avatar
+            FROM bookings b
+            JOIN users uc ON uc.id = b.client_id
+            WHERE b.slot_id IN ({placeholders}) AND b.status NOT IN ('cancelled_client','cancelled_artist')
+            ORDER BY b.booking_start_at ASC
+        ''', slot_ids).fetchall()
+        for b in b_rows:
+            bookings_by_slot.setdefault(b['slot_id'], []).append({
+                'id':          b['id'],
+                'start_at':    b['booking_start_at'],
+                'end_at':      b['booking_end_at'],
+                'duration_h':  b['duration_hours'],
+                'size_label':  b['size_label'] or '',
+                'status':      b['status'],
+                'payment_mode': b['payment_mode'] or 'deposit',
+                'deposit_cents': b['deposit_cents'],
+                'client': {
+                    'username':     b['c_username'],
+                    'display_name': b['c_display_name'],
+                    'avatar_url':   f'/uploads/{b["c_avatar"]}' if b['c_avatar'] else None,
+                },
+            })
+    conn.close()
+
+    return jsonify({
+        'from': week_start.isoformat(),
+        'to':   week_end.isoformat(),
+        'slots': [{
+            **dict(s),
+            'bookings': bookings_by_slot.get(s['id'], []),
+        } for s in slots],
+    })
+
+
+@app.route('/api/me/portfolio')
+def list_my_portfolio():
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute('''SELECT * FROM portfolio_items WHERE user_id=?
+                           ORDER BY created_at DESC''',
+                        (session['user_id'],)).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/me/checklist')
+def my_checklist():
+    """Vrátí completeness checklist pro tatérský onboarding.
+    UI v artist-setup zobrazí banner s progress dokud není vše hotové."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    u = conn.execute('''SELECT display_name, city, studio, bio, styles,
+                               hourly_rate_min, hourly_rate_max,
+                               stripe_charges_enabled, is_artist
+                        FROM users WHERE id=?''', (uid,)).fetchone()
+    portfolio_count = conn.execute('SELECT COUNT(*) FROM portfolio_items WHERE user_id=?',
+                                    (uid,)).fetchone()[0]
+    now_iso = datetime.utcnow().isoformat()
+    upcoming_slots = conn.execute('''SELECT COUNT(*) FROM slots
+                                     WHERE user_id=? AND end_at >= ?''',
+                                  (uid, now_iso)).fetchone()[0]
+    conn.close()
+
+    items = [
+        {
+            'key':  'profile',
+            'label':'Vyplnit profil (jméno + město nebo studio + bio)',
+            'done': bool(u['display_name'] and (u['city'] or u['studio']) and u['bio']),
+            'href': '/artist-setup#profile',
+        },
+        {
+            'key':  'rate',
+            'label':'Nastavit hodinovou sazbu',
+            'done': bool(u['hourly_rate_min'] or u['hourly_rate_max']),
+            'href': '/artist-setup#profile',
+        },
+        {
+            'key':  'styles',
+            'label':'Vybrat styly tetování',
+            'done': bool((u['styles'] or '').strip()),
+            'href': '/artist-setup#profile',
+        },
+        {
+            'key':  'portfolio',
+            'label':'Přidat aspoň jednu položku do portfolia',
+            'done': portfolio_count > 0,
+            'href': '/artist-setup#portfolio',
+            'count': portfolio_count,
+        },
+        {
+            'key':  'slot',
+            'label':'Přidat aspoň jeden volný blok do kalendáře',
+            'done': upcoming_slots > 0,
+            'href': '/artist-setup#slots',
+            'count': upcoming_slots,
+        },
+        {
+            'key':  'stripe',
+            'label':'Propojit Stripe Connect (přijímat zálohy)',
+            'done': bool(u['stripe_charges_enabled']),
+            'href': '/artist-setup#payments',
+        },
+    ]
+    done_n = sum(1 for it in items if it['done'])
+    return jsonify({
+        'items':       items,
+        'completed':   done_n,
+        'total':       len(items),
+        'percent':     round(done_n * 100 / len(items)),
+        'all_done':    done_n == len(items),
+        'is_artist':   bool(u['is_artist']),
+    })
+
+
+@app.route('/api/styles')
+def list_styles():
+    return jsonify(list(ALLOWED_TATTOO_STYLES))
+
+
+@app.route('/api/sizes')
+def list_sizes():
+    """Velikosti tetování s mapováním na hodiny — sdílené mezi UI a backendem."""
+    return jsonify([
+        {'key': k, 'hours': h, 'label': lbl}
+        for k, (h, lbl) in SIZE_PRESETS.items()
+    ])
+
+
+# ── InkLink: Bookings ─────────────────────────────────────────────────────────
+
+CANCEL_REFUND_FULL_HOURS = 96   # >= 96 h → 100% refund
+CANCEL_REFUND_HALF_HOURS = 48   # 48–96 h → 50% refund
+                                # < 48 h  → 0% (záloha propadá)
+
+
+def _slot_avg_price(slot) -> int:
+    pmin = slot['price_min'] or 0
+    pmax = slot['price_max'] or 0
+    if pmin and pmax:
+        return (pmin + pmax) // 2
+    return pmin or pmax or 0
+
+
+def _booking_to_dict(row, slot=None, artist=None, client=None):
+    d = dict(row)
+    if slot:
+        d['slot'] = {
+            'id':        slot['id'],
+            'start_at':  slot['start_at'],
+            'end_at':    slot['end_at'],
+            'price_min': slot['price_min'],
+            'price_max': slot['price_max'],
+            'note':      slot['note'] or '',
+        }
+    if artist:
+        d['artist'] = {
+            'id':           artist['id'],
+            'username':     artist['username'],
+            'display_name': artist['display_name'],
+            'avatar_url':   f'/uploads/{artist["avatar"]}' if artist['avatar'] else None,
+            'studio':       artist['studio'] or '',
+            'city':         artist['city'] or '',
+        }
+    if client:
+        d['client'] = {
+            'id':           client['id'],
+            'username':     client['username'],
+            'display_name': client['display_name'],
+            'email':        client['email'] or '',
+            'phone':        client['phone'] or '',
+            'avatar_url':   f'/uploads/{client["avatar"]}' if client['avatar'] else None,
+        }
+    return d
+
+
+SIZE_PRESETS = {
+    # label: (duration_hours, čj label)
+    'mini':     (1, 'Mini (do 5 cm)'),
+    'small':    (2, 'Malé (5–10 cm)'),
+    'medium':   (3, 'Středně velké (10–20 cm)'),
+    'large':    (5, 'Velké (20–30 cm)'),
+    'xl':       (8, 'Celý den / sleeve'),
+}
+
+
+def _slot_active_bookings(conn, slot_id):
+    """Vrátí seznam (start, end) obsazených sub-rangů (v ISO) pro daný slot.
+    Bere v úvahu jen pending_payment + confirmed (zrušené/dokončené nepřekáží)."""
+    rows = conn.execute('''SELECT booking_start_at, booking_end_at, status
+                           FROM bookings
+                           WHERE slot_id = ? AND status IN ('pending_payment','confirmed')
+                                 AND booking_start_at IS NOT NULL
+                                 AND booking_end_at IS NOT NULL''', (slot_id,)).fetchall()
+    return [(r['booking_start_at'], r['booking_end_at']) for r in rows]
+
+
+def _ranges_overlap(a_start, a_end, b_start, b_end) -> bool:
+    return a_start < b_end and b_start < a_end
+
+
+@app.route('/api/bookings', methods=['POST'])
+def create_booking():
+    err = require_login()
+    if err: return err
+
+    data        = request.get_json(silent=True) or request.form
+    slot_id     = data.get('slot_id')
+    design_note = (data.get('design_note') or '').strip()[:1000]
+    size_label  = (data.get('size_label') or '').strip().lower()
+    booking_start_raw = (data.get('booking_start_at') or '').strip()
+    duration_raw      = data.get('duration_hours')
+    portfolio_item_id = data.get('portfolio_item_id')
+    pay_full          = bool(data.get('pay_full'))
+
+    if not slot_id:
+        return jsonify({'error': 'slot_id je povinný'}), 400
+    if not design_note:
+        return jsonify({'error': 'Popiš tatérovi co chceš (lokace, motiv, velikost…).'}), 400
+
+    conn = get_db()
+    slot = conn.execute('SELECT * FROM slots WHERE id=?', (slot_id,)).fetchone()
+    if not slot:
+        conn.close()
+        return jsonify({'error': 'Termín nenalezen.'}), 404
+    if slot['user_id'] == session['user_id']:
+        conn.close()
+        return jsonify({'error': 'Nemůžeš si rezervovat vlastní termín.'}), 400
+
+    price_unit = (slot['price_unit'] if 'price_unit' in slot.keys() else None) or 'hour'
+    artist = conn.execute('''SELECT id, deposit_pct_default, stripe_charges_enabled, display_name
+                             FROM users WHERE id=?''', (slot['user_id'],)).fetchone()
+    deposit_pct = slot['deposit_pct'] if slot['deposit_pct'] is not None else (artist['deposit_pct_default'] or 30)
+    avg_price   = _slot_avg_price(slot)
+    avg_hourly  = avg_price  # ze sazby — pro 'hour'
+
+    # Pokud klient rezervuje konkrétní portfolio sketch, načti jeho fixní cenu/délku
+    portfolio_item = None
+    if portfolio_item_id:
+        try:
+            portfolio_item_id = int(portfolio_item_id)
+        except (ValueError, TypeError):
+            conn.close(); return jsonify({'error': 'Špatné portfolio_item_id'}), 400
+        portfolio_item = conn.execute(
+            'SELECT id, user_id, price_kc, estimated_hours, caption FROM portfolio_items WHERE id=?',
+            (portfolio_item_id,)).fetchone()
+        if not portfolio_item or portfolio_item['user_id'] != slot['user_id']:
+            conn.close(); return jsonify({'error': 'Portfolio návrh nepatří k tomuto tatérovi.'}), 400
+
+    def _naive(s):
+        """Parse ISO; pokud je tz-aware, převeď na naive UTC (matchuje DB-style naive)."""
+        dt = datetime.fromisoformat(s.replace('Z', '+00:00'))
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    try:
+        slot_start = _naive(slot['start_at'])
+        slot_end   = _naive(slot['end_at'])
+    except Exception:
+        conn.close()
+        return jsonify({'error': 'Termín má vadný čas.'}), 500
+    slot_total_hours = (slot_end - slot_start).total_seconds() / 3600.0
+
+    # --- větev podle price_unit ----------------------------------------------
+    if price_unit == 'flat':
+        # Legacy chování: jeden booking zabere celý slot
+        if slot['status'] != 'free':
+            conn.close()
+            return jsonify({'error': 'Termín už není volný.'}), 409
+        duration_hours = round(slot_total_hours, 2)
+        booking_start  = slot_start
+        booking_end    = slot_end
+        total_price    = avg_price                    # v Kč (celkem)
+        deposit_cents  = int(round(total_price * deposit_pct / 100)) * 100
+    else:
+        # Hodinový blok — klient si vybírá sub-range
+        # 1) Spočti duration — pokud je portfolio sketch, použij jeho odhad
+        if portfolio_item and portfolio_item['estimated_hours']:
+            duration_hours = float(portfolio_item['estimated_hours'])
+        elif size_label and size_label in SIZE_PRESETS:
+            duration_hours = float(SIZE_PRESETS[size_label][0])
+        else:
+            try:
+                duration_hours = float(duration_raw or 0)
+            except (ValueError, TypeError):
+                duration_hours = 0
+        if duration_hours <= 0:
+            conn.close()
+            return jsonify({'error': 'Vyber velikost tetování (počet hodin).'}), 400
+        min_dur = slot['min_duration_hours'] if 'min_duration_hours' in slot.keys() else 1
+        if duration_hours < (min_dur or 1):
+            conn.close()
+            return jsonify({'error': f'Tatér přijímá min. {min_dur} h sezení.'}), 400
+        if duration_hours > slot_total_hours + 1e-6:
+            conn.close()
+            return jsonify({'error': 'Délka rezervace přesahuje volný blok.'}), 400
+
+        # 2) Parse booking_start_at; pokud chybí, dej 1. volný okamžik
+        if booking_start_raw:
+            try:
+                booking_start = _naive(booking_start_raw)
+            except ValueError:
+                conn.close()
+                return jsonify({'error': 'Špatný formát začátku rezervace.'}), 400
+        else:
+            booking_start = slot_start
+        booking_end = booking_start + timedelta(hours=duration_hours)
+
+        if booking_start < slot_start - timedelta(minutes=1):
+            conn.close()
+            return jsonify({'error': 'Začátek rezervace je před začátkem bloku.'}), 400
+        if booking_end > slot_end + timedelta(minutes=1):
+            conn.close()
+            return jsonify({'error': 'Konec rezervace je za koncem bloku.'}), 400
+
+        # 3) Kontrola kolize s existujícími rezervacemi
+        existing = _slot_active_bookings(conn, slot_id)
+        for s_iso, e_iso in existing:
+            if _ranges_overlap(booking_start.isoformat(), booking_end.isoformat(), s_iso, e_iso):
+                conn.close()
+                return jsonify({'error': 'Tento čas se kryje s jinou rezervací — vyber jiný začátek.'}), 409
+
+        # 4) Cena: fixní z portfolio sketche (pokud je) jinak duration × hourly
+        if portfolio_item and portfolio_item['price_kc']:
+            total_price = float(portfolio_item['price_kc'])
+        else:
+            total_price = avg_hourly * duration_hours
+        deposit_cents = int(round(total_price * deposit_pct / 100)) * 100
+
+    # Celková cena (pro report a balance) — total_price je v Kč, převést na cents
+    total_price_cents = int(round(total_price)) * 100
+
+    # M7: pokud klient zvolil "zaplatit celé předem", deposit = total
+    payment_mode = 'full' if pay_full else 'deposit'
+    if pay_full:
+        deposit_cents = total_price_cents
+    balance_due_cents = max(0, total_price_cents - deposit_cents)
+
+    platform_fee_cents = int(round(deposit_cents * PLATFORM_COMMISSION_PCT / 100))
+    demo_mode  = not STRIPE_SECRET_KEY or not artist['stripe_charges_enabled']
+    init_status = 'confirmed' if demo_mode else 'pending_payment'
+
+    conn.execute('''INSERT INTO bookings
+        (slot_id, artist_id, client_id, status, deposit_cents, platform_fee_cents,
+         design_note, confirmed_at,
+         booking_start_at, booking_end_at, duration_hours, size_label, portfolio_item_id,
+         payment_mode, total_price_cents, balance_due_cents)
+        VALUES (?,?,?,?,?,?,?, ?, ?,?,?,?,?, ?,?,?)''',
+        (slot_id, slot['user_id'], session['user_id'], init_status,
+         deposit_cents, platform_fee_cents, design_note,
+         datetime.utcnow().isoformat() if init_status == 'confirmed' else None,
+         booking_start.isoformat(), booking_end.isoformat(), duration_hours, size_label,
+         portfolio_item['id'] if portfolio_item else None,
+         payment_mode, total_price_cents, balance_due_cents))
+
+    if price_unit == 'flat':
+        # legacy: zablokuj slot
+        conn.execute("UPDATE slots SET status='held' WHERE id=?", (slot_id,))
+        if init_status == 'confirmed':
+            conn.execute("UPDATE slots SET status='booked' WHERE id=?", (slot_id,))
+    # 'hour' bloky zůstávají 'free' — kapacitu řešíme přes booking_start/end overlap
+
+    conn.commit()
+    bid = conn.execute('SELECT id FROM bookings WHERE client_id=? ORDER BY id DESC LIMIT 1',
+                       (session['user_id'],)).fetchone()['id']
+
+    push_notif(conn, slot['user_id'], session['user_id'], 'booking',
+               bid, 'booking', f'Nová rezervace ({duration_hours} h): {design_note[:60]}')
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'ok': True,
+        'id': bid,
+        'status': init_status,
+        'demo_mode': demo_mode,
+        'payment_mode': payment_mode,
+        'deposit_cents': deposit_cents,
+        'platform_fee_cents': platform_fee_cents,
+        'balance_due_cents': balance_due_cents,
+        'total_price_cents': total_price_cents,
+        'duration_hours': duration_hours,
+        'booking_start_at': booking_start.isoformat(),
+        'booking_end_at':   booking_end.isoformat(),
+        'total_price_kc':   round(total_price),
+    })
+
+
+@app.route('/api/bookings/<int:bid>')
+def get_booking(bid):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if session['user_id'] not in (b['client_id'], b['artist_id']):
+        conn.close()
+        return jsonify({'error': 'forbidden'}), 403
+    slot   = conn.execute('SELECT * FROM slots WHERE id=?', (b['slot_id'],)).fetchone()
+    artist = conn.execute('SELECT id, username, display_name, avatar, studio, city FROM users WHERE id=?',
+                           (b['artist_id'],)).fetchone()
+    client = conn.execute('SELECT id, username, display_name, email, phone, avatar FROM users WHERE id=?',
+                           (b['client_id'],)).fetchone()
+    conn.close()
+    return jsonify(_booking_to_dict(b, slot, artist, client))
+
+
+@app.route('/api/bookings/<int:bid>', methods=['PATCH'])
+def update_booking(bid):
+    """Edit existující rezervace.
+    - Klient může měnit jen `design_note` (doplnit detaily / poznámku).
+    - Tatér může měnit `booking_start_at`, `duration_hours`, `design_note`
+      (přesun termínu po dohodě s klientem). Tatér nemůže měnit cenu —
+      ta byla zafixovaná při bookingu (viz pay_full / portfolio fixed price).
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if uid not in (b['client_id'], b['artist_id']):
+        conn.close(); return jsonify({'error': 'forbidden'}), 403
+    if b['status'] in ('completed', 'cancelled_client', 'cancelled_artist', 'no_show'):
+        conn.close(); return jsonify({'error': 'Tuto rezervaci už nelze editovat (' + b['status'] + ').'}), 409
+
+    is_artist = (uid == b['artist_id'])
+    data = request.get_json(silent=True) or {}
+
+    sets, params = [], []
+    changes = []
+    new_start = new_end = None
+
+    # design_note — povolen oběma stranám
+    if 'design_note' in data:
+        note = (data['design_note'] or '').strip()[:1000]
+        sets.append('design_note=?'); params.append(note)
+        changes.append('popis')
+
+    # booking_start_at + duration_hours — pouze tatér
+    wants_time_change = ('booking_start_at' in data) or ('duration_hours' in data) or ('size_label' in data)
+    if wants_time_change and not is_artist:
+        conn.close()
+        return jsonify({'error': 'Termín a délku může měnit jen tatér. Klient může upravit jen popis.'}), 403
+
+    if wants_time_change:
+        # Najdi cílovou délku
+        size_label = (data.get('size_label') or '').strip().lower()
+        if size_label and size_label in SIZE_PRESETS:
+            duration_h = float(SIZE_PRESETS[size_label][0])
+        else:
+            try:
+                duration_h = float(data.get('duration_hours') or b['duration_hours'] or 0)
+            except (ValueError, TypeError):
+                conn.close(); return jsonify({'error': 'Špatná délka'}), 400
+        if duration_h <= 0:
+            conn.close(); return jsonify({'error': 'Délka musí být kladná'}), 400
+
+        # start_at: pokud zadán, použij; jinak ponech původní
+        start_raw = (data.get('booking_start_at') or b['booking_start_at'] or '').strip()
+        try:
+            new_start = datetime.fromisoformat(start_raw.replace('Z', '+00:00'))
+            if new_start.tzinfo is not None:
+                new_start = new_start.astimezone(timezone.utc).replace(tzinfo=None)
+        except (ValueError, AttributeError):
+            conn.close(); return jsonify({'error': 'Špatný formát začátku'}), 400
+        new_end = new_start + timedelta(hours=duration_h)
+
+        if new_start < datetime.utcnow() - timedelta(minutes=5):
+            conn.close(); return jsonify({'error': 'Nový termín nemůže být v minulosti'}), 400
+
+        # validace vůči slotu
+        slot = conn.execute('SELECT * FROM slots WHERE id=?', (b['slot_id'],)).fetchone()
+        if not slot:
+            conn.close(); return jsonify({'error': 'Slot rezervace neexistuje'}), 500
+        try:
+            slot_start = datetime.fromisoformat(slot['start_at'].replace('Z', '+00:00'))
+            slot_end   = datetime.fromisoformat(slot['end_at'].replace('Z', '+00:00'))
+            for d in (slot_start, slot_end):
+                pass
+        except Exception:
+            conn.close(); return jsonify({'error': 'Slot má vadný čas'}), 500
+        if new_start < slot_start - timedelta(minutes=1) or new_end > slot_end + timedelta(minutes=1):
+            conn.close(); return jsonify({'error': 'Nový termín nesedí do bloku tatéra ('
+                                           + slot_start.strftime('%H:%M') + '–'
+                                           + slot_end.strftime('%H:%M') + ').'}), 400
+
+        # overlap s jinými aktivními bookings (vyjma self)
+        others = conn.execute('''SELECT booking_start_at, booking_end_at FROM bookings
+                                 WHERE slot_id=? AND id<>?
+                                       AND status IN ('pending_payment','confirmed')
+                                       AND booking_start_at IS NOT NULL''',
+                              (b['slot_id'], bid)).fetchall()
+        for r in others:
+            if _ranges_overlap(new_start.isoformat(), new_end.isoformat(),
+                               r['booking_start_at'], r['booking_end_at']):
+                conn.close()
+                return jsonify({'error': 'Nový termín se kryje s jinou rezervací v bloku.'}), 409
+
+        sets.append('booking_start_at=?'); params.append(new_start.isoformat())
+        sets.append('booking_end_at=?');   params.append(new_end.isoformat())
+        sets.append('duration_hours=?');   params.append(duration_h)
+        if size_label:
+            sets.append('size_label=?'); params.append(size_label)
+        changes.append('termín')
+
+    if not sets:
+        conn.close(); return jsonify({'ok': True, 'no_changes': True})
+
+    params.append(bid)
+    conn.execute(f'UPDATE bookings SET {", ".join(sets)} WHERE id=?', tuple(params))
+    conn.commit()
+
+    # notif druhé straně
+    other_id = b['artist_id'] if uid == b['client_id'] else b['client_id']
+    actor_role = 'tatér' if is_artist else 'klient'
+    push_notif(conn, other_id, uid, 'booking_updated', bid, 'booking',
+               f'Rezervace upravena ({actor_role} změnil/a {", ".join(changes)}).')
+    conn.commit()
+    updated = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'changes': changes, 'booking': dict(updated)})
+
+
+@app.route('/api/me/bookings/<role>')
+def list_my_bookings(role):
+    err = require_login()
+    if err: return err
+    if role not in ('client', 'artist'):
+        return jsonify({'error': 'role must be client|artist'}), 400
+    col = 'client_id' if role == 'client' else 'artist_id'
+    conn = get_db()
+    rows = conn.execute(f'''
+        SELECT b.*, s.start_at, s.end_at, s.price_min, s.price_max, s.note AS slot_note,
+               ua.username AS a_username, ua.display_name AS a_display_name, ua.avatar AS a_avatar,
+               ua.studio AS a_studio, ua.city AS a_city,
+               uc.username AS c_username, uc.display_name AS c_display_name, uc.avatar AS c_avatar,
+               uc.email AS c_email, uc.phone AS c_phone,
+               r.id AS review_id, r.rating AS review_rating, r.text AS review_text,
+               r.response AS review_response, r.created_at AS review_created_at
+        FROM bookings b
+        JOIN slots s ON b.slot_id = s.id
+        JOIN users ua ON b.artist_id = ua.id
+        JOIN users uc ON b.client_id = uc.id
+        LEFT JOIN reviews r ON r.booking_id = b.id
+        WHERE b.{col} = ?
+        ORDER BY s.start_at DESC
+        LIMIT 200
+    ''', (session['user_id'],)).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        out.append({
+            'id':                  r['id'],
+            'status':              r['status'],
+            'design_note':         r['design_note'] or '',
+            'deposit_cents':       r['deposit_cents'],
+            'platform_fee_cents':  r['platform_fee_cents'],
+            'onsite_amount_cents': r['onsite_amount_cents'],
+            'refund_cents':        r['refund_cents'],
+            'cancellation_actor':  r['cancellation_actor'],
+            'currency':            r['currency'],
+            'created_at':          r['created_at'],
+            'confirmed_at':        r['confirmed_at'],
+            'cancelled_at':        r['cancelled_at'],
+            'completed_at':        r['completed_at'],
+            'booking_start_at':    r['booking_start_at'],
+            'booking_end_at':      r['booking_end_at'],
+            'duration_hours':      r['duration_hours'],
+            'size_label':          r['size_label'] or '',
+            'portfolio_item_id':   r['portfolio_item_id'],
+            'payment_mode':        r['payment_mode'] or 'deposit',
+            'total_price_cents':   r['total_price_cents'] or 0,
+            'balance_due_cents':   r['balance_due_cents'] or 0,
+            'balance_paid_cents':  r['balance_paid_cents'] or 0,
+            'balance_payment_intent_id': r['balance_payment_intent_id'],
+            'balance_charge_cents': r['balance_charge_cents'] or 0,
+            'review': ({
+                'id':         r['review_id'],
+                'rating':     r['review_rating'],
+                'text':       r['review_text'] or '',
+                'response':   r['review_response'] or '',
+                'created_at': r['review_created_at'],
+            } if r['review_id'] else None),
+            'slot': {
+                'id':        r['slot_id'], 'start_at': r['start_at'], 'end_at': r['end_at'],
+                'price_min': r['price_min'], 'price_max': r['price_max'], 'note': r['slot_note'] or '',
+            },
+            'artist': {
+                'username':     r['a_username'], 'display_name': r['a_display_name'],
+                'avatar_url':   f'/uploads/{r["a_avatar"]}' if r['a_avatar'] else None,
+                'studio':       r['a_studio'] or '', 'city': r['a_city'] or '',
+            },
+            'client': {
+                'username':     r['c_username'], 'display_name': r['c_display_name'],
+                'avatar_url':   f'/uploads/{r["c_avatar"]}' if r['c_avatar'] else None,
+                'email':        r['c_email'] or '', 'phone': r['c_phone'] or '',
+            },
+        })
+    return jsonify(out)
+
+
+def _cancellation_refund_pct(hours_before: float, actor: str) -> int:
+    """Vrátí % refundu podle pravidel storna."""
+    if actor == 'artist':
+        return 100
+    if hours_before >= CANCEL_REFUND_FULL_HOURS:
+        return 100
+    if hours_before >= CANCEL_REFUND_HALF_HOURS:
+        return 50
+    return 0
+
+
+@app.route('/api/bookings/<int:bid>/cancel', methods=['POST'])
+def cancel_booking(bid):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if uid not in (b['client_id'], b['artist_id']):
+        conn.close()
+        return jsonify({'error': 'forbidden'}), 403
+    if b['status'] in ('cancelled_client', 'cancelled_artist', 'completed'):
+        conn.close()
+        return jsonify({'error': 'Tato rezervace už nelze zrušit.'}), 409
+
+    actor = 'artist' if uid == b['artist_id'] else 'client'
+    slot  = conn.execute('SELECT * FROM slots WHERE id=?', (b['slot_id'],)).fetchone()
+    try:
+        start_dt = datetime.fromisoformat(slot['start_at'].replace('Z', '+00:00'))
+    except Exception:
+        start_dt = datetime.utcnow() + timedelta(days=7)
+    hours_before = (start_dt - datetime.utcnow()).total_seconds() / 3600.0
+    refund_pct   = _cancellation_refund_pct(hours_before, actor)
+    refund_cents = int(round(b['deposit_cents'] * refund_pct / 100))
+    new_status   = 'cancelled_artist' if actor == 'artist' else 'cancelled_client'
+
+    # M4 později: pokud máme stripe_payment_intent_id, zavolat Refund. Teď jen status.
+    conn.execute('''UPDATE bookings SET status=?, cancelled_at=?, cancellation_actor=?, refund_cents=?
+                    WHERE id=?''',
+                 (new_status, datetime.utcnow().isoformat(), actor, refund_cents, bid))
+    conn.execute("UPDATE slots SET status='free' WHERE id=?", (b['slot_id'],))
+    conn.commit()
+
+    other = b['artist_id'] if actor == 'client' else b['client_id']
+    push_notif(conn, other, uid, 'booking_cancelled', bid, 'booking',
+               f'Rezervace zrušena ({actor}). Refund {refund_pct}%.')
+    conn.commit()
+    conn.close()
+    return jsonify({
+        'ok': True,
+        'status': new_status,
+        'actor': actor,
+        'hours_before': round(hours_before, 1),
+        'refund_pct': refund_pct,
+        'refund_cents': refund_cents,
+    })
+
+
+@app.route('/api/bookings/<int:bid>/complete', methods=['POST'])
+def complete_booking(bid):
+    """Tatér potvrdí, že rezervace proběhla. Přijímá:
+       - onsite_kc          → hotovost / karta vybraná na místě (mimo platformu)
+       - balance_kc         → částka, kterou si tatér vyžádá od klienta přes InkLink
+                              (vytvoří se balance-charge a klient dostane mail s linkem)
+    """
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or request.form
+    try:
+        onsite_kc  = max(0, int(data.get('onsite_kc')  or 0))
+        balance_kc = max(0, int(data.get('balance_kc') or 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Neplatná částka'}), 400
+    onsite_cents = onsite_kc * 100
+
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if session['user_id'] != b['artist_id']:
+        conn.close(); return jsonify({'error': 'Pouze tatér může označit rezervaci jako dokončenou.'}), 403
+    if b['status'] not in ('confirmed', 'pending_payment'):
+        conn.close(); return jsonify({'error': 'Tuto rezervaci nelze dokončit.'}), 409
+
+    # Pokud tatér chce vystavit balance, spusť to PŘED dokončením — když selže
+    # (např. částka přesahuje zbytek), zachová se status='confirmed' a tatér může retry.
+    balance_result = None
+    if balance_kc > 0:
+        balance_result = _create_balance_charge(bid, balance_kc, session['user_id'])
+        if balance_result.get('error'):
+            conn.close()
+            return jsonify({'error': f"Doplatek selhal: {balance_result['error']}"}), 400
+
+    conn.execute('''UPDATE bookings SET status='completed', completed_at=?, onsite_amount_cents=?
+                    WHERE id=?''',
+                 (datetime.utcnow().isoformat(), onsite_cents, bid))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'ok': True,
+        'onsite_cents': onsite_cents,
+        'balance_charge': balance_result,
+    })
+
+
+def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) -> dict:
+    """Vytvoří doplatkovou platbu (Stripe PaymentIntent v live módu, nebo mark-as-paid v demo).
+    Vrátí dict popisující výsledek (vhodné pro JSON response)."""
+    cents = kc * 100
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (booking_id,)).fetchone()
+    if not b:
+        conn.close(); return {'error': 'not found'}
+    if requesting_user_id != b['artist_id']:
+        conn.close(); return {'error': 'forbidden'}
+
+    # validace: nepřekročit balance_due (legacy bookingy mají total_price_cents=0,
+    # tehdy přeskočíme kontrolu — neznáme původní celkovou cenu)
+    already_paid = b['balance_paid_cents'] or 0
+    total_price  = b['total_price_cents'] or 0
+    if total_price > 0:
+        remaining = max(0, (b['balance_due_cents'] or 0) - already_paid)
+        if cents > remaining + 1:
+            conn.close()
+            return {'error': f'Doplatek přes InkLink ({kc} Kč) přesahuje zbývající částku ({remaining//100} Kč).'}
+
+    artist = conn.execute('SELECT email, display_name, stripe_account_id, stripe_charges_enabled FROM users WHERE id=?',
+                          (b['artist_id'],)).fetchone()
+    client = conn.execute('SELECT email, display_name FROM users WHERE id=?',
+                          (b['client_id'],)).fetchone()
+
+    fee_cents = int(round(cents * PLATFORM_COMMISSION_PCT / 100))
+    pi_id = None
+    payment_url = None
+    demo_mode = not STRIPE_SECRET_KEY or not artist['stripe_charges_enabled']
+
+    if not demo_mode:
+        try:
+            pi = stripe.PaymentIntent.create(
+                amount=cents,
+                currency=(b['currency'] or 'CZK').lower(),
+                description=f'InkLink — doplatek za rezervaci #{booking_id}',
+                application_fee_amount=fee_cents,
+                transfer_data={'destination': artist['stripe_account_id']},
+                metadata={
+                    'inklink_booking_id': str(booking_id),
+                    'inklink_kind': 'balance',
+                },
+            )
+            pi_id = pi.id
+            # klient dostane Stripe Payment Link / Hosted page přes /api/balance-pay/<bid>
+            payment_url = f"{_origin()}/balance-pay/{booking_id}"
+        except stripe.error.StripeError as e:
+            conn.close()
+            return {'error': f'Stripe: {str(e)}'}
+    else:
+        # Demo režim: rovnou označíme jako zaplacené
+        pi_id = f'demo_pi_{booking_id}_{int(time.time())}'
+
+    # Uložit záměr (v demo i live tytéž tři pole — paid se nastaví až po /balance-pay confirm
+    # nebo po payment_intent.succeeded webhooku)
+    conn.execute('''UPDATE bookings SET balance_payment_intent_id=?,
+                                          balance_charge_cents=?,
+                                          balance_charge_fee_cents=?
+                    WHERE id=?''', (pi_id, cents, fee_cents, booking_id))
+    conn.commit()
+
+    # In-app notifikace klientovi (vždy — viditelná v notif panelu i v /my-bookings)
+    msg = (f'Tatér {artist["display_name"]} ti vystavil doplatek {kc:,} Kč. '
+           f'Zaplať v sekci „Moje rezervace" nebo přes link.')
+    push_notif(conn, b['client_id'], b['artist_id'], 'balance_charge',
+               booking_id, 'booking', msg)
+    conn.commit()
+
+    # Mail klientovi (jen když Resend nakonfigurovaný a live mód — ať nezasypeme demo)
+    if client['email'] and RESEND_API_KEY and not demo_mode:
+        in_app_url = f"{_origin()}/my-bookings"
+        send_email(client['email'],
+                   f'InkLink — doplatek {kc:,} Kč za tetování u {artist["display_name"]}',
+                   f'''<div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px">
+                     <div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8">INKLINK</div>
+                     <p style="margin:24px 0">Ahoj {client["display_name"]}, tatér <b>{artist["display_name"]}</b>
+                       ti vystavil doplatek za sezení.</p>
+                     <p style="font-size:32px;color:#fff;margin:24px 0"><b>{kc:,} Kč</b></p>
+                     <a href="{payment_url}" style="display:inline-block;padding:14px 28px;background:#fff;color:#000;text-decoration:none;letter-spacing:0.1em;text-transform:uppercase">Zaplatit kartou</a>
+                     <p style="color:#888;font-size:12px;margin-top:24px">Nebo si link najdeš v aplikaci v sekci
+                       <a href="{in_app_url}" style="color:#aaa">Moje rezervace</a>.</p>
+                     <p style="color:#666;font-size:12px;margin-top:16px">Link je platný 7 dní.</p>
+                   </div>''')
+
+    conn.close()
+    return {
+        'ok': True,
+        'demo_mode': demo_mode,
+        'kc': kc,
+        'cents': cents,
+        'fee_cents': fee_cents,
+        'payment_intent_id': pi_id,
+        'payment_url': payment_url or f"{_origin()}/balance-pay/{booking_id}",
+        'awaiting_payment': True,  # klient teď musí prokliknout /balance-pay/<id>
+    }
+
+
+@app.route('/balance-pay/<int:bid>')
+def balance_pay_page(bid):
+    """Veřejná stránka, na kterou klient klikne z e-mailu pro doplacení."""
+    return send_from_directory('public', 'balance-pay.html')
+
+
+@app.route('/api/balance-pay/<int:bid>')
+def balance_pay_info(bid):
+    """Veřejné info o doplatku — co klient potřebuje vidět na payment page."""
+    conn = get_db()
+    b = conn.execute('''SELECT b.*, ua.display_name AS a_name, ua.studio AS a_studio,
+                               ua.avatar AS a_avatar
+                        FROM bookings b
+                        JOIN users ua ON ua.id = b.artist_id
+                        WHERE b.id = ?''', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'Rezervace neexistuje.'}), 404
+    if not b['balance_payment_intent_id']:
+        conn.close()
+        return jsonify({'error': 'Pro tuto rezervaci nebyl vystaven žádný doplatek.'}), 404
+
+    charge_cents = b['balance_charge_cents'] or 0
+    paid_cents   = b['balance_paid_cents']   or 0
+    pi           = b['balance_payment_intent_id'] or ''
+    is_demo      = pi.startswith('demo_pi_')
+    conn.close()
+
+    return jsonify({
+        'id':          b['id'],
+        'artist_name': b['a_name'],
+        'artist_studio': b['a_studio'] or '',
+        'artist_avatar_url': f'/uploads/{b["a_avatar"]}' if b['a_avatar'] else None,
+        'when':        b['booking_start_at'],
+        'design_note': b['design_note'] or '',
+        'amount_cents': charge_cents,
+        'paid_cents':   paid_cents,
+        'is_demo':      is_demo,
+        'already_paid_in_full': paid_cents >= charge_cents > 0,
+    })
+
+
+@app.route('/api/balance-pay/<int:bid>/demo-confirm', methods=['POST'])
+def balance_pay_demo_confirm(bid):
+    """Demo režim — simuluje úspěšnou platbu klienta. Označí jako zaplacené,
+    přičte provizi platformě, pošle notif tatérovi.
+    Endpoint je veřejný — link už zná pouze klient (přes mail / přes /my-bookings)."""
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    pi = b['balance_payment_intent_id'] or ''
+    if not pi.startswith('demo_pi_'):
+        conn.close(); return jsonify({'error': 'Tato rezervace je v live módu — platba probíhá přes Stripe.'}), 400
+    if (b['balance_paid_cents'] or 0) >= (b['balance_charge_cents'] or 0) > 0:
+        conn.close(); return jsonify({'ok': True, 'already_paid': True})
+
+    cents = b['balance_charge_cents'] or 0
+    fee   = b['balance_charge_fee_cents'] or 0
+    conn.execute('''UPDATE bookings SET balance_paid_cents = balance_paid_cents + ?,
+                                          platform_fee_cents = platform_fee_cents + ?
+                    WHERE id=?''', (cents, fee, bid))
+    # notif tatérovi
+    push_notif(conn, b['artist_id'], b['client_id'], 'balance_paid',
+               bid, 'booking', f'Klient zaplatil doplatek {cents//100:,} Kč přes InkLink (demo).')
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'paid_cents': cents, 'fee_cents': fee})
+
+
+@app.route('/api/bookings/<int:bid>/balance-charge', methods=['POST'])
+def balance_charge(bid):
+    """Tatér iniciuje doplatkovou platbu — buď samostatně, nebo z complete_booking."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or request.form
+    try:
+        kc = int(data.get('kc') or 0)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Neplatná částka'}), 400
+    if kc <= 0:
+        return jsonify({'error': 'Částka musí být kladná'}), 400
+    result = _create_balance_charge(bid, kc, session['user_id'])
+    if result.get('error'):
+        return jsonify(result), (404 if result['error'] == 'not found'
+                                  else 403 if result['error'] == 'forbidden' else 400)
+    return jsonify(result)
+
+
+# ── InkLink: Reviews (recenze klientů) ──────────────────────────────────────
+
+def _review_to_dict(r, client=None, booking_when=None):
+    d = {
+        'id':          r['id'],
+        'booking_id':  r['booking_id'],
+        'rating':      r['rating'],
+        'text':        r['text'] or '',
+        'response':    r['response'] or '',
+        'response_at': r['response_at'],
+        'created_at':  r['created_at'],
+        'updated_at':  r['updated_at'],
+        'when':        booking_when,
+    }
+    if client:
+        d['client'] = {
+            'username':     client['username'],
+            'display_name': client['display_name'],
+            'avatar_url':   f'/uploads/{client["avatar"]}' if client['avatar'] else None,
+            'initials':     initials(client['display_name'] or client['username']),
+        }
+    return d
+
+
+@app.route('/api/bookings/<int:bid>/review', methods=['GET'])
+def get_review(bid):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if session['user_id'] not in (b['client_id'], b['artist_id']):
+        conn.close(); return jsonify({'error': 'forbidden'}), 403
+    row = conn.execute('SELECT * FROM reviews WHERE booking_id=?', (bid,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify(None)
+    return jsonify(_review_to_dict(row, booking_when=b['booking_start_at'] or b['confirmed_at']))
+
+
+@app.route('/api/bookings/<int:bid>/review', methods=['POST'])
+def upsert_review(bid):
+    """Klient napíše nebo upraví hodnocení dokončeného bookingu."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    try:
+        rating = int(data.get('rating') or 0)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Hodnocení musí být číslo 1–5'}), 400
+    if rating < 1 or rating > 5:
+        return jsonify({'error': 'Hodnocení musí být 1–5'}), 400
+    text = (data.get('text') or '').strip()[:1000]
+
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if session['user_id'] != b['client_id']:
+        conn.close(); return jsonify({'error': 'Pouze klient může napsat hodnocení.'}), 403
+    if b['status'] != 'completed':
+        conn.close(); return jsonify({'error': 'Hodnotit lze jen dokončené rezervace.'}), 409
+
+    existing = conn.execute('SELECT id FROM reviews WHERE booking_id=?', (bid,)).fetchone()
+    now = datetime.utcnow().isoformat()
+    if existing:
+        conn.execute('UPDATE reviews SET rating=?, text=?, updated_at=? WHERE id=?',
+                     (rating, text, now, existing['id']))
+        rid = existing['id']
+        is_new = False
+    else:
+        conn.execute('''INSERT INTO reviews (booking_id, client_id, artist_id, rating, text)
+                        VALUES (?,?,?,?,?)''',
+                     (bid, b['client_id'], b['artist_id'], rating, text))
+        rid = conn.execute('SELECT id FROM reviews WHERE booking_id=?', (bid,)).fetchone()['id']
+        is_new = True
+        push_notif(conn, b['artist_id'], b['client_id'], 'review_added',
+                   rid, 'review',
+                   f'Klient ti dal {rating}★{(": " + text[:60]) if text else ""}')
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'id': rid, 'rating': rating, 'is_new': is_new})
+
+
+@app.route('/api/reviews/<int:rid>', methods=['DELETE'])
+def delete_review(rid):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = conn.execute('SELECT client_id FROM reviews WHERE id=?', (rid,)).fetchone()
+    if not row:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if row['client_id'] != session['user_id']:
+        conn.close(); return jsonify({'error': 'Pouze autor může smazat recenzi.'}), 403
+    conn.execute('DELETE FROM reviews WHERE id=?', (rid,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/reviews/<int:rid>/respond', methods=['POST'])
+def respond_to_review(rid):
+    """Tatér odpoví na recenzi."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    text = (data.get('response') or '').strip()[:500]
+
+    conn = get_db()
+    row = conn.execute('SELECT * FROM reviews WHERE id=?', (rid,)).fetchone()
+    if not row:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if row['artist_id'] != session['user_id']:
+        conn.close(); return jsonify({'error': 'Odpovídat může jen tatér z recenze.'}), 403
+    conn.execute('UPDATE reviews SET response=?, response_at=? WHERE id=?',
+                 (text, datetime.utcnow().isoformat() if text else None, rid))
+    push_notif(conn, row['client_id'], row['artist_id'], 'review_response',
+               rid, 'review',
+               f'Tatér odpověděl na tvou recenzi{(": " + text[:80]) if text else ""}')
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/profile/<username>/reviews')
+def get_profile_reviews(username):
+    """Veřejný list recenzí tatéra — paginated, default limit 20."""
+    conn = get_db()
+    u = conn.execute('SELECT id FROM users WHERE username=?', (username,)).fetchone()
+    if not u:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    try:
+        offset = int(request.args.get('offset', 0))
+        limit  = min(50, int(request.args.get('limit', 20)))
+    except (ValueError, TypeError):
+        offset, limit = 0, 20
+    rows = conn.execute('''
+        SELECT r.*, b.booking_start_at, b.size_label, b.duration_hours,
+               uc.username AS c_username, uc.display_name AS c_display_name,
+               uc.avatar AS c_avatar
+        FROM reviews r
+        JOIN bookings b ON b.id = r.booking_id
+        JOIN users uc ON uc.id = r.client_id
+        WHERE r.artist_id = ?
+        ORDER BY r.created_at DESC
+        LIMIT ? OFFSET ?
+    ''', (u['id'], limit, offset)).fetchall()
+
+    total = conn.execute('SELECT COUNT(*) FROM reviews WHERE artist_id=?', (u['id'],)).fetchone()[0]
+    avg_row = conn.execute('SELECT AVG(rating) AS avg, COUNT(*) AS cnt FROM reviews WHERE artist_id=?',
+                           (u['id'],)).fetchone()
+    conn.close()
+    return jsonify({
+        'total':  total,
+        'avg':    round(avg_row['avg'], 2) if avg_row['avg'] else None,
+        'count':  avg_row['cnt'] or 0,
+        'reviews': [_review_to_dict(r,
+                       client={'username': r['c_username'], 'display_name': r['c_display_name'],
+                               'avatar': r['c_avatar']},
+                       booking_when=r['booking_start_at']) for r in rows],
+    })
+
+
+# ── InkLink: Měsíční report (PDF) ────────────────────────────────────────────
+
+def _aggregate_artist_month(conn, artist_id: int, year: int, month: int):
+    """Sečte rezervace tatéra v daném měsíci do strukturovaného summary.
+    Klíč: 'kdy' = booking_start_at (kdy proběhla / měla proběhnout).
+    """
+    prefix = f'{year:04d}-{month:02d}'
+    rows = conn.execute('''
+        SELECT b.*, s.start_at AS slot_start, s.end_at AS slot_end,
+               uc.username AS c_username, uc.display_name AS c_display_name
+        FROM bookings b
+        JOIN slots s ON s.id = b.slot_id
+        JOIN users uc ON uc.id = b.client_id
+        WHERE b.artist_id = ?
+          AND COALESCE(b.booking_start_at, s.start_at) LIKE ?
+        ORDER BY COALESCE(b.booking_start_at, s.start_at) ASC
+    ''', (artist_id, prefix + '%')).fetchall()
+
+    summary = {
+        'period': f'{year:04d}-{month:02d}',
+        'artist_id': artist_id,
+        'count_total': len(rows),
+        'count_completed': 0,
+        'count_confirmed': 0,
+        'count_cancelled_client': 0,
+        'count_cancelled_artist': 0,
+        'count_no_show': 0,
+        # finanční částky v Kč (cents/100)
+        'deposits_received_kc':  0,   # zálohy, co tatérovi přišly (po refundech)
+        'balance_via_platform_kc': 0, # doplatky přes InkLink po sezení
+        'platform_fees_kc':      0,   # provize InkLinku z toho všeho přes platformu
+        'forfeited_deposits_kc': 0,   # propadlé zálohy z late storna (subset deposits)
+        'onsite_cash_kc':        0,   # hotovost na místě z dokončených (mimo platformu)
+        'refunded_to_clients_kc':0,   # refundy klientům
+        'gross_revenue_kc':      0,   # celkový obrat (vše, po refundech, před provizí)
+        'net_to_artist_kc':      0,   # co reálně tatérovi zůstane (gross − provize)
+        'rows': [],
+    }
+
+    for r in rows:
+        st     = r['status']
+        dep_kc = (r['deposit_cents'] or 0) / 100
+        ref_kc = (r['refund_cents'] or 0) / 100
+        fee_kc = (r['platform_fee_cents'] or 0) / 100
+        ons_kc = (r['onsite_amount_cents'] or 0) / 100
+        bal_kc = (r['balance_paid_cents'] or 0) / 100
+
+        is_completed = (st == 'completed')
+        is_cancel_c  = (st == 'cancelled_client')
+        is_cancel_a  = (st == 'cancelled_artist')
+        is_no_show   = (st == 'no_show')
+        is_confirmed = (st in ('confirmed', 'pending_payment'))
+
+        # Záloha tatérovi (po refundu klientovi): co zůstalo z deposit_cents - refund
+        artist_deposit_kc = max(0, dep_kc - ref_kc)
+        # Provize InkLinku: poměrově k tomu, co tatérovi zůstalo
+        # (pro jednoduchost bereme platform_fee_cents tak, jak je uložené)
+        if is_cancel_a:
+            # tatér zrušil → klient dostal vše zpět; platforma provize nebere
+            artist_deposit_kc = 0
+            fee_share_kc = 0
+        elif is_cancel_c and ref_kc < dep_kc:
+            # klient zrušil pozdě → záloha (částečně) propadá tatérovi
+            forfeit = dep_kc - ref_kc
+            summary['forfeited_deposits_kc'] += forfeit
+            fee_share_kc = fee_kc * (forfeit / dep_kc) if dep_kc else 0
+        else:
+            fee_share_kc = fee_kc
+
+        summary['deposits_received_kc']    += artist_deposit_kc
+        summary['balance_via_platform_kc'] += bal_kc
+        summary['platform_fees_kc']        += fee_share_kc
+        summary['refunded_to_clients_kc']  += ref_kc
+        summary['onsite_cash_kc']          += ons_kc if is_completed else 0
+        summary['gross_revenue_kc']        += artist_deposit_kc + bal_kc + (ons_kc if is_completed else 0)
+        summary['net_to_artist_kc']        += artist_deposit_kc + bal_kc - fee_share_kc + (ons_kc if is_completed else 0)
+
+        if is_completed:           summary['count_completed']        += 1
+        elif is_cancel_c:          summary['count_cancelled_client'] += 1
+        elif is_cancel_a:          summary['count_cancelled_artist'] += 1
+        elif is_no_show:           summary['count_no_show']          += 1
+        elif is_confirmed:         summary['count_confirmed']        += 1
+
+        summary['rows'].append({
+            'when':      r['booking_start_at'] or r['slot_start'],
+            'duration_h': r['duration_hours'],
+            'client':    r['c_display_name'] or r['c_username'],
+            'status':    st,
+            'mode':      r['payment_mode'] or 'deposit',
+            'deposit_kc': dep_kc,
+            'balance_kc': bal_kc,
+            'refund_kc':  ref_kc,
+            'fee_kc':     fee_share_kc,
+            'onsite_kc':  ons_kc,
+            'artist_kc':  artist_deposit_kc + bal_kc - fee_share_kc + (ons_kc if is_completed else 0),
+            'note':       (r['design_note'] or '')[:80],
+        })
+
+    # zaokrouhlit
+    for k in ('deposits_received_kc','balance_via_platform_kc','platform_fees_kc',
+              'forfeited_deposits_kc','onsite_cash_kc','refunded_to_clients_kc',
+              'gross_revenue_kc','net_to_artist_kc'):
+        summary[k] = round(summary[k])
+    return summary
+
+
+def _format_dt_cs(iso: str) -> str:
+    try:
+        d = datetime.fromisoformat(iso.replace('Z', '+00:00'))
+        return d.strftime('%-d. %-m. %Y %H:%M')
+    except Exception:
+        return iso or ''
+
+
+def _build_report_pdf(artist: dict, summary: dict) -> bytes:
+    """Vygeneruje PDF report a vrátí bytes."""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
+                                    TableStyle, PageBreak)
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=18*mm, rightMargin=18*mm,
+                            topMargin=20*mm, bottomMargin=18*mm,
+                            title=f'InkLink report {summary["period"]}')
+
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle('h1', parent=styles['Title'], fontSize=22, leading=26,
+                        textColor=colors.HexColor('#111'))
+    h2 = ParagraphStyle('h2', parent=styles['Heading2'], fontSize=13, leading=16,
+                        textColor=colors.HexColor('#444'))
+    p_normal = ParagraphStyle('p', parent=styles['Normal'], fontSize=10, leading=13)
+    p_small  = ParagraphStyle('ps', parent=styles['Normal'], fontSize=8, leading=11,
+                              textColor=colors.HexColor('#777'))
+
+    elements = []
+    period_label = datetime(int(summary['period'][:4]), int(summary['period'][5:7]), 1).strftime('%B %Y')
+
+    elements.append(Paragraph('INKLINK', ParagraphStyle('brand', parent=styles['Title'],
+                              fontSize=14, textColor=colors.HexColor('#999'),
+                              spaceAfter=2)))
+    elements.append(Paragraph(f'Měsíční přehled · {period_label}', h1))
+    elements.append(Spacer(1, 4*mm))
+    elements.append(Paragraph(
+        f"<b>{artist.get('display_name','')}</b> — {artist.get('studio') or 'samostatný tatér'}"
+        f"{' · ' + artist['city'] if artist.get('city') else ''}",
+        p_normal))
+    elements.append(Spacer(1, 8*mm))
+
+    # Souhrnná tabulka
+    summary_data = [
+        ['Položka', 'Kč'],
+        ['Hrubý obrat (vše po refundech, před provizí)',   f"{summary['gross_revenue_kc']:,}".replace(',', ' ')],
+        ['Z toho zálohy (přes InkLink)',                   f"{summary['deposits_received_kc']:,}".replace(',', ' ')],
+        ['Z toho doplatky přes InkLink (online)',          f"{summary['balance_via_platform_kc']:,}".replace(',', ' ')],
+        ['Z toho hotovost na místě (mimo InkLink)',        f"{summary['onsite_cash_kc']:,}".replace(',', ' ')],
+        ['Provize InkLink (8 % z online plateb)',          f"-{summary['platform_fees_kc']:,}".replace(',', ' ')],
+        ['Refundováno klientům',                           f"{summary['refunded_to_clients_kc']:,}".replace(',', ' ')],
+        ['Propadlé zálohy (late storno)',                  f"{summary['forfeited_deposits_kc']:,}".replace(',', ' ')],
+        ['Čistý příjem tatéra',                            f"{summary['net_to_artist_kc']:,}".replace(',', ' ')],
+    ]
+    t = Table(summary_data, colWidths=[110*mm, 50*mm])
+    t.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#111')),
+        ('TEXTCOLOR',  (0,0), (-1,0), colors.white),
+        ('LINEBELOW', (0,0), (-1,0), 0.6, colors.HexColor('#111')),
+        ('LINEBELOW', (0,-2), (-1,-2), 0.4, colors.HexColor('#999')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f7f7f7')]),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ]))
+    elements.append(t)
+
+    elements.append(Spacer(1, 8*mm))
+
+    # Statistika rezervací
+    elements.append(Paragraph('Rezervace v období', h2))
+    stats = [
+        ['Celkem', summary['count_total']],
+        ['Dokončeno', summary['count_completed']],
+        ['Potvrzené (čekají)', summary['count_confirmed']],
+        ['Zrušeno klientem', summary['count_cancelled_client']],
+        ['Zrušeno tatérem', summary['count_cancelled_artist']],
+        ['No-show', summary['count_no_show']],
+    ]
+    t2 = Table(stats, colWidths=[110*mm, 50*mm])
+    t2.setStyle(TableStyle([
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('LINEBELOW', (0,0), (-1,-1), 0.2, colors.HexColor('#ddd')),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+    ]))
+    elements.append(t2)
+    elements.append(Spacer(1, 8*mm))
+
+    # Detailní tabulka rezervací
+    if summary['rows']:
+        elements.append(Paragraph('Detail rezervací', h2))
+        STATUS_LABEL = {
+            'completed':       'dokončeno',
+            'confirmed':       'potvrzeno',
+            'pending_payment': 'čeká na platbu',
+            'cancelled_client':'zruš. klientem',
+            'cancelled_artist':'zruš. tatérem',
+            'no_show':         'no-show',
+        }
+        head = ['Datum', 'Klient', 'Délka', 'Stav', 'Záloha', 'Doplatek', 'Refund', 'Provize', 'Onsite', 'Tatérovi']
+        body = [head]
+        for r in summary['rows']:
+            body.append([
+                _format_dt_cs(r['when']),
+                (r['client'] or '')[:24],
+                f"{r['duration_h']:.1f}h" if r['duration_h'] else '—',
+                STATUS_LABEL.get(r['status'], r['status']),
+                f"{r['deposit_kc']:,.0f}".replace(',', ' '),
+                f"{r['balance_kc']:,.0f}".replace(',', ' ') if r['balance_kc'] else '—',
+                f"{r['refund_kc']:,.0f}".replace(',', ' ') if r['refund_kc'] else '—',
+                f"{r['fee_kc']:,.0f}".replace(',', ' ') if r['fee_kc'] else '—',
+                f"{r['onsite_kc']:,.0f}".replace(',', ' ') if r['onsite_kc'] else '—',
+                f"{r['artist_kc']:,.0f}".replace(',', ' '),
+            ])
+        t3 = Table(body, colWidths=[26*mm, 24*mm, 11*mm, 20*mm, 14*mm, 13*mm, 12*mm, 12*mm, 12*mm, 16*mm], repeatRows=1)
+        t3.setStyle(TableStyle([
+            ('FONTSIZE', (0,0), (-1,-1), 7.5),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#eaeaea')),
+            ('LINEBELOW', (0,0), (-1,0), 0.4, colors.HexColor('#999')),
+            ('LINEBELOW', (0,1), (-1,-1), 0.2, colors.HexColor('#eee')),
+            ('ALIGN', (4,1), (-1,-1), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ]))
+        elements.append(t3)
+        elements.append(Spacer(1, 6*mm))
+
+    elements.append(Paragraph(
+        'Vygenerováno automaticky platformou InkLink. Částky v Kč zaokrouhlené na celé. '
+        'Skutečné peníze chodí přímo tatérovi přes Stripe Connect (mínus provize 8 %), '
+        'tento přehled je pro tvoji evidenci a daňové účely.',
+        p_small
+    ))
+
+    doc.build(elements)
+    buf.seek(0)
+    return buf.read()
+
+
+@app.route('/api/me/report/<int:year>/<int:month>')
+def my_monthly_report(year, month):
+    err = require_login()
+    if err: return err
+    if not (2025 <= year <= 2099 and 1 <= month <= 12):
+        return jsonify({'error': 'Neplatný rok/měsíc'}), 400
+    conn = get_db()
+    artist = conn.execute('''SELECT id, username, display_name, studio, city
+                             FROM users WHERE id=?''', (session['user_id'],)).fetchone()
+    if not artist:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    summary = _aggregate_artist_month(conn, artist['id'], year, month)
+    conn.close()
+
+    fmt = (request.args.get('format') or 'pdf').lower()
+    if fmt == 'json':
+        return jsonify(summary)
+
+    pdf_bytes = _build_report_pdf(dict(artist), summary)
+    from flask import Response
+    safe_name = (artist['username'] or 'tater').replace('/', '_')
+    filename = f'inklink-report-{safe_name}-{year:04d}-{month:02d}.pdf'
+    return Response(pdf_bytes, mimetype='application/pdf', headers={
+        'Content-Disposition': f'attachment; filename="{filename}"',
+    })
 
 
 # ── Messages API ──────────────────────────────────────────────────────────────
@@ -2286,34 +3663,6 @@ def get_calendar():
     } for r in rows])
 
 
-@app.route('/api/profile/<username>/tracks')
-def get_profile_tracks(username):
-    uid   = session.get('user_id', 0)
-    limit = min(int(request.args.get('limit', 50)), 100)
-    conn  = get_db()
-    user  = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
-    if not user:
-        conn.close()
-        return jsonify([])
-    rows = conn.execute(
-        'SELECT * FROM tracks WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
-        (user['id'], limit)
-    ).fetchall()
-    conn.close()
-    return jsonify([{
-        'id':         r['id'],
-        'title':      r['title'],
-        'genre':      r['genre'],
-        'city':       r['city'],
-        'filename':   r['filename'],
-        'cover':      r['cover'],
-        'duration':   r['duration'],
-        'like_count': r['like_count'],
-        'play_count': r['play_count'],
-        'created_at': time_ago(r['created_at']),
-    } for r in rows])
-
-
 @app.route('/api/profile/<username>/events')
 def get_profile_events(username):
     if 'user_id' not in session:
@@ -2361,332 +3710,12 @@ def delete_event(event_id):
 
 # ── Playlists ────────────────────────────────────────────────────────────────
 
-@app.route('/api/profile/<username>/playlists')
-def get_profile_playlists(username):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    user = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
-    if not user:
-        conn.close()
-        return jsonify({'error': 'User not found'}), 404
-    is_own = user['id'] == session['user_id']
-    if is_own:
-        rows = conn.execute('SELECT * FROM playlists WHERE user_id = ? ORDER BY created_at DESC', (user['id'],)).fetchall()
-    else:
-        rows = conn.execute('SELECT * FROM playlists WHERE user_id = ? AND is_public = 1 ORDER BY created_at DESC', (user['id'],)).fetchall()
-    result = []
-    for r in rows:
-        tc = conn.execute('SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = ?', (r['id'],)).fetchone()[0]
-        cover = conn.execute(
-            'SELECT t.cover FROM playlist_tracks pt JOIN tracks t ON pt.track_id = t.id WHERE pt.playlist_id = ? AND t.cover != "" ORDER BY pt.position ASC LIMIT 1',
-            (r['id'],)
-        ).fetchone()
-        result.append({
-            'id':        r['id'],
-            'name':      r['name'],
-            'is_public': bool(r['is_public']),
-            'track_count': tc,
-            'cover':     cover['cover'] if cover else '',
-            'created_at': r['created_at'],
-        })
-    conn.close()
-    return jsonify(result)
-
-
-@app.route('/api/playlists/<int:pid>')
-def get_playlist(pid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    pl = conn.execute('SELECT * FROM playlists WHERE id = ?', (pid,)).fetchone()
-    if not pl:
-        conn.close()
-        return jsonify({'error': 'Playlist not found'}), 404
-    if not pl['is_public'] and pl['user_id'] != session['user_id']:
-        conn.close()
-        return jsonify({'error': 'Private playlist'}), 403
-    tracks = conn.execute(
-        '''SELECT t.id, t.title, t.genre, t.filename, t.cover, t.duration, t.like_count,
-                  u.display_name, u.username
-           FROM playlist_tracks pt
-           JOIN tracks t ON pt.track_id = t.id
-           JOIN users u ON t.user_id = u.id
-           WHERE pt.playlist_id = ?
-           ORDER BY pt.position ASC, pt.added_at ASC''',
-        (pid,)
-    ).fetchall()
-    conn.close()
-    return jsonify({
-        'id':        pl['id'],
-        'name':      pl['name'],
-        'is_public': bool(pl['is_public']),
-        'is_own':    pl['user_id'] == session['user_id'],
-        'tracks': [{
-            'id':           t['id'],
-            'title':        t['title'],
-            'genre':        t['genre'],
-            'filename':     t['filename'],
-            'cover':        t['cover'],
-            'duration':     t['duration'],
-            'like_count':   t['like_count'],
-            'display_name': t['display_name'],
-            'username':     t['username'],
-        } for t in tracks],
-    })
-
-
-@app.route('/api/playlists', methods=['POST'])
-def create_playlist():
-    err = require_login()
-    if err: return err
-    data = request.get_json()
-    name = data.get('name', '').strip()
-    if not name:
-        return jsonify({'error': 'Name is required'}), 400
-    is_public = 1 if data.get('is_public', True) else 0
-    conn = get_db()
-    cur = conn.execute(
-        'INSERT INTO playlists (user_id, name, is_public) VALUES (?, ?, ?)',
-        (session['user_id'], name, is_public)
-    )
-    pid = cur.lastrowid
-    conn.commit()
-    conn.close()
-    return jsonify({'ok': True, 'id': pid})
-
-
-@app.route('/api/playlists/<int:pid>', methods=['PATCH'])
-def update_playlist(pid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    pl = conn.execute('SELECT * FROM playlists WHERE id = ?', (pid,)).fetchone()
-    if not pl or pl['user_id'] != session['user_id']:
-        conn.close()
-        return jsonify({'error': 'Not found'}), 404
-    data = request.get_json()
-    name      = data.get('name', pl['name']).strip() or pl['name']
-    is_public = 1 if data.get('is_public', bool(pl['is_public'])) else 0
-    conn.execute('UPDATE playlists SET name = ?, is_public = ? WHERE id = ?', (name, is_public, pid))
-    conn.commit()
-    conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/playlists/<int:pid>', methods=['DELETE'])
-def delete_playlist(pid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    pl = conn.execute('SELECT user_id FROM playlists WHERE id = ?', (pid,)).fetchone()
-    if not pl or pl['user_id'] != session['user_id']:
-        conn.close()
-        return jsonify({'error': 'Not found'}), 404
-    conn.execute('DELETE FROM playlists WHERE id = ?', (pid,))
-    conn.commit()
-    conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/playlists/<int:pid>/tracks', methods=['POST'])
-def add_to_playlist(pid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    pl = conn.execute('SELECT user_id FROM playlists WHERE id = ?', (pid,)).fetchone()
-    if not pl or pl['user_id'] != session['user_id']:
-        conn.close()
-        return jsonify({'error': 'Not found'}), 404
-    track_id = request.get_json().get('track_id')
-    pos = conn.execute('SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = ?', (pid,)).fetchone()[0]
-    try:
-        conn.execute('INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)', (pid, track_id, pos))
-        conn.commit()
-    except Exception:
-        conn.close()
-        return jsonify({'error': 'Track už je v playlistu'}), 409
-    conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/playlists/<int:pid>/tracks/<int:tid>', methods=['DELETE'])
-def remove_from_playlist(pid, tid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    pl = conn.execute('SELECT user_id FROM playlists WHERE id = ?', (pid,)).fetchone()
-    if not pl or pl['user_id'] != session['user_id']:
-        conn.close()
-        return jsonify({'error': 'Not found'}), 404
-    conn.execute('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?', (pid, tid))
-    conn.commit()
-    conn.close()
-    return jsonify({'ok': True})
-
 
 # ── Bazar ─────────────────────────────────────────────────────────────────────
 
 CATEGORIES = ['Kytary & Baskytary','Bicí & Perkuse','Klávesy & Syntezátory',
                'DJ & Elektronika','Studiové vybavení','Zesilovače & Aparáty',
                'Efekty & Pedály','Sluchátka & Mikrofony','Vinylové desky','Ostatní']
-
-@app.route('/api/listings')
-def get_listings():
-    uid       = session.get('user_id', 0)
-    category  = request.args.get('category', '').strip()
-    condition = request.args.get('condition', '').strip()
-    city      = request.args.get('city', '').strip()
-    query     = request.args.get('q', '').strip()
-    price_max = request.args.get('price_max', '')
-    sort      = request.args.get('sort', 'newest')
-
-    sql    = '''SELECT l.*, u.username, u.display_name, u.emoji,
-                       EXISTS(SELECT 1 FROM listing_likes WHERE user_id=? AND listing_id=l.id) AS liked
-                FROM listings l JOIN users u ON l.user_id = u.id
-                WHERE l.status = 'active' '''
-    params = [uid]
-
-    if category:
-        sql += ' AND l.category = ?'; params.append(category)
-    if condition:
-        sql += ' AND l.condition = ?'; params.append(condition)
-    if city:
-        sql += ' AND l.city LIKE ?'; params.append(f'%{city}%')
-    if query:
-        sql += ' AND (l.title LIKE ? OR l.description LIKE ?)'; params += [f'%{query}%', f'%{query}%']
-    if price_max:
-        try: sql += ' AND l.price <= ?'; params.append(int(price_max))
-        except: pass
-
-    order = {'newest': 'l.boosted DESC, l.created_at DESC',
-             'price_asc': 'l.boosted DESC, l.price ASC',
-             'price_desc': 'l.boosted DESC, l.price DESC'}.get(sort, 'l.boosted DESC, l.created_at DESC')
-    sql += f' ORDER BY {order}'
-
-    conn = get_db()
-    rows = conn.execute(sql, params).fetchall()
-    conn.close()
-
-    def photos(r):
-        return [f'/uploads/{r[f"photo{i}"]}' for i in range(1,6) if r[f'photo{i}']]
-
-    return jsonify([{
-        'id':           r['id'],
-        'title':        r['title'],
-        'description':  r['description'],
-        'price':        r['price'],
-        'currency':     r['currency'],
-        'condition':    r['condition'],
-        'category':     r['category'],
-        'city':         r['city'],
-        'status':       r['status'],
-        'boosted':      bool(r['boosted']),
-        'photos':       photos(r),
-        'liked':        bool(r['liked']),
-        'is_own':       uid != 0 and r['user_id'] == uid,
-        'user': {
-            'username':     r['username'],
-            'display_name': r['display_name'],
-            'emoji':        r['emoji'] or '',
-            'initials':     initials(r['display_name']),
-        },
-        'created_at': r['created_at'],
-    } for r in rows])
-
-
-@app.route('/api/listings', methods=['POST'])
-@limiter.limit('10 per hour')
-def create_listing():
-    err = require_login()
-    if err: return err
-    title       = request.form.get('title', '').strip()
-    description = request.form.get('description', '').strip()
-    city        = request.form.get('city', '').strip()
-    category    = request.form.get('category', '').strip()
-    condition   = request.form.get('condition', 'used').strip()
-    try: price = int(request.form.get('price', 0))
-    except: price = 0
-    currency = request.form.get('currency', 'CZK').strip()
-
-    if not title or price <= 0:
-        return jsonify({'error': 'Title and price are required'}), 400
-    if len(title) > 120:
-        return jsonify({'error': 'Title is too long (max 120 characters)'}), 400
-    if len(description) > 2000:
-        return jsonify({'error': 'Description is too long (max 2000 characters)'}), 400
-    if price > 10_000_000:
-        return jsonify({'error': 'Price is too high'}), 400
-
-    photos = []
-    for i in range(1, 6):
-        f = request.files.get(f'photo{i}')
-        if f and f.filename and allowed_file(f.filename) and allowed_image(f):
-            ext  = secure_filename(f.filename).rsplit('.', 1)[1].lower()
-            name = f'lst_{session["user_id"]}_{int(datetime.now().timestamp()*1000)}_{i}.{ext}'
-            save_upload(f, name)
-            photos.append(name)
-        else:
-            photos.append('')
-
-    conn = get_db()
-    conn.execute(
-        'INSERT INTO listings (user_id, title, description, price, currency, condition, category, city, photo1, photo2, photo3, photo4, photo5) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        (session['user_id'], title, description, price, currency, condition, category, city, *photos)
-    )
-    conn.commit()
-    conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/listings/<int:lid>', methods=['PATCH'])
-def update_listing(lid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    lst = conn.execute('SELECT * FROM listings WHERE id = ?', (lid,)).fetchone()
-    if not lst or lst['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Not found'}), 404
-    data = request.get_json()
-    status = data.get('status', lst['status'])
-    conn.execute('UPDATE listings SET status = ? WHERE id = ?', (status, lid))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/listings/<int:lid>', methods=['DELETE'])
-def delete_listing(lid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    lst = conn.execute('SELECT user_id FROM listings WHERE id = ?', (lid,)).fetchone()
-    if not lst or lst['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Not found'}), 404
-    conn.execute('DELETE FROM listings WHERE id = ?', (lid,))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/listings/<int:lid>/like', methods=['POST'])
-def toggle_listing_like(lid):
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    existing = conn.execute('SELECT 1 FROM listing_likes WHERE user_id=? AND listing_id=?',
-                            (session['user_id'], lid)).fetchone()
-    if existing:
-        conn.execute('DELETE FROM listing_likes WHERE user_id=? AND listing_id=?', (session['user_id'], lid))
-        liked = False
-    else:
-        conn.execute('INSERT INTO listing_likes (user_id, listing_id) VALUES (?,?)', (session['user_id'], lid))
-        liked = True
-        listing = conn.execute('SELECT user_id, title FROM listings WHERE id = ?', (lid,)).fetchone()
-        if listing:
-            actor = conn.execute('SELECT display_name FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-            push_notif(conn, listing['user_id'], session['user_id'], 'listing_like', lid, 'listing',
-                       f"{actor['display_name']} se líbí tvůj inzerát \"{listing['title']}\"")
-    conn.commit(); conn.close()
-    return jsonify({'liked': liked})
 
 
 SKILL_CATEGORIES = {
@@ -2698,285 +3727,10 @@ SKILL_CATEGORIES = {
 }
 
 
-@app.route('/api/skills')
-def get_skills():
-    category   = request.args.get('category')
-    subcategory = request.args.get('subcategory')
-    q          = request.args.get('q', '').strip()
-    remote     = request.args.get('remote')
-    sort       = request.args.get('sort', 'newest')
-    user_id    = session.get('user_id')
-    conn = get_db()
-    where, params = ['s.status = "active"'], []
-    if category:
-        where.append('s.category = ?'); params.append(category)
-    if subcategory:
-        where.append('s.subcategory = ?'); params.append(subcategory)
-    if q:
-        where.append('(s.title LIKE ? OR s.description LIKE ?)'); params += [f'%{q}%', f'%{q}%']
-    if remote == '1':
-        where.append('s.remote = 1')
-    order = {'newest': 's.created_at DESC', 'price_asc': 's.price_from ASC', 'price_desc': 's.price_from DESC'}.get(sort, 's.created_at DESC')
-    sql = f'''SELECT s.*, u.username, u.display_name, u.avatar,
-               (SELECT COUNT(*) FROM skill_likes sl WHERE sl.skill_id = s.id) AS likes,
-               {'(SELECT 1 FROM skill_likes sl WHERE sl.skill_id=s.id AND sl.user_id=?) AS liked' if user_id else '0 AS liked'}
-              FROM skill_listings s JOIN users u ON s.user_id = u.id
-              WHERE {' AND '.join(where)} ORDER BY {order}'''
-    rows = conn.execute(sql, ([user_id] + params) if user_id else params).fetchall()
-    conn.close()
-    def fmt(r):
-        return {
-            'id': r['id'], 'title': r['title'], 'description': r['description'],
-            'category': r['category'], 'subcategory': r['subcategory'],
-            'price_from': r['price_from'], 'price_to': r['price_to'], 'currency': r['currency'],
-            'delivery_days': r['delivery_days'], 'city': r['city'], 'remote': bool(r['remote']),
-            'likes': r['likes'], 'liked': bool(r['liked']),
-            'username': r['username'], 'display_name': r['display_name'],
-            'avatar': photo_url(r['avatar']), 'created_at': r['created_at'],
-        }
-    return jsonify([fmt(r) for r in rows])
-
-
-@app.route('/api/skills/categories')
-def get_skill_categories():
-    return jsonify(SKILL_CATEGORIES)
-
-
-@app.route('/api/skills', methods=['POST'])
-def create_skill():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    d = request.get_json()
-    if not d or not d.get('title') or not d.get('category'):
-        return jsonify({'error': 'Title and category are required'}), 400
-    conn = get_db()
-    conn.execute(
-        'INSERT INTO skill_listings (user_id,title,description,category,subcategory,price_from,price_to,currency,delivery_days,city,remote) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-        (session['user_id'], d['title'].strip(), d.get('description','').strip(),
-         d['category'], d.get('subcategory',''),
-         int(d.get('price_from') or 0), int(d.get('price_to') or 0),
-         d.get('currency','CZK'), int(d.get('delivery_days') or 7),
-         d.get('city','').strip(), 1 if d.get('remote', True) else 0)
-    )
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/skills/<int:sid>', methods=['DELETE'])
-def delete_skill(sid):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    row = conn.execute('SELECT user_id FROM skill_listings WHERE id=?', (sid,)).fetchone()
-    if not row or row['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Zakázáno'}), 403
-    conn.execute('DELETE FROM skill_listings WHERE id=?', (sid,))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/skills/<int:sid>/like', methods=['POST'])
-def like_skill(sid):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    existing = conn.execute('SELECT 1 FROM skill_likes WHERE user_id=? AND skill_id=?', (session['user_id'], sid)).fetchone()
-    if existing:
-        conn.execute('DELETE FROM skill_likes WHERE user_id=? AND skill_id=?', (session['user_id'], sid))
-        liked = False
-    else:
-        conn.execute('INSERT INTO skill_likes (user_id, skill_id) VALUES (?,?)', (session['user_id'], sid))
-        liked = True
-    conn.commit(); conn.close()
-    return jsonify({'liked': liked})
-
-
-@app.route('/library')
-def library_page():
-    return send_from_directory('public', 'library.html')
-
 # ── Analytics (PRO) ──────────────────────────────────────────────────────────
-
-@app.route('/analytics')
-def analytics_page():
-    return send_from_directory('public', 'analytics.html')
-
-@app.route('/api/analytics')
-def analytics():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    user = conn.execute('SELECT pro FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-    if not user or not user['pro']:
-        conn.close()
-        return jsonify({'error': 'Analytics is available to PRO users only'}), 403
-
-    uid = session['user_id']
-
-    # own track IDs
-    track_ids = [r['id'] for r in conn.execute('SELECT id FROM tracks WHERE user_id = ?', (uid,)).fetchall()]
-
-    # overview
-    overview = conn.execute('''
-        SELECT COUNT(*) as track_count,
-               COALESCE(SUM(play_count),0) as total_plays,
-               COALESCE(SUM(like_count),0) as total_likes
-        FROM tracks WHERE user_id = ?
-    ''', (uid,)).fetchone()
-    total_reposts = conn.execute(
-        'SELECT COUNT(*) FROM reposts WHERE track_id IN ({})'.format(','.join('?' * len(track_ids)) if track_ids else '0'),
-        track_ids
-    ).fetchone()[0] if track_ids else 0
-    total_followers = conn.execute('SELECT COUNT(*) FROM follows WHERE following_id = ?', (uid,)).fetchone()[0]
-
-    # plays per day (last 30 days)
-    plays_by_day = conn.execute('''
-        SELECT date(created_at) as day, COUNT(*) as cnt
-        FROM play_logs
-        WHERE track_id IN ({ph}) AND created_at >= date('now', '-30 days')
-        GROUP BY day ORDER BY day
-    '''.format(ph=','.join('?' * len(track_ids)) if track_ids else '0'),
-        track_ids
-    ).fetchall() if track_ids else []
-
-    # top cities
-    top_cities = conn.execute('''
-        SELECT city, COUNT(*) as cnt FROM play_logs
-        WHERE track_id IN ({ph}) AND city != ''
-        GROUP BY city ORDER BY cnt DESC LIMIT 10
-    '''.format(ph=','.join('?' * len(track_ids)) if track_ids else '0'),
-        track_ids
-    ).fetchall() if track_ids else []
-
-    # per-track stats
-    tracks = conn.execute('''
-        SELECT t.id, t.title, t.cover, t.play_count, t.like_count,
-               (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) as repost_count
-        FROM tracks t WHERE t.user_id = ? ORDER BY t.play_count DESC
-    ''', (uid,)).fetchall()
-
-    # recent fans (likes + reposts on own tracks, last 50)
-    recent_fans = []
-    if track_ids:
-        ph = ','.join('?' * len(track_ids))
-        likes_rows = conn.execute(f'''
-            SELECT u.username, u.display_name, u.avatar, t.title, l.created_at, 'like' as action
-            FROM likes l
-            JOIN users u ON l.user_id = u.id
-            JOIN tracks t ON l.track_id = t.id
-            WHERE l.track_id IN ({ph}) AND l.user_id != ?
-            ORDER BY l.created_at DESC LIMIT 25
-        ''', track_ids + [uid]).fetchall()
-        repost_rows = conn.execute(f'''
-            SELECT u.username, u.display_name, u.avatar, t.title, r.created_at, 'repost' as action
-            FROM reposts r
-            JOIN users u ON r.user_id = u.id
-            JOIN tracks t ON r.track_id = t.id
-            WHERE r.track_id IN ({ph}) AND r.user_id != ?
-            ORDER BY r.created_at DESC LIMIT 25
-        ''', track_ids + [uid]).fetchall()
-        combined = sorted(list(likes_rows) + list(repost_rows),
-                          key=lambda x: x['created_at'], reverse=True)[:30]
-        recent_fans = [{
-            'username':     r['username'],
-            'display_name': r['display_name'],
-            'avatar':       f'/uploads/{r["avatar"]}' if r['avatar'] else None,
-            'track_title':  r['title'],
-            'action':       r['action'],
-            'created_at':   time_ago(r['created_at']),
-        } for r in combined]
-
-    conn.close()
-    return jsonify({
-        'overview': {
-            'track_count':    overview['track_count'],
-            'total_plays':    overview['total_plays'],
-            'total_likes':    overview['total_likes'],
-            'total_reposts':  total_reposts,
-            'total_followers': total_followers,
-        },
-        'plays_by_day': [{'date': r['day'], 'count': r['cnt']} for r in plays_by_day],
-        'top_cities':   [{'city': r['city'], 'count': r['cnt']} for r in top_cities],
-        'tracks': [{
-            'id':           t['id'],
-            'title':        t['title'],
-            'cover':        t['cover'] or '',
-            'play_count':   t['play_count'],
-            'like_count':   t['like_count'],
-            'repost_count': t['repost_count'],
-        } for t in tracks],
-        'recent_fans': recent_fans,
-    })
 
 
 # ── PRO Subscription ─────────────────────────────────────────────────────────
-
-@app.route('/api/pro/checkout', methods=['POST'])
-def pro_checkout():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    if not STRIPE_PRO_PRICE_ID:
-        return jsonify({'error': 'PRO subscription is not configured'}), 500
-    conn = get_db()
-    user = conn.execute('SELECT email, stripe_customer_id, pro FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-    conn.close()
-    if user['pro']:
-        return jsonify({'error': 'You are already a PRO user'}), 400
-    customer_id = user['stripe_customer_id']
-    try:
-        if not customer_id:
-            cust = stripe.Customer.create(email=user['email'] or None,
-                                          metadata={'user_id': str(session['user_id'])})
-            customer_id = cust['id']
-            conn = get_db()
-            conn.execute('UPDATE users SET stripe_customer_id = ? WHERE id = ?', (customer_id, session['user_id']))
-            conn.commit(); conn.close()
-        checkout = stripe.checkout.Session.create(
-            customer=customer_id,
-            mode='subscription',
-            line_items=[{'price': STRIPE_PRO_PRICE_ID, 'quantity': 1}],
-            success_url=request.host_url + 'pro/success?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=request.host_url + 'pro',
-            metadata={'user_id': str(session['user_id'])},
-        )
-        return jsonify({'url': checkout.url})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/pro/portal', methods=['POST'])
-def pro_portal():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    user = conn.execute('SELECT stripe_customer_id FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-    conn.close()
-    if not user or not user['stripe_customer_id']:
-        return jsonify({'error': 'You have no active subscription'}), 400
-    try:
-        portal = stripe.billing_portal.Session.create(
-            customer=user['stripe_customer_id'],
-            return_url=request.host_url + 'pro',
-        )
-        return jsonify({'url': portal.url})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/pro/status')
-def pro_status():
-    if 'user_id' not in session:
-        return jsonify({'pro': False})
-    conn = get_db()
-    user = conn.execute('SELECT pro, pro_expires FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-    conn.close()
-    is_pro = bool(user['pro']) if user else False
-    if is_pro and user['pro_expires'] and user['pro_expires'] < datetime.utcnow().isoformat():
-        is_pro = False
-    return jsonify({'pro': is_pro})
-
-@app.route('/pro')
-@app.route('/pro/success')
-def pro_page():
-    return send_from_directory('public', 'pro.html')
 
 
 # ── Payments ─────────────────────────────────────────────────────────────────
@@ -2985,310 +3739,224 @@ def pro_page():
 def stripe_public_key():
     return jsonify({'key': STRIPE_PUBLIC_KEY})
 
-@app.route('/api/listings/<int:lid>/checkout', methods=['POST'])
-def listing_checkout(lid):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
+
+# ── InkLink: Stripe Connect Express ──────────────────────────────────────────
+#
+# Tatéři dělají Connect onboarding přes Express účet. Po dokončení Stripe
+# pošle account.updated webhook, kterým si zaktualizujeme charges_enabled
+# / payouts_enabled. Bez těchto flagů tatér nemůže přijímat rezervace.
+
+PLATFORM_COMMISSION_PCT = 8  # % z každé zálohy zůstává platformě
+
+
+def _stripe_required():
+    if not STRIPE_SECRET_KEY:
+        return jsonify({'error': 'Stripe není nakonfigurovaný (chybí STRIPE_SECRET_KEY).'}), 503
+    return None
+
+
+def _origin():
+    return request.headers.get('Origin') or request.host_url.rstrip('/')
+
+
+@app.route('/api/artist/connect/onboard', methods=['POST'])
+def connect_onboard():
+    err = require_login()
+    if err: return err
+    err = _stripe_required()
+    if err: return err
+
     conn = get_db()
-    listing = conn.execute('SELECT * FROM listings WHERE id = ? AND status = "active"', (lid,)).fetchone()
-    if not listing:
-        conn.close(); return jsonify({'error': 'Listing not found or already sold'}), 404
-    if listing['user_id'] == session['user_id']:
-        conn.close(); return jsonify({'error': "You can't buy your own listing"}), 400
-    amount_czk = listing['price']
-    fee_czk    = max(1, round(amount_czk * PLATFORM_FEE_LISTING))
-    currency   = listing['currency'].lower()
+    u = conn.execute('SELECT id, email, display_name, username, stripe_account_id FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
+
+    acct_id = u['stripe_account_id']
     try:
-        checkout = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[
-                {
-                    'price_data': {
-                        'currency': currency,
-                        'unit_amount': amount_czk * 100,
-                        'product_data': {'name': listing['title']},
-                    },
-                    'quantity': 1,
+        if not acct_id:
+            acct = stripe.Account.create(
+                type='express',
+                country='CZ',
+                email=u['email'] or None,
+                capabilities={
+                    'card_payments': {'requested': True},
+                    'transfers':     {'requested': True},
                 },
-                {
-                    'price_data': {
-                        'currency': currency,
-                        'unit_amount': fee_czk * 100,
-                        'product_data': {'name': f'Platform fee ({int(PLATFORM_FEE_LISTING*100)} %)'},
-                    },
-                    'quantity': 1,
+                business_type='individual',
+                business_profile={
+                    'name': u['display_name'] or u['username'],
+                    'product_description': 'Tetování — služby',
+                    'mcc': '7299',  # personal services
                 },
-            ],
-            mode='payment',
-            success_url=request.host_url + 'payment/success?session_id={CHECKOUT_SESSION_ID}&type=listing&id=' + str(lid),
-            cancel_url=request.host_url + '?bazar=1',
+                metadata={'inklink_user_id': str(u['id']), 'inklink_username': u['username']},
+            )
+            acct_id = acct.id
+            conn.execute('UPDATE users SET stripe_account_id=? WHERE id=?', (acct_id, u['id']))
+            conn.commit()
+
+        link = stripe.AccountLink.create(
+            account=acct_id,
+            refresh_url=f'{_origin()}/api/artist/connect/refresh',
+            return_url=f'{_origin()}/api/artist/connect/return',
+            type='account_onboarding',
         )
-    except stripe.error.AuthenticationError:
-        conn.close(); return jsonify({'error': 'Stripe key not configured — add STRIPE_SECRET_KEY to your environment'}), 500
-    order_code = str(uuid.uuid4())[:8].upper()
-    conn.execute(
-        'INSERT INTO orders (user_id, item_type, item_id, stripe_session_id, amount, platform_fee, currency, status, ticket_code) VALUES (?,?,?,?,?,?,?,?,?)',
-        (session['user_id'], 'listing', lid, checkout.id, amount_czk, fee_czk, listing['currency'], 'pending', order_code)
-    )
-    conn.commit(); conn.close()
-    return jsonify({'url': checkout.url})
-
-@app.route('/api/events/<int:event_id>/ticket-types', methods=['GET'])
-def get_ticket_types(event_id):
-    conn = get_db()
-    rows = conn.execute(
-        'SELECT * FROM ticket_types WHERE event_id = ? ORDER BY price ASC', (event_id,)
-    ).fetchall()
+    except stripe.error.StripeError as e:
+        conn.close()
+        return jsonify({'error': f'Stripe: {str(e)}'}), 400
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify({'url': link.url, 'account_id': acct_id})
 
-@app.route('/api/events/<int:event_id>/ticket-types', methods=['POST'])
-def create_ticket_type(event_id):
+
+@app.route('/api/artist/connect/refresh')
+def connect_refresh():
+    """Stripe redirectne sem, pokud AccountLink expiroval — vygeneruj nový a redirect zpět."""
     if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
+        return redirect('/login')
+    if not STRIPE_SECRET_KEY:
+        return redirect('/artist-setup?stripe=missing-key')
     conn = get_db()
-    ev = conn.execute('SELECT user_id FROM events WHERE id = ?', (event_id,)).fetchone()
-    if not ev or ev['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Forbidden'}), 403
-    data = request.get_json()
-    name     = (data.get('name') or '').strip()
-    price    = int(data.get('price') or 0)
-    capacity = int(data.get('capacity') or 0)
-    currency = (data.get('currency') or 'CZK').upper()
-    if not name or price < 0:
-        conn.close(); return jsonify({'error': 'Invalid data'}), 400
-    cur = conn.execute(
-        'INSERT INTO ticket_types (event_id, name, price, currency, capacity) VALUES (?,?,?,?,?)',
-        (event_id, name, price, currency, capacity)
-    )
-    conn.commit()
-    tt = conn.execute('SELECT * FROM ticket_types WHERE id = ?', (cur.lastrowid,)).fetchone()
+    u = conn.execute('SELECT stripe_account_id FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
     conn.close()
-    return jsonify(dict(tt)), 201
-
-@app.route('/api/ticket-types/<int:tt_id>', methods=['DELETE'])
-def delete_ticket_type(tt_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    tt = conn.execute('''
-        SELECT tt.*, e.user_id as owner FROM ticket_types tt
-        JOIN events e ON e.id = tt.event_id WHERE tt.id = ?
-    ''', (tt_id,)).fetchone()
-    if not tt or tt['owner'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Forbidden'}), 403
-    conn.execute('DELETE FROM ticket_types WHERE id = ?', (tt_id,))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True})
-
-@app.route('/api/ticket-types/<int:tt_id>/checkout', methods=['POST'])
-def ticket_checkout(tt_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    tt = conn.execute('''
-        SELECT tt.*, e.title as event_title, e.date as event_date, e.user_id as owner
-        FROM ticket_types tt JOIN events e ON e.id = tt.event_id WHERE tt.id = ?
-    ''', (tt_id,)).fetchone()
-    if not tt:
-        conn.close(); return jsonify({'error': 'Ticket not found'}), 404
-    if tt['owner'] == session['user_id']:
-        conn.close(); return jsonify({'error': "You can't buy a ticket to your own event"}), 400
-    if tt['capacity'] > 0 and tt['sold'] >= tt['capacity']:
-        conn.close(); return jsonify({'error': 'Tickets are sold out'}), 400
-    label    = f"{tt['event_title']} — {tt['name']} ({tt['event_date']})"
-    price    = tt['price']
-    fee_czk  = max(1, round(price * PLATFORM_FEE_TICKET))
-    currency = tt['currency'].lower()
+    if not u or not u['stripe_account_id']:
+        return redirect('/artist-setup?stripe=no-account')
     try:
-        checkout = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[
-                {
-                    'price_data': {
-                        'currency': currency,
-                        'unit_amount': price * 100,
-                        'product_data': {'name': label},
-                    },
-                    'quantity': 1,
-                },
-                {
-                    'price_data': {
-                        'currency': currency,
-                        'unit_amount': fee_czk * 100,
-                        'product_data': {'name': f'Poplatek za zpracování ({int(PLATFORM_FEE_TICKET*100)} %)'},
-                    },
-                    'quantity': 1,
-                },
-            ],
-            mode='payment',
-            success_url=request.host_url + 'payment/success?session_id={CHECKOUT_SESSION_ID}&type=ticket&id=' + str(tt_id),
-            cancel_url=request.host_url + 'events',
+        link = stripe.AccountLink.create(
+            account=u['stripe_account_id'],
+            refresh_url=f'{_origin()}/api/artist/connect/refresh',
+            return_url=f'{_origin()}/api/artist/connect/return',
+            type='account_onboarding',
         )
-    except stripe.error.AuthenticationError:
-        conn.close(); return jsonify({'error': 'Stripe klíč není nastaven — přidej STRIPE_SECRET_KEY do prostředí'}), 500
-    ticket_code = str(uuid.uuid4())[:12].upper()
-    conn.execute(
-        'INSERT INTO orders (user_id, item_type, item_id, stripe_session_id, amount, platform_fee, currency, status, ticket_code) VALUES (?,?,?,?,?,?,?,?,?)',
-        (session['user_id'], 'ticket', tt_id, checkout.id, price, fee_czk, tt['currency'], 'pending', ticket_code)
-    )
-    conn.commit(); conn.close()
-    return jsonify({'url': checkout.url})
+        return redirect(link.url)
+    except stripe.error.StripeError:
+        return redirect('/artist-setup?stripe=error')
+
+
+@app.route('/api/artist/connect/return')
+def connect_return():
+    """Stripe sem redirectne po dokončení onboardingu — sync stavu a redirect na setup."""
+    if 'user_id' not in session:
+        return redirect('/login')
+    _sync_connect_status(session['user_id'])
+    return redirect('/artist-setup?stripe=ok#payments')
+
+
+@app.route('/api/me/connect-status')
+def connect_status():
+    """On-demand sync stavu Connect účtu (užitečné v dev, kdy webhook nepřijde)."""
+    err = require_login()
+    if err: return err
+    info = _sync_connect_status(session['user_id'])
+    return jsonify(info)
+
+
+@app.route('/api/artist/connect/dashboard', methods=['POST'])
+def connect_dashboard():
+    """Vrátí jednorázový login link do Stripe Express dashboardu."""
+    err = require_login()
+    if err: return err
+    err = _stripe_required()
+    if err: return err
+    conn = get_db()
+    u = conn.execute('SELECT stripe_account_id FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
+    conn.close()
+    if not u or not u['stripe_account_id']:
+        return jsonify({'error': 'Stripe účet ještě nemáš.'}), 400
+    try:
+        link = stripe.Account.create_login_link(u['stripe_account_id'])
+    except stripe.error.StripeError as e:
+        return jsonify({'error': str(e)}), 400
+    return jsonify({'url': link.url})
+
+
+def _sync_connect_status(user_id: int) -> dict:
+    """Načte stav účtu ze Stripe a uloží do users."""
+    conn = get_db()
+    u = conn.execute('SELECT stripe_account_id FROM users WHERE id=?', (user_id,)).fetchone()
+    if not u or not u['stripe_account_id'] or not STRIPE_SECRET_KEY:
+        conn.close()
+        return {'connected': False}
+    try:
+        acct = stripe.Account.retrieve(u['stripe_account_id'])
+        charges  = 1 if acct.charges_enabled else 0
+        payouts  = 1 if acct.payouts_enabled else 0
+        details  = 1 if acct.details_submitted else 0
+        conn.execute('''UPDATE users SET stripe_charges_enabled=?, stripe_payouts_enabled=?,
+                                          stripe_details_submitted=?
+                        WHERE id=?''',
+                     (charges, payouts, details, user_id))
+        conn.commit()
+        conn.close()
+        return {
+            'connected': True,
+            'account_id': acct.id,
+            'charges_enabled': bool(charges),
+            'payouts_enabled': bool(payouts),
+            'details_submitted': bool(details),
+            'requirements': {
+                'currently_due':  list(getattr(acct.requirements, 'currently_due', []) or []),
+                'past_due':       list(getattr(acct.requirements, 'past_due', []) or []),
+                'eventually_due': list(getattr(acct.requirements, 'eventually_due', []) or []),
+            },
+        }
+    except stripe.error.StripeError as e:
+        conn.close()
+        return {'connected': True, 'error': str(e)}
 
 @app.route('/api/stripe/webhook', methods=['POST'])
 def stripe_webhook():
+    """Webhook handler — především account.updated z Connect účtů.
+    M3 přidá payment_intent.succeeded / charge.refunded pro bookings."""
     payload = request.get_data()
     sig = request.headers.get('Stripe-Signature', '')
     try:
-        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+        if STRIPE_WEBHOOK_SECRET:
+            event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+        else:
+            # dev fallback: parsuj bez podpisu (NIKDY v produkci)
+            import json as _json
+            event = _json.loads(payload.decode('utf-8'))
     except Exception:
         return '', 400
-    etype = event['type']
-    obj   = event['data']['object']
 
-    if etype == 'checkout.session.completed':
-        sid  = obj['id']
-        mode = obj.get('mode', '')
+    etype = event['type'] if isinstance(event, dict) else event.type
+    obj   = event['data']['object'] if isinstance(event, dict) else event.data.object
+
+    if etype == 'account.updated':
+        acct_id = obj['id'] if isinstance(obj, dict) else obj.id
+        charges = 1 if (obj.get('charges_enabled') if isinstance(obj, dict) else obj.charges_enabled) else 0
+        payouts = 1 if (obj.get('payouts_enabled') if isinstance(obj, dict) else obj.payouts_enabled) else 0
+        details = 1 if (obj.get('details_submitted') if isinstance(obj, dict) else obj.details_submitted) else 0
         conn = get_db()
-        if mode == 'subscription':
-            uid = obj.get('metadata', {}).get('user_id')
-            if uid:
-                conn.execute('UPDATE users SET pro = 1, pro_expires = NULL WHERE id = ?', (uid,))
-                conn.commit()
-        else:
-            order = conn.execute('SELECT * FROM orders WHERE stripe_session_id = ?', (sid,)).fetchone()
-            if order and order['status'] == 'pending':
-                conn.execute('UPDATE orders SET status = "paid" WHERE id = ?', (order['id'],))
-                if order['item_type'] == 'ticket':
-                    conn.execute('UPDATE ticket_types SET sold = sold + 1 WHERE id = ?', (order['item_id'],))
-                elif order['item_type'] == 'listing':
-                    conn.execute('UPDATE listings SET status = "sold" WHERE id = ?', (order['item_id'],))
-                conn.commit()
+        conn.execute('''UPDATE users SET stripe_charges_enabled=?, stripe_payouts_enabled=?,
+                                          stripe_details_submitted=?,
+                                          verified_artist_at = CASE WHEN ?=1 AND verified_artist_at IS NULL
+                                                                    THEN ? ELSE verified_artist_at END
+                        WHERE stripe_account_id=?''',
+                     (charges, payouts, details, charges, datetime.utcnow().isoformat(), acct_id))
+        conn.commit()
         conn.close()
 
-    elif etype in ('customer.subscription.updated', 'customer.subscription.created'):
-        status      = obj.get('status')
-        customer_id = obj.get('customer')
-        if customer_id:
-            conn = get_db()
-            is_pro = 1 if status in ('active', 'trialing') else 0
-            conn.execute('UPDATE users SET pro = ? WHERE stripe_customer_id = ?', (is_pro, customer_id))
-            conn.commit(); conn.close()
+    elif etype == 'account.application.deauthorized':
+        acct_id = obj['id'] if isinstance(obj, dict) else obj.id
+        conn = get_db()
+        conn.execute('''UPDATE users SET stripe_account_id=NULL, stripe_charges_enabled=0,
+                                          stripe_payouts_enabled=0, stripe_details_submitted=0
+                        WHERE stripe_account_id=?''', (acct_id,))
+        conn.commit()
+        conn.close()
 
-    elif etype == 'customer.subscription.deleted':
-        customer_id = obj.get('customer')
-        if customer_id:
-            conn = get_db()
-            conn.execute('UPDATE users SET pro = 0 WHERE stripe_customer_id = ?', (customer_id,))
-            conn.commit(); conn.close()
+    # M3 hooks (payment_intent.succeeded, charge.refunded) přijdou s booking flow.
 
     return '', 200
-
-@app.route('/api/my-orders')
-def my_orders():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    rows = conn.execute(
-        'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC', (session['user_id'],)
-    ).fetchall()
-    conn.close()
-    return jsonify([dict(r) for r in rows])
 
 @app.route('/payment/success')
 def payment_success():
     return send_from_directory('public', 'payment_success.html')
 
-@app.route('/api/orders/verify')
-def verify_order():
-    session_id = request.args.get('session_id')
-    if not session_id:
-        return jsonify({'error': 'Chybí session_id'}), 400
-    conn = get_db()
-    order = conn.execute('SELECT * FROM orders WHERE stripe_session_id = ?', (session_id,)).fetchone()
-    if order and order['status'] == 'pending':
-        try:
-            sess = stripe.checkout.Session.retrieve(session_id)
-            if sess.payment_status == 'paid':
-                conn.execute('UPDATE orders SET status = "paid" WHERE id = ?', (order['id'],))
-                if order['item_type'] == 'ticket':
-                    conn.execute('UPDATE ticket_types SET sold = sold + 1 WHERE id = ?', (order['item_id'],))
-                elif order['item_type'] == 'listing':
-                    conn.execute('UPDATE listings SET status = "sold" WHERE id = ?', (order['item_id'],))
-                conn.commit()
-                order = conn.execute('SELECT * FROM orders WHERE id = ?', (order['id'],)).fetchone()
-        except Exception:
-            pass
-    conn.close()
-    if not order:
-        return jsonify({'error': 'Order not found'}), 404
-    return jsonify(dict(order))
-
 
 # ── Tickets (QR) ──────────────────────────────────────────────────────────────
 
-@app.route('/ticket/<code>')
-def ticket_page(code):
-    return send_from_directory('public', 'ticket.html')
-
-@app.route('/scan')
-def scan_page():
-    return send_from_directory('public', 'scan.html')
-
-
-@app.route('/api/ticket/<code>')
-def get_ticket(code):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    order = conn.execute(
-        "SELECT o.*, u.display_name, u.username, u.emoji FROM orders o JOIN users u ON o.user_id=u.id WHERE o.ticket_code=?",
-        (code,)
-    ).fetchone()
-    if not order:
-        conn.close(); return jsonify({'error': 'Ticket not found'}), 404
-    # get event info
-    ev = conn.execute('SELECT * FROM events WHERE id=?', (order['item_id'],)).fetchone()
-    conn.close()
-    if not ev:
-        return jsonify({'error': 'Event not found'}), 404
-    return jsonify({
-        'code':         order['ticket_code'],
-        'status':       order['status'],
-        'holder':       order['display_name'],
-        'holder_user':  order['username'],
-        'holder_emoji': order['emoji'] or '',
-        'event_id':     ev['id'],
-        'event_title':  ev['title'],
-        'event_date':   ev['date'],
-        'event_time':   ev['time'],
-        'event_venue':  ev['venue'],
-        'event_city':   ev['city'],
-        'event_owner':  ev['user_id'],
-        'is_owner':     ev['user_id'] == session['user_id'],
-        'is_mine':      order['user_id'] == session['user_id'],
-        'amount':       order['amount'],
-        'created_at':   order['created_at'],
-    })
-
-@app.route('/api/ticket/<code>/use', methods=['POST'])
-def use_ticket(code):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
-    conn = get_db()
-    order = conn.execute("SELECT * FROM orders WHERE ticket_code=?", (code,)).fetchone()
-    if not order:
-        conn.close(); return jsonify({'error': 'Ticket not found'}), 404
-    ev = conn.execute('SELECT user_id FROM events WHERE id=?', (order['item_id'],)).fetchone()
-    if not ev or ev['user_id'] != session['user_id']:
-        conn.close(); return jsonify({'error': 'Nejsi organizátor této akce'}), 403
-    if order['status'] == 'used':
-        conn.close(); return jsonify({'error': 'Ticket already used', 'status': 'used'}), 409
-    if order['status'] not in ('valid', 'paid'):
-        conn.close(); return jsonify({'error': f'Invalid ticket (status: {order["status"]})'}), 400
-    conn.execute("UPDATE orders SET status='used' WHERE ticket_code=?", (code,))
-    conn.commit(); conn.close()
-    return jsonify({'ok': True, 'status': 'used'})
 
 @app.errorhandler(404)
 def not_found(e):

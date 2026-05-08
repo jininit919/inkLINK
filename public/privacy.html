@@ -66,18 +66,21 @@ ul li{margin-bottom:6px}
   <h2>2. Jaká data sbíráme</h2>
   <p>Při registraci a používání služby zpracováváme tyto osobní údaje:</p>
   <ul>
-    <li><strong>Registrační údaje:</strong> uživatelské jméno, e-mailová adresa, heslo (uloženo jako hash — nikdy v čitelné podobě)</li>
-    <li><strong>Profilové údaje:</strong> zobrazované jméno, město, žánrové preference, profilová fotka, bio — vše zadáváte dobrovolně</li>
-    <li><strong>Obsah:</strong> nahrané skladby, obrázky, texty příspěvků, komentáře, zprávy</li>
+    <li><strong>Registrační údaje:</strong> uživatelské jméno, e-mailová adresa, telefon (volitelně), heslo (uloženo jako hash — nikdy v čitelné podobě)</li>
+    <li><strong>Profilové údaje:</strong> zobrazované jméno, město, profilová fotka, bio. U tatérů navíc: studio, Instagram, styly tetování, hodinová sazba, default % zálohy</li>
+    <li><strong>Obsah:</strong> portfolio (skicy, fotky hotových prací s případnými popisky), zprávy s ostatními uživateli</li>
+    <li><strong>Rezervace a platby:</strong> zvolený termín, popis tetování (lokace, motiv), cena, výše zálohy, doplatek na místě, statusy (potvrzeno / dokončeno / zrušeno)</li>
+    <li><strong>Stripe Connect identifikátory (pouze tatéři):</strong> ID Stripe účtu, status verifikace KYC. Provozovatel nemá přístup k bankovním údajům — ty drží přímo Stripe.</li>
     <li><strong>Technická data:</strong> IP adresa (pro zabezpečení), typ prohlížeče, časy přihlášení</li>
-    <li><strong>Aktivita:</strong> přehrané tracky, lajky, sledování, uložené položky</li>
+    <li><strong>Geolokace (volitelně):</strong> pokud udělíte souhlas, používáme polohu pro filtr „v mém okolí". Polohu neukládáme jinak než nezbytně pro tento dotaz.</li>
   </ul>
 
   <h2>3. Proč data zpracováváme</h2>
   <ul>
-    <li><strong>Plnění smlouvy:</strong> provoz uživatelského účtu, nahrávání a sdílení hudby, komunikace mezi uživateli</li>
-    <li><strong>Oprávněný zájem:</strong> zabezpečení platformy, prevence podvodů, technická diagnostika</li>
-    <li><strong>Souhlas:</strong> marketingová komunikace — pouze pokud jste ji výslovně odsouhlasili</li>
+    <li><strong>Plnění smlouvy:</strong> registrace, propojování klientů s tatéry, zpracování rezervací a záloh, komunikace mezi uživateli, vystavování měsíčních PDF reportů pro tatéry</li>
+    <li><strong>Zákonná povinnost:</strong> evidence transakcí pro daňové a účetní účely, KYC tatéra v rámci Stripe Connect, AML pravidla</li>
+    <li><strong>Oprávněný zájem:</strong> zabezpečení platformy, prevence podvodů, technická diagnostika, vymáhání pravidel storna</li>
+    <li><strong>Souhlas:</strong> marketingová komunikace, push notifikace, geolokace — pouze pokud jste je výslovně odsouhlasili a kdykoliv můžete odvolat</li>
   </ul>
 
   <h2>4. Cookies</h2>
@@ -90,18 +93,23 @@ ul li{margin-bottom:6px}
   <p>Svůj souhlas s cookies můžete kdykoliv změnit v nastavení prohlížeče nebo kliknutím na odkaz v patičce stránky.</p>
 
   <h2>5. Komu data předáváme</h2>
-  <p>Vaše data <strong>neprodáváme</strong> třetím stranám. Předáváme je pouze:</p>
+  <p>Vaše data <strong>neprodáváme</strong> třetím stranám. Předáváme je pouze nezbytně:</p>
   <ul>
-    <li>Poskytovatelům hostingu a cloudové infrastruktury (pouze v rámci EHP)</li>
-    <li>Platebním zprostředkovatelům (pouze při zpracování transakce, pouze nezbytné údaje)</li>
-    <li>Orgánům veřejné moci — pouze na základě zákonné povinnosti</li>
+    <li><strong>Stripe (Stripe Payments Europe Ltd, Irsko)</strong> — zpracovává všechny platby a Connect onboarding tatérů. Stripe je samostatný správce dat ve smyslu GDPR a má vlastní zásady ochrany. Bez Stripe by Platforma nemohla fungovat.</li>
+    <li><strong>Resend (transakční e-maily)</strong> — odesílá ověřovací kódy, notifikace o rezervacích a měsíční reporty. Předáváme jen jméno, e-mail a obsah zprávy.</li>
+    <li><strong>Cloudflare R2</strong> — úložiště pro nahrané obrázky portfolia (region EU).</li>
+    <li><strong>Hosting (EU region)</strong> — provoz aplikačního serveru a databáze.</li>
+    <li><strong>Druhý účastník rezervace</strong> — když si klient zarezervuje termín, tatér uvidí jeho jméno, e-mail, telefon (pokud je vyplněn) a popis tetování. Naopak klient vidí veřejný profil tatéra.</li>
+    <li><strong>Orgány veřejné moci</strong> — pouze na základě zákonné povinnosti (finanční úřad, soudy, policie).</li>
   </ul>
 
   <h2>6. Jak dlouho data uchováváme</h2>
   <ul>
-    <li>Uživatelský účet a jeho obsah: po dobu existence účtu + 30 dní od smazání</li>
+    <li>Uživatelský účet a profil: po dobu existence účtu + 30 dní od jeho smazání</li>
+    <li>Portfolio (obrázky): smazáno spolu s účtem, na žádost dříve</li>
+    <li>Záznamy o rezervacích a platbách: <strong>10 let</strong> (zákonná povinnost — zákon o účetnictví, daňový řád)</li>
     <li>Logy a technická data: max. 90 dní</li>
-    <li>Záznamy o transakcích: 10 let (zákonná povinnost)</li>
+    <li>Komunikace přes zprávy mezi uživateli: po dobu existence účtu obou stran</li>
   </ul>
 
   <h2>7. Vaše práva (GDPR)</h2>
@@ -120,9 +128,17 @@ ul li{margin-bottom:6px}
   <p>Máte také právo podat stížnost u dozorového úřadu — v České republice je to <a href="https://www.uoou.cz" target="_blank" rel="noopener">Úřad pro ochranu osobních údajů (ÚOOÚ)</a>.</p>
 
   <h2>8. Zabezpečení</h2>
-  <p>Hesla ukládáme jako kryptografický hash (bcrypt). Komunikace je šifrována pomocí HTTPS. Přístup k databázi mají pouze oprávnění provozovatelé.</p>
+  <p>Hesla ukládáme jako kryptografický hash (PBKDF2-SHA256). Komunikace je šifrována pomocí HTTPS. Session cookies jsou označené HttpOnly a SameSite=Lax. Platební údaje (čísla karet) <strong>nikdy</strong> neprocházejí naším serverem — předávají se přímo do Stripe.</p>
 
-  <h2>9. Kontakt pro záležitosti GDPR</h2>
+  <h2>9. Smazání účtu a dat</h2>
+  <p>Účet můžete smazat kdykoliv (zatím e-mailem na <a href="mailto:info@inklink.cz">info@inklink.cz</a>, brzy přibude tlačítko v nastavení). Po smazání:</p>
+  <ul>
+    <li>Profil, portfolio a osobní údaje se smažou do 30 dnů.</li>
+    <li>Aktivní rezervace se vyřeší dle pravidel storna (storna iniciuje druhá strana, refund proběhne automaticky).</li>
+    <li>Anonymizovaná data o transakcích zůstanou v účetnictví po dobu 10 let — bez vazby na vaši totožnost.</li>
+  </ul>
+
+  <h2>10. Kontakt pro záležitosti GDPR</h2>
   <div class="contact-box">
     <p>
       E-mail: <a href="mailto:gdpr@inklink.cz">gdpr@inklink.cz</a><br>
@@ -130,7 +146,7 @@ ul li{margin-bottom:6px}
     </p>
   </div>
 
-  <p class="updated">Tyto zásady byly naposledy aktualizovány dne 30. 4. 2026. Změny vám oznámíme e-mailem nebo upozorněním v aplikaci.</p>
+  <p class="updated">Tyto zásady byly naposledy aktualizovány dne 5. 5. 2026. Změny vám oznámíme e-mailem nebo upozorněním v aplikaci.</p>
 </main>
 <script src="/legal.js"></script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>

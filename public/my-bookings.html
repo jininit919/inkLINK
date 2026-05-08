@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moje rezervace — InkLink</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#333;--red2:#e8e8e8;--red3:#fff;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
+  --border:#1a1a1a;--border2:#222;
+  --ok:#7fd391;--warn:#e8c87f;--err:#e58787;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:12px}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);flex:1}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);font-size:14px}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+
+.wrap{max-width:880px;margin:0 auto;padding:84px 24px 80px}
+h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:24px}
+
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
+.tab.active{color:var(--red2);border-bottom-color:var(--red2)}
+.tab .count{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;color:var(--txt3);margin-left:6px}
+@media(max-width:560px){
+  .wrap{padding:74px 14px 80px !important}
+  h1{font-size:28px !important}
+}
+
+.empty{text-align:center;padding:80px 20px;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.6}
+.empty .b{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.18em;color:var(--red2);margin-bottom:12px}
+
+.list{display:flex;flex-direction:column;gap:10px}
+.b-row{display:grid;grid-template-columns:140px 1fr auto;gap:14px;padding:16px;background:var(--bg2);border:1px solid var(--border)}
+@media(max-width:560px){.b-row{grid-template-columns:1fr}}
+.b-when{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em}
+.b-mid{display:flex;flex-direction:column;gap:5px;min-width:0}
+.b-who{display:flex;align-items:center;gap:8px;font-size:13px}
+.b-avatar{width:28px;height:28px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.b-avatar img{width:100%;height:100%;object-fit:cover}
+.b-note{font-size:12px;color:var(--txt2);line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.b-money{font-size:11px;color:var(--txt3);letter-spacing:0.04em}
+.b-money b{color:var(--txt);font-weight:400}
+.b-status{padding:3px 10px;border:1px solid var(--border2);font-size:10px;letter-spacing:0.12em;color:var(--txt3);align-self:flex-start;white-space:nowrap}
+.b-status.confirmed{color:var(--ok);border-color:rgba(127,211,145,0.3)}
+.b-status.pending_payment{color:var(--warn);border-color:rgba(232,200,127,0.3)}
+.b-status.completed{color:var(--txt2);border-color:var(--border2)}
+.b-status.cancelled_client,.b-status.cancelled_artist{color:var(--err);border-color:rgba(229,135,135,0.3)}
+.b-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;justify-content:center}
+@media(max-width:560px){.b-actions{align-items:flex-start;flex-direction:row;flex-wrap:wrap}}
+
+.btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
+.btn:hover{background:var(--red2);color:var(--bg)}
+.btn.danger{border-color:var(--err);color:var(--err)}
+.btn.danger:hover{background:var(--err);color:#fff}
+.btn.muted{border-color:var(--border2);color:var(--txt3)}
+.btn.muted:hover{border-color:var(--txt3);color:var(--txt2);background:transparent}
+
+.demo-banner{background:rgba(232,200,127,0.08);border:1px solid rgba(232,200,127,0.3);padding:10px 14px;color:#e8c87f;font-size:12px;letter-spacing:0.04em;margin-bottom:18px;line-height:1.5}
+
+#completeModal,#reviewModal,#respondModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#completeModal.show,#reviewModal.show,#respondModal.show{display:flex}
+.cm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
+.cm-card h3{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
+.cm-card p{color:var(--txt2);font-size:12px;line-height:1.5;margin-bottom:14px;letter-spacing:0.04em}
+.cm-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-bottom:6px;text-transform:uppercase;margin-top:14px}
+.cm-card label:first-of-type{margin-top:0}
+.cm-card input,.cm-card textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none}
+.cm-card textarea{min-height:90px;resize:vertical}
+.cm-card input:focus,.cm-card textarea:focus{border-color:var(--red2)}
+.cm-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+
+.star-pick{display:flex;gap:6px;font-size:32px;line-height:1;margin:6px 0 4px;cursor:pointer}
+.star-pick span{color:var(--txt3);transition:color 0.1s;user-select:none}
+.star-pick span.on{color:var(--warn)}
+.star-pick span:hover{color:var(--warn)}
+.star-static{display:inline-flex;gap:2px;font-size:14px;color:var(--warn);letter-spacing:0.02em;line-height:1}
+.star-static .empty{color:var(--border2)}
+
+.b-review{margin-top:8px;padding:10px 12px;background:var(--bg3);border-left:2px solid var(--warn);font-size:11px;color:var(--txt2);line-height:1.5;letter-spacing:0.03em;word-break:break-word}
+.b-review b{color:var(--txt);font-weight:400}
+.b-review .resp{margin-top:8px;padding-top:8px;border-top:1px solid var(--border2);color:var(--txt3)}
+.b-review .resp b{color:var(--txt2)}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <a class="nav-logo" href="/">INKLINK</a>
+  <a class="nav-icon" href="/" title="Zpět na feed">←</a>
+  <a class="nav-icon" id="profileLink" href="#" title="Můj profil">◉</a>
+  <div id="notifMount"></div>
+  <a class="nav-icon" href="/artist-setup" title="Nastavení tatéra">⚙</a>
+</nav>
+<script src="/notifs.js"></script>
+<script src="/mobile-nav.js"></script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
+
+<div class="wrap">
+  <h1>MOJE REZERVACE</h1>
+
+  <div id="loginNeeded" style="display:none">
+    <div class="empty">
+      <div class="b">PŘIHLAS SE</div>
+      Pro zobrazení rezervací se musíš přihlásit.<br><br>
+      <a class="btn" href="/login">Přihlásit / registrovat</a>
+    </div>
+  </div>
+
+  <div id="content" style="display:none">
+    <div class="tabs">
+      <div class="tab active" data-tab="client">Jako klient<span class="count" id="cntClient"></span></div>
+      <div class="tab" data-tab="artist">Jako tatér<span class="count" id="cntArtist"></span></div>
+    </div>
+
+    <div id="tab-client">
+      <div class="list" id="clientList"></div>
+      <div class="empty" id="clientEmpty" style="display:none">
+        <div class="b">ZATÍM ŽÁDNÁ REZERVACE</div>
+        Najdi si tatéra ve <a href="/" style="color:var(--red2);text-decoration:underline">feedu</a> a klikni na volný termín.
+      </div>
+    </div>
+
+    <div id="tab-artist" style="display:none">
+      <div class="list" id="artistList"></div>
+      <div class="empty" id="artistEmpty" style="display:none">
+        <div class="b">ŽÁDNÉ REZERVACE</div>
+        Klienti se zatím nikam nezarezervovali.<br>
+        Přidej termíny v <a href="/artist-setup" style="color:var(--red2);text-decoration:underline">nastavení tatéra</a>, ať tě můžou najít.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="reviewModal" onclick="if(event.target===this)closeReview()">
+  <div class="cm-card">
+    <h3>HODNOTÍŠ TETOVÁNÍ</h3>
+    <p id="rmHint">Tvé hodnocení uvidí ostatní klienti na profilu tatéra. Můžeš ho kdykoliv upravit.</p>
+    <label>Hvězdy *</label>
+    <div class="star-pick" id="rmStars" data-rating="0">
+      <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
+      <span data-v="4">★</span><span data-v="5">★</span>
+    </div>
+    <label>Komentář (volitelně)</label>
+    <textarea id="rmText" maxlength="1000" placeholder="Jak proběhlo sezení? Komunikace, hygiena, výsledek..."></textarea>
+    <div id="rmFlash" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn danger" id="rmDelete" onclick="deleteReview()" style="margin-right:auto;display:none">Smazat hodnocení</button>
+      <button class="btn muted" onclick="closeReview()">Zrušit</button>
+      <button class="btn" onclick="submitReview()">Uložit</button>
+    </div>
+  </div>
+</div>
+
+<div id="respondModal" onclick="if(event.target===this)closeRespond()">
+  <div class="cm-card">
+    <h3>ODPOVĚDĚT NA RECENZI</h3>
+    <p>Tvá odpověď se zobrazí pod recenzí klienta na tvém profilu.</p>
+    <div id="respClientReview" style="margin-bottom:12px"></div>
+    <label>Tvá odpověď</label>
+    <textarea id="respText" maxlength="500" placeholder="Díky za hodnocení, Bobe!"></textarea>
+    <div id="respFlash" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn muted" onclick="closeRespond()">Zrušit</button>
+      <button class="btn" onclick="submitResponse()">Odeslat odpověď</button>
+    </div>
+  </div>
+</div>
+
+<div id="editBookModal" onclick="if(event.target===this)closeEditBook()">
+  <div class="cm-card">
+    <h3 id="ebmTitle">UPRAVIT REZERVACI</h3>
+    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Změnit popis tetování. Termín a délku může měnit jen tatér.</p>
+    <div id="ebmTimeFields" style="display:none">
+      <label>Začátek</label>
+      <input type="datetime-local" id="ebmStart">
+      <label>Délka (hodiny)</label>
+      <select id="ebmSize">
+        <option value="">— ponechat ${'$'}{currentDuration} h —</option>
+      </select>
+    </div>
+    <label>Popis tetování</label>
+    <textarea id="ebmNote" maxlength="1000"></textarea>
+    <div id="ebmFlash" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn muted" onclick="closeEditBook()">Zrušit</button>
+      <button class="btn" onclick="submitEditBook()">Uložit změny</button>
+    </div>
+  </div>
+</div>
+
+<div id="completeModal" onclick="if(event.target===this)closeComplete()">
+  <div class="cm-card">
+    <h3>DOKONČIT REZERVACI</h3>
+    <p id="cmHint">Zadej, kolik klient zaplatil po odečtení zálohy. Můžeš rozdělit na hotovost / kartu na místě a doplatek přes InkLink (klient dostane mailem link na zaplacení kartou).</p>
+    <label>Doplatek na místě (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— hotově / karta mimo InkLink</span></label>
+    <input type="number" id="onsiteKc" min="0" placeholder="0">
+    <label style="margin-top:14px">Doplatek přes InkLink (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— pošleme klientovi link na platbu</span></label>
+    <input type="number" id="balanceKc" min="0" placeholder="0">
+    <div id="cmFlash" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn muted" onclick="closeComplete()">Zrušit</button>
+      <button class="btn" onclick="confirmComplete()">Označit jako dokončené</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let me = null, completingId = null, demoMode = false;
+
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
+function fmtKc(cents){return cents ? `${(cents/100).toLocaleString('cs-CZ')} Kč` : '—';}
+function statusLabel(s){return ({
+  pending_payment: 'ČEKÁ NA PLATBU',
+  confirmed:       'POTVRZENO',
+  completed:       'DOKONČENO',
+  cancelled_client:'ZRUŠENO KLIENTEM',
+  cancelled_artist:'ZRUŠENO TATÉREM',
+  no_show:         'NEDORAZIL',
+})[s] || (s||'').toUpperCase();}
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('tab-client').style.display = t.dataset.tab === 'client' ? 'block' : 'none';
+  document.getElementById('tab-artist').style.display = t.dataset.tab === 'artist' ? 'block' : 'none';
+}));
+
+async function init() {
+  me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  if (!me) {
+    document.getElementById('loginNeeded').style.display = 'block';
+    return;
+  }
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('profileLink').href = '/profile/' + me.username;
+  demoMode = !me.can_accept_bookings;
+  if (demoMode) {
+    const banner = document.createElement('div');
+    banner.className = 'demo-banner';
+    banner.textContent = '⚠ Demo režim — Stripe ještě nepropojen, rezervace jsou jen evidované, žádná skutečná záloha se neúčtuje.';
+    document.getElementById('content').insertBefore(banner, document.querySelector('.tabs'));
+  }
+  await Promise.all([loadClient(), loadArtist()]);
+}
+
+async function loadClient() {
+  const items = await fetch('/api/me/bookings/client').then(r => r.json()).catch(() => []);
+  document.getElementById('cntClient').textContent = items.length ? `(${items.length})` : '';
+  if (!items.length) { document.getElementById('clientEmpty').style.display='block'; return; }
+  document.getElementById('clientEmpty').style.display='none';
+  document.getElementById('clientList').innerHTML = items.map(b => renderRow(b, 'client')).join('');
+}
+
+async function loadArtist() {
+  const items = await fetch('/api/me/bookings/artist').then(r => r.json()).catch(() => []);
+  document.getElementById('cntArtist').textContent = items.length ? `(${items.length})` : '';
+  if (!items.length) { document.getElementById('artistEmpty').style.display='block'; return; }
+  document.getElementById('artistEmpty').style.display='none';
+  document.getElementById('artistList').innerHTML = items.map(b => renderRow(b, 'artist')).join('');
+}
+
+function renderRow(b, view) {
+  const other = view === 'client' ? b.artist : b.client;
+  const ava = other.avatar_url ? `<img src="${other.avatar_url}" alt="">`
+                                : escapeHtml((other.display_name || '?').slice(0,2).toUpperCase());
+  const profileLink = `/profile/${escapeHtml(other.username)}`;
+  // primárně používáme konkrétní booking_start_at, fallback na slot.start_at (legacy)
+  const startIso = b.booking_start_at || b.slot.start_at;
+  const start = new Date(startIso);
+  const hoursBefore = (start - new Date()) / 36e5;
+  const isPast = hoursBefore < 0;
+  const isCancellable = ['confirmed','pending_payment'].includes(b.status) && !isPast;
+  const isArtistView = view === 'artist';
+  const canComplete = isArtistView && ['confirmed','pending_payment'].includes(b.status);
+  // Editovatelnost: confirmed/pending, ne v minulosti. Klient může vždy popis,
+  // tatér i termín — backend permission to enforces.
+  const isEditable  = ['confirmed','pending_payment'].includes(b.status) && !isPast;
+
+  // refund tier display for cancellable
+  let refundHint = '';
+  if (isCancellable && view === 'client') {
+    const pct = hoursBefore >= 96 ? 100 : hoursBefore >= 48 ? 50 : 0;
+    refundHint = `<div class="b-money" style="margin-top:4px">Storno teď: refund ${pct}% (${pct === 100 ? 'zdarma' : pct === 50 ? '50% zpět' : 'záloha propadá'})</div>`;
+  }
+
+  let cancelInfo = '';
+  if (b.status === 'cancelled_client' || b.status === 'cancelled_artist') {
+    const pct = b.deposit_cents ? Math.round(b.refund_cents / b.deposit_cents * 100) : 0;
+    cancelInfo = `<div class="b-money">Zrušeno ${b.cancellation_actor === 'artist' ? 'tatérem' : 'klientem'} — refund ${pct}% (${fmtKc(b.refund_cents)})</div>`;
+  }
+
+  let onsiteInfo = '';
+  if (b.status === 'completed') {
+    const onsiteKc = b.onsite_amount_cents || 0;
+    const balKc    = b.balance_paid_cents || 0;
+    if (onsiteKc || balKc) {
+      const parts = [];
+      if (onsiteKc) parts.push(`na místě <b>${fmtKc(onsiteKc)}</b>`);
+      if (balKc)    parts.push(`přes InkLink <b>${fmtKc(balKc)}</b>`);
+      const totalKc = (b.deposit_cents || 0) + onsiteKc + balKc;
+      onsiteInfo = `<div class="b-money">Doplatek: ${parts.join(' · ')} · celkem <b>${fmtKc(totalKc)}</b></div>`;
+    }
+  }
+  // ── REVIEWS ──────────────────────────────────────────────────────────
+  // U completed bookingu: klient může napsat/upravit, tatér může odpovědět.
+  let reviewCta = '';
+  let reviewBlock = '';
+  if (b.status === 'completed') {
+    if (b.review) {
+      // ukázat existing review v řádku
+      reviewBlock = renderReviewBlock(b.review, view, b.id);
+      if (view === 'client') {
+        reviewCta = `<button class="btn muted" onclick="openReview(${b.id}, ${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Upravit ★</button>`;
+      } else if (view === 'artist' && !b.review.response) {
+        reviewCta = `<button class="btn" onclick="openRespond(${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Odpovědět</button>`;
+      }
+    } else if (view === 'client') {
+      reviewCta = `<button class="btn" onclick="openReview(${b.id}, null, 0, '')">★ Napsat hodnocení</button>`;
+    }
+  }
+
+  // platební režim badge
+  let modeBadge = '';
+  if (b.payment_mode === 'full') {
+    modeBadge = `<div class="b-money" style="color:#7fd391">✓ Zaplaceno celé předem (${fmtKc(b.deposit_cents)})</div>`;
+  } else if (b.balance_due_cents > 0 && b.balance_paid_cents < b.balance_due_cents && b.status === 'completed') {
+    const remaining = b.balance_due_cents - (b.balance_paid_cents || 0) - (b.onsite_amount_cents || 0);
+    if (remaining > 0) modeBadge = `<div class="b-money" style="color:#e8c87f">⚠ Zbývá doplatit ${fmtKc(remaining)}</div>`;
+  }
+
+  // Klient: pokud tatér vystavil balance přes platformu a ještě není zaplaceno → CTA
+  let payCta = '';
+  const charge = b.balance_charge_cents || 0;
+  const paid   = b.balance_paid_cents   || 0;
+  if (view === 'client' && b.balance_payment_intent_id) {
+    if (charge > paid) {
+      // čeká na zaplacení
+      const remaining = charge - paid;
+      payCta = `<a class="btn" href="/balance-pay/${b.id}" style="background:var(--red2);color:var(--bg);text-decoration:none">Zaplatit doplatek ${fmtKc(remaining)}</a>`;
+      modeBadge += `<div class="b-money" style="color:#e8c87f">⚠ Tatér ti vystavil doplatek ${fmtKc(remaining)} přes InkLink</div>`;
+    } else if (paid > 0) {
+      modeBadge += `<div class="b-money" style="color:#7fd391">✓ Doplatek přes InkLink zaplacen (${fmtKc(paid)})</div>`;
+    }
+  }
+
+  // duration badge
+  const durTxt = b.duration_hours
+    ? `${(+b.duration_hours).toFixed(1).replace(/\.0$/,'')} h${b.size_label ? ` · ${b.size_label}` : ''}`
+    : '';
+
+  return `
+    <div class="b-row">
+      <div class="b-when">${fmtDate(startIso)}${durTxt?`<div style="font-size:10px;color:var(--txt3);letter-spacing:0.1em;margin-top:3px">${escapeHtml(durTxt.toUpperCase())}</div>`:''}</div>
+      <div class="b-mid">
+        <a class="b-who" href="${profileLink}">
+          <span class="b-avatar">${ava}</span>
+          <span><b>${escapeHtml(other.display_name)}</b><span style="color:var(--txt3)"> · @${escapeHtml(other.username)}</span></span>
+        </a>
+        ${b.design_note ? `<div class="b-note">${escapeHtml(b.design_note)}</div>` : ''}
+        <div class="b-money">${b.payment_mode === 'full' ? 'Plná platba' : 'Záloha'} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · provize ${fmtKc(b.platform_fee_cents)}`:''}</div>
+        ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${reviewBlock}
+      </div>
+      <div class="b-actions">
+        <span class="b-status ${b.status}">${statusLabel(b.status)}</span>
+        ${payCta}
+        ${isEditable ? `<button class="btn muted" onclick='openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>Upravit</button>` : ''}
+        ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">Zrušit</button>` : ''}
+        ${canComplete ? `<button class="btn" onclick="openComplete(${b.id})">Označit dokončené</button>` : ''}
+        ${reviewCta}
+      </div>
+    </div>`;
+}
+
+async function cancelBooking(id) {
+  if (!confirm('Opravdu zrušit rezervaci? Refund se spočítá podle pravidel storna.')) return;
+  const r = await fetch(`/api/bookings/${id}/cancel`, {method:'POST'});
+  if (r.ok) {
+    const j = await r.json();
+    alert(`Rezervace zrušena. ${j.hours_before > 0 ? `${Math.round(j.hours_before)} h před termínem` : 'po termínu'} → refund ${j.refund_pct}%.`);
+    await Promise.all([loadClient(), loadArtist()]);
+  } else {
+    const j = await r.json().catch(() => ({}));
+    alert(j.error || 'Zrušení selhalo');
+  }
+}
+
+function openComplete(id) {
+  completingId = id;
+  document.getElementById('onsiteKc').value = '';
+  document.getElementById('balanceKc').value = '';
+  document.getElementById('cmFlash').innerHTML = '';
+  // pre-fill: pokud booking má balance_due, předvyplň ho do balanceKc jako hint
+  const all = [...document.querySelectorAll('#artistList .b-row')];
+  // poznámka — pre-fill je nice-to-have; uživatel si to případně přepíše
+  document.getElementById('completeModal').classList.add('show');
+  setTimeout(() => document.getElementById('onsiteKc').focus(), 30);
+}
+function closeComplete() { document.getElementById('completeModal').classList.remove('show'); completingId = null; }
+
+// ── EDIT BOOKING ─────────────────────────────────────────────────────────
+let editingBookingId = null;
+let editingView = 'client';
+
+function openEditBook(booking, view) {
+  editingBookingId = booking.id;
+  editingView = view;
+  const isArtist = view === 'artist';
+  document.getElementById('ebmTitle').textContent = isArtist ? 'UPRAVIT REZERVACI' : 'UPRAVIT POPIS';
+  document.getElementById('ebmHint').innerHTML = isArtist
+    ? 'Můžeš přesunout termín v rámci svého bloku, změnit délku nebo upravit popis. Klient dostane notifikaci.'
+    : 'Klient může upravit jen <b>popis tetování</b>. Pokud potřebuješ přesunout termín, domluv se s tatérem (přes zprávy) — termín může změnit jen on.';
+  document.getElementById('ebmNote').value = booking.design_note || '';
+  document.getElementById('ebmFlash').innerHTML = '';
+
+  const tf = document.getElementById('ebmTimeFields');
+  if (isArtist) {
+    tf.style.display = 'block';
+    // start_at v naive local formátu (datetime-local input)
+    const start = booking.booking_start_at || booking.slot.start_at || '';
+    document.getElementById('ebmStart').value = start.slice(0, 16);
+    // duration select
+    const sizeSel = document.getElementById('ebmSize');
+    const cur = booking.duration_hours || 1;
+    sizeSel.innerHTML = `<option value="">— ponechat ${cur} h —</option>`
+      + [{key:'mini',h:1,l:'Mini (1 h)'},{key:'small',h:2,l:'Malé (2 h)'},
+         {key:'medium',h:3,l:'Středně (3 h)'},{key:'large',h:5,l:'Velké (5 h)'},
+         {key:'xl',h:8,l:'Celý den (8 h)'}]
+        .map(s => `<option value="${s.key}">${s.l}</option>`).join('');
+  } else {
+    tf.style.display = 'none';
+  }
+  document.getElementById('editBookModal').classList.add('show');
+}
+
+function closeEditBook() {
+  document.getElementById('editBookModal').classList.remove('show');
+  editingBookingId = null;
+}
+
+async function submitEditBook() {
+  if (!editingBookingId) return;
+  const isArtist = editingView === 'artist';
+  const body = { design_note: document.getElementById('ebmNote').value };
+  if (isArtist) {
+    const startVal = document.getElementById('ebmStart').value;
+    const sizeKey  = document.getElementById('ebmSize').value;
+    if (startVal) body.booking_start_at = startVal;
+    if (sizeKey)  body.size_label = sizeKey;
+  }
+  const r = await fetch(`/api/bookings/${editingBookingId}`, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (r.ok) {
+    closeEditBook();
+    // refresh oba taby
+    if (editingView === 'client') await loadClient();
+    else await loadArtist();
+  } else {
+    document.getElementById('ebmFlash').innerHTML =
+      `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${(await r.json()).error || 'Selhalo'}</div>`;
+  }
+}
+
+// ── REVIEWS ──────────────────────────────────────────────────────────────
+function starsHtml(rating) {
+  const r = Math.round(rating);
+  let s = '<span class="star-static">';
+  for (let i = 1; i <= 5; i++) {
+    s += `<span${i > r ? ' class="empty"' : ''}>★</span>`;
+  }
+  return s + '</span>';
+}
+
+function renderReviewBlock(review, view, bookingId) {
+  const date = review.created_at ? new Date(review.created_at).toLocaleDateString('cs-CZ', {day:'numeric',month:'short',year:'numeric'}) : '';
+  let html = `<div class="b-review">
+    <div>${starsHtml(review.rating)} <b>${review.rating}/5</b> <span style="color:var(--txt3);font-size:10px;letter-spacing:0.05em">${escapeHtml(date)}</span></div>`;
+  if (review.text) html += `<div style="margin-top:6px">${escapeHtml(review.text)}</div>`;
+  if (review.response) {
+    html += `<div class="resp"><b>Odpověď tatéra:</b> ${escapeHtml(review.response)}</div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+let reviewBookingId = null, reviewExistingId = null, reviewRating = 0;
+
+function openReview(bookingId, existingId, rating, text) {
+  reviewBookingId = bookingId;
+  reviewExistingId = existingId;
+  reviewRating = rating || 0;
+  document.getElementById('rmText').value = text || '';
+  setStarPick(reviewRating);
+  document.getElementById('rmFlash').innerHTML = '';
+  document.getElementById('rmDelete').style.display = existingId ? 'inline-block' : 'none';
+  document.getElementById('reviewModal').classList.add('show');
+}
+
+function setStarPick(r) {
+  reviewRating = r;
+  const el = document.getElementById('rmStars');
+  el.dataset.rating = r;
+  [...el.querySelectorAll('span')].forEach(s => {
+    s.classList.toggle('on', parseInt(s.dataset.v) <= r);
+  });
+}
+
+document.getElementById('rmStars').addEventListener('click', e => {
+  if (e.target.dataset && e.target.dataset.v) setStarPick(parseInt(e.target.dataset.v));
+});
+document.getElementById('rmStars').addEventListener('mouseover', e => {
+  if (e.target.dataset && e.target.dataset.v) {
+    const v = parseInt(e.target.dataset.v);
+    [...e.currentTarget.querySelectorAll('span')].forEach(s => {
+      s.classList.toggle('on', parseInt(s.dataset.v) <= v);
+    });
+  }
+});
+document.getElementById('rmStars').addEventListener('mouseleave', () => setStarPick(reviewRating));
+
+function closeReview() {
+  document.getElementById('reviewModal').classList.remove('show');
+  reviewBookingId = reviewExistingId = null; reviewRating = 0;
+}
+
+async function submitReview() {
+  if (reviewRating < 1) {
+    document.getElementById('rmFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Vyber 1–5 hvězd.</div>';
+    return;
+  }
+  const text = document.getElementById('rmText').value.trim();
+  const r = await fetch(`/api/bookings/${reviewBookingId}/review`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({rating: reviewRating, text}),
+  });
+  if (r.ok) { closeReview(); await loadClient(); }
+  else {
+    document.getElementById('rmFlash').innerHTML =
+      `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${(await r.json()).error || 'Selhalo'}</div>`;
+  }
+}
+
+async function deleteReview() {
+  if (!reviewExistingId) return;
+  if (!confirm('Smazat své hodnocení?')) return;
+  const r = await fetch(`/api/reviews/${reviewExistingId}`, {method:'DELETE'});
+  if (r.ok) { closeReview(); await loadClient(); }
+  else alert((await r.json()).error || 'Selhalo');
+}
+
+let respondReviewId = null;
+function openRespond(reviewId, rating, text) {
+  respondReviewId = reviewId;
+  document.getElementById('respText').value = '';
+  document.getElementById('respFlash').innerHTML = '';
+  document.getElementById('respClientReview').innerHTML =
+    `<div class="b-review" style="margin:0">${starsHtml(rating)} <b>${rating}/5</b>${text?'<div style="margin-top:6px">'+escapeHtml(text)+'</div>':''}</div>`;
+  document.getElementById('respondModal').classList.add('show');
+}
+function closeRespond() {
+  document.getElementById('respondModal').classList.remove('show');
+  respondReviewId = null;
+}
+async function submitResponse() {
+  const txt = document.getElementById('respText').value.trim();
+  if (!txt) {
+    document.getElementById('respFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Napiš odpověď.</div>';
+    return;
+  }
+  const r = await fetch(`/api/reviews/${respondReviewId}/respond`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({response: txt}),
+  });
+  if (r.ok) { closeRespond(); await loadArtist(); }
+  else {
+    document.getElementById('respFlash').innerHTML =
+      `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${(await r.json()).error || 'Selhalo'}</div>`;
+  }
+}
+
+async function confirmComplete() {
+  const onsite = parseInt(document.getElementById('onsiteKc').value || '0');
+  const balance = parseInt(document.getElementById('balanceKc').value || '0');
+  if (onsite < 0 || balance < 0) {
+    document.getElementById('cmFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Záporná částka nedává smysl.</div>';
+    return;
+  }
+  const r = await fetch(`/api/bookings/${completingId}/complete`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({onsite_kc: onsite, balance_kc: balance}),
+  });
+  if (!r.ok) {
+    document.getElementById('cmFlash').innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${(await r.json()).error || 'Selhalo'}</div>`;
+    return;
+  }
+  const j = await r.json();
+  if (j.balance_charge && j.balance_charge.error) {
+    document.getElementById('cmFlash').innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Doplatek přes InkLink selhal: ${j.balance_charge.error}</div>`;
+    return;
+  }
+  closeComplete();
+  await loadArtist();
+  if (j.balance_charge && j.balance_charge.demo_mode) {
+    alert('Hotovo. Doplatek přes InkLink se v demo módu (bez Stripe) označil rovnou jako zaplacený.');
+  } else if (j.balance_charge && j.balance_charge.payment_url) {
+    alert('Hotovo. Klientovi jsme poslali e-mail s linkem na zaplacení doplatku.');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

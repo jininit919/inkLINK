@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -11,10 +11,10 @@
 <meta name="apple-mobile-web-app-title" content="InkLink">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>InkLink — Sign in</title>
-<meta name="description" content="Sign in or create your account on InkLink — the global network for independent artists.">
+<title>InkLink — Přihlášení</title>
+<meta name="description" content="Přihlaš se nebo si založ účet na InkLinku — najdi tatéra, rezervuj termín, plať bezpečně.">
 <meta property="og:title" content="InkLink — Tattoo Booking Network">
-<meta property="og:description" content="A global network for independent artists. Share tracks, find collaborations, sell gear.">
+<meta property="og:description" content="Najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.">
 <meta property="og:image" content="https://inklink.app/icons/icon-512.png">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,8 +23,8 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
-  --red:#8b0000;--red2:#b20000;--red3:#cc0000;
-  --txt:#e8e8e8;--txt2:#888;--txt3:#444;
+  --red:#333;--red2:#e8e8e8;--red3:#fff;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
   --border:#1a1a1a;--border2:#222;
 }
 body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
@@ -56,8 +56,10 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
 .submit-btn:hover{background:var(--red3)}
 .submit-btn:disabled{opacity:0.5;cursor:not-allowed}
 
-.error-msg{font-size:11px;color:var(--red3);letter-spacing:0.04em;padding:10px 14px;background:rgba(139,0,0,0.1);border:1px solid rgba(139,0,0,0.3);display:none}
+.error-msg{font-size:11px;color:#e58787;letter-spacing:0.04em;padding:10px 14px;background:rgba(204,68,68,0.1);border:1px solid rgba(204,68,68,0.3);display:none}
 .error-msg.visible{display:block}
+.submit-btn{background:var(--red2);color:var(--bg)}
+.submit-btn:hover{background:var(--red3)}
 
 .hint{font-size:9px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-align:center;margin-top:8px}
 </style>
@@ -69,8 +71,8 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
 
 <div class="card">
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('login')">Sign in</button>
-    <button class="tab" onclick="switchTab('register')">Sign up</button>
+    <button class="tab active" onclick="switchTab('login')">Přihlásit se</button>
+    <button class="tab" onclick="switchTab('register')">Registrovat</button>
   </div>
 
   <!-- LOGIN -->
@@ -81,11 +83,11 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
       <input type="text" id="loginUsername" placeholder="username" autocomplete="username" required>
     </div>
     <div class="field">
-      <label>Password</label>
+      <label>Heslo</label>
       <input type="password" id="loginPassword" placeholder="••••••" autocomplete="current-password" required>
     </div>
-    <button class="submit-btn" type="submit" id="loginBtn">SIGN IN</button>
-    <div class="hint"><a href="/forgot-password" style="color:#555">Forgot your password?</a></div>
+    <button class="submit-btn" type="submit" id="loginBtn">PŘIHLÁSIT</button>
+    <div class="hint"><a href="/forgot-password" style="color:var(--txt3)">Zapomenuté heslo?</a></div>
   </form>
 
   <!-- REGISTER -->
@@ -93,40 +95,36 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
     <div class="error-msg" id="registerError"></div>
     <div class="field">
       <label>Username *</label>
-      <input type="text" id="regUsername" placeholder="letters and numbers only" autocomplete="username" required>
+      <input type="text" id="regUsername" placeholder="jen písmena a čísla" autocomplete="username" required>
     </div>
     <div class="field">
-      <label>Artist name / nickname *</label>
-      <input type="text" id="regDisplayName" placeholder="how the world will see you" required>
+      <label>Jméno *</label>
+      <input type="text" id="regDisplayName" placeholder="Jak tě uvidí ostatní" required>
     </div>
     <div class="field">
       <label>E-mail *</label>
-      <input type="email" id="regEmail" placeholder="you@email.com" autocomplete="email" required>
-    </div>
-    <div class="field">
-      <label>Phone (optional)</label>
-      <input type="tel" id="regPhone" placeholder="+1 xxx xxx xxxx" autocomplete="tel">
+      <input type="email" id="regEmail" placeholder="ty@email.cz" autocomplete="email" required>
     </div>
     <div class="field-row">
       <div class="field">
-        <label>City</label>
-        <input type="text" id="regCity" placeholder="New York, LA...">
+        <label>Telefon (volitelně)</label>
+        <input type="tel" id="regPhone" placeholder="+420 xxx xxx xxx" autocomplete="tel">
       </div>
       <div class="field">
-        <label>Genre(s)</label>
-        <input type="text" id="regGenres" placeholder="Hip-Hop, Techno...">
+        <label>Město (volitelně)</label>
+        <input type="text" id="regCity" placeholder="Praha, Brno…">
       </div>
     </div>
     <div class="field">
-      <label>Password * (min. 6 characters)</label>
+      <label>Heslo * (min. 6 znaků)</label>
       <input type="password" id="regPassword" placeholder="••••••" autocomplete="new-password" required>
     </div>
     <div class="field" style="flex-direction:row;align-items:flex-start;gap:10px">
       <input type="checkbox" id="regTerms" required style="width:auto;margin-top:2px;accent-color:var(--red2)">
-      <label for="regTerms" style="font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-transform:none;cursor:pointer">I agree to the <a href="/terms" style="color:#666" target="_blank">terms of use</a> and <a href="/privacy" style="color:#666" target="_blank">privacy policy</a></label>
+      <label for="regTerms" style="font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-transform:none;cursor:pointer">Souhlasím s <a href="/terms" style="color:var(--txt2)" target="_blank">podmínkami</a> a <a href="/privacy" style="color:var(--txt2)" target="_blank">ochranou údajů</a></label>
     </div>
-    <button class="submit-btn" type="submit" id="registerBtn">CREATE ACCOUNT</button>
-    <div class="hint">We'll send a verification code to your email to confirm your account.</div>
+    <button class="submit-btn" type="submit" id="registerBtn">VYTVOŘIT ÚČET</button>
+    <div class="hint" id="registerHint">Tatérem se staneš později v Nastavení tatéra (po loginu).</div>
   </form>
 </div>
 
@@ -166,9 +164,9 @@ async function doLogin(e) {
   if (data.ok) {
     window.location.href = '/';
   } else {
-    showError('loginError', data.error || 'Sign in failed');
+    showError('loginError', data.error || 'Přihlášení selhalo');
     btn.disabled = false;
-    btn.textContent = 'SIGN IN';
+    btn.textContent = 'PŘIHLÁSIT';
   }
 }
 
@@ -188,7 +186,6 @@ async function doRegister(e) {
       email:        document.getElementById('regEmail').value,
       phone:        document.getElementById('regPhone').value,
       city:         document.getElementById('regCity').value,
-      genres:       document.getElementById('regGenres').value,
       password:     document.getElementById('regPassword').value
     })
   });
@@ -197,9 +194,9 @@ async function doRegister(e) {
   if (data.ok) {
     window.location.href = data.verify ? '/verify' : '/';
   } else {
-    showError('registerError', data.error || 'Registration failed');
+    showError('registerError', data.error || 'Registrace selhala');
     btn.disabled = false;
-    btn.textContent = 'CREATE ACCOUNT';
+    btn.textContent = 'VYTVOŘIT ÚČET';
   }
 }
 </script>

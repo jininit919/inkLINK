@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -11,12 +11,12 @@
 <meta name="apple-mobile-web-app-title" content="InkLink">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Account Verification — InkLink</title>
+<title>Ověření účtu — InkLink</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#000;--bg2:#080808;--bg3:#101010;--red:#8b0000;--red2:#b20000;--red3:#cc0000;--txt:#e8e8e8;--txt2:#888;--txt3:#444;--border:#1a1a1a;--border2:#222}
+:root{--bg:#000;--bg2:#080808;--bg3:#101010;--red:#333;--red2:#e8e8e8;--red3:#fff;--txt:#e8e8e8;--txt2:#aaa;--txt3:#777;--border:#1a1a1a;--border2:#222}
 body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
 .brand{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.2em;color:var(--red2);margin-bottom:4px;text-align:center}
 .brand-sub{font-size:10px;color:var(--txt3);letter-spacing:0.15em;text-align:center;margin-bottom:40px}
@@ -26,10 +26,10 @@ h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;marg
 .code-inputs{display:flex;gap:8px;justify-content:center;margin-bottom:24px}
 .code-inputs input{width:48px;height:58px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:0.1em;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);outline:none;transition:border-color 0.2s}
 .code-inputs input:focus{border-color:var(--red2)}
-.submit-btn{width:100%;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.15em;padding:14px;background:var(--red2);color:white;border:none;cursor:pointer;transition:background 0.15s;margin-bottom:16px}
+.submit-btn{width:100%;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.15em;padding:14px;background:var(--red2);color:var(--bg);border:none;cursor:pointer;transition:background 0.15s;margin-bottom:16px}
 .submit-btn:hover{background:var(--red3)}
 .submit-btn:disabled{opacity:0.5;cursor:not-allowed}
-.error-msg{font-size:11px;color:var(--red3);letter-spacing:0.04em;padding:10px 14px;background:rgba(139,0,0,0.1);border:1px solid rgba(139,0,0,0.3);display:none;margin-bottom:16px}
+.error-msg{font-size:11px;color:#e58787;letter-spacing:0.04em;padding:10px 14px;background:rgba(204,68,68,0.1);border:1px solid rgba(204,68,68,0.3);display:none;margin-bottom:16px}
 .error-msg.visible{display:block}
 .resend{font-size:11px;color:var(--txt3);text-align:center;letter-spacing:0.04em}
 .resend button{background:none;border:none;color:var(--red2);cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.04em;text-decoration:underline}
@@ -46,8 +46,8 @@ h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;marg
 
 <div class="card">
   <div id="verifyForm">
-    <h2>Verify your account</h2>
-    <p class="sub" id="subText">We sent a 6-digit code to your email. Enter it below. The code is valid for 15 minutes.</p>
+    <h2>Ověř svůj účet</h2>
+    <p class="sub" id="subText">Poslali jsme ti na e-mail šestimístný kód. Vlož ho níže — platí 15 minut.</p>
     <div class="error-msg" id="errMsg"></div>
     <div class="code-inputs" id="codeInputs">
       <input type="text" maxlength="1" inputmode="numeric" id="c0" oninput="codeInput(0)" onkeydown="codeKey(event,0)">
@@ -57,18 +57,18 @@ h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;marg
       <input type="text" maxlength="1" inputmode="numeric" id="c4" oninput="codeInput(4)" onkeydown="codeKey(event,4)">
       <input type="text" maxlength="1" inputmode="numeric" id="c5" oninput="codeInput(5)" onkeydown="codeKey(event,5)">
     </div>
-    <button class="submit-btn" id="verifyBtn" onclick="doVerify()">VERIFY</button>
+    <button class="submit-btn" id="verifyBtn" onclick="doVerify()">OVĚŘIT</button>
     <div class="resend">
-      Didn't receive the code?
-      <button id="resendBtn" onclick="resend()">Resend</button>
+      Nedostal(a) jsi kód?
+      <button id="resendBtn" onclick="resend()">Poslat znovu</button>
       <span id="resendTimer"></span>
     </div>
   </div>
 
   <div class="success" id="successBox">
     <div class="check">✓</div>
-    <h2 style="margin-bottom:12px">Account verified</h2>
-    <p>Redirecting you to the main page…</p>
+    <h2 style="margin-bottom:12px">Účet ověřen</h2>
+    <p>Přesměrováváme tě na hlavní stránku…</p>
   </div>
 </div>
 
@@ -100,9 +100,9 @@ function showError(msg) {
 
 async function doVerify() {
   const code = getCode();
-  if (code.length < 6) { showError('Enter all 6 digits'); return; }
+  if (code.length < 6) { showError('Vlož všech 6 číslic'); return; }
   const btn = document.getElementById('verifyBtn');
-  btn.disabled = true; btn.textContent = 'VERIFYING…';
+  btn.disabled = true; btn.textContent = 'OVĚŘUJI…';
   document.getElementById('errMsg').classList.remove('visible');
 
   const res  = await fetch('/api/verify-email', {
@@ -114,11 +114,11 @@ async function doVerify() {
   if (data.ok) {
     document.getElementById('verifyForm').style.display = 'none';
     document.getElementById('successBox').style.display = 'block';
-    localStorage.setItem('hmo_new_user', '1');
+    localStorage.setItem('inklink_new_user', '1');
     setTimeout(() => window.location.href = '/', 1500);
   } else {
-    showError(data.error || 'Incorrect code');
-    btn.disabled = false; btn.textContent = 'VERIFY';
+    showError(data.error || 'Nesprávný kód');
+    btn.disabled = false; btn.textContent = 'OVĚŘIT';
   }
 }
 

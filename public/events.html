@@ -226,11 +226,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 <body>
 
 <nav>
-  <a class="nav-logo" href="/">INKLINK <span>Network</span></a>
+  <a class="nav-logo" href="/">INKLINK</a>
   <div class="nav-links">
     <a class="nav-link" href="/">Feed</a>
-    <a class="nav-link active" href="/events">Events</a>
-    <a class="nav-link" href="/upload">Upload</a>
+    <a class="nav-link active" href="/events">Eventy</a>
+    <a class="nav-link" href="/my-bookings">Rezervace</a>
+    <a class="nav-link" href="/artist-setup">Pro tatéry</a>
   </div>
   <div class="nav-icons">
     <button class="nav-icon" id="themeToggle" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:none;cursor:pointer;font-size:16px">☀</button>
@@ -258,7 +259,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
   <!-- FILTER PANEL -->
   <div class="filter-panel" id="filterPanel">
     <div class="filter-section">
-      <div class="filter-section-label">Genre</div>
+      <div class="filter-section-label">Typ akce</div>
       <div class="chips-wrap" id="genreChips"></div>
     </div>
     <div class="filter-section">
@@ -316,7 +317,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 
 <!-- ADD BUTTON -->
 <div class="add-bar">
-  <button class="add-btn" onclick="openAdd()">+ Add event</button>
+  <button class="add-btn" onclick="openAdd()">+ Přidat event</button>
 </div>
 
 <!-- ADD EVENT MODAL -->
@@ -353,35 +354,35 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
         </div>
       </div>
       <div class="mfield">
-        <label>Location on map</label>
+        <label>Místo na mapě</label>
         <div class="picker-map-wrap">
           <div id="pickerMap"></div>
-          <div class="picker-hint">Click the map to pin the exact location — or select a city above</div>
+          <div class="picker-hint">Klikni na mapu pro připnutí přesné polohy — nebo vyber město výš</div>
         </div>
         <input type="hidden" id="aLat">
         <input type="hidden" id="aLng">
       </div>
       <div class="mfield">
-        <label>Genre</label>
-        <input type="text" id="aGenre" placeholder="Techno, House, Punk...">
+        <label>Typ akce</label>
+        <input type="text" id="aGenre" placeholder="Konvence · Guest spot · Workshop · Otevřený den">
       </div>
       <div class="mfield">
         <label>Description</label>
-        <textarea id="aDesc" placeholder="Short event description..."></textarea>
+        <textarea id="aDesc" placeholder="Krátký popis eventu..."></textarea>
       </div>
       <div class="mfield">
         <label>Link (FB event, tickets...)</label>
         <input type="url" id="aLink" placeholder="https://...">
       </div>
       <div class="mfield">
-        <label>Photos / Poster <span style="color:var(--txt3)">(max 5)</span></label>
+        <label>Fotky / plakát <span style="color:var(--txt3)">(max 5)</span></label>
         <label class="photo-upload-area" id="photoUploadArea">
           <input type="file" id="aPhotos" accept="image/*" multiple onchange="previewPhotos(this)">
-          <span id="photoUploadHint">＋ Add photos</span>
+          <span id="photoUploadHint">＋ Přidat fotky</span>
         </label>
         <div class="photo-preview-strip" id="photoPreviewStrip"></div>
       </div>
-      <button class="msave" type="submit" id="aSave">ADD EVENT</button>
+      <button class="msave" type="submit" id="aSave">PŘIDAT EVENT</button>
     </form>
   </div>
 </div>
@@ -1038,9 +1039,9 @@ function renderPhotoPreviews() {
     strip.appendChild(div);
   });
   hint.textContent = selectedPhotos.length === 0
-    ? '＋ Add photos'
+    ? '＋ Přidat fotky'
     : selectedPhotos.length < 5
-      ? `＋ Add photos (${selectedPhotos.length}/5)`
+      ? `＋ Přidat fotky (${selectedPhotos.length}/5)`
       : '5/5 photos';
   document.getElementById('photoUploadArea').style.display =
     selectedPhotos.length >= 5 ? 'none' : 'block';
@@ -1129,6 +1130,9 @@ function esc(s) {
 init();
 </script>
 
+<script src="/notifs.js"></script>
+<script src="/mobile-nav.js"></script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
 </body>
 </html>

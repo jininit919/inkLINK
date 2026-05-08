@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nastavení tatéra — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#333;--red2:#e8e8e8;--red3:#fff;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
+  --border:#1a1a1a;--border2:#222;
+  --err:#cc4444;--ok:#4caf50;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:12px}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);flex:1}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);border-radius:2px;font-size:14px}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+
+.wrap{max-width:880px;margin:0 auto;padding:84px 24px 80px}
+h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
+.sub{color:var(--txt3);font-size:13px;letter-spacing:0.05em;margin-bottom:32px}
+
+.card{background:var(--bg2);border:1px solid var(--border);padding:24px;margin-bottom:24px}
+.card h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
+.card p.hint{color:var(--txt3);font-size:12px;letter-spacing:0.04em;margin-bottom:18px;line-height:1.5}
+
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-bottom:6px;text-transform:uppercase}
+.field input, .field textarea, .field select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none}
+.field input:focus, .field textarea:focus, .field select:focus{border-color:var(--red2)}
+.field textarea{resize:vertical;min-height:80px;font-family:'DM Mono',monospace}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.row{grid-template-columns:1fr}}
+
+.styles-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.style-pill{font-size:11px;padding:5px 12px;border:1px solid var(--border2);color:var(--txt2);letter-spacing:0.05em;cursor:pointer;user-select:none}
+.style-pill.on{border-color:var(--red2);color:var(--red2);background:var(--bg3)}
+
+.btn{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;padding:9px 18px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
+.btn:hover{background:var(--red2);color:var(--bg)}
+.btn.muted{border-color:var(--border2);color:var(--txt3)}
+.btn.muted:hover{background:transparent;color:var(--txt2);border-color:var(--txt3)}
+.btn.danger{border-color:var(--err);color:var(--err)}
+.btn.danger:hover{background:var(--err);color:#fff}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.full{width:100%}
+
+.flash{padding:10px 14px;margin-bottom:14px;font-size:12px;letter-spacing:0.04em}
+.flash.ok{background:rgba(76,175,80,0.1);color:#7fd391;border:1px solid rgba(76,175,80,0.3)}
+.flash.err{background:rgba(204,68,68,0.1);color:#e58787;border:1px solid rgba(204,68,68,0.3)}
+
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
+@media(max-width:560px){.gallery{grid-template-columns:repeat(2,1fr)}}
+.gtile{aspect-ratio:1;background:var(--bg3);position:relative;overflow:hidden;cursor:pointer}
+.gtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.25s}
+.gtile:hover img{transform:scale(1.04)}
+.gtile .del{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:2}
+.gtile .del:hover{background:var(--err)}
+.gtile .kindbadge{position:absolute;top:6px;left:6px;font-size:9px;letter-spacing:0.15em;padding:2px 6px;background:rgba(0,0,0,0.7);color:#fff}
+.gtile .edit-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.18em;opacity:0;transition:opacity 0.15s;pointer-events:none}
+.gtile:hover .edit-hint{opacity:1}
+
+#editPortModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#editPortModal.show{display:flex}
+.epm-card{max-width:460px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
+.epm-card h3{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:16px}
+.epm-card .preview{width:100%;aspect-ratio:1;background:var(--bg3);overflow:hidden;margin-bottom:14px;border:1px solid var(--border2)}
+.epm-card .preview img{width:100%;height:100%;object-fit:cover}
+.epm-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-top:14px;margin-bottom:6px;text-transform:uppercase}
+.epm-card label:first-of-type{margin-top:0}
+.epm-card input,.epm-card select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none}
+.epm-card input:focus,.epm-card select:focus{border-color:var(--red2)}
+.epm-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+
+.slot-list{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.slot-item{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);font-size:12px}
+.slot-item-date{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.06em;min-width:140px}
+.slot-item-price{flex:1;color:var(--txt2)}
+.slot-item-status{padding:2px 8px;border:1px solid var(--border2);font-size:10px;letter-spacing:0.1em;color:var(--txt3)}
+.slot-item-status.free{color:var(--ok);border-color:rgba(76,175,80,0.4)}
+.slot-item-status.booked{color:#e8c87f;border-color:rgba(232,200,127,0.4)}
+.slot-item-actions{display:flex;gap:6px}
+
+/* ── Calendar week view ─────────────────────────────────────────────── */
+.cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.cal-nav h3{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.12em;color:var(--txt);margin:0;flex:1;min-width:200px}
+.cal-nav button{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase}
+.cal-nav button:hover{border-color:var(--red2);color:var(--red2)}
+
+.cal-grid{display:grid;grid-template-columns:50px repeat(7,1fr);background:var(--bg2);border:1px solid var(--border);overflow-x:auto}
+.cal-head{display:contents}
+.cal-head .h-cell{padding:10px 6px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.12em;color:var(--txt3);background:var(--bg3);border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.cal-head .h-cell.today{color:var(--red2)}
+.cal-head .h-cell.today .num{background:var(--red2);color:var(--bg);border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.cal-head .h-cell .num{font-family:'DM Mono',monospace;font-size:13px;color:var(--txt);display:block;margin-top:2px}
+
+.cal-body{display:contents}
+.cal-hour{padding:0 6px;text-align:right;font-size:10px;color:var(--txt3);font-family:'DM Mono',monospace;letter-spacing:0.05em;border-right:1px solid var(--border);border-bottom:1px solid var(--border2);height:48px;display:flex;align-items:flex-start;justify-content:flex-end;padding-top:2px}
+.cal-day-col{position:relative;border-right:1px solid var(--border)}
+.cal-day-col:last-child{border-right:none}
+.cal-cell{height:48px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background 0.1s}
+.cal-cell:hover{background:rgba(232,232,232,0.04)}
+.cal-cell.is-today{background:rgba(232,232,232,0.02)}
+
+.cal-slot{position:absolute;left:2px;right:2px;background:var(--bg4);border-left:3px solid var(--red2);padding:5px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--txt);cursor:pointer;overflow:hidden;line-height:1.3;letter-spacing:0.02em;z-index:2}
+.cal-slot:hover{background:var(--bg3);border-left-color:#fff}
+.cal-slot .s-time{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:0.1em;color:var(--txt2)}
+.cal-slot .s-rate{color:var(--txt3);font-size:9px;letter-spacing:0.04em}
+
+.cal-booking{position:absolute;left:6px;right:2px;background:var(--red);border-left:3px solid #e8c87f;padding:3px 5px;font-size:9px;color:var(--txt);overflow:hidden;line-height:1.2;cursor:pointer;z-index:3;letter-spacing:0.02em}
+.cal-booking:hover{background:#222}
+.cal-booking.completed{border-left-color:var(--ok);background:rgba(127,211,145,0.1)}
+.cal-booking.full{border-left-color:#7fd391}
+.cal-booking .b-name{font-weight:400;color:var(--txt)}
+
+#slotDetailModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#slotDetailModal.show{display:flex}
+.sdm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
+.sdm-card h3{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
+.sdm-card .sdm-when{color:var(--txt2);font-size:13px;margin-bottom:14px;letter-spacing:0.05em}
+.sdm-card .sdm-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--txt3);letter-spacing:0.04em;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sdm-card .sdm-meta b{color:var(--txt);font-weight:400}
+.sdm-card h4{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.15em;color:var(--txt3);margin-bottom:8px}
+.sdm-bookings{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.sdm-booking{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-left:2px solid var(--red);font-size:11px;color:var(--txt2);letter-spacing:0.04em}
+.sdm-booking.completed{border-left-color:var(--ok)}
+.sdm-empty{padding:14px;background:var(--bg3);text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.04em}
+.sdm-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+
+@media(max-width:760px){
+  .cal-grid{grid-template-columns:36px repeat(7,minmax(80px,1fr));font-size:9px}
+  .cal-head .h-cell{padding:6px 2px;font-size:10px}
+  .cal-hour{font-size:9px;padding:0 3px;height:42px}
+  .cal-cell{height:42px}
+  .cal-slot{font-size:9px;padding:3px 4px}
+  .cal-slot .s-time{font-size:10px}
+  .cal-slot .s-rate{display:none}
+  .cal-booking{font-size:8px;padding:2px 3px}
+}
+
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
+.tab.active{color:var(--red2);border-bottom-color:var(--red2)}
+@media(max-width:560px){
+  .tab{font-size:14px;padding:10px 14px;letter-spacing:0.12em}
+  .wrap{padding:74px 14px 80px !important}
+  h1{font-size:28px !important}
+  .card{padding:18px !important}
+}
+
+.stripe-status{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border2);font-size:12px;color:var(--txt2);letter-spacing:0.04em}
+.stripe-status .dot{width:8px;height:8px;border-radius:50%;background:var(--err)}
+.stripe-status.ready .dot{background:var(--ok)}
+
+.cl-card{background:linear-gradient(135deg, rgba(232,200,127,0.08), rgba(232,200,127,0.02));border:1px solid rgba(232,200,127,0.3);padding:18px;margin-bottom:20px;position:relative}
+.cl-card.done{background:linear-gradient(135deg, rgba(127,211,145,0.06), rgba(127,211,145,0.02));border-color:rgba(127,211,145,0.3)}
+.cl-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.cl-head h3{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.12em;margin:0;flex:1}
+.cl-pct{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.04em;color:var(--warn)}
+.cl-card.done .cl-pct{color:var(--ok)}
+.cl-bar{height:4px;background:var(--bg3);margin-bottom:14px;overflow:hidden}
+.cl-bar-fill{height:100%;background:var(--warn);transition:width 0.3s ease}
+.cl-card.done .cl-bar-fill{background:var(--ok)}
+.cl-list{display:flex;flex-direction:column;gap:6px}
+.cl-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(0,0,0,0.25);font-size:12px;letter-spacing:0.03em;text-decoration:none;color:var(--txt);transition:background 0.1s}
+.cl-item:hover{background:rgba(0,0,0,0.4)}
+.cl-item.done{opacity:0.5;color:var(--txt3)}
+.cl-item.done:hover{background:rgba(0,0,0,0.25)}
+.cl-check{width:18px;height:18px;border:1px solid var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--txt3);flex-shrink:0}
+.cl-item.done .cl-check{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+.cl-item .arrow{margin-left:auto;color:var(--txt3);font-size:14px}
+.cl-item.done .arrow{display:none}
+.cl-dismiss{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--txt3);font-size:16px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.cl-dismiss:hover{color:var(--txt)}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <a class="nav-logo" href="/">INKLINK</a>
+  <a class="nav-icon" href="/" title="Zpět">←</a>
+  <a class="nav-icon" id="profileLink" href="#" title="Můj profil">◉</a>
+  <div id="notifMount"></div>
+</nav>
+<script src="/notifs.js"></script>
+<script src="/mobile-nav.js"></script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
+
+<div class="wrap">
+  <h1>NASTAVENÍ TATÉRA</h1>
+  <div class="sub">Veřejný profil, portfolio, kalendář volných termínů a platby.</div>
+
+  <div id="checklist" style="display:none"></div>
+  <div id="flash"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="profile">Profil</div>
+    <div class="tab" data-tab="portfolio">Portfolio</div>
+    <div class="tab" data-tab="slots">Kalendář</div>
+    <div class="tab" data-tab="payments">Platby</div>
+    <div class="tab" data-tab="reports">Reporty</div>
+  </div>
+
+  <!-- ── PROFILE TAB ── -->
+  <div id="tab-profile">
+    <div class="card">
+      <h2>VEŘEJNÝ PROFIL</h2>
+      <p class="hint">Tyto informace uvidí klienti na tvém profilu. Po uložení se automaticky staneš tatérem (artist).</p>
+      <form id="profileForm">
+        <div class="row">
+          <div class="field">
+            <label>Jméno (display)</label>
+            <input type="text" name="display_name" id="display_name" maxlength="60" required>
+          </div>
+          <div class="field">
+            <label>Studio</label>
+            <input type="text" name="studio" id="studio" maxlength="100" placeholder="Black Sails Tattoo">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Město</label>
+            <input type="text" name="city" id="city" maxlength="80" placeholder="Praha">
+          </div>
+          <div class="field">
+            <label>Instagram</label>
+            <input type="text" name="instagram" id="instagram" maxlength="50" placeholder="@your_handle">
+          </div>
+        </div>
+        <div class="field">
+          <label>Bio</label>
+          <textarea name="bio" id="bio" maxlength="500" placeholder="Co tě baví, jaké máš zkušenosti, co dělá tvůj styl unikátní…"></textarea>
+        </div>
+        <div class="field">
+          <label>Styly (vyber max 6)</label>
+          <div class="styles-grid" id="stylesGrid"></div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Hodinová sazba od (Kč/h)</label>
+            <input type="number" name="hourly_rate_min" id="hourly_rate_min" min="0" placeholder="1200">
+          </div>
+          <div class="field">
+            <label>Hodinová sazba do (Kč/h)</label>
+            <input type="number" name="hourly_rate_max" id="hourly_rate_max" min="0" placeholder="1800">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Default záloha (%)</label>
+            <input type="number" name="deposit_pct_default" id="deposit_pct_default" min="0" max="100" value="30">
+          </div>
+          <div class="field">
+            <label>Default platební režim</label>
+            <select name="default_payment_mode" id="default_payment_mode">
+              <option value="deposit">Záloha + doplatek na místě (klasika)</option>
+              <option value="full">Plná platba předem (žádný doplatek)</option>
+              <option value="client_choice">Nech volbu na klientovi</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Avatar (volitelné)</label>
+          <input type="file" name="avatar" id="avatar" accept="image/jpeg,image/png,image/webp">
+        </div>
+        <p class="hint" style="margin:0 0 14px;color:var(--txt3);font-size:11px">
+          Sazba a záloha se předvyplní v každém novém bloku dostupnosti. Platební režim se předvybere v rezervačním modalu klienta — pokud volíš <b>plnou platbu předem</b>, klient zaplatí celé přes InkLink a na místě už nic neřešíš.
+        </p>
+        <button class="btn" type="submit">Uložit profil</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>PUSH NOTIFIKACE</h2>
+      <p class="hint">Dostávej upozornění o nových rezervacích, doplatcích a recenzích — i když máš InkLink zavřený. Funguje v Chromu, Edge, Firefoxu (na iOS pouze v Safari z home-screen aplikace).</p>
+      <div class="stripe-status" id="pushStatus">
+        <div class="dot"></div>
+        <span id="pushStatusText">Načítám stav…</span>
+      </div>
+      <div id="pushActions" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+  </div>
+
+  <!-- ── PORTFOLIO TAB ── -->
+  <div id="tab-portfolio" style="display:none">
+    <div class="card">
+      <h2>PŘIDAT POLOŽKU</h2>
+      <p class="hint">Skicy a hotové práce. JPG / PNG / WEBP, do 10 MB. Klienti je uvidí na tvém profilu i ve feedu.</p>
+      <form id="portfolioForm">
+        <div class="row">
+          <div class="field">
+            <label>Obrázek</label>
+            <input type="file" name="image" id="pImage" accept="image/jpeg,image/png,image/webp" required>
+            <div id="pPreviewWrap" style="display:none;margin-top:10px;width:100%;max-width:200px;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border2);overflow:hidden;position:relative">
+              <img id="pPreview" alt="Náhled" style="width:100%;height:100%;object-fit:cover;display:block">
+              <button type="button" onclick="clearImagePreview()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:22px;height:22px;cursor:pointer;font-size:14px">×</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Typ</label>
+            <select name="kind" id="pKind">
+              <option value="done">Hotová práce</option>
+              <option value="sketch">Skica / návrh k tetování</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Popis / název návrhu</label>
+          <input type="text" name="caption" id="pCaption" maxlength="500" placeholder="Vlk na předloktí, realismus">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Cena (Kč) — volitelně</label>
+            <input type="number" name="price_kc" id="pPrice" min="0" placeholder="4500">
+          </div>
+          <div class="field">
+            <label>Odhad délky (h) — volitelně</label>
+            <input type="number" name="estimated_hours" id="pHours" min="0.5" max="24" step="0.5" placeholder="3">
+          </div>
+        </div>
+        <p class="hint" style="margin:0 0 8px;color:var(--txt3);font-size:11px">
+          Pokud vyplníš cenu + délku u skici, klient si může <b>rezervovat přímo tento návrh</b> za pevnou cenu — nepoužije se hodinová sazba bloku.
+        </p>
+        <div class="field">
+          <label>Styly (volitelně, max 4)</label>
+          <div class="styles-grid" id="pStylesGrid"></div>
+        </div>
+        <button class="btn" type="submit">Nahrát</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>MOJE PORTFOLIO <span id="pCount" style="color:var(--txt3);font-family:'DM Mono',monospace;font-size:13px"></span></h2>
+      <div class="gallery" id="gallery"></div>
+      <div id="galleryEmpty" style="text-align:center;padding:40px;color:var(--txt3);font-size:12px;display:none">Zatím nic. Přidej první kousek výš.</div>
+    </div>
+  </div>
+
+  <!-- ── SLOTS TAB ── -->
+  <div id="tab-slots" style="display:none">
+    <div class="card">
+      <h2>KALENDÁŘ TÝDNE</h2>
+      <p class="hint">Klik na prázdné místo otevře formulář s předvyplněným časem. Klik na blok ukáže detail a rezervace klientů.</p>
+      <div class="cal-nav">
+        <button id="calPrev" title="Předchozí týden">←</button>
+        <h3 id="calLabel">…</h3>
+        <button id="calToday">Dnes</button>
+        <button id="calNext" title="Další týden">→</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>PŘIDAT BLOK DOSTUPNOSTI</h2>
+      <p class="hint">
+        Tohle je <b>blok</b>, do kterého se klienti rezervují podle velikosti tetování. Zadej třeba celý den
+        (9:00–17:00, 8 h) a klienti si vyberou kolik hodin potřebují (Mini 1 h, Velké 5 h, Celý den 8 h…).
+        Sazba je <b>za hodinu</b>; cena rezervace = délka × sazba. Více klientů se může střídat ve stejném dni.
+      </p>
+      <form id="slotForm">
+        <div class="row">
+          <div class="field">
+            <label>Začátek bloku</label>
+            <input type="datetime-local" name="start_at" id="sStart" required>
+          </div>
+          <div class="field">
+            <label>Konec bloku</label>
+            <input type="datetime-local" name="end_at" id="sEnd" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Hodinová sazba od (Kč/h)</label>
+            <input type="number" name="price_min" id="sPriceMin" min="0" placeholder="1200">
+          </div>
+          <div class="field">
+            <label>Hodinová sazba do (Kč/h)</label>
+            <input type="number" name="price_max" id="sPriceMax" min="0" placeholder="1800">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Min. délka rezervace (h)</label>
+            <input type="number" name="min_duration_hours" id="sMinDur" min="1" max="12" value="1">
+          </div>
+          <div class="field">
+            <label>Záloha % (přepíše default)</label>
+            <input type="number" name="deposit_pct" id="sDeposit" min="0" max="100" placeholder="30">
+          </div>
+        </div>
+        <div class="field">
+          <label>Poznámka (volitelně)</label>
+          <input type="text" name="note" id="sNote" maxlength="200" placeholder="Realismus, konzultace předem">
+        </div>
+        <button class="btn" type="submit">Přidat blok</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>MOJE BLOKY</h2>
+      <div class="slot-list" id="slotList"></div>
+      <div id="slotsEmpty" style="text-align:center;padding:40px;color:var(--txt3);font-size:12px;display:none">Zatím nemáš žádné bloky dostupnosti.</div>
+    </div>
+  </div>
+
+  <!-- ── REPORTS TAB ── -->
+  <div id="tab-reports" style="display:none">
+    <div class="card">
+      <h2>MĚSÍČNÍ PŘEHLED</h2>
+      <p class="hint">
+        PDF report se všemi rezervacemi za vybraný měsíc — celkový obrat, zálohy, provize InkLinku,
+        propadlé zálohy z late storna, hotovost na místě, čistý příjem. Vhodné pro daňovou evidenci.
+      </p>
+      <form id="reportForm" onsubmit="downloadReport(event)">
+        <div class="row">
+          <div class="field">
+            <label>Měsíc</label>
+            <input type="month" id="reportMonth" required>
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn" type="submit">Stáhnout PDF</button>
+            <button class="btn muted" type="button" onclick="previewReport()">Náhled JSON</button>
+          </div>
+        </div>
+      </form>
+      <div id="reportPreview" style="margin-top:18px;display:none">
+        <pre id="reportJson" style="font-size:11px;background:var(--bg3);padding:14px;border:1px solid var(--border2);max-height:360px;overflow:auto;white-space:pre-wrap"></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h2>JAK TO FUNGUJE</h2>
+      <p class="hint" style="line-height:1.7">
+        • Záloha přes InkLink → automaticky se objeví v reportu.<br>
+        • <b>Po sezení</b> v Kalendáři klikni "Označit dokončené" a zadej, kolik klient zaplatil <b>na místě</b> v hotovosti / kartě → propíše se do reportu.<br>
+        • Refundy ze storna se zohlední podle pravidel (zdarma 96+ h · 50 % mezi 96–48 h · 0 % pod 48 h).<br>
+        • Provize InkLinku (8 %) se počítá z částky, co tatérovi zůstala po refundech.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── PAYMENTS TAB ── -->
+  <div id="tab-payments" style="display:none">
+    <div class="card">
+      <h2>STRIPE CONNECT</h2>
+      <p class="hint">Pro přijímání záloh dokončíš Stripe Connect onboarding (KYC + bankovní spojení). Peníze tečou přímo tobě, InkLink si automaticky bere 8% provizi.</p>
+      <div class="stripe-status" id="stripeStatus">
+        <div class="dot"></div>
+        <span id="stripeStatusText">Načítám stav…</span>
+      </div>
+      <div id="stripeRequirements" style="margin-top:14px;font-size:11px;color:var(--txt2);letter-spacing:0.04em;display:none">
+        <div style="color:var(--txt3);margin-bottom:6px;letter-spacing:0.1em">CHYBÍ DOPLNIT:</div>
+        <ul id="stripeReqList" style="padding-left:16px;line-height:1.7"></ul>
+      </div>
+      <div id="stripeActions" style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="slotDetailModal" onclick="if(event.target===this)closeSlotDetail()">
+  <div class="sdm-card">
+    <h3>BLOK DOSTUPNOSTI</h3>
+    <div class="sdm-when" id="sdmWhen"></div>
+    <div class="sdm-meta" id="sdmMeta"></div>
+    <h4>REZERVACE V TOMTO BLOKU</h4>
+    <div class="sdm-bookings" id="sdmBookings"></div>
+    <div class="sdm-actions">
+      <button class="btn muted" onclick="closeSlotDetail()">Zavřít</button>
+      <button class="btn" id="sdmEdit" onclick="sdmStartEdit()">Upravit</button>
+      <button class="btn danger" id="sdmDel" onclick="sdmDelete()">Smazat blok</button>
+    </div>
+  </div>
+</div>
+
+<div id="editSlotModal" onclick="if(event.target===this)closeEditSlot()">
+  <div class="sdm-card">
+    <h3>UPRAVIT BLOK</h3>
+    <p class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Cenu, zálohu, min. délku a poznámku můžeš měnit kdykoliv. Časy bloku jdou změnit jen když nejsou aktivní rezervace.</p>
+    <div class="row">
+      <div class="field"><label>Hodinová sazba od</label><input type="number" id="esPriceMin" min="0"></div>
+      <div class="field"><label>Hodinová sazba do</label><input type="number" id="esPriceMax" min="0"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Min. délka rezervace (h)</label><input type="number" id="esMinDur" min="1" max="24"></div>
+      <div class="field"><label>Záloha % (přepíše default)</label><input type="number" id="esDeposit" min="0" max="100"></div>
+    </div>
+    <div class="field"><label>Poznámka</label><input type="text" id="esNote" maxlength="200"></div>
+    <div class="row" id="esTimeRow" style="display:none">
+      <div class="field"><label>Začátek bloku</label><input type="datetime-local" id="esStart"></div>
+      <div class="field"><label>Konec bloku</label><input type="datetime-local" id="esEnd"></div>
+    </div>
+    <div id="esFlash" style="margin-top:10px"></div>
+    <div class="sdm-actions">
+      <button class="btn muted" onclick="closeEditSlot()">Zrušit</button>
+      <button class="btn" onclick="saveEditSlot()">Uložit změny</button>
+    </div>
+  </div>
+</div>
+
+<div id="editPortModal" onclick="if(event.target===this)closePortEdit()">
+  <div class="epm-card">
+    <h3>UPRAVIT POLOŽKU PORTFOLIA</h3>
+    <div class="preview"><img id="epm-img" src="" alt=""></div>
+    <label>Popis / název návrhu</label>
+    <input type="text" id="epm-caption" maxlength="500" placeholder="Vlk na předloktí">
+    <label>Typ</label>
+    <select id="epm-kind">
+      <option value="done">Hotová práce</option>
+      <option value="sketch">Skica / návrh k tetování</option>
+    </select>
+    <label>Cena (Kč) — volitelně</label>
+    <input type="number" id="epm-price" min="0" placeholder="ponechat prázdné = bez fixní ceny">
+    <label>Odhad délky (h) — volitelně</label>
+    <input type="number" id="epm-hours" min="0.5" max="24" step="0.5" placeholder="např. 3">
+    <div class="actions">
+      <button class="btn muted" onclick="closePortEdit()">Zrušit</button>
+      <button class="btn" onclick="savePortEdit()">Uložit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALLOWED_STYLES = []; let me = null;
+
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function flash(msg, kind='ok') {
+  const el = document.getElementById('flash');
+  el.innerHTML = `<div class="flash ${kind}">${escapeHtml(msg)}</div>`;
+  setTimeout(() => el.innerHTML = '', 4000);
+}
+function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  ['profile','portfolio','slots','payments','reports'].forEach(name => {
+    document.getElementById('tab-' + name).style.display = name === t.dataset.tab ? 'block' : 'none';
+  });
+}));
+
+// default reportu = aktuální měsíc
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  document.getElementById('reportMonth').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+});
+
+async function previewReport() {
+  const m = document.getElementById('reportMonth').value;
+  if (!m) { flash('Vyber měsíc', 'err'); return; }
+  const [y, mm] = m.split('-');
+  const r = await fetch(`/api/me/report/${y}/${mm}?format=json`);
+  if (!r.ok) { flash('Načtení selhalo', 'err'); return; }
+  const j = await r.json();
+  document.getElementById('reportPreview').style.display = 'block';
+  document.getElementById('reportJson').textContent = JSON.stringify(j, null, 2);
+}
+
+function downloadReport(e) {
+  e.preventDefault();
+  const m = document.getElementById('reportMonth').value;
+  if (!m) { flash('Vyber měsíc', 'err'); return; }
+  const [y, mm] = m.split('-');
+  // přímý download — server vrátí PDF s Content-Disposition: attachment
+  window.location.href = `/api/me/report/${y}/${mm}`;
+}
+
+async function init() {
+  me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  if (!me) {
+    document.querySelector('.wrap').innerHTML = `
+      <h1>NASTAVENÍ TATÉRA</h1>
+      <div class="sub">Pro úpravu profilu se musíš přihlásit.</div>
+      <div style="margin-top:24px;display:flex;gap:8px">
+        <a class="btn" href="/login">Přihlásit / registrovat</a>
+        <a class="btn muted" href="/">Zpět na feed</a>
+      </div>`;
+    return;
+  }
+  document.getElementById('profileLink').href = '/profile/' + me.username;
+
+  const styles = await fetch('/api/styles').then(r => r.json());
+  ALLOWED_STYLES.push(...styles);
+  renderStylesGrid('stylesGrid', (me.styles||'').split(',').map(s=>s.trim()).filter(Boolean), 6);
+  renderStylesGrid('pStylesGrid', [], 4);
+
+  document.getElementById('display_name').value = me.display_name || '';
+  document.getElementById('studio').value = me.studio || '';
+  document.getElementById('city').value = me.city || '';
+  document.getElementById('instagram').value = me.instagram || '';
+  document.getElementById('deposit_pct_default').value = me.deposit_pct_default ?? 30;
+  document.getElementById('hourly_rate_min').value = me.hourly_rate_min ?? '';
+  document.getElementById('hourly_rate_max').value = me.hourly_rate_max ?? '';
+  document.getElementById('default_payment_mode').value = me.default_payment_mode || 'deposit';
+
+  const profile = await fetch('/api/profile/' + me.username).then(r => r.json()).catch(() => null);
+  if (profile) document.getElementById('bio').value = profile.bio || '';
+
+  // pre-fill slot form z user defaults
+  if (me.hourly_rate_min) document.getElementById('sPriceMin').placeholder = me.hourly_rate_min;
+  if (me.hourly_rate_max) document.getElementById('sPriceMax').placeholder = me.hourly_rate_max;
+  if (me.deposit_pct_default) document.getElementById('sDeposit').placeholder = me.deposit_pct_default;
+  document.getElementById('sPriceMin').value = me.hourly_rate_min ?? '';
+  document.getElementById('sPriceMax').value = me.hourly_rate_max ?? '';
+
+  await loadPortfolio();
+  await loadSlots();
+  await loadStripeStatus();
+  await loadChecklist();
+  await loadPushStatus();
+
+  // ?stripe=ok přijde po returnu z Connect — flash + auto-tab
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('stripe') === 'ok') {
+    flash('Vrátil ses ze Stripe — kontroluju stav…');
+    history.replaceState(null, '', '/artist-setup#payments');
+    document.querySelector('.tab[data-tab="payments"]').click();
+  }
+
+  // hash routing: /artist-setup#portfolio nebo #slots / #payments / #profile
+  const hash = (location.hash || '').replace('#', '').toLowerCase();
+  const validTabs = {profile:1, portfolio:1, slots:1, payments:1, reports:1};
+  if (validTabs[hash]) {
+    const tabEl = document.querySelector(`.tab[data-tab="${hash}"]`);
+    if (tabEl) tabEl.click();
+    if (hash === 'portfolio') {
+      // pre-select kind=sketch a focus
+      const kindSel = document.getElementById('pKind');
+      if (kindSel) kindSel.value = 'sketch';
+      setTimeout(() => document.getElementById('pImage')?.focus(), 80);
+    }
+  }
+}
+
+// ── Push notifikace opt-in ─────────────────────────────────────────────────
+function urlBase64ToUint8Array(b64) {
+  const padding = '='.repeat((4 - b64.length % 4) % 4);
+  const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function loadPushStatus() {
+  const dot = document.getElementById('pushStatus');
+  const txt = document.getElementById('pushStatusText');
+  const act = document.getElementById('pushActions');
+  dot.classList.remove('ready');
+  act.innerHTML = '';
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    txt.textContent = 'Tvůj prohlížeč push notifikace nepodporuje.';
+    return;
+  }
+  if (!me.push_available) {
+    txt.textContent = 'Server zatím nemá nakonfigurovaný VAPID — push není dostupný.';
+    return;
+  }
+
+  let perm = Notification.permission;
+  let subscribed = false;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
+    const sub = await reg.pushManager.getSubscription();
+    subscribed = !!sub;
+  } catch { subscribed = false; }
+
+  if (perm === 'denied') {
+    txt.textContent = 'Notifikace zablokované v prohlížeči — povolte je v nastavení stránky.';
+    return;
+  }
+  if (subscribed) {
+    dot.classList.add('ready');
+    txt.textContent = 'Push notifikace zapnuté ✓';
+    act.innerHTML = `<button class="btn muted" onclick="disablePush()">Vypnout push</button>`;
+    return;
+  }
+  txt.textContent = 'Push notifikace nejsou zapnuté.';
+  act.innerHTML = `<button class="btn" onclick="enablePush()">Zapnout push</button>`;
+}
+
+async function enablePush() {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { flash('Bez povolení nelze zapnout', 'err'); await loadPushStatus(); return; }
+    const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
+    const keyResp = await fetch('/api/push/vapid-key').then(r => r.json());
+    if (!keyResp.key) { flash('Server nemá VAPID klíč', 'err'); return; }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(keyResp.key),
+    });
+    const r = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(sub),
+    });
+    if (r.ok) { flash('Push zapnut ✓'); await loadPushStatus(); }
+    else flash((await r.json()).error || 'Selhalo', 'err');
+  } catch (e) {
+    flash('Chyba: ' + e.message, 'err');
+  }
+}
+
+async function disablePush() {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch('/api/push/unsubscribe', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({endpoint: sub.endpoint}),
+      });
+      await sub.unsubscribe();
+    }
+    flash('Push vypnut');
+    await loadPushStatus();
+  } catch (e) { flash('Chyba: ' + e.message, 'err'); }
+}
+
+async function loadChecklist() {
+  const data = await fetch('/api/me/checklist').then(r => r.json()).catch(() => null);
+  if (!data) return;
+  // Pokud user dismissnul checklist v aktuální session a vše není hotové, respektuj to
+  if (sessionStorage.getItem('cl_dismissed') === '1' && !data.all_done) {
+    document.getElementById('checklist').style.display = 'none';
+    return;
+  }
+  // Pokud vše hotové, nezobrazuj — uživatel už je v plné kondici
+  if (data.all_done) {
+    document.getElementById('checklist').style.display = 'none';
+    return;
+  }
+
+  const root = document.getElementById('checklist');
+  root.style.display = 'block';
+  const doneCls = data.all_done ? 'done' : '';
+  const items = data.items.map(it => {
+    const tick = it.done ? '✓' : '';
+    const cnt  = it.count ? ` <span style="color:var(--txt3);font-size:10px">(${it.count})</span>` : '';
+    return `<a class="cl-item ${it.done?'done':''}" href="${it.href}">
+      <div class="cl-check">${tick}</div>
+      <span>${escapeHtml(it.label)}${cnt}</span>
+      <span class="arrow">→</span>
+    </a>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="cl-card ${doneCls}">
+      <button class="cl-dismiss" onclick="dismissChecklist()" title="Skrýt do dalšího načtení">×</button>
+      <div class="cl-head">
+        <h3>NASTAV SI PROFIL</h3>
+        <span style="font-size:11px;color:var(--txt3);letter-spacing:0.04em">${data.completed}/${data.total} hotovo</span>
+        <span class="cl-pct">${data.percent}%</span>
+      </div>
+      <div class="cl-bar"><div class="cl-bar-fill" style="width:${data.percent}%"></div></div>
+      <div class="cl-list">${items}</div>
+    </div>
+  `;
+}
+
+function dismissChecklist() {
+  sessionStorage.setItem('cl_dismissed', '1');
+  document.getElementById('checklist').style.display = 'none';
+}
+
+async function loadStripeStatus() {
+  const status = await fetch('/api/me/connect-status').then(r => r.json()).catch(() => ({connected:false}));
+  const dot = document.getElementById('stripeStatus');
+  const txt = document.getElementById('stripeStatusText');
+  const reqs = document.getElementById('stripeRequirements');
+  const reqList = document.getElementById('stripeReqList');
+  const actions = document.getElementById('stripeActions');
+
+  dot.classList.remove('ready');
+  reqs.style.display = 'none';
+  actions.innerHTML = '';
+
+  if (status.error) {
+    txt.textContent = 'Chyba ze Stripe: ' + status.error;
+    actions.innerHTML = `<button class="btn" onclick="startOnboard()">Zkusit znovu</button>`;
+    return;
+  }
+  if (!status.connected) {
+    txt.textContent = 'Stripe ještě nepropojen — bez něj nemůžeš přijímat rezervace.';
+    actions.innerHTML = `<button class="btn" onclick="startOnboard()">Připojit Stripe</button>`;
+    return;
+  }
+  if (status.charges_enabled && status.payouts_enabled) {
+    dot.classList.add('ready');
+    txt.textContent = 'Stripe propojen ✓ Můžeš přijímat rezervace a vyplácet si peníze.';
+    actions.innerHTML = `
+      <button class="btn" onclick="openDashboard()">Otevřít Stripe dashboard</button>
+      <button class="btn muted" onclick="loadStripeStatus()">Obnovit stav</button>`;
+    return;
+  }
+  // partially set up
+  txt.textContent = status.details_submitted
+    ? 'Stripe ověřuje údaje. Tlačítkem níž zkontroluj stav.'
+    : 'Onboarding nedokončen — pokračuj na Stripe.';
+  const due = [...new Set([...(status.requirements?.currently_due||[]), ...(status.requirements?.past_due||[])])];
+  if (due.length) {
+    reqs.style.display = 'block';
+    reqList.innerHTML = due.map(d => `<li>${escapeHtml(d.replace(/_/g,' '))}</li>`).join('');
+  }
+  actions.innerHTML = `
+    <button class="btn" onclick="startOnboard()">Pokračovat na Stripe</button>
+    <button class="btn muted" onclick="loadStripeStatus()">Obnovit stav</button>`;
+}
+
+async function startOnboard() {
+  const r = await fetch('/api/artist/connect/onboard', {method:'POST'});
+  if (!r.ok) { flash((await r.json()).error || 'Onboard selhal', 'err'); return; }
+  const { url } = await r.json();
+  if (url) location.href = url;
+}
+
+async function openDashboard() {
+  const r = await fetch('/api/artist/connect/dashboard', {method:'POST'});
+  if (!r.ok) { flash((await r.json()).error || 'Nelze otevřít dashboard', 'err'); return; }
+  const { url } = await r.json();
+  if (url) window.open(url, '_blank', 'noopener');
+}
+
+function renderStylesGrid(id, selected, max) {
+  const el = document.getElementById(id);
+  el.innerHTML = ALLOWED_STYLES.map(s =>
+    `<span class="style-pill ${selected.includes(s) ? 'on' : ''}" data-style="${escapeHtml(s)}" data-max="${max}">${escapeHtml(s)}</span>`
+  ).join('');
+  el.querySelectorAll('.style-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const on = pill.classList.contains('on');
+      if (!on) {
+        const cur = el.querySelectorAll('.style-pill.on').length;
+        if (cur >= max) { flash(`Vyber max ${max} stylů`, 'err'); return; }
+      }
+      pill.classList.toggle('on');
+    });
+  });
+}
+function readStyles(id){return Array.from(document.querySelectorAll('#'+id+' .style-pill.on')).map(p=>p.dataset.style).join(',');}
+
+document.getElementById('profileForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  fd.set('styles', readStyles('stylesGrid'));
+  const r = await fetch('/api/profile/update', {method:'POST', body: fd});
+  if (r.ok) {
+    flash('Profil uložen ✓');
+    me = await fetch('/api/me').then(r => r.json());
+  } else {
+    flash((await r.json()).error || 'Nepodařilo se uložit', 'err');
+  }
+});
+
+async function loadPortfolio() {
+  const items = await fetch('/api/me/portfolio').then(r => r.json()).catch(() => []);
+  document.getElementById('pCount').textContent = items.length ? `(${items.length})` : '';
+  const g = document.getElementById('gallery');
+  if (!items.length) { g.innerHTML=''; document.getElementById('galleryEmpty').style.display='block'; return; }
+  document.getElementById('galleryEmpty').style.display='none';
+  g.innerHTML = items.map(p => {
+    const priceTxt = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč` : '';
+    const hoursTxt = p.estimated_hours ? `${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '';
+    const meta = [priceTxt, hoursTxt].filter(Boolean).join(' · ');
+    return `
+    <div class="gtile" onclick="openPortEdit(${p.id})">
+      <div class="kindbadge">${p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ'}</div>
+      <button class="del" onclick="event.stopPropagation();delPortfolio(${p.id})" title="Smazat">×</button>
+      <img src="/uploads/${escapeHtml(p.image)}" alt="">
+      ${meta ? `<div style="position:absolute;bottom:0;left:0;right:0;padding:6px 8px;background:linear-gradient(transparent, rgba(0,0,0,0.85));font-size:10px;color:#fff;letter-spacing:0.05em">${escapeHtml(meta)}</div>` : ''}
+      <div class="edit-hint">UPRAVIT</div>
+    </div>`;
+  }).join('');
+  // cache items pro modal
+  window._portfolioItems = items;
+}
+
+let editingPortId = null;
+function openPortEdit(id) {
+  const p = (window._portfolioItems || []).find(x => x.id === id);
+  if (!p) return;
+  editingPortId = id;
+  document.getElementById('epm-img').src = '/uploads/' + p.image;
+  document.getElementById('epm-caption').value = p.caption || '';
+  document.getElementById('epm-kind').value = p.kind || 'done';
+  document.getElementById('epm-price').value = p.price_kc ?? '';
+  document.getElementById('epm-hours').value = p.estimated_hours ?? '';
+  document.getElementById('editPortModal').classList.add('show');
+}
+function closePortEdit() {
+  document.getElementById('editPortModal').classList.remove('show');
+  editingPortId = null;
+}
+async function savePortEdit() {
+  if (!editingPortId) return;
+  const body = {
+    caption: document.getElementById('epm-caption').value,
+    kind:    document.getElementById('epm-kind').value,
+    price_kc: document.getElementById('epm-price').value || null,
+    estimated_hours: document.getElementById('epm-hours').value || null,
+  };
+  const r = await fetch('/api/portfolio/' + editingPortId, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (r.ok) { closePortEdit(); flash('Uloženo ✓'); await loadPortfolio(); }
+  else { flash((await r.json()).error || 'Selhalo', 'err'); }
+}
+
+document.getElementById('pImage').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) { clearImagePreview(); return; }
+  if (f.size > 12 * 1024 * 1024) {
+    flash(`Soubor je velký (${(f.size/1024/1024).toFixed(1)} MB) — max 12 MB`, 'err');
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('pPreview').src = ev.target.result;
+    document.getElementById('pPreviewWrap').style.display = 'block';
+  };
+  reader.readAsDataURL(f);
+});
+function clearImagePreview() {
+  document.getElementById('pImage').value = '';
+  document.getElementById('pPreview').src = '';
+  document.getElementById('pPreviewWrap').style.display = 'none';
+}
+
+document.getElementById('portfolioForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  fd.set('styles', readStyles('pStylesGrid'));
+  const r = await fetch('/api/portfolio', {method:'POST', body: fd});
+  if (r.ok) {
+    flash('Položka přidána ✓');
+    e.target.reset();
+    clearImagePreview();
+    document.querySelectorAll('#pStylesGrid .style-pill.on').forEach(p=>p.classList.remove('on'));
+    await loadPortfolio();
+  } else {
+    flash((await r.json()).error || 'Upload selhal', 'err');
+  }
+});
+
+async function delPortfolio(id) {
+  if (!confirm('Smazat tuto položku?')) return;
+  const r = await fetch('/api/portfolio/' + id, {method:'DELETE'});
+  if (r.ok) { await loadPortfolio(); flash('Smazáno'); }
+  else flash('Nepodařilo se smazat', 'err');
+}
+
+async function loadSlots() {
+  const items = await fetch('/api/me/slots').then(r => r.json()).catch(() => []);
+  const list = document.getElementById('slotList');
+  if (!items.length) { list.innerHTML=''; document.getElementById('slotsEmpty').style.display='block'; return; }
+  document.getElementById('slotsEmpty').style.display='none';
+  list.innerHTML = items.map(s => {
+    const status = s.status || 'free';
+    const totalH = ((new Date(s.end_at) - new Date(s.start_at)) / 36e5).toFixed(1).replace(/\.0$/,'');
+    const unit = (s.price_unit || 'hour') === 'hour' ? 'Kč/h' : 'Kč';
+    const priceTxt = (s.price_min||s.price_max)
+      ? `${(s.price_min||0).toLocaleString('cs-CZ')}–${(s.price_max||0).toLocaleString('cs-CZ')} ${unit}`
+      : 'cena dle dohody';
+    return `
+      <div class="slot-item">
+        <div class="slot-item-date">${fmtDate(s.start_at)}<div style="font-size:10px;color:var(--txt3);letter-spacing:0.1em;margin-top:3px">${totalH} H BLOK</div></div>
+        <div class="slot-item-price">${priceTxt}${s.deposit_pct?` · záloha ${s.deposit_pct}%`:''}${s.note?` · ${escapeHtml(s.note)}`:''}</div>
+        <span class="slot-item-status ${status}">${status === 'booked' ? 'REZERVOVÁNO' : status === 'blocked' ? 'BLOKOVÁNO' : 'VOLNÝ'}</span>
+        <div class="slot-item-actions">
+          <button class="btn danger" style="padding:5px 10px;font-size:11px" onclick="delSlot(${s.id}, '${status}')">Smazat</button>
+        </div>
+      </div>`;
+  }).join('');
+  // load calendar week view too
+  loadCalendar();
+}
+
+// ── Calendar week view ────────────────────────────────────────────────────────
+const DAY_NAMES = ['PO','ÚT','ST','ČT','PÁ','SO','NE'];
+const CAL_HOUR_START = 8;
+const CAL_HOUR_END   = 22;     // exclusive — last row is 21:00-22:00
+let calWeekStart = null;       // pondělí 00:00 lokálního času
+let calData = null;
+
+function startOfWeek(d) {
+  const x = new Date(d);
+  x.setHours(0,0,0,0);
+  const dow = (x.getDay() + 6) % 7;  // 0 = pondělí
+  x.setDate(x.getDate() - dow);
+  return x;
+}
+function isoLocal(d) {
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+}
+function isoLocalDate(d) {
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function sameDay(a, b) {
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+
+async function loadCalendar() {
+  if (!calWeekStart) calWeekStart = startOfWeek(new Date());
+  const r = await fetch('/api/me/calendar?from=' + isoLocalDate(calWeekStart));
+  calData = r.ok ? await r.json() : { slots: [] };
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  if (!grid) return;
+  const today = new Date();
+  // label "12. – 18. 5. 2026"
+  const we = new Date(calWeekStart); we.setDate(we.getDate() + 6);
+  document.getElementById('calLabel').textContent =
+    `${calWeekStart.getDate()}. ${calWeekStart.getMonth()+1}. – ${we.getDate()}. ${we.getMonth()+1}. ${we.getFullYear()}`;
+
+  // header row
+  let html = '<div class="cal-head"><div class="h-cell"></div>';
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(calWeekStart); day.setDate(day.getDate() + d);
+    const isToday = sameDay(day, today);
+    html += `<div class="h-cell${isToday?' today':''}">${DAY_NAMES[d]}<span class="num">${day.getDate()}</span></div>`;
+  }
+  html += '</div>';
+
+  // body — pro každý den jeden sloupec, hodiny vlevo opakovaně
+  // Strategie: vykreslit sloupec hodin (slévá se s gridem), pak 7 day-cols jako relativní kontejnery s absolutními sloty
+  // Pro CSS grid jednoduchost: row per hour, 8 cols (1 hour + 7 days), cells jsou clickable
+  for (let h = CAL_HOUR_START; h < CAL_HOUR_END; h++) {
+    html += `<div class="cal-hour">${h}:00</div>`;
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(calWeekStart); day.setDate(day.getDate() + d);
+      const isToday = sameDay(day, today);
+      html += `<div class="cal-cell${isToday?' is-today':''}" data-day="${d}" data-hour="${h}"></div>`;
+    }
+  }
+  grid.innerHTML = html;
+
+  // bind click on empty cells → prefill form
+  grid.querySelectorAll('.cal-cell').forEach(cell => {
+    cell.addEventListener('click', e => {
+      const day = parseInt(cell.dataset.day);
+      const hour = parseInt(cell.dataset.hour);
+      const start = new Date(calWeekStart);
+      start.setDate(start.getDate() + day);
+      start.setHours(hour, 0, 0, 0);
+      const end = new Date(start); end.setHours(hour + 2);  // default 2h block
+      document.getElementById('sStart').value = isoLocal(start).slice(0,16);
+      document.getElementById('sEnd').value   = isoLocal(end).slice(0,16);
+      document.getElementById('sStart').scrollIntoView({behavior:'smooth', block:'center'});
+      flash(`Předvyplněno: ${start.toLocaleString('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}. Doplň cenu a uložte.`);
+    });
+  });
+
+  // pozicovat sloty + bookings absolutně přes day kolony
+  const slots = calData?.slots || [];
+  // protože používáme čistý CSS grid, slot block "překrýt" buňky musíme overlay-em.
+  // Nejjednodušší: vykreslit slot bloky jako absolute v rámci celého gridu, který je position:relative.
+  grid.style.position = 'relative';
+  const blocks = document.createElement('div');
+  blocks.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+
+  // získat geometry: po prvním render získáme rozměry buněk
+  requestAnimationFrame(() => {
+    const firstHour = grid.querySelector('.cal-cell[data-hour="' + CAL_HOUR_START + '"][data-day="0"]');
+    if (!firstHour) return;
+    const cellRect = firstHour.getBoundingClientRect();
+    const gridRect = grid.getBoundingClientRect();
+    const cellH = cellRect.height;
+    const cellW = cellRect.width;
+    const colLeft = cellRect.left - gridRect.left;
+    const topOffset = cellRect.top - gridRect.top;
+
+    let layered = '';
+    for (const s of slots) {
+      const startD = new Date(s.start_at);
+      const endD   = new Date(s.end_at);
+      // den index v týdnu
+      const diff = (startD - calWeekStart) / 86400000;
+      const day = Math.floor(diff);
+      if (day < 0 || day > 6) continue;
+      const startHour = startD.getHours() + startD.getMinutes()/60;
+      const endHour   = endD.getHours()   + endD.getMinutes()/60;
+      // pokud blok zasahuje do dalšího dne, zkrátíme na konec dne (zjednodušení MVP)
+      const visibleStart = Math.max(startHour, CAL_HOUR_START);
+      const visibleEnd   = Math.min(endHour, CAL_HOUR_END);
+      if (visibleEnd <= visibleStart) continue;
+
+      const top = topOffset + (visibleStart - CAL_HOUR_START) * cellH;
+      const height = (visibleEnd - visibleStart) * cellH - 2;
+      const left = colLeft + day * cellW + 1;
+      const width = cellW - 4;
+
+      const totalH = ((endD - startD)/36e5).toFixed(1).replace(/\.0$/,'');
+      const unit = (s.price_unit || 'hour') === 'hour' ? '/h' : '';
+      const rate = (s.price_min||s.price_max)
+        ? `${(s.price_min||0)}${(s.price_max&&s.price_max!==s.price_min)?'–'+s.price_max:''} Kč${unit}`
+        : 'dohodou';
+
+      layered += `<div class="cal-slot" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px;pointer-events:auto"
+                       data-slot-id="${s.id}">
+        <div class="s-time">${startD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–${endD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="s-rate">${rate} · ${totalH}h</div>
+      </div>`;
+
+      // bookings overlay uvnitř slot-block
+      for (const b of s.bookings) {
+        const bs = new Date(b.start_at), be = new Date(b.end_at);
+        const bsh = bs.getHours()+bs.getMinutes()/60;
+        const beh = be.getHours()+be.getMinutes()/60;
+        const bvs = Math.max(bsh, CAL_HOUR_START);
+        const bve = Math.min(beh, CAL_HOUR_END);
+        if (bve <= bvs) continue;
+        const btop = topOffset + (bvs - CAL_HOUR_START) * cellH;
+        const bheight = (bve - bvs) * cellH - 2;
+        const cls = b.status === 'completed' ? 'completed' : (b.payment_mode === 'full' ? 'full' : '');
+        const name = (b.client.display_name || b.client.username || '?').slice(0,12);
+        layered += `<div class="cal-booking ${cls}" style="left:${left+12}px;top:${btop}px;width:${width-12}px;height:${bheight}px;pointer-events:auto"
+                         data-slot-id="${s.id}">
+          <div class="b-name">${name}</div>
+          <div>${b.duration_h}h${b.size_label?' · '+b.size_label:''}</div>
+        </div>`;
+      }
+    }
+    blocks.innerHTML = layered;
+    grid.appendChild(blocks);
+    blocks.querySelectorAll('.cal-slot, .cal-booking').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        openSlotDetail(parseInt(el.dataset.slotId));
+      });
+    });
+  });
+}
+
+function openSlotDetail(slotId) {
+  const s = (calData?.slots || []).find(x => x.id === slotId);
+  if (!s) return;
+  const startD = new Date(s.start_at), endD = new Date(s.end_at);
+  document.getElementById('sdmWhen').textContent =
+    `${startD.toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'})} · `
+    + `${startD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–`
+    + `${endD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
+
+  const totalH = ((endD - startD)/36e5).toFixed(1).replace(/\.0$/,'');
+  const unit = (s.price_unit || 'hour') === 'hour' ? 'Kč/h' : 'Kč';
+  const rate = (s.price_min||s.price_max)
+    ? `${(s.price_min||0).toLocaleString('cs-CZ')}–${(s.price_max||0).toLocaleString('cs-CZ')} ${unit}`
+    : 'cena dohodou';
+  document.getElementById('sdmMeta').innerHTML =
+    `<span><b>${totalH} h</b> blok</span>`
+    + `<span><b>${escapeHtml(rate)}</b></span>`
+    + (s.deposit_pct ? `<span>záloha <b>${s.deposit_pct}%</b></span>` : '')
+    + (s.min_duration_hours > 1 ? `<span>min <b>${s.min_duration_hours} h</b></span>` : '')
+    + (s.note ? `<span style="width:100%;font-style:italic;color:var(--txt2);margin-top:6px">${escapeHtml(s.note)}</span>` : '');
+
+  const bx = document.getElementById('sdmBookings');
+  if (!s.bookings?.length) {
+    bx.innerHTML = '<div class="sdm-empty">Žádné rezervace v tomto bloku.</div>';
+    document.getElementById('sdmDel').disabled = false;
+  } else {
+    bx.innerHTML = s.bookings.map(b => {
+      const bs = new Date(b.start_at);
+      const cls = b.status === 'completed' ? 'completed' : '';
+      return `<div class="sdm-booking ${cls}">
+        <span style="min-width:90px;font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--txt)">${bs.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</span>
+        <span style="flex:1"><b style="color:var(--txt)">${escapeHtml(b.client.display_name||b.client.username||'?')}</b> · ${b.duration_h}h${b.size_label?' · '+escapeHtml(b.size_label):''}</span>
+        <span style="font-size:9px;letter-spacing:0.1em;padding:2px 6px;border:1px solid var(--border2);color:${b.status==='completed'?'#7fd391':'#e8c87f'}">${b.status.replace('_',' ').toUpperCase()}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('sdmDel').disabled = true;  // má aktivní rezervace
+    document.getElementById('sdmDel').title = 'Nelze smazat — blok má aktivní rezervaci';
+  }
+  document.getElementById('sdmDel').dataset.slotId = slotId;
+  document.getElementById('slotDetailModal').classList.add('show');
+}
+
+function closeSlotDetail() {
+  document.getElementById('slotDetailModal').classList.remove('show');
+}
+
+async function sdmDelete() {
+  const id = parseInt(document.getElementById('sdmDel').dataset.slotId);
+  if (!confirm('Smazat tento blok dostupnosti?')) return;
+  const r = await fetch('/api/slots/' + id, {method:'DELETE'});
+  if (r.ok) { closeSlotDetail(); flash('Blok smazán'); await loadSlots(); }
+  else flash((await r.json()).error || 'Selhalo', 'err');
+}
+
+let editingSlotId = null;
+function sdmStartEdit() {
+  const id = parseInt(document.getElementById('sdmDel').dataset.slotId);
+  const s = (calData?.slots || []).find(x => x.id === id);
+  if (!s) return;
+  editingSlotId = id;
+  document.getElementById('esPriceMin').value = s.price_min ?? '';
+  document.getElementById('esPriceMax').value = s.price_max ?? '';
+  document.getElementById('esMinDur').value   = s.min_duration_hours ?? 1;
+  document.getElementById('esDeposit').value  = s.deposit_pct ?? '';
+  document.getElementById('esNote').value     = s.note || '';
+  // čas — povoleno měnit jen pokud žádné aktivní rezervace
+  const hasActive = (s.bookings || []).some(b => b.status === 'pending_payment' || b.status === 'confirmed');
+  document.getElementById('esTimeRow').style.display = hasActive ? 'none' : 'grid';
+  if (!hasActive) {
+    document.getElementById('esStart').value = (s.start_at || '').slice(0,16);
+    document.getElementById('esEnd').value   = (s.end_at || '').slice(0,16);
+  }
+  document.getElementById('esFlash').innerHTML = '';
+  closeSlotDetail();
+  document.getElementById('editSlotModal').classList.add('show');
+}
+function closeEditSlot() {
+  document.getElementById('editSlotModal').classList.remove('show');
+  editingSlotId = null;
+}
+async function saveEditSlot() {
+  if (!editingSlotId) return;
+  const body = {
+    price_min:   document.getElementById('esPriceMin').value || 0,
+    price_max:   document.getElementById('esPriceMax').value || 0,
+    min_duration_hours: document.getElementById('esMinDur').value || 1,
+    deposit_pct: document.getElementById('esDeposit').value || null,
+    note:        document.getElementById('esNote').value,
+  };
+  if (document.getElementById('esTimeRow').style.display !== 'none') {
+    const s = document.getElementById('esStart').value;
+    const e = document.getElementById('esEnd').value;
+    if (s) body.start_at = s;
+    if (e) body.end_at   = e;
+  }
+  const r = await fetch('/api/slots/' + editingSlotId, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (r.ok) {
+    closeEditSlot();
+    flash('Blok upraven ✓');
+    await loadSlots();
+  } else {
+    document.getElementById('esFlash').innerHTML =
+      `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${(await r.json()).error || 'Selhalo'}</div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const prev = document.getElementById('calPrev');
+  const next = document.getElementById('calNext');
+  const tdy  = document.getElementById('calToday');
+  if (prev) prev.addEventListener('click', () => { calWeekStart = new Date(calWeekStart); calWeekStart.setDate(calWeekStart.getDate() - 7); loadCalendar(); });
+  if (next) next.addEventListener('click', () => { calWeekStart = new Date(calWeekStart); calWeekStart.setDate(calWeekStart.getDate() + 7); loadCalendar(); });
+  if (tdy)  tdy.addEventListener('click',  () => { calWeekStart = startOfWeek(new Date()); loadCalendar(); });
+  // re-render při resize (recompute pixel positions)
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (calData) renderCalendar(); }, 150);
+  });
+});
+
+document.getElementById('slotForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  // datetime-local doesn't include timezone — keep as-is, server interprets local then we normalize
+  const body = {
+    start_at: fd.get('start_at'),
+    end_at:   fd.get('end_at'),
+    price_min: fd.get('price_min') || 0,
+    price_max: fd.get('price_max') || 0,
+    deposit_pct: fd.get('deposit_pct') || null,
+    min_duration_hours: fd.get('min_duration_hours') || 1,
+    price_unit: 'hour',
+    note: fd.get('note') || '',
+  };
+  const r = await fetch('/api/slots', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (r.ok) { flash('Termín přidán ✓'); e.target.reset(); await loadSlots(); }
+  else flash((await r.json()).error || 'Nepodařilo se přidat', 'err');
+});
+
+async function delSlot(id, status) {
+  if (status === 'booked') { flash('Termín má aktivní rezervaci — nejdřív ji zruš.', 'err'); return; }
+  if (!confirm('Smazat termín?')) return;
+  const r = await fetch('/api/slots/' + id, {method:'DELETE'});
+  if (r.ok) { await loadSlots(); flash('Smazáno'); }
+  else flash((await r.json()).error || 'Nepodařilo se', 'err');
+}
+
+init();
+</script>
+</body>
+</html>

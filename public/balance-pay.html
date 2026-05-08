@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-title" content="InkLink — Doplatek">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doplatek za tetování — InkLink</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#333;--red2:#e8e8e8;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
+  --border:#1a1a1a;--border2:#222;
+  --ok:#7fd391;--err:#e58787;--warn:#e8c87f;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px}
+.brand{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:0.2em;color:var(--red2);margin:24px 0 4px;text-align:center}
+.brand-sub{font-size:10px;color:var(--txt3);letter-spacing:0.15em;text-align:center;margin-bottom:48px}
+
+.card{width:100%;max-width:440px;background:var(--bg2);border:1px solid var(--border)}
+.card-head{padding:24px;border-bottom:1px solid var(--border)}
+.card-head h1{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.12em;margin-bottom:6px}
+.card-head .sub{font-size:12px;color:var(--txt3);letter-spacing:0.05em}
+.card-body{padding:24px}
+
+.who{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.who-info .n{font-size:14px;color:var(--txt)}
+.who-info .s{font-size:11px;color:var(--txt3);letter-spacing:0.04em}
+
+.kv{display:flex;justify-content:space-between;padding:8px 0;font-size:12px;border-bottom:1px solid var(--border2);letter-spacing:0.04em}
+.kv .k{color:var(--txt3)}
+.kv .v{color:var(--txt)}
+
+.amount{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:0.04em;color:var(--red2);text-align:center;margin:24px 0;line-height:1}
+.amount .unit{font-size:18px;color:var(--txt3);margin-left:6px}
+
+.note{margin-top:14px;padding:12px;background:var(--bg3);border-left:2px solid var(--red);font-size:12px;color:var(--txt2);line-height:1.5;letter-spacing:0.03em;white-space:pre-wrap;word-break:break-word}
+
+.btn{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.15em;padding:14px;background:var(--red2);color:var(--bg);border:none;cursor:pointer;width:100%;margin-top:18px}
+.btn:hover{filter:brightness(0.92)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+
+.demo-banner{background:rgba(232,200,127,0.1);border:1px solid rgba(232,200,127,0.3);padding:10px 14px;color:var(--warn);font-size:11px;letter-spacing:0.04em;margin-top:14px;line-height:1.5}
+.success-banner{background:rgba(127,211,145,0.08);border:1px solid rgba(127,211,145,0.3);padding:14px;color:var(--ok);font-size:13px;letter-spacing:0.04em;text-align:center;margin-top:14px}
+
+.foot-link{margin-top:24px;font-size:11px;color:var(--txt3);letter-spacing:0.04em;text-align:center}
+.foot-link a{color:var(--txt3)}
+
+.loading{text-align:center;padding:60px 20px;color:var(--txt3);font-size:13px}
+.error-card{padding:24px;text-align:center;color:var(--err)}
+</style>
+</head>
+<body>
+
+<div class="brand">INKLINK</div>
+<div class="brand-sub">Doplatek za tetování</div>
+
+<div class="card" id="card">
+  <div class="loading">Načítám detaily…</div>
+</div>
+
+<div class="foot-link">
+  <a href="/">← Zpět na InkLink</a>
+</div>
+
+<script>
+const bid = parseInt(location.pathname.replace(/^\/balance-pay\//, '').split('/')[0] || '0');
+
+function fmtKc(c) { return c ? `${(c/100).toLocaleString('cs-CZ')} Kč` : '0 Kč'; }
+function fmtDt(iso){
+  try { const d = new Date(iso);
+    return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'})
+         + ' · ' + d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});
+  } catch { return iso || ''; }
+}
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+async function load() {
+  if (!bid) return showError('Chybí ID rezervace.');
+  const r = await fetch('/api/balance-pay/' + bid);
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    return showError(j.error || 'Doplatek nenalezen.');
+  }
+  const d = await r.json();
+  render(d);
+}
+
+function showError(msg) {
+  document.getElementById('card').innerHTML = `<div class="error-card">${escapeHtml(msg)}</div>`;
+}
+
+function render(d) {
+  const ava = d.artist_avatar_url
+    ? `<img src="${d.artist_avatar_url}" alt="">`
+    : (d.artist_name || '?').slice(0,2).toUpperCase();
+
+  const isPaid = d.already_paid_in_full;
+  const amount = isPaid ? d.paid_cents : d.amount_cents;
+  const headLabel = isPaid ? 'DOPLATEK ZAPLACEN' : 'DOPLATEK ZA TETOVÁNÍ';
+
+  document.getElementById('card').innerHTML = `
+    <div class="card-head">
+      <h1>${headLabel}</h1>
+      <div class="sub">Rezervace #${d.id}</div>
+    </div>
+    <div class="card-body">
+      <div class="who">
+        <div class="avatar">${ava}</div>
+        <div class="who-info">
+          <div class="n">${escapeHtml(d.artist_name || '')}</div>
+          <div class="s">${escapeHtml(d.artist_studio || 'tatér')}</div>
+        </div>
+      </div>
+      <div class="kv"><span class="k">Termín</span><span class="v">${fmtDt(d.when)}</span></div>
+      ${d.design_note ? `<div class="note">${escapeHtml(d.design_note)}</div>` : ''}
+      <div class="amount">${fmtKc(amount)}</div>
+      ${isPaid
+        ? `<div class="success-banner">✓ Doplatek je již zaplacen. Děkujeme!</div>
+           <a href="/my-bookings" class="btn" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid var(--border2);color:var(--txt2)">Moje rezervace</a>`
+        : `<button class="btn" id="payBtn" onclick="pay()">${d.is_demo ? 'Potvrdit (demo režim)' : 'Zaplatit kartou'}</button>
+           ${d.is_demo
+             ? `<div class="demo-banner">⚠ Demo režim — Stripe není propojen. Klik jen označí doplatek jako zaplacený, žádné peníze se nestrhnou.</div>`
+             : `<div class="demo-banner" style="background:rgba(232,232,232,0.04);border-color:var(--border2);color:var(--txt3)">Stripe Elements platba se zde renderuje (M2). Po zaplacení se balance v reportu tatéra automaticky zaktualizuje přes webhook.</div>`}
+        `}
+    </div>
+  `;
+}
+
+async function pay() {
+  const btn = document.getElementById('payBtn');
+  btn.disabled = true; btn.textContent = 'Zpracovávám…';
+  const r = await fetch(`/api/balance-pay/${bid}/demo-confirm`, {method:'POST'});
+  if (r.ok) {
+    location.reload();  // znovunačte → success state
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Zkusit znovu';
+    alert((await r.json()).error || 'Nepodařilo se');
+  }
+}
+
+load();
+</script>
+</body>
+</html>
