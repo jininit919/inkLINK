@@ -677,7 +677,10 @@ def register():
         return jsonify({'error': 'Zadej platný e-mail'}), 400
 
     # Pokud Resend není nakonfigurovaný, ověření e-mailem přeskočíme (dev fallback).
-    require_verify = bool(RESEND_API_KEY)
+    # Email verify flow vypnutý — sandbox Resend bez ověřené domény blokuje
+    # mail. Zapne se nastavením VERIFY_EMAIL=1 v Railway (až bude doména
+    # ověřená v Resend) a samozřejmě platným RESEND_API_KEY.
+    require_verify = bool(RESEND_API_KEY) and os.environ.get('VERIFY_EMAIL', '0') == '1'
     code    = str(random.randint(100000, 999999)) if require_verify else None
     expires = (datetime.utcnow() + timedelta(minutes=15)).isoformat() if require_verify else None
     verified_flag = 0 if require_verify else 1
