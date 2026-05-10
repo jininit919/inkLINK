@@ -146,6 +146,7 @@ main{padding:24px 24px 80px;min-width:0}
     <a class="nav-icon" href="/events" title="Eventy">◷</a>
     <a class="nav-icon" href="/messages" title="Zprávy">✉</a>
     <a class="nav-icon" href="/my-bookings" title="Moje rezervace">◉</a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none">♥</a>
     <div id="notifMount"></div>
     <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
   </div>
@@ -167,6 +168,7 @@ main{padding:24px 24px 80px;min-width:0}
       <div class="sidebar-label">Menu</div>
       <a class="sidebar-link active" href="/" id="menuFeed"><span class="icon">⌂</span> Feed</a>
       <a class="sidebar-link" id="menuMyProfile" href="#"><span class="icon">◉</span> Můj profil</a>
+      <a class="sidebar-link" id="menuLiked" href="/liked" style="display:none"><span class="icon">♥</span> Lajknuté</a>
       <a class="sidebar-link" href="/artist-setup"><span class="icon">⚙</span> Nastavení tatéra</a>
       <a class="sidebar-link" href="/my-bookings"><span class="icon">◷</span> Moje rezervace</a>
       <a class="sidebar-link" href="/events"><span class="icon">◳</span> Eventy</a>
@@ -278,6 +280,8 @@ async function init() {
     document.getElementById('menuMyProfile').href = '/profile/' + me.username;
     document.getElementById('navAddBtn').style.display = 'inline-flex';
     document.getElementById('mainAddBtn').style.display = 'inline-flex';
+    document.getElementById('navLiked').style.display = 'flex';
+    document.getElementById('menuLiked').style.display = 'flex';
   } else {
     navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px">Sign in</a>';
     document.getElementById('menuMyProfile').style.display = 'none';

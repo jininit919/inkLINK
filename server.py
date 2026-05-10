@@ -639,6 +639,11 @@ def my_bookings_page():
     return send_from_directory('public', 'my-bookings.html')
 
 
+@app.route('/liked')
+def liked_page():
+    return send_from_directory('public', 'liked.html')
+
+
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
     if _s3 and R2_PUBLIC_URL:
@@ -1092,6 +1097,67 @@ def feed():
             'styles':        p['styles'] or '',
             'like_count':    p['like_count'],
             'liked':         bool(p['liked']),
+            'price_kc':        p['price_kc'],
+            'estimated_hours': p['estimated_hours'],
+            'created_at':    time_ago(p['created_at']),
+            'user': {
+                'username':     p['username'],
+                'display_name': p['display_name'],
+                'city':         p['user_city'],
+                'studio':       p['studio'] or '',
+                'styles':       p['user_styles'] or '',
+                'emoji':        p['emoji'] or '',
+                'initials':     initials(p['display_name']),
+                'avatar':       f'/uploads/{p["avatar"]}' if p['avatar'] else None,
+                'lat':          p['lat'],
+                'lng':          p['lng'],
+                'is_artist':    bool(p['is_artist']),
+                'can_book':     bool(p['stripe_charges_enabled']),
+            }
+        })
+    return jsonify(result)
+
+
+@app.route('/api/liked')
+def liked_feed():
+    """Vrací portfolio_items, které přihlášený user lajknul. Stejný tvar jako /api/feed."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+
+    kind_filter = request.args.get('kind', '').strip().lower()
+
+    conn = get_db()
+    query = '''
+        SELECT p.*,
+               u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
+               u.emoji, u.avatar, u.lat, u.lng,
+               u.is_artist, u.studio, u.stripe_charges_enabled,
+               l.created_at AS liked_at
+        FROM portfolio_likes l
+        JOIN portfolio_items p ON p.id = l.item_id
+        JOIN users u ON u.id = p.user_id
+        WHERE l.user_id = ?
+    '''
+    params = [uid]
+    if kind_filter in ('sketch', 'done'):
+        query += ' AND p.kind = ?'
+        params.append(kind_filter)
+    query += ' ORDER BY l.created_at DESC LIMIT 200'
+
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+
+    result = []
+    for p in rows:
+        result.append({
+            'id':            p['id'],
+            'image':         p['image'],
+            'caption':       p['caption'] or '',
+            'kind':          p['kind'] or 'done',
+            'styles':        p['styles'] or '',
+            'like_count':    p['like_count'],
+            'liked':         True,
             'price_kc':        p['price_kc'],
             'estimated_hours': p['estimated_hours'],
             'created_at':    time_ago(p['created_at']),

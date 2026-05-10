@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Lajknuté — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#333;--red2:#e8e8e8;--red3:#fff;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
+  --border:#1a1a1a;--border2:#222;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--red2);border-radius:2px}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:0}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);cursor:pointer;white-space:nowrap;flex:1}
+.nav-icons{display:flex;gap:6px;align-items:center}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);font-size:14px;border-radius:2px;transition:all 0.15s}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+.nav-icon.active{color:var(--red2)}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--red2);cursor:pointer;margin-left:4px;letter-spacing:0.05em;overflow:hidden}
+.nav-avatar img{width:100%;height:100%;object-fit:cover}
+
+.layout{display:grid;grid-template-columns:240px 1fr;gap:0;padding-top:54px;min-height:100vh;max-width:1200px;margin:0 auto}
+@media(max-width:980px){.layout{grid-template-columns:1fr}.sidebar-left{display:none}}
+
+.sidebar-left{padding:24px 16px;position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.sidebar-section{margin-bottom:26px}
+.sidebar-label{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.18em;color:var(--txt3);margin-bottom:10px}
+.sidebar-link{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt2);padding:6px 8px;cursor:pointer;letter-spacing:0.04em;border-radius:2px;text-decoration:none}
+.sidebar-link:hover{background:var(--bg3);color:var(--red2)}
+.sidebar-link.active{color:var(--red2);background:var(--bg3)}
+.sidebar-link .icon{font-size:13px;width:16px;display:inline-block;text-align:center}
+
+main{padding:24px 24px 80px;min-width:0}
+.page-head{margin-bottom:18px}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.18em;color:var(--red2);display:flex;align-items:center;gap:12px}
+.page-title .heart{color:#e58787}
+.page-sub{font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-top:6px}
+
+.feed-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.feed-tabs::-webkit-scrollbar{display:none}
+.feed-tab{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;padding:12px 22px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
+.feed-tab.active{color:var(--red2);border-bottom-color:var(--red2)}
+.feed-tab:hover:not(.active){color:var(--txt)}
+.feed-tab .tab-hint{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--txt3);text-transform:none}
+
+.feed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+@media(max-width:1100px){.feed-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.feed-grid{grid-template-columns:1fr}}
+
+.card{background:var(--bg3);border:1px solid var(--border);position:relative;overflow:hidden;cursor:pointer;transition:border-color 0.15s}
+.card:hover{border-color:var(--border2)}
+.card .img{aspect-ratio:1;background:var(--bg4);overflow:hidden;position:relative}
+.card .img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.4s}
+.card:hover .img img{transform:scale(1.04)}
+.card-price{position:absolute;top:8px;right:8px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.05em;padding:4px 10px;background:var(--red2);color:var(--bg);line-height:1}
+.card-kind{position:absolute;top:8px;left:8px;font-size:9px;letter-spacing:0.15em;padding:3px 8px;background:rgba(0,0,0,0.75);color:#fff}
+.card-bookcta{position:absolute;bottom:0;left:0;right:0;padding:9px 14px;background:rgba(0,0,0,0.85);color:var(--red2);text-align:center;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;opacity:0;transition:opacity 0.15s}
+.card:hover .card-bookcta{opacity:1}
+.card-bookcta:hover{background:var(--red2);color:var(--bg)}
+.card-foot{padding:12px 14px;display:flex;align-items:center;gap:10px}
+.card-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.card-avatar img{width:100%;height:100%;object-fit:cover}
+.card-who{flex:1;min-width:0;font-size:12px;line-height:1.3}
+.card-who .name{color:var(--txt);font-weight:400}
+.card-who .meta{color:var(--txt3);font-size:11px;letter-spacing:0.04em}
+.card-like{font-size:14px;color:#e58787;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace}
+
+.empty{text-align:center;padding:80px 20px;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.7}
+.empty .b{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.16em;color:var(--red2);display:block;margin-bottom:10px}
+.empty a{color:var(--red2);text-decoration:underline}
+
+.btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:7px 14px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase;display:inline-block}
+.btn:hover{background:var(--red2);color:var(--bg)}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <a class="nav-logo" href="/">INKLINK</a>
+  <div class="nav-icons">
+    <button class="nav-icon" onclick="toggleTheme && toggleTheme()" title="Téma" style="background:none;border:none">☀</button>
+    <a class="nav-icon" href="/events" title="Eventy">◷</a>
+    <a class="nav-icon" href="/messages" title="Zprávy">✉</a>
+    <a class="nav-icon" href="/my-bookings" title="Moje rezervace">◉</a>
+    <a class="nav-icon active" href="/liked" title="Lajknuté">♥</a>
+    <div id="notifMount"></div>
+    <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
+  </div>
+</nav>
+<script src="/notifs.js"></script>
+<script src="/mobile-nav.js"></script>
+<script src="/cookie-banner.js"></script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init(); InkLinkCookieBanner.init();</script>
+
+<div class="layout">
+
+  <aside class="sidebar-left">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Menu</div>
+      <a class="sidebar-link" href="/"><span class="icon">⌂</span> Feed</a>
+      <a class="sidebar-link" id="menuMyProfile" href="#"><span class="icon">◉</span> Můj profil</a>
+      <a class="sidebar-link active" href="/liked"><span class="icon">♥</span> Lajknuté</a>
+      <a class="sidebar-link" href="/artist-setup"><span class="icon">⚙</span> Nastavení tatéra</a>
+      <a class="sidebar-link" href="/my-bookings"><span class="icon">◷</span> Moje rezervace</a>
+      <a class="sidebar-link" href="/events"><span class="icon">◳</span> Eventy</a>
+      <a class="sidebar-link" href="/messages"><span class="icon">✉</span> Zprávy</a>
+    </div>
+    <div class="sidebar-section">
+      <a class="sidebar-link" onclick="doLogout()" style="cursor:pointer"><span class="icon">←</span> Odhlásit</a>
+    </div>
+  </aside>
+
+  <main>
+    <div class="page-head">
+      <h1 class="page-title"><span class="heart">♥</span> Lajknuté</h1>
+      <div class="page-sub">Tvoje uložené skicy a hotové práce</div>
+    </div>
+
+    <div class="feed-tabs">
+      <div class="feed-tab active" data-kind="">Vše <span class="tab-hint" id="cntAll"></span></div>
+      <div class="feed-tab" data-kind="sketch">Skicy <span class="tab-hint" id="cntSketch"></span></div>
+      <div class="feed-tab" data-kind="done">Hotové <span class="tab-hint" id="cntDone"></span></div>
+    </div>
+
+    <div id="feed" class="feed-grid"></div>
+    <div id="emptyState" class="empty" style="display:none">
+      <span class="b">ZATÍM ŽÁDNÉ LAJKY</span>
+      <span>Projdi si <a href="/">feed</a> a klikni na ♥ u skic a prací,<br>které tě baví — najdeš je tady kdykoli zpátky.</span>
+    </div>
+  </main>
+
+</div>
+
+<script>
+let me = null, items = [], kindFilter = '';
+
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+async function init() {
+  me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  if (!me) { location.href = '/login'; return; }
+
+  const navAvatar = document.getElementById('navAvatar');
+  if (me.avatar_url) navAvatar.innerHTML = `<img src="${me.avatar_url}" alt="">`;
+  else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
+  document.getElementById('menuMyProfile').href = '/profile/' + me.username;
+
+  document.querySelectorAll('.feed-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.feed-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    kindFilter = t.dataset.kind;
+    render();
+  }));
+
+  await loadLiked();
+}
+
+async function loadLiked() {
+  const r = await fetch('/api/liked');
+  if (r.status === 401) { location.href = '/login'; return; }
+  items = await r.json().catch(() => []);
+  render();
+}
+
+function render() {
+  const grid = document.getElementById('feed');
+  const empty = document.getElementById('emptyState');
+
+  const filtered = kindFilter ? items.filter(p => p.kind === kindFilter) : items;
+
+  const cAll = items.length;
+  const cSk  = items.filter(p => p.kind === 'sketch').length;
+  const cDn  = items.filter(p => p.kind === 'done').length;
+  document.getElementById('cntAll').textContent    = cAll ? cAll : '';
+  document.getElementById('cntSketch').textContent = cSk  ? cSk  : '';
+  document.getElementById('cntDone').textContent   = cDn  ? cDn  : '';
+
+  if (!filtered.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(p => {
+    const u = p.user;
+    const av = u.avatar ? `<img src="${u.avatar}" alt="">` : escapeHtml(u.initials || '?');
+    const kindLabel = p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ';
+    const priced = p.kind === 'sketch' && p.price_kc;
+    const priceTxt = priced
+      ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč${p.estimated_hours?` · ${(+p.estimated_hours).toString().replace(/\.0$/,'')}h`:''}`
+      : '';
+    return `
+      <article class="card" data-id="${p.id}">
+        <div class="img" onclick="openProfile('${escapeHtml(u.username)}', ${p.id})">
+          <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy">
+          <div class="card-kind">${kindLabel}</div>
+          ${priced ? `<div class="card-price">${priceTxt}</div>` : ''}
+          ${priced ? `<div class="card-bookcta" onclick="event.stopPropagation();goBookSketch('${escapeHtml(u.username)}',${p.id})">Rezervovat tento návrh →</div>` : ''}
+        </div>
+        <div class="card-foot">
+          <a class="card-avatar" href="/profile/${escapeHtml(u.username)}" onclick="event.stopPropagation()">${av}</a>
+          <a class="card-who" href="/profile/${escapeHtml(u.username)}" onclick="event.stopPropagation()">
+            <div class="name">${escapeHtml(u.display_name)}</div>
+            <div class="meta">${escapeHtml([u.studio, u.city].filter(Boolean).join(' · ') || 'tatér')}</div>
+          </a>
+          <span class="card-like" onclick="event.stopPropagation(); unlike(${p.id})" title="Odebrat z lajků">♥ <span>${p.like_count}</span></span>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function unlike(id) {
+  const r = await fetch(`/api/portfolio/${id}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
+  if (!r) return;
+  if (!r.liked) {
+    items = items.filter(p => p.id !== id);
+    render();
+  }
+}
+
+function openProfile(username, sketchId) {
+  location.href = `/profile/${encodeURIComponent(username)}#book-${sketchId}`;
+}
+
+function goBookSketch(username, sketchId) {
+  location.href = `/profile/${encodeURIComponent(username)}#book-${sketchId}`;
+}
+
+function goToProfile() {
+  if (me && me.username) location.href = '/profile/' + me.username;
+  else location.href = '/login';
+}
+
+async function doLogout() {
+  await fetch('/api/logout', {method:'POST'}).catch(()=>null);
+  location.href = '/';
+}
+
+init();
+</script>
+
+</body>
+</html>
