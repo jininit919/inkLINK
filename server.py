@@ -1304,7 +1304,7 @@ def sketch_story_image(item_id):
     """1080×1920 PNG vhodný na Instagram Story: skica + branding + URL."""
     from PIL import Image, ImageDraw
     import io as _io
-    import urllib.request as _urlreq
+    import traceback as _tb
 
     conn = get_db()
     p = conn.execute('''
@@ -1318,17 +1318,18 @@ def sketch_story_image(item_id):
     if not p:
         return jsonify({'error': 'not found'}), 404
 
-    # Načti původní obrázek (R2 přes public URL, jinak z disku)
+    # Načti původní obrázek (R2 přes boto3, jinak z disku)
     try:
-        if _s3 and R2_PUBLIC_URL:
-            with _urlreq.urlopen(f'{R2_PUBLIC_URL}/{p["image"]}', timeout=10) as resp:
-                src_bytes = resp.read()
+        if _s3 and R2_BUCKET:
+            obj = _s3.get_object(Bucket=R2_BUCKET, Key=p['image'])
+            src_bytes = obj['Body'].read()
             src = Image.open(_io.BytesIO(src_bytes))
         else:
             src = Image.open(os.path.join(UPLOAD_FOLDER, p['image']))
         src = src.convert('RGB')
-    except Exception:
-        return jsonify({'error': 'image not available'}), 500
+    except Exception as e:
+        app.logger.error(f'story image fetch failed for sketch {item_id}: {e}\n{_tb.format_exc()}')
+        return jsonify({'error': 'image not available', 'detail': str(e)}), 500
 
     W, H = 1080, 1920
     TOP_H = 1180  # ~61 % na skicu, víc místa dole na info
