@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" fill="currentColor">
+  <defs>
+    <mask id="coilCuts">
+      <rect width="240" height="180" fill="white"/>
+      <rect x="93" y="20" width="14" height="100" rx="3" fill="black"/>
+      <rect x="113" y="20" width="14" height="100" rx="3" fill="black"/>
+    </mask>
+  </defs>
+  <!-- I = moderní pen-style rotary -->
+  <rect x="44" y="4" width="12" height="8" rx="2"/>
+  <rect x="30" y="12" width="40" height="110" rx="8"/>
+  <polygon points="38,122 62,122 54,148 46,148"/>
+  <rect x="49" y="148" width="2" height="18" rx="1"/>
+  <!-- L = coil machine, plné L s 2 cívkami jako cut-outs -->
+  <path d="M86 10L134 10L134 130L196 130L196 158L86 158Z" mask="url(#coilCuts)"/>
+  <rect x="196" y="143" width="22" height="2" rx="1"/>
+</svg>

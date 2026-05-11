@@ -1285,6 +1285,29 @@ def sketch_page(item_id):
 _STORY_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public', 'fonts')
 
 
+def _draw_il_symbol(draw, x, y, height, fill, bg=(0, 0, 0)):
+    """Vykreslí IL monogram (pen-rotary I + plné L coil) jako solid filled
+    na pozici x,y s danou výškou. ViewBox 240x180 proporčně přepočítaný.
+    `bg` je barva pozadí — používá se pro cut-out cívek uvnitř L."""
+    s = height / 180.0
+    def sx(v): return int(x + v * s)
+    def sy(v): return int(y + v * s)
+    # I = pen-style rotary
+    draw.rounded_rectangle([sx(44), sy(4),  sx(56), sy(12)],  radius=int(s*2), fill=fill)
+    draw.rounded_rectangle([sx(30), sy(12), sx(70), sy(122)], radius=int(s*8), fill=fill)
+    draw.polygon([(sx(38), sy(122)), (sx(62), sy(122)),
+                  (sx(54), sy(148)), (sx(46), sy(148))], fill=fill)
+    draw.rounded_rectangle([sx(49), sy(148), sx(51), sy(166)], radius=max(1, int(s*1)), fill=fill)
+    # L = solid filled (continuous L tvar)
+    draw.polygon([(sx(86), sy(10)),  (sx(134), sy(10)),  (sx(134), sy(130)),
+                  (sx(196), sy(130)), (sx(196), sy(158)), (sx(86), sy(158))], fill=fill)
+    # 2 cívky jako cut-outs v bg barvě
+    draw.rounded_rectangle([sx(93),  sy(20), sx(107), sy(120)], radius=max(1, int(s*3)), fill=bg)
+    draw.rounded_rectangle([sx(113), sy(20), sx(127), sy(120)], radius=max(1, int(s*3)), fill=bg)
+    # Needle z konce L
+    draw.rounded_rectangle([sx(196), sy(143), sx(218), sy(145)], radius=max(1, int(s*1)), fill=fill)
+
+
 def _load_story_font(family, size):
     """Načti bundled font (Bebas / DMMono-Regular / DMMono-Medium).
     Fallback: pokud bundled chybí, použij systémový DejaVuSans a nakonec PIL default."""
@@ -1374,8 +1397,11 @@ def sketch_story_image(item_id):
     PAD = 70
     BOT_Y = TOP_H
 
-    # INKLINK wordmark (Bebas Neue, jemně tlumený)
-    draw.text((PAD, BOT_Y + 40), 'INKLINK',
+    # IL symbol + INKLINK wordmark (Bebas Neue, jemně tlumený)
+    SYM_H = 70
+    _draw_il_symbol(draw, PAD, BOT_Y + 30, SYM_H, (180, 180, 180))
+    SYM_W = int(SYM_H * 240 / 180)
+    draw.text((PAD + SYM_W + 20, BOT_Y + 40), 'INKLINK',
               font=f_brand, fill=(180, 180, 180))
 
     # Jméno tatéra (dominantní) — auto-shrink pokud nesedí na řádek

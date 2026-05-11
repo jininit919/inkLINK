@@ -1,8 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <rect width="32" height="32" rx="6" fill="#0a0a0a"/>
-  <rect x="4"  y="13" width="3" height="6"  rx="1.5" fill="#b20000"/>
-  <rect x="9"  y="9"  width="3" height="14" rx="1.5" fill="#b20000"/>
-  <rect x="14" y="5"  width="3" height="22" rx="1.5" fill="#cc0000"/>
-  <rect x="19" y="9"  width="3" height="14" rx="1.5" fill="#b20000"/>
-  <rect x="24" y="13" width="3" height="6"  rx="1.5" fill="#b20000"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="32" height="32">
+  <rect width="240" height="240" rx="30" fill="#0a0a0a"/>
+  <g transform="translate(0 30)" fill="#e8e8e8">
+    <rect x="44" y="4" width="12" height="8" rx="2"/>
+    <rect x="30" y="12" width="40" height="110" rx="8"/>
+    <polygon points="38,122 62,122 54,148 46,148"/>
+    <rect x="49" y="148" width="2" height="18" rx="1"/>
+    <path d="M86 10L134 10L134 130L196 130L196 158L86 158Z"/>
+    <rect x="196" y="143" width="22" height="2" rx="1"/>
+  </g>
+  <g transform="translate(0 30)" fill="#0a0a0a">
+    <rect x="93" y="20" width="14" height="100" rx="3"/>
+    <rect x="113" y="20" width="14" height="100" rx="3"/>
+  </g>
 </svg>
