@@ -1282,21 +1282,29 @@ def sketch_page(item_id):
     return page_html
 
 
-def _load_story_font(size, bold=False):
-    """Best-effort load systémového fontu, fallback na PIL default."""
+_STORY_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public', 'fonts')
+
+
+def _load_story_font(family, size):
+    """Načti bundled font (Bebas / DMMono-Regular / DMMono-Medium).
+    Fallback: pokud bundled chybí, použij systémový DejaVuSans a nakonec PIL default."""
     from PIL import ImageFont
-    candidates = [
-        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-        '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/dejavu/DejaVuSans.ttf',
-        '/System/Library/Fonts/Helvetica.ttc',
-        '/Library/Fonts/Arial.ttf',
-    ]
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size)
-        except Exception:
-            continue
-    return ImageFont.load_default()
+    bundled = {
+        'bebas':  'BebasNeue-Regular.ttf',
+        'mono':   'DMMono-Regular.ttf',
+        'monoB':  'DMMono-Medium.ttf',
+    }
+    path = os.path.join(_STORY_FONT_DIR, bundled.get(family, 'DMMono-Regular.ttf'))
+    try:
+        return ImageFont.truetype(path, size)
+    except Exception:
+        for sys_path in ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                         '/System/Library/Fonts/Helvetica.ttc'):
+            try:
+                return ImageFont.truetype(sys_path, size)
+            except Exception:
+                continue
+        return ImageFont.load_default()
 
 
 @app.route('/sketch/<int:item_id>/story.png')
@@ -1353,34 +1361,43 @@ def sketch_story_image(item_id):
         src_r = src_r.crop((0, y, W, y + TOP_H))
     canvas.paste(src_r, (0, 0))
 
-    # Jemný separator
     draw = ImageDraw.Draw(canvas)
-    draw.rectangle([(0, TOP_H), (W, TOP_H + 2)], fill=(40, 40, 40))
 
     # Fonts
-    f_brand = _load_story_font(50, bold=True)
-    f_name  = _load_story_font(90, bold=True)
-    f_meta  = _load_story_font(36)
-    f_price = _load_story_font(72, bold=True)
-    f_cta   = _load_story_font(46, bold=True)
-    f_url   = _load_story_font(44, bold=True)
+    f_brand = _load_story_font('bebas', 56)
+    f_name  = _load_story_font('bebas', 130)
+    f_meta  = _load_story_font('mono',  34)
+    f_price = _load_story_font('bebas', 90)
+    f_cta   = _load_story_font('mono',  32)
+    f_url   = _load_story_font('monoB', 38)
 
     PAD = 70
     BOT_Y = TOP_H
 
-    # INKLINK wordmark
-    draw.text((PAD, BOT_Y + 50), 'INKLINK', font=f_brand, fill=(232, 232, 232))
+    # INKLINK wordmark (Bebas Neue, jemně tlumený)
+    draw.text((PAD, BOT_Y + 40), 'INKLINK',
+              font=f_brand, fill=(180, 180, 180))
 
-    # Jméno tatéra (dominant)
-    draw.text((PAD, BOT_Y + 130), (p['display_name'] or 'tatér').upper(),
-              font=f_name, fill=(255, 255, 255))
+    # Jméno tatéra (dominantní) — auto-shrink pokud nesedí na řádek
+    name_text = (p['display_name'] or 'tatér').upper()
+    name_size = 130
+    f_name_fit = f_name
+    while name_size > 70:
+        bbox = draw.textbbox((0, 0), name_text, font=f_name_fit)
+        if bbox[2] - bbox[0] <= W - 2 * PAD:
+            break
+        name_size -= 10
+        f_name_fit = _load_story_font('bebas', name_size)
+    draw.text((PAD, BOT_Y + 110), name_text,
+              font=f_name_fit, fill=(255, 255, 255))
 
-    # Studio · město
+    # Studio · město (DM Mono, jemné)
     meta = ' · '.join([x for x in [p['studio'], p['city']] if x])
     if meta:
-        draw.text((PAD, BOT_Y + 240), meta, font=f_meta, fill=(170, 170, 170))
+        draw.text((PAD, BOT_Y + 260), meta,
+                  font=f_meta, fill=(160, 160, 160))
 
-    # Cena (sketch) nebo "HOTOVÁ PRÁCE" (done)
+    # Cena (sketch) nebo "HOTOVÁ PRÁCE" (done) — Bebas Neue, světlá
     is_sketch = (p['kind'] or 'done') == 'sketch'
     if is_sketch and p['price_kc']:
         try:
@@ -1395,22 +1412,26 @@ def sketch_story_image(item_id):
             except (TypeError, ValueError):
                 pass
         if price_s:
-            draw.text((PAD, BOT_Y + 330), price_s, font=f_price, fill=(232, 232, 232))
+            draw.text((PAD, BOT_Y + 360), price_s,
+                      font=f_price, fill=(232, 232, 232))
     elif not is_sketch:
-        draw.text((PAD, BOT_Y + 330), 'HOTOVÁ PRÁCE', font=f_price, fill=(232, 232, 232))
+        draw.text((PAD, BOT_Y + 360), 'HOTOVÁ PRÁCE',
+                  font=f_price, fill=(232, 232, 232))
 
-    # Spodní CTA pásek s URL — přes celou šířku, výrazný
-    CTA_Y = H - 180
+    # Spodní CTA pásek (přes celou šířku) — bílé pozadí, černý text
+    CTA_H = 200
+    CTA_Y = H - CTA_H
     draw.rectangle([(0, CTA_Y), (W, H)], fill=(232, 232, 232))
+
     cta_text = 'REZERVUJ NA'
     full_url = request.host_url.rstrip('/') + f'/sketch/{p["id"]}'
     url_text = full_url.replace('https://', '').replace('http://', '')
 
     bbox = draw.textbbox((0, 0), cta_text, font=f_cta)
-    draw.text(((W - (bbox[2] - bbox[0])) // 2, CTA_Y + 22),
-              cta_text, font=f_cta, fill=(0, 0, 0))
+    draw.text(((W - (bbox[2] - bbox[0])) // 2, CTA_Y + 32),
+              cta_text, font=f_cta, fill=(110, 110, 110))
 
-    # URL — pokud je moc dlouhá, fallback na samotnou doménu
+    # URL — když moc dlouhá, postupně zkracuj
     bbox = draw.textbbox((0, 0), url_text, font=f_url)
     if bbox[2] - bbox[0] > W - 60:
         url_text = request.host + f'/sketch/{p["id"]}'
