@@ -105,15 +105,25 @@ PLATFORM_FEE_TICKET  = 0.10   # 10 % z ceny vstupenky (poplatek za zpracování)
 PLATFORM_FEE_LISTING = 0.08   # 8 % z ceny inzerátu (provize platformy)
 
 
+RESEND_FROM = os.environ.get('RESEND_FROM', 'InkLink <onboarding@resend.dev>')
+
+
 def send_email(to, subject, html_body):
+    """Pošle e-mail přes Resend. Vrací True při úspěchu, False při chybě
+    (nedostupný API key, chyba Resend, ověřená doména v sandboxu, atd.)."""
     if not RESEND_API_KEY:
         print(f'[EMAIL] {to} | {subject} | (RESEND_API_KEY not set — kód jen v terminálu)')
-        return
+        return False
     resend.api_key = RESEND_API_KEY
     try:
-        resend.Emails.send({'from': 'InkLink <onboarding@resend.dev>', 'to': to, 'subject': subject, 'html': html_body})
+        resend.Emails.send({'from': RESEND_FROM, 'to': to, 'subject': subject, 'html': html_body})
+        return True
     except Exception as e:
-        print(f'[EMAIL ERROR] {e}')
+        try:
+            app.logger.error(f'[EMAIL] failed: to={to} from={RESEND_FROM} subject={subject!r} err={e}')
+        except Exception:
+            print(f'[EMAIL ERROR] to={to}: {e}')
+        return False
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB (pro video)
 
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
@@ -716,8 +726,9 @@ def register():
     finally:
         conn.close()
 
+    email_sent = True
     if require_verify:
-        send_email(email, 'InkLink — ověření účtu', f'''
+        email_sent = send_email(email, 'InkLink — ověření účtu', f'''
         <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
           <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:8px">INKLINK</div>
           <div style="font-size:12px;color:#555;margin-bottom:32px;letter-spacing:0.1em">Tattoo Booking Network</div>
@@ -726,7 +737,7 @@ def register():
           <p style="color:#555;font-size:12px">Platnost 15 minut. Pokud ses neregistroval(a), e-mail ignoruj.</p>
         </div>''')
 
-    return jsonify({'ok': True, 'verify': require_verify})
+    return jsonify({'ok': True, 'verify': require_verify, 'email_sent': email_sent})
 
 
 @app.route('/api/verify-email', methods=['POST'])
@@ -765,13 +776,15 @@ def resend_verify():
     expires = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
     conn.execute('UPDATE users SET verify_code = ?, verify_expires = ? WHERE id = ?', (code, expires, user['id']))
     conn.commit(); conn.close()
-    send_email(user['email'], 'InkLink — new verification code', f'''
+    sent = send_email(user['email'], 'InkLink — nový ověřovací kód', f'''
     <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
       <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:32px">INKLINK</div>
-      <p style="margin-bottom:16px">Your new verification code:</p>
+      <p style="margin-bottom:16px">Nový ověřovací kód:</p>
       <div style="font-size:40px;letter-spacing:0.3em;color:#c62828;background:#0e0e0e;padding:20px;text-align:center;border:1px solid #1a1a1a;margin:24px 0">{code}</div>
-      <p style="color:#555;font-size:12px">Code valid for 15 minutes.</p>
+      <p style="color:#555;font-size:12px">Platnost 15 minut.</p>
     </div>''')
+    if not sent:
+        return jsonify({'ok': False, 'error': 'E-mail se teď nepodařilo odeslat. Zkus to za chvíli.'}), 500
     return jsonify({'ok': True})
 
 
