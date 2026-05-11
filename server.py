@@ -1340,7 +1340,7 @@ def sketch_story_image(item_id):
         return jsonify({'error': 'image not available', 'detail': str(e)}), 500
 
     W, H = 1080, 1920
-    TOP_H = 1180  # ~61 % na skicu, víc místa dole na info
+    TOP_H = 1280  # ~67 % na skicu, dole jen info + CTA
     canvas = Image.new('RGB', (W, H), (0, 0, 0))
 
     # object-fit: cover do horní zóny
@@ -1364,12 +1364,12 @@ def sketch_story_image(item_id):
     draw = ImageDraw.Draw(canvas)
 
     # Fonts
-    f_brand = _load_story_font('bebas', 56)
-    f_name  = _load_story_font('bebas', 130)
-    f_meta  = _load_story_font('mono',  34)
-    f_price = _load_story_font('bebas', 90)
-    f_cta   = _load_story_font('mono',  32)
-    f_url   = _load_story_font('monoB', 38)
+    f_brand   = _load_story_font('bebas', 56)
+    f_name    = _load_story_font('bebas', 130)
+    f_meta    = _load_story_font('mono',  34)
+    f_price   = _load_story_font('bebas', 90)
+    f_cta     = _load_story_font('bebas', 72)
+    f_ctaArr  = _load_story_font('monoB', 56)
 
     PAD = 70
     BOT_Y = TOP_H
@@ -1419,28 +1419,25 @@ def sketch_story_image(item_id):
                   font=f_price, fill=(232, 232, 232))
 
     # Spodní CTA pásek (přes celou šířku) — bílé pozadí, černý text
-    CTA_H = 200
+    # URL se nepíše, tatér si ji ve Story doplní link stickerem.
+    CTA_H = 140
     CTA_Y = H - CTA_H
     draw.rectangle([(0, CTA_Y), (W, H)], fill=(232, 232, 232))
 
-    cta_text = 'REZERVUJ NA'
-    full_url = request.host_url.rstrip('/') + f'/sketch/{p["id"]}'
-    url_text = full_url.replace('https://', '').replace('http://', '')
-
-    bbox = draw.textbbox((0, 0), cta_text, font=f_cta)
-    draw.text(((W - (bbox[2] - bbox[0])) // 2, CTA_Y + 32),
-              cta_text, font=f_cta, fill=(110, 110, 110))
-
-    # URL — když moc dlouhá, postupně zkracuj
-    bbox = draw.textbbox((0, 0), url_text, font=f_url)
-    if bbox[2] - bbox[0] > W - 60:
-        url_text = request.host + f'/sketch/{p["id"]}'
-        bbox = draw.textbbox((0, 0), url_text, font=f_url)
-    if bbox[2] - bbox[0] > W - 60:
-        url_text = request.host
-        bbox = draw.textbbox((0, 0), url_text, font=f_url)
-    draw.text(((W - (bbox[2] - bbox[0])) // 2, CTA_Y + 90),
-              url_text, font=f_url, fill=(0, 0, 0))
+    # CTA renderujeme ve dvou kusech, protože Bebas Neue nemá šipkový glyph
+    cta_word = 'REZERVUJ'
+    cta_arr  = ' »'
+    bbox_w = draw.textbbox((0, 0), cta_word, font=f_cta)
+    bbox_a = draw.textbbox((0, 0), cta_arr,  font=f_ctaArr)
+    word_w = bbox_w[2] - bbox_w[0]
+    arr_w  = bbox_a[2] - bbox_a[0]
+    word_h = bbox_w[3] - bbox_w[1]
+    total_w = word_w + arr_w
+    x0 = (W - total_w) // 2
+    y0 = CTA_Y + (CTA_H - word_h) // 2 - 6
+    draw.text((x0, y0), cta_word, font=f_cta, fill=(0, 0, 0))
+    # šipka jemně níž kvůli optickému zarovnání mezi Bebas a Mono baseline
+    draw.text((x0 + word_w, y0 + 8), cta_arr, font=f_ctaArr, fill=(0, 0, 0))
 
     buf = _io.BytesIO()
     canvas.save(buf, format='PNG', optimize=True)
