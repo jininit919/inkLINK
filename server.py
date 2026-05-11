@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, send_from_directory, redirect
+from flask import Flask, request, jsonify, session, send_from_directory, redirect, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_limiter import Limiter
@@ -1280,6 +1280,153 @@ def sketch_page(item_id):
             .replace('{{OG_URL}}',   html_escape(og_url))
             .replace('{{ITEM_ID}}',  str(p['id'])))
     return page_html
+
+
+def _load_story_font(size, bold=False):
+    """Best-effort load systémového fontu, fallback na PIL default."""
+    from PIL import ImageFont
+    candidates = [
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+        '/System/Library/Fonts/Helvetica.ttc',
+        '/Library/Fonts/Arial.ttf',
+    ]
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
+@app.route('/sketch/<int:item_id>/story.png')
+def sketch_story_image(item_id):
+    """1080×1920 PNG vhodný na Instagram Story: skica + branding + URL."""
+    from PIL import Image, ImageDraw
+    import io as _io
+    import urllib.request as _urlreq
+
+    conn = get_db()
+    p = conn.execute('''
+        SELECT p.id, p.image, p.kind, p.price_kc, p.estimated_hours,
+               u.display_name, u.studio, u.city
+        FROM portfolio_items p
+        JOIN users u ON u.id = p.user_id
+        WHERE p.id = ?
+    ''', (item_id,)).fetchone()
+    conn.close()
+    if not p:
+        return jsonify({'error': 'not found'}), 404
+
+    # Načti původní obrázek (R2 přes public URL, jinak z disku)
+    try:
+        if _s3 and R2_PUBLIC_URL:
+            with _urlreq.urlopen(f'{R2_PUBLIC_URL}/{p["image"]}', timeout=10) as resp:
+                src_bytes = resp.read()
+            src = Image.open(_io.BytesIO(src_bytes))
+        else:
+            src = Image.open(os.path.join(UPLOAD_FOLDER, p['image']))
+        src = src.convert('RGB')
+    except Exception:
+        return jsonify({'error': 'image not available'}), 500
+
+    W, H = 1080, 1920
+    TOP_H = 1180  # ~61 % na skicu, víc místa dole na info
+    canvas = Image.new('RGB', (W, H), (0, 0, 0))
+
+    # object-fit: cover do horní zóny
+    sw, sh = src.size
+    src_ratio = sw / sh
+    top_ratio = W / TOP_H
+    if src_ratio > top_ratio:
+        nh = TOP_H
+        nw = int(TOP_H * src_ratio)
+        src_r = src.resize((nw, nh), Image.LANCZOS)
+        x = (nw - W) // 2
+        src_r = src_r.crop((x, 0, x + W, TOP_H))
+    else:
+        nw = W
+        nh = int(W / src_ratio)
+        src_r = src.resize((nw, nh), Image.LANCZOS)
+        y = (nh - TOP_H) // 2
+        src_r = src_r.crop((0, y, W, y + TOP_H))
+    canvas.paste(src_r, (0, 0))
+
+    # Jemný separator
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle([(0, TOP_H), (W, TOP_H + 2)], fill=(40, 40, 40))
+
+    # Fonts
+    f_brand = _load_story_font(50, bold=True)
+    f_name  = _load_story_font(90, bold=True)
+    f_meta  = _load_story_font(36)
+    f_price = _load_story_font(72, bold=True)
+    f_cta   = _load_story_font(46, bold=True)
+    f_url   = _load_story_font(44, bold=True)
+
+    PAD = 70
+    BOT_Y = TOP_H
+
+    # INKLINK wordmark
+    draw.text((PAD, BOT_Y + 50), 'INKLINK', font=f_brand, fill=(232, 232, 232))
+
+    # Jméno tatéra (dominant)
+    draw.text((PAD, BOT_Y + 130), (p['display_name'] or 'tatér').upper(),
+              font=f_name, fill=(255, 255, 255))
+
+    # Studio · město
+    meta = ' · '.join([x for x in [p['studio'], p['city']] if x])
+    if meta:
+        draw.text((PAD, BOT_Y + 240), meta, font=f_meta, fill=(170, 170, 170))
+
+    # Cena (sketch) nebo "HOTOVÁ PRÁCE" (done)
+    is_sketch = (p['kind'] or 'done') == 'sketch'
+    if is_sketch and p['price_kc']:
+        try:
+            price_s = f"{int(p['price_kc']):,}".replace(',', ' ') + ' Kč'
+        except (TypeError, ValueError):
+            price_s = ''
+        if p['estimated_hours']:
+            try:
+                hrs = float(p['estimated_hours'])
+                hrs_s = (f'{hrs:.1f}'.rstrip('0').rstrip('.'))
+                price_s += f'  ·  {hrs_s}h'
+            except (TypeError, ValueError):
+                pass
+        if price_s:
+            draw.text((PAD, BOT_Y + 330), price_s, font=f_price, fill=(232, 232, 232))
+    elif not is_sketch:
+        draw.text((PAD, BOT_Y + 330), 'HOTOVÁ PRÁCE', font=f_price, fill=(232, 232, 232))
+
+    # Spodní CTA pásek s URL — přes celou šířku, výrazný
+    CTA_Y = H - 180
+    draw.rectangle([(0, CTA_Y), (W, H)], fill=(232, 232, 232))
+    cta_text = 'REZERVUJ NA'
+    full_url = request.host_url.rstrip('/') + f'/sketch/{p["id"]}'
+    url_text = full_url.replace('https://', '').replace('http://', '')
+
+    bbox = draw.textbbox((0, 0), cta_text, font=f_cta)
+    draw.text(((W - (bbox[2] - bbox[0])) // 2, CTA_Y + 22),
+              cta_text, font=f_cta, fill=(0, 0, 0))
+
+    # URL — pokud je moc dlouhá, fallback na samotnou doménu
+    bbox = draw.textbbox((0, 0), url_text, font=f_url)
+    if bbox[2] - bbox[0] > W - 60:
+        url_text = request.host + f'/sketch/{p["id"]}'
+        bbox = draw.textbbox((0, 0), url_text, font=f_url)
+    if bbox[2] - bbox[0] > W - 60:
+        url_text = request.host
+        bbox = draw.textbbox((0, 0), url_text, font=f_url)
+    draw.text(((W - (bbox[2] - bbox[0])) // 2, CTA_Y + 90),
+              url_text, font=f_url, fill=(0, 0, 0))
+
+    buf = _io.BytesIO()
+    canvas.save(buf, format='PNG', optimize=True)
+    buf.seek(0)
+    return Response(buf.getvalue(), mimetype='image/png', headers={
+        'Cache-Control': 'public, max-age=300',
+        'Content-Disposition': f'inline; filename="inklink-sketch-{p["id"]}.png"',
+    })
 
 
 # ── Upload API ────────────────────────────────────────────────────────────────

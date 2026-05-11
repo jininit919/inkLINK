@@ -8,3 +8,4 @@ gunicorn
 psycopg2-binary
 pywebpush>=2.0.0
 reportlab>=4.0.0
+Pillow>=10.0.0

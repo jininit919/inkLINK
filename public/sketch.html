@@ -78,6 +78,23 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .skeleton{background:var(--bg3);height:480px;display:flex;align-items:center;justify-content:center;color:var(--txt3);font-size:11px;letter-spacing:0.1em}
+
+.slots-block{display:flex;flex-direction:column;gap:10px}
+.slots-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.slots-head .label{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.16em;color:var(--red2)}
+.slots-head .cnt{font-size:11px;letter-spacing:0.06em;color:var(--txt3)}
+.slot-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);text-decoration:none;color:inherit;transition:border-color 0.15s,background 0.15s}
+.slot-row:hover:not(.disabled){border-color:var(--red2);background:var(--bg3)}
+.slot-row.disabled{opacity:0.5;cursor:not-allowed}
+.slot-date{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;min-width:150px;color:var(--txt)}
+.slot-meta{flex:1;display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--txt2);min-width:0}
+.slot-meta .price{color:var(--txt)}
+.slot-meta .dep{color:var(--txt3);font-size:11px;letter-spacing:0.04em}
+.slot-cta{font-size:11px;letter-spacing:0.1em;color:var(--red2);white-space:nowrap;text-transform:uppercase}
+.slot-more{text-align:center;padding:10px;font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase;border:1px dashed var(--border2);text-decoration:none}
+.slot-more:hover{color:var(--red2);border-color:var(--red2)}
+.slots-empty{padding:16px;background:var(--bg2);border:1px solid var(--border);text-align:center;font-size:12px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6}
+@media(max-width:560px){.slot-row{flex-direction:column;align-items:flex-start;gap:8px}.slot-date{min-width:0}.slot-cta{align-self:flex-end}}
 </style>
 </head>
 <body data-theme="dark">
@@ -162,10 +179,6 @@ function render() {
   const studioCity = [u.studio, u.city].filter(Boolean).join(' · ') || 'tatér';
   const styles = (p.styles || u.styles || '').trim();
 
-  const ctaHtml = (isSketch && u.can_book)
-    ? `<a class="btn-primary" href="/profile/${escapeHtml(u.username)}#book-${p.id}">Rezervovat tento návrh →</a>`
-    : `<a class="btn-primary" href="/profile/${escapeHtml(u.username)}">Profil tatéra →</a>`;
-
   document.getElementById('info').innerHTML = `
     <div class="caption ${p.caption?'':'empty'}">${escapeHtml(p.caption || (isSketch ? 'Skica bez popisu.' : 'Hotová práce bez popisu.'))}</div>
 
@@ -180,12 +193,139 @@ function render() {
       <div class="artist-cta">PROFIL →</div>
     </a>
 
+    <div id="slotsMount"></div>
+
     <div class="actions">
-      ${ctaHtml}
       <button class="btn-icon ${p.liked?'liked':''}" id="likeBtn" onclick="toggleLike()" title="${p.liked?'Odebrat z lajků':'Lajknout'}">♥<span class="cnt" id="likeCnt">${p.like_count}</span></button>
-      <button class="btn-icon" onclick="shareSketch()" title="Sdílet">↗</button>
+      <button class="btn-icon" onclick="shareSketch()" title="Sdílet odkaz">↗</button>
+      <button class="btn-icon" id="storyBtn" onclick="shareStory()" title="Sdílet jako Instagram Story">▢</button>
     </div>
   `;
+
+  loadSlots(u.username);
+}
+
+function fmtDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('cs-CZ', {day:'numeric', month:'short'})
+         + ' · ' + d.toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'});
+  } catch { return iso; }
+}
+
+function fmtPrice(min, max, unit) {
+  const suffix = unit === 'flat' ? ' Kč' : ' Kč/h';
+  if (!min && !max) return 'cena dohodou';
+  if (min && max && min !== max) return `${min.toLocaleString('cs-CZ')}–${max.toLocaleString('cs-CZ')}${suffix}`;
+  return `${(min||max).toLocaleString('cs-CZ')}${suffix}`;
+}
+
+async function loadSlots(username) {
+  const mount = document.getElementById('slotsMount');
+  const u = item.user;
+  let profile;
+  try {
+    profile = await fetch('/api/profile/' + encodeURIComponent(username)).then(r => r.json());
+  } catch {
+    mount.innerHTML = '';
+    return;
+  }
+
+  const slots = (profile.slots || []).filter(s => {
+    const totalH = (new Date(s.end_at) - new Date(s.start_at)) / 36e5;
+    const occH = (s.occupied || []).reduce((sum, o) => sum + (new Date(o.end_at) - new Date(o.start_at)) / 36e5, 0);
+    const freeH = Math.max(0, totalH - occH);
+    return freeH >= (s.min_duration_hours || 1) - 0.01;
+  });
+
+  if (!slots.length) {
+    mount.innerHTML = `
+      <div class="slots-empty">
+        Tatér zatím nemá vypsané volné termíny.<br>
+        <a href="/profile/${escapeHtml(u.username)}" style="color:var(--red2);text-decoration:underline">Jdi na profil tatéra</a> a napiš mu zprávu.
+      </div>`;
+    return;
+  }
+
+  const visible = slots.slice(0, 4);
+  const more = slots.length - visible.length;
+  const canBook = item.kind === 'sketch' && u.can_book;
+  const bookHash = item.kind === 'sketch' ? `#book-${item.id}` : '';
+
+  mount.innerHTML = `
+    <div class="slots-block">
+      <div class="slots-head">
+        <span class="label">Volné termíny</span>
+        <span class="cnt">${slots.length} ${slots.length === 1 ? 'termín' : (slots.length < 5 ? 'termíny' : 'termínů')}</span>
+      </div>
+      ${visible.map(s => {
+        const totalH = (new Date(s.end_at) - new Date(s.start_at)) / 36e5;
+        return `
+        <a class="slot-row" href="/profile/${escapeHtml(u.username)}${bookHash}">
+          <div class="slot-date">${fmtDate(s.start_at)}</div>
+          <div class="slot-meta">
+            <span class="price">${fmtPrice(s.price_min, s.price_max, s.price_unit)} · záloha ${s.deposit_pct}%</span>
+            <span class="dep">${totalH.toFixed(1).replace(/\.0$/,'')} h blok</span>
+            ${s.note ? `<span class="dep">${escapeHtml(s.note)}</span>` : ''}
+          </div>
+          <span class="slot-cta">${canBook ? 'Rezervovat →' : 'Detail →'}</span>
+        </a>`;
+      }).join('')}
+      ${more > 0 ? `<a class="slot-more" href="/profile/${escapeHtml(u.username)}">+ ${more} dalších termínů na profilu →</a>` : ''}
+    </div>
+  `;
+}
+
+async function shareStory() {
+  const btn = document.getElementById('storyBtn');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  // Zkopíruj URL hned na začátku — když pak ve Story editoru klepneš
+  // na link sticker, OS nabídne paste.
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(location.href);
+    copied = true;
+  } catch {}
+
+  try {
+    const r = await fetch(`/sketch/${ITEM_ID}/story.png`);
+    if (!r.ok) throw new Error('story fetch failed');
+    const blob = await r.blob();
+    const file = new File([blob], `inklink-sketch-${ITEM_ID}.png`, { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'InkLink' });
+        showToast(copied
+          ? 'Vlož přes link sticker — odkaz je zkopírovaný'
+          : 'Otevři ve Story a přidej link sticker s URL');
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: stáhnout soubor
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inklink-sketch-${ITEM_ID}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(copied
+      ? 'Obrázek stažen, odkaz zkopírován'
+      : 'Obrázek stažen — odkaz si zkopíruj z adresního řádku');
+  } catch (e) {
+    showToast('Nepodařilo se vygenerovat Story obrázek');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
 }
 
 async function toggleLike() {
