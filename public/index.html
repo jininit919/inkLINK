@@ -121,6 +121,11 @@ main{padding:24px 24px 80px;min-width:0}
 .card-who .meta{color:var(--txt3);font-size:11px;letter-spacing:0.04em}
 .card-like{font-size:14px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace}
 .card-like.on{color:#e58787}
+.card-share{font-size:14px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;font-family:'DM Mono',monospace;padding:0 2px;transition:color 0.15s}
+.card-share:hover{color:var(--red2)}
+
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-size:13px;letter-spacing:0.06em;padding:10px 20px;z-index:300;opacity:0;transition:all 0.2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .empty{text-align:center;padding:80px 20px;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.7}
 .empty .b{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.16em;color:var(--red2);display:block;margin-bottom:10px}
@@ -249,6 +254,8 @@ main{padding:24px 24px 80px;min-width:0}
   </aside>
 
 </div>
+
+<div class="toast" id="toast"></div>
 
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <div class="lb-card">
@@ -393,6 +400,7 @@ function render() {
             <div class="meta">${escapeHtml([u.studio, u.city].filter(Boolean).join(' · ') || 'tatér')}</div>
           </a>
           <span class="card-like ${p.liked ? 'on' : ''}" onclick="event.stopPropagation(); toggleLike(${p.id}, this)">♥ <span>${p.like_count}</span></span>
+          <span class="card-share" onclick="event.stopPropagation(); shareSketch(${p.id})" title="Sdílet">↗</span>
         </div>
       </article>
     `;
@@ -465,6 +473,27 @@ async function toggleLike(id, el) {
   if (!r) return;
   el.classList.toggle('on', r.liked);
   el.querySelector('span').textContent = r.like_count;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+async function shareSketch(id) {
+  const url = location.origin + '/sketch/' + id;
+  if (navigator.share) {
+    try { await navigator.share({ title: 'InkLink', url }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('Odkaz zkopírován');
+  } catch {
+    showToast('Zkopíruj URL: ' + url);
+  }
 }
 
 function openLb(i) {

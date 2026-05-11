@@ -12,6 +12,7 @@ except ImportError:
     psycopg2 = None
 import time
 import math
+from html import escape as html_escape
 import uuid
 import random
 import resend
@@ -1177,6 +1178,108 @@ def liked_feed():
             }
         })
     return jsonify(result)
+
+
+def _sketch_image_url(filename):
+    """Vrátí absolutní URL pro OG image / sdílení (R2 nebo vlastní host)."""
+    if R2_PUBLIC_URL:
+        return f'{R2_PUBLIC_URL}/{filename}'
+    return request.host_url.rstrip('/') + f'/uploads/{filename}'
+
+
+@app.route('/api/sketch/<int:item_id>')
+def sketch_detail(item_id):
+    """JSON detail jedné skicy / práce — shape jako item v /api/feed."""
+    uid = session.get('user_id', 0)
+    conn = get_db()
+    p = conn.execute('''
+        SELECT p.*,
+               u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
+               u.emoji, u.avatar, u.lat, u.lng,
+               u.is_artist, u.studio, u.stripe_charges_enabled,
+               EXISTS(SELECT 1 FROM portfolio_likes WHERE user_id = ? AND item_id = p.id) AS liked
+        FROM portfolio_items p
+        JOIN users u ON u.id = p.user_id
+        WHERE p.id = ?
+    ''', (uid, item_id)).fetchone()
+    conn.close()
+    if not p:
+        return jsonify({'error': 'not found'}), 404
+    return jsonify({
+        'id':            p['id'],
+        'image':         p['image'],
+        'caption':       p['caption'] or '',
+        'kind':          p['kind'] or 'done',
+        'styles':        p['styles'] or '',
+        'like_count':    p['like_count'],
+        'liked':         bool(p['liked']),
+        'price_kc':        p['price_kc'],
+        'estimated_hours': p['estimated_hours'],
+        'created_at':    time_ago(p['created_at']),
+        'user': {
+            'username':     p['username'],
+            'display_name': p['display_name'],
+            'city':         p['user_city'],
+            'studio':       p['studio'] or '',
+            'styles':       p['user_styles'] or '',
+            'emoji':        p['emoji'] or '',
+            'initials':     initials(p['display_name']),
+            'avatar':       f'/uploads/{p["avatar"]}' if p['avatar'] else None,
+            'lat':          p['lat'],
+            'lng':          p['lng'],
+            'is_artist':    bool(p['is_artist']),
+            'can_book':     bool(p['stripe_charges_enabled']),
+        }
+    })
+
+
+@app.route('/sketch/<int:item_id>')
+def sketch_page(item_id):
+    """Veřejná detail stránka skicy s OG meta tagy pro sdílení."""
+    conn = get_db()
+    p = conn.execute('''
+        SELECT p.id, p.image, p.caption, p.kind, p.price_kc,
+               u.display_name, u.studio
+        FROM portfolio_items p
+        JOIN users u ON u.id = p.user_id
+        WHERE p.id = ?
+    ''', (item_id,)).fetchone()
+    conn.close()
+    if not p:
+        return send_from_directory('public', '404.html'), 404
+
+    is_sketch = (p['kind'] or 'done') == 'sketch'
+    artist = p['display_name'] or 'tatér'
+    if is_sketch and p['price_kc']:
+        try:
+            price_s = f"{int(p['price_kc']):,}".replace(',', ' ') + ' Kč'
+            og_title = f'Skica od {artist} — {price_s}'
+        except (TypeError, ValueError):
+            og_title = f'Skica od {artist}'
+    elif is_sketch:
+        og_title = f'Skica od {artist}'
+    else:
+        og_title = f'Tetování od {artist}'
+
+    caption = (p['caption'] or '').strip()
+    if caption:
+        og_desc = caption[:180]
+    else:
+        og_desc = ('Skica k rezervaci na InkLinku' if is_sketch
+                   else 'Hotová práce na InkLinku')
+
+    og_image = _sketch_image_url(p['image'])
+    og_url = request.host_url.rstrip('/') + f'/sketch/{p["id"]}'
+
+    with open(os.path.join('public', 'sketch.html'), 'r', encoding='utf-8') as f:
+        page_html = f.read()
+    page_html = (page_html
+            .replace('{{OG_TITLE}}', html_escape(og_title))
+            .replace('{{OG_DESC}}',  html_escape(og_desc))
+            .replace('{{OG_IMAGE}}', html_escape(og_image))
+            .replace('{{OG_URL}}',   html_escape(og_url))
+            .replace('{{ITEM_ID}}',  str(p['id'])))
+    return page_html
 
 
 # ── Upload API ────────────────────────────────────────────────────────────────
