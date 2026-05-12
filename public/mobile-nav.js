@@ -1,5 +1,5 @@
 /**
- * InkLink mobile bottom-nav (Instagram-style).
+ * InkLink mobile bottom-nav (Instagram-style, role-aware).
  *
  * Auto-mountuje fixní spodní lištu na mobilech (<768px). Top `.nav-icons`
  * se na mobilu schovají, logo a další top elementy zůstanou.
@@ -8,33 +8,37 @@
  *   <script src="/mobile-nav.js"></script>
  *   <script>InkLinkMobileNav.init();</script>
  *
- * Ikony (5 slotů — Instagram pattern):
- *   ⌂ Feed       (/)
- *   ♥ Lajknuté   (/liked)
- *   ✉ Zprávy     (/messages, s unread badge)
- *   🔔 Notif      (otevře notif panel přes InkLinkNotifs)
- *   ◉ Profil     (/profile/<me>)
+ * Layout podle role (5 slotů, center=primary akce):
+ *   Tatér   : ⌂ Feed · ♥ Lajknuté · [+ Přidat] · ✉ Zprávy · ◉ Profil
+ *   Klient  : ⌂ Feed · ♥ Lajknuté · ◷ Rezervace · ✉ Zprávy · ◉ Profil
+ *   Neauth  : stejný layout jako klient; chráněné kliky → /login
  *
- * Setup, Rezervace, Eventy jsou dostupné z profile / overflow menu.
+ * Notifikační badge je teď nalepený na profile ikonu (vpravo nahoře).
+ * Zprávy mají vlastní badge.
  */
 
 (() => {
   if (window.InkLinkMobileNav) return;
 
   const CSS = `
-  .il-mnav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;align-items:stretch;justify-content:space-around;padding:0;height:58px;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent}
-  .il-mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
+  .il-mnav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;align-items:stretch;justify-content:space-around;padding:0;height:62px;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent}
+  .il-mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px;min-width:48px;min-height:44px}
   .il-mnav-item .ico{font-size:20px;line-height:1}
   .il-mnav-item .lbl{font-size:9px;letter-spacing:0.06em;color:var(--txt3,#777);white-space:nowrap}
   .il-mnav-item.active{color:var(--red2,#e8e8e8)}
   .il-mnav-item.active .lbl{color:var(--red2,#e8e8e8)}
   .il-mnav-item:active .ico{transform:scale(0.92)}
+  .il-mnav-item.primary .ico{width:44px;height:44px;border-radius:50%;background:var(--red2,#e8e8e8);color:var(--bg,#000);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:300;margin-top:-12px;box-shadow:0 4px 14px rgba(232,232,232,0.18);transition:transform 0.15s,box-shadow 0.15s}
+  .il-mnav-item.primary:active .ico{transform:scale(0.92);box-shadow:0 2px 8px rgba(232,232,232,0.12)}
+  .il-mnav-item.primary .lbl{color:var(--red2,#e8e8e8);font-weight:500}
   .il-mnav-badge{position:absolute;top:6px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);font-size:9px;color:var(--bg,#000);display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
   .il-mnav-badge.show{display:flex}
+  .il-mnav-dot{position:absolute;top:8px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);display:none}
+  .il-mnav-dot.show{display:block}
 
   @media(max-width:768px){
     .il-mnav{display:flex}
-    body{padding-bottom:62px}
+    body{padding-bottom:68px}
     /* Schováme původní top nav-icons / nav-links (různý markup napříč stránkami) */
     nav .nav-icons,
     nav .nav-links{display:none !important}
@@ -101,43 +105,53 @@
     }
   }
 
+  function setDot(id, on) {
+    const dot = document.getElementById(id);
+    if (!dot) return;
+    dot.classList.toggle('show', on);
+  }
+
   async function refreshBadge() {
     const [notifCount, msgCount] = await Promise.all([
       fetchCount('/api/notifications/count'),
       fetchCount('/api/messages/unread'),
     ]);
-    setBadge('il-mnav-notif-badge', notifCount);
     setBadge('il-mnav-msg-badge', msgCount);
+    setDot('il-mnav-profile-dot', notifCount > 0);
   }
 
   async function mount() {
     injectCSS();
     const me = await getMe();
+    const isArtist = !!(me && me.is_artist);
     const profileHref = me ? `/profile/${me.username}` : '/login';
 
+    // 3rd slot (center) je role-dependent. Pro tatéra primární akce
+    // = vytvořit příspěvek. Pro klienta/neauth = moje rezervace.
+    const centerItem = isArtist
+      ? { href: '/artist-setup#portfolio', ico: '+', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
+      : { href: '/my-bookings', ico: '◷', lbl: 'Rezervace' };
+
     const items = [
-      { href: '/',               ico: '⌂',     lbl: 'Feed' },
-      { href: '/liked',          ico: '♥',     lbl: 'Lajknuté' },
-      { href: '/messages',       ico: 'ENV',   lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
-      { id: 'notif',             ico: 'BELL',  lbl: 'Notif' },
-      { href: profileHref,       ico: '◉',     lbl: 'Profil' },
+      { href: '/',         ico: '⌂',   lbl: 'Feed' },
+      { href: '/liked',    ico: '♥',   lbl: 'Lajknuté' },
+      centerItem,
+      { href: '/messages', ico: 'ENV', lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
+      { href: profileHref, ico: '◉',   lbl: me ? 'Profil' : 'Sign In', dotId: 'il-mnav-profile-dot' },
     ];
 
     const html = items.map(it => {
-      if (it.id === 'notif') {
-        return `<button class="il-mnav-item" id="il-mnav-notif" aria-label="Notifikace">
-          <span class="ico">${svgBell()}</span>
-          <span class="lbl">${it.lbl}</span>
-          <span class="il-mnav-badge" id="il-mnav-notif-badge"></span>
-        </button>`;
-      }
       const active = isActive(it.href) ? ' active' : '';
-      const ico = it.ico === 'ENV' ? svgEnvelope() : `<span style="font-size:20px;line-height:1">${it.ico}</span>`;
+      const primary = it.primary ? ' primary' : '';
+      const ico = it.ico === 'ENV'
+        ? svgEnvelope()
+        : `<span style="font-size:20px;line-height:1">${it.ico}</span>`;
       const badge = it.badgeId ? `<span class="il-mnav-badge" id="${it.badgeId}"></span>` : '';
-      return `<a class="il-mnav-item${active}" href="${it.href}" aria-label="${it.lbl}">
+      const dot   = it.dotId   ? `<span class="il-mnav-dot" id="${it.dotId}"></span>` : '';
+      return `<a class="il-mnav-item${active}${primary}" href="${it.href}" aria-label="${it.aria || it.lbl}">
         <span class="ico">${ico}</span>
         <span class="lbl">${it.lbl}</span>
-        ${badge}
+        ${badge}${dot}
       </a>`;
     }).join('');
 
@@ -148,21 +162,11 @@
     nav.innerHTML = html;
     document.body.appendChild(nav);
 
-    document.getElementById('il-mnav-notif').addEventListener('click', () => {
-      // Pokud je na stránce InkLinkNotifs, deleguj — otevře sdílený panel
-      if (window.InkLinkNotifs && typeof window.InkLinkNotifs.toggle === 'function') {
-        window.InkLinkNotifs.toggle();
-      } else {
-        // fallback — klik na neviditelný bell btn
-        const btn = document.getElementById('il-notif-btn');
-        if (btn) btn.click();
-        else location.href = '/'; // poslední fallback
-      }
-    });
-
-    await refreshBadge();
-    setInterval(refreshBadge, 60_000);
-    window.addEventListener('focus', refreshBadge);
+    if (me) {
+      await refreshBadge();
+      setInterval(refreshBadge, 60_000);
+      window.addEventListener('focus', refreshBadge);
+    }
   }
 
   function init() {
