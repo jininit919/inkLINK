@@ -500,7 +500,7 @@ async function doSearch() {
     html += d.portfolio.map(p => {
       const price = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč` : '';
       return `<a class="sd-item" href="/profile/${escapeHtml(p.username)}#book-${p.id}">
-        <div class="sd-img"><img src="/uploads/${escapeHtml(p.image)}" alt=""></div>
+        <div class="sd-img"><img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy"></div>
         <div class="sd-body"><div class="n">${escapeHtml(p.caption || (p.kind==='sketch'?'Skica':'Hotová práce'))}</div>
           <div class="m">${escapeHtml(p.display_name)} · ${p.kind==='sketch'?'skica':'hotové'}</div></div>
         <div class="sd-meta">${price}</div>
