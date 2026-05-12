@@ -154,7 +154,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
       <input type="text" id="convSearch" placeholder="Search conversations...">
     </div>
     <div class="conv-list" id="convList">
-      <div class="loading">Loading...</div>
+      <div class="il-loading-row"><span class="il-spinner"></span> Načítám konverzace…</div>
     </div>
   </div>
 
@@ -268,7 +268,7 @@ async function openChat(userId, name, ini, avatar, username) {
       </a>
       <div class="chat-name"><a href="/profile/${esc(username)}">${esc(name)}</a></div>
     </div>
-    <div class="chat-messages" id="chatMessages"><div class="loading">Loading...</div></div>
+    <div class="chat-messages" id="chatMessages"><div class="il-loading-row"><span class="il-spinner"></span> Načítám zprávy…</div></div>
     <div class="chat-input-bar">
       <div class="emoji-picker" id="emojiPicker">${buildEmojiPicker()}</div>
       <div class="img-preview-bar" id="imgPreviewBar">

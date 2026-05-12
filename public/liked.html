@@ -180,10 +180,22 @@ async function init() {
 }
 
 async function loadLiked() {
-  const r = await fetch('/api/liked');
-  if (r.status === 401) { location.href = '/login'; return; }
-  items = await r.json().catch(() => []);
-  render();
+  const grid = document.getElementById('feed');
+  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Načítám lajknuté…</div>';
+  try {
+    const r = await fetch('/api/liked');
+    if (r.status === 401) { location.href = '/login'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    items = await r.json();
+    render();
+  } catch (e) {
+    items = [];
+    grid.innerHTML = `<div class="il-error-banner">
+      <span>Nepodařilo se načíst lajknuté (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="loadLiked()">Zkusit znovu</button>
+    </div>`;
+    document.getElementById('emptyState').style.display = 'none';
+  }
 }
 
 function render() {

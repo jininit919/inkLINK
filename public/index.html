@@ -169,7 +169,7 @@ main{padding:24px 24px 80px;min-width:0}
   </div>
 </nav>
 <script src="/notifs.js?v=5"></script>
-<script src="/mobile-nav.js?v=9"></script>
+<script src="/mobile-nav.js?v=10"></script>
 <script src="/cookie-banner.js?v=5"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init(); InkLinkCookieBanner.init();</script>
 
@@ -384,9 +384,21 @@ async function loadFeed() {
   if (cityFilter) params.set('city', cityFilter);
   if (searchQuery) params.set('q', searchQuery);
   if (kindFilter) params.set('kind', kindFilter);
-  const r = await fetch('/api/feed?' + params.toString());
-  items = await r.json().catch(() => []);
-  render();
+  const grid = document.getElementById('feed');
+  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Načítám feed…</div>';
+  try {
+    const r = await fetch('/api/feed?' + params.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    items = await r.json();
+    render();
+  } catch (e) {
+    items = [];
+    grid.innerHTML = `<div class="il-error-banner">
+      <span>Nepodařilo se načíst feed (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="loadFeed()">Zkusit znovu</button>
+    </div>`;
+    document.getElementById('emptyState').style.display = 'none';
+  }
 }
 
 function render() {
