@@ -21,7 +21,7 @@
   if (window.InkLinkMobileNav) return;
 
   const CSS = `
-  .il-mnav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;height:62px;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent}
+  .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:rgba(0,0,0,0.96) !important;backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;height:62px !important;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent;padding:0 !important;margin:0 !important}
   .il-mnav-grid{display:grid;grid-template-columns:repeat(5,1fr);height:100%}
   .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
   .il-mnav-item .ico{font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center}
@@ -154,7 +154,10 @@
   function renderNav(items) {
     let nav = document.getElementById('il-mnav-root');
     if (!nav) {
-      nav = document.createElement('nav');
+      // Použijeme <div> místo <nav> — page-level `nav{...}` CSS na
+      // některých stránkách (top nav rules) jinak overridne pozici
+      // i height našeho bottom navu.
+      nav = document.createElement('div');
       nav.id = 'il-mnav-root';
       nav.className = 'il-mnav';
       nav.setAttribute('role', 'navigation');

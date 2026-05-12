@@ -1,4 +1,4 @@
-const CACHE = 'inklink-v5';
+const CACHE = 'inklink-v6';
 const PRECACHE = [
   '/',
   '/manifest.json',
