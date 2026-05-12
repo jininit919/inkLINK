@@ -91,6 +91,17 @@ main{padding:24px 24px 80px;min-width:0}
 
 .feed-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .feed-tabs::-webkit-scrollbar{display:none}
+
+/* Mobile filter chips — pouze na <=980px, kde je sidebar schovaný */
+.mfilter{display:none}
+@media(max-width:980px){.mfilter{display:flex;flex-direction:column;gap:8px;margin:-6px 0 14px}}
+.mfilter-row{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0}
+.mfilter-row::-webkit-scrollbar{display:none}
+.mfilter-chip{flex-shrink:0;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:7px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.mfilter-chip:hover{border-color:var(--txt3)}
+.mfilter-chip.active{background:var(--red2);color:var(--bg);border-color:var(--red2)}
+.mfilter-label{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:0.18em;color:var(--txt3);padding:0 2px;align-self:flex-start;min-width:54px;display:flex;align-items:center;margin-right:2px}
+.mfilter-row-wrap{display:flex;align-items:center;gap:6px}
 .feed-tab{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;padding:12px 22px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
 .feed-tab.active{color:var(--red2);border-bottom-color:var(--red2)}
 .feed-tab:hover:not(.active){color:var(--txt)}
@@ -158,7 +169,7 @@ main{padding:24px 24px 80px;min-width:0}
   </div>
 </nav>
 <script src="/notifs.js?v=5"></script>
-<script src="/mobile-nav.js?v=7"></script>
+<script src="/mobile-nav.js?v=8"></script>
 <script src="/cookie-banner.js?v=5"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init(); InkLinkCookieBanner.init();</script>
 
@@ -215,6 +226,25 @@ main{padding:24px 24px 80px;min-width:0}
     <div class="feed-tabs">
       <div class="feed-tab active" data-kind="sketch">Skicy <span class="tab-hint" id="cntSketch"></span></div>
       <div class="feed-tab" data-kind="done">Hotové <span class="tab-hint" id="cntDone"></span></div>
+    </div>
+
+    <div class="mfilter">
+      <div class="mfilter-row-wrap">
+        <span class="mfilter-label">Město</span>
+        <div class="mfilter-row" id="mfilterCities">
+          <button class="mfilter-chip city-row" data-city="Praha">Praha</button>
+          <button class="mfilter-chip city-row" data-city="Brno">Brno</button>
+          <button class="mfilter-chip city-row" data-city="Ostrava">Ostrava</button>
+          <button class="mfilter-chip city-row" data-city="Plzeň">Plzeň</button>
+          <button class="mfilter-chip city-row" data-city="Liberec">Liberec</button>
+          <button class="mfilter-chip city-row" data-city="Bratislava">Bratislava</button>
+          <button class="mfilter-chip city-row" data-city="Olomouc">Olomouc</button>
+        </div>
+      </div>
+      <div class="mfilter-row-wrap">
+        <span class="mfilter-label">Styl</span>
+        <div class="mfilter-row" id="mfilterStyles"></div>
+      </div>
     </div>
 
     <div class="feed-toolbar">
@@ -307,7 +337,12 @@ async function init() {
   const styles = await fetch('/api/styles').then(r => r.json()).catch(() => []);
   const stylesEl = document.getElementById('stylesList');
   stylesEl.innerHTML = styles.map(s => `<a class="sidebar-link style-row" data-style="${escapeHtml(s)}"><span class="icon">◈</span> ${escapeHtml(s)}</a>`).join('');
-  stylesEl.querySelectorAll('.style-row').forEach(el => el.addEventListener('click', () => setStyle(el.dataset.style, el)));
+  // Mobile filter chips — stejná data-style, sdílí setStyle handler + active state
+  const mStylesEl = document.getElementById('mfilterStyles');
+  if (mStylesEl) {
+    mStylesEl.innerHTML = styles.map(s => `<button class="mfilter-chip style-row" data-style="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('');
+  }
+  document.querySelectorAll('.style-row').forEach(el => el.addEventListener('click', () => setStyle(el.dataset.style, el)));
   document.querySelectorAll('.city-row').forEach(el => el.addEventListener('click', () => setCity(el.dataset.city, el)));
 
   const searchEl = document.getElementById('searchInput');
@@ -326,14 +361,20 @@ async function init() {
   await loadFeed();
 }
 
-function setStyle(s, el) {
-  if (styleFilter === s) { styleFilter = ''; el.classList.remove('active'); }
-  else { styleFilter = s; document.querySelectorAll('.style-row').forEach(x => x.classList.remove('active')); el.classList.add('active'); }
+function syncFilterState() {
+  document.querySelectorAll('.style-row').forEach(x =>
+    x.classList.toggle('active', !!styleFilter && x.dataset.style === styleFilter));
+  document.querySelectorAll('.city-row').forEach(x =>
+    x.classList.toggle('active', !!cityFilter && x.dataset.city === cityFilter));
+}
+function setStyle(s) {
+  styleFilter = styleFilter === s ? '' : s;
+  syncFilterState();
   loadFeed();
 }
-function setCity(c, el) {
-  if (cityFilter === c) { cityFilter = ''; el.classList.remove('active'); }
-  else { cityFilter = c; document.querySelectorAll('.city-row').forEach(x => x.classList.remove('active')); el.classList.add('active'); }
+function setCity(c) {
+  cityFilter = cityFilter === c ? '' : c;
+  syncFilterState();
   loadFeed();
 }
 
