@@ -150,7 +150,7 @@
       { href: '/liked',    ico: '♥',   lbl: 'Lajknuté' },
       centerItem,
       { href: '/messages', ico: 'ENV', lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
-      { href: profileHref, ico: '◉',   lbl: me ? 'Profil' : 'Sign In', dotId: 'il-mnav-profile-dot' },
+      { href: profileHref, ico: '◉',   lbl: me ? 'Profil' : 'Přihlásit', dotId: 'il-mnav-profile-dot' },
     ];
   }
 

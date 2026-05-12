@@ -79,8 +79,8 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
   <form class="form active" id="loginForm" onsubmit="doLogin(event)">
     <div class="error-msg" id="loginError"></div>
     <div class="field">
-      <label>Username</label>
-      <input type="text" id="loginUsername" placeholder="username" autocomplete="username" required>
+      <label>Uživatelské jméno</label>
+      <input type="text" id="loginUsername" placeholder="uživatelské jméno" autocomplete="username" required>
     </div>
     <div class="field">
       <label>Heslo</label>
@@ -94,7 +94,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
   <form class="form" id="registerForm" onsubmit="doRegister(event)">
     <div class="error-msg" id="registerError"></div>
     <div class="field">
-      <label>Username *</label>
+      <label>Uživatelské jméno *</label>
       <input type="text" id="regUsername" placeholder="jen písmena a čísla" autocomplete="username" required>
     </div>
     <div class="field">
@@ -149,7 +149,7 @@ async function doLogin(e) {
   hideError('loginError');
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
-  btn.textContent = 'SIGNING IN...';
+  btn.textContent = 'PŘIHLAŠUJI…';
 
   const res = await fetch('/api/login', {
     method: 'POST',
@@ -175,7 +175,7 @@ async function doRegister(e) {
   hideError('registerError');
   const btn = document.getElementById('registerBtn');
   btn.disabled = true;
-  btn.textContent = 'CREATING ACCOUNT...';
+  btn.textContent = 'VYTVÁŘÍM ÚČET…';
 
   const res = await fetch('/api/register', {
     method: 'POST',
