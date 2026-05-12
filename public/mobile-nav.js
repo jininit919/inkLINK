@@ -22,14 +22,15 @@
 
   const CSS = `
   .il-mnav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;align-items:stretch;justify-content:space-around;padding:0;height:62px;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent}
-  .il-mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px;min-width:48px;min-height:44px}
-  .il-mnav-item .ico{font-size:20px;line-height:1}
+  .il-mnav-item{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
+  .il-mnav-item .ico{font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center}
   .il-mnav-item .lbl{font-size:9px;letter-spacing:0.06em;color:var(--txt3,#777);white-space:nowrap}
   .il-mnav-item.active{color:var(--red2,#e8e8e8)}
   .il-mnav-item.active .lbl{color:var(--red2,#e8e8e8)}
   .il-mnav-item:active .ico{transform:scale(0.92)}
-  .il-mnav-item.primary .ico{width:44px;height:44px;border-radius:50%;background:var(--red2,#e8e8e8);color:var(--bg,#000);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:300;margin-top:-12px;box-shadow:0 4px 14px rgba(232,232,232,0.18);transition:transform 0.15s,box-shadow 0.15s}
-  .il-mnav-item.primary:active .ico{transform:scale(0.92);box-shadow:0 2px 8px rgba(232,232,232,0.12)}
+  .il-mnav-item.primary{justify-content:flex-end;padding-bottom:8px}
+  .il-mnav-item.primary .ico{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:46px;height:46px;border-radius:50%;background:var(--red2,#e8e8e8);color:var(--bg,#000);font-size:28px;font-weight:300;box-shadow:0 4px 14px rgba(232,232,232,0.18);transition:transform 0.15s,box-shadow 0.15s}
+  .il-mnav-item.primary:active .ico{transform:translateX(-50%) scale(0.92);box-shadow:0 2px 8px rgba(232,232,232,0.12)}
   .il-mnav-item.primary .lbl{color:var(--red2,#e8e8e8);font-weight:500}
   .il-mnav-badge{position:absolute;top:6px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);font-size:9px;color:var(--bg,#000);display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
   .il-mnav-badge.show{display:flex}
