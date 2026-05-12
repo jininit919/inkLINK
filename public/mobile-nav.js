@@ -44,6 +44,9 @@
     nav .nav-icons,
     nav .nav-links{display:none !important}
     nav > .nav-icon{display:none !important}
+    /* Skryjeme "+ Přidat" tlačítka — primary button v bottom navu je nahradí */
+    #navAddBtn,
+    #mainAddBtn{display:none !important}
   }
   `;
 
