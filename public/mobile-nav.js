@@ -13,7 +13,7 @@
  *   Klient  : ⌂ Feed · ♥ Lajknuté · ◷ Rezervace · ✉ Zprávy · ◉ Profil
  *   Neauth  : stejný layout jako klient; chráněné kliky → /login
  *
- * Notifikační badge je teď nalepený na profile ikonu (vpravo nahoře).
+ * Notifikační badge je nalepený na profile ikonu (vpravo nahoře).
  * Zprávy mají vlastní badge.
  */
 
@@ -21,16 +21,17 @@
   if (window.InkLinkMobileNav) return;
 
   const CSS = `
-  .il-mnav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;align-items:stretch;justify-content:space-around;padding:0;height:62px;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent}
-  .il-mnav-item{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
+  .il-mnav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;height:62px;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent}
+  .il-mnav-grid{display:grid;grid-template-columns:repeat(5,1fr);height:100%}
+  .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
   .il-mnav-item .ico{font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center}
   .il-mnav-item .lbl{font-size:9px;letter-spacing:0.06em;color:var(--txt3,#777);white-space:nowrap}
   .il-mnav-item.active{color:var(--red2,#e8e8e8)}
   .il-mnav-item.active .lbl{color:var(--red2,#e8e8e8)}
   .il-mnav-item:active .ico{transform:scale(0.92)}
   .il-mnav-item.primary{justify-content:flex-end;padding-bottom:8px}
-  .il-mnav-item.primary .ico{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:46px;height:46px;border-radius:50%;background:var(--red2,#e8e8e8);color:var(--bg,#000);font-size:28px;font-weight:300;box-shadow:0 4px 14px rgba(232,232,232,0.18);transition:transform 0.15s,box-shadow 0.15s}
-  .il-mnav-item.primary:active .ico{transform:translateX(-50%) scale(0.92);box-shadow:0 2px 8px rgba(232,232,232,0.12)}
+  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:var(--red2,#e8e8e8);color:var(--bg,#000);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:300;line-height:1;box-shadow:0 4px 14px rgba(232,232,232,0.18);transition:transform 0.15s,box-shadow 0.15s}
+  .il-mnav-item.primary:active .ico-circle{transform:scale(0.92);box-shadow:0 2px 8px rgba(232,232,232,0.12)}
   .il-mnav-item.primary .lbl{color:var(--red2,#e8e8e8);font-weight:500}
   .il-mnav-badge{position:absolute;top:6px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);font-size:9px;color:var(--bg,#000);display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
   .il-mnav-badge.show{display:flex}
@@ -38,14 +39,11 @@
   .il-mnav-dot.show{display:block}
 
   @media(max-width:768px){
-    .il-mnav{display:flex}
+    .il-mnav{display:block}
     body{padding-bottom:68px}
-    /* Schováme původní top nav-icons / nav-links (různý markup napříč stránkami) */
     nav .nav-icons,
     nav .nav-links{display:none !important}
-    /* Také schováme samotné top-nav .nav-icon ikony, pokud nejsou v kontaineru */
     nav > .nav-icon{display:none !important}
-    /* Logo nahoře zůstává — užitečné pro orientaci a click → home */
   }
   `;
 
@@ -74,12 +72,6 @@
     return cachedMe;
   }
 
-  function svgBell() {
-    return `<svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M8 2.5a3.5 3.5 0 0 0-3.5 3.5v2.8L3 11h10l-1.5-2.2V6A3.5 3.5 0 0 0 8 2.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M6.5 11a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    </svg>`;
-  }
   function svgEnvelope() {
     return `<svg width="20" height="20" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M2 4.5 L10.5 4.5 M8 2 L10.5 4.5 L8 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -121,14 +113,35 @@
     setDot('il-mnav-profile-dot', notifCount > 0);
   }
 
+  function renderItem(it) {
+    const active  = isActive(it.href) ? ' active' : '';
+    const primary = it.primary ? ' primary' : '';
+    const ariaLbl = it.aria || it.lbl;
+    if (it.primary) {
+      // Primary má kruhový vystrčený ikon (.ico-circle) — absolutně pozicovaný
+      return `<a class="il-mnav-item${active} primary" href="${it.href}" aria-label="${ariaLbl}">
+        <span class="ico-circle">${it.ico}</span>
+        <span class="lbl">${it.lbl}</span>
+      </a>`;
+    }
+    const ico = it.ico === 'ENV'
+      ? svgEnvelope()
+      : `<span style="font-size:20px;line-height:1">${it.ico}</span>`;
+    const badge = it.badgeId ? `<span class="il-mnav-badge" id="${it.badgeId}"></span>` : '';
+    const dot   = it.dotId   ? `<span class="il-mnav-dot" id="${it.dotId}"></span>` : '';
+    return `<a class="il-mnav-item${active}" href="${it.href}" aria-label="${ariaLbl}">
+      <span class="ico">${ico}</span>
+      <span class="lbl">${it.lbl}</span>
+      ${badge}${dot}
+    </a>`;
+  }
+
   async function mount() {
     injectCSS();
     const me = await getMe();
     const isArtist = !!(me && me.is_artist);
     const profileHref = me ? `/profile/${me.username}` : '/login';
 
-    // 3rd slot (center) je role-dependent. Pro tatéra primární akce
-    // = vytvořit příspěvek. Pro klienta/neauth = moje rezervace.
     const centerItem = isArtist
       ? { href: '/artist-setup#portfolio', ico: '+', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
       : { href: '/my-bookings', ico: '◷', lbl: 'Rezervace' };
@@ -141,26 +154,16 @@
       { href: profileHref, ico: '◉',   lbl: me ? 'Profil' : 'Sign In', dotId: 'il-mnav-profile-dot' },
     ];
 
-    const html = items.map(it => {
-      const active = isActive(it.href) ? ' active' : '';
-      const primary = it.primary ? ' primary' : '';
-      const ico = it.ico === 'ENV'
-        ? svgEnvelope()
-        : `<span style="font-size:20px;line-height:1">${it.ico}</span>`;
-      const badge = it.badgeId ? `<span class="il-mnav-badge" id="${it.badgeId}"></span>` : '';
-      const dot   = it.dotId   ? `<span class="il-mnav-dot" id="${it.dotId}"></span>` : '';
-      return `<a class="il-mnav-item${active}${primary}" href="${it.href}" aria-label="${it.aria || it.lbl}">
-        <span class="ico">${ico}</span>
-        <span class="lbl">${it.lbl}</span>
-        ${badge}${dot}
-      </a>`;
-    }).join('');
+    // Diagnostic — pomáhá debugovat když user nahlásí prázdnou navigaci.
+    if (window.console && console.log) {
+      console.log('[il-mnav] mounting', { items: items.length, isArtist, hasMe: !!me });
+    }
 
     const nav = document.createElement('nav');
     nav.className = 'il-mnav';
     nav.setAttribute('role', 'navigation');
     nav.setAttribute('aria-label', 'Hlavní navigace');
-    nav.innerHTML = html;
+    nav.innerHTML = `<div class="il-mnav-grid">${items.map(renderItem).join('')}</div>`;
     document.body.appendChild(nav);
 
     if (me) {
