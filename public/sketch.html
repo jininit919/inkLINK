@@ -144,7 +144,7 @@ async function init() {
 
   const navAvatar = document.getElementById('navAvatar');
   if (me) {
-    if (me.avatar_url) navAvatar.innerHTML = `<img src="${me.avatar_url}" alt="">`;
+    if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
     else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
     document.getElementById('navLiked').style.display = 'flex';
   } else {
@@ -328,16 +328,25 @@ async function shareStory() {
   }
 }
 
+let _likeBusy = false;
 async function toggleLike() {
   if (!me) { location.href = '/login'; return; }
-  const r = await fetch(`/api/portfolio/${ITEM_ID}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
-  if (!r) return;
-  item.liked = r.liked;
-  item.like_count = r.like_count;
+  if (_likeBusy) return;
+  _likeBusy = true;
   const btn = document.getElementById('likeBtn');
-  btn.classList.toggle('liked', r.liked);
-  btn.title = r.liked ? 'Odebrat z lajků' : 'Lajknout';
-  document.getElementById('likeCnt').textContent = r.like_count;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/portfolio/${ITEM_ID}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
+    if (!r) return;
+    item.liked = r.liked;
+    item.like_count = r.like_count;
+    btn.classList.toggle('liked', r.liked);
+    btn.title = r.liked ? 'Odebrat z lajků' : 'Lajknout';
+    document.getElementById('likeCnt').textContent = r.like_count;
+  } finally {
+    _likeBusy = false;
+    btn.disabled = false;
+  }
 }
 
 async function shareSketch() {

@@ -277,7 +277,7 @@ async function loadArtist() {
 
 function renderRow(b, view) {
   const other = view === 'client' ? b.artist : b.client;
-  const ava = other.avatar_url ? `<img src="${other.avatar_url}" alt="">`
+  const ava = other.avatar_url ? `<img src="${escapeHtml(other.avatar_url)}" alt="">`
                                 : escapeHtml((other.display_name || '?').slice(0,2).toUpperCase());
   const profileLink = `/profile/${escapeHtml(other.username)}`;
   // primárně používáme konkrétní booking_start_at, fallback na slot.start_at (legacy)

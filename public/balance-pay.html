@@ -100,8 +100,8 @@ function showError(msg) {
 
 function render(d) {
   const ava = d.artist_avatar_url
-    ? `<img src="${d.artist_avatar_url}" alt="">`
-    : (d.artist_name || '?').slice(0,2).toUpperCase();
+    ? `<img src="${escapeHtml(d.artist_avatar_url)}" alt="">`
+    : escapeHtml((d.artist_name || '?').slice(0,2).toUpperCase());
 
   const isPaid = d.already_paid_in_full;
   const amount = isPaid ? d.paid_cents : d.amount_cents;

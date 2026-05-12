@@ -164,7 +164,7 @@ async function init() {
   if (!me) { location.href = '/login'; return; }
 
   const navAvatar = document.getElementById('navAvatar');
-  if (me.avatar_url) navAvatar.innerHTML = `<img src="${me.avatar_url}" alt="">`;
+  if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
   else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
   document.getElementById('menuMyProfile').href = '/profile/' + me.username;
 
@@ -207,7 +207,7 @@ function render() {
 
   grid.innerHTML = filtered.map(p => {
     const u = p.user;
-    const av = u.avatar ? `<img src="${u.avatar}" alt="">` : escapeHtml(u.initials || '?');
+    const av = u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="">` : escapeHtml(u.initials || '?');
     const kindLabel = p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ';
     const priced = p.kind === 'sketch' && p.price_kc;
     const priceTxt = priced
@@ -235,12 +235,19 @@ function render() {
   }).join('');
 }
 
+const _unlikeBusy = new Set();
 async function unlike(id) {
-  const r = await fetch(`/api/portfolio/${id}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
-  if (!r) return;
-  if (!r.liked) {
-    items = items.filter(p => p.id !== id);
-    render();
+  if (_unlikeBusy.has(id)) return;
+  _unlikeBusy.add(id);
+  try {
+    const r = await fetch(`/api/portfolio/${id}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
+    if (!r) return;
+    if (!r.liked) {
+      items = items.filter(p => p.id !== id);
+      render();
+    }
+  } finally {
+    _unlikeBusy.delete(id);
   }
 }
 

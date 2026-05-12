@@ -327,7 +327,7 @@ async function fetchMessages(userId) {
 
   el.innerHTML = data.messages.map(m => {
     const avatarHTML = m.mine
-      ? `<div class="msg-avatar">${myAvatar ? `<img src="${myAvatar}" alt="">` : esc(myInitials)}</div>`
+      ? `<div class="msg-avatar">${myAvatar ? `<img src="${esc(myAvatar)}" alt="">` : esc(myInitials)}</div>`
       : (data.other.avatar
           ? `<div class="msg-avatar"><img src="/uploads/${esc(data.other.avatar)}" alt=""></div>`
           : `<div class="msg-avatar">${esc(data.other.initials)}</div>`);

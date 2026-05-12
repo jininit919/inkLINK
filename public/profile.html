@@ -317,7 +317,7 @@ function render() {
   // Recenze tab visibility — jen pro artisty (jinak nemají bookings)
   if (!profile.is_artist) document.getElementById('reviewsTab').style.display = 'none';
 
-  if (profile.avatar_url) document.getElementById('avatar').innerHTML = `<img src="${profile.avatar_url}" alt="">`;
+  if (profile.avatar_url) document.getElementById('avatar').innerHTML = `<img src="${escapeHtml(profile.avatar_url)}" alt="">`;
   else document.getElementById('avatar').textContent = profile.initials || '?';
 
   if (profile.city) { document.getElementById('city').textContent = profile.city; document.getElementById('cityRow').style.display = 'inline'; }
@@ -447,8 +447,8 @@ async function loadReviews() {
   document.getElementById('reviewsEmpty').style.display = 'none';
   list.innerHTML = d.reviews.map(rv => {
     const av = rv.client && rv.client.avatar_url
-      ? `<img src="${rv.client.avatar_url}" alt="">`
-      : (rv.client && rv.client.initials || '?');
+      ? `<img src="${escapeHtml(rv.client.avatar_url)}" alt="">`
+      : escapeHtml((rv.client && rv.client.initials) || '?');
     const date = rv.created_at ? new Date(rv.created_at).toLocaleDateString('cs-CZ', {day:'numeric',month:'long',year:'numeric'}) : '';
     return `
       <div class="review-item">

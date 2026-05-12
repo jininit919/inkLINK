@@ -282,7 +282,7 @@ async function init() {
 
   const navAvatar = document.getElementById('navAvatar');
   if (me) {
-    if (me.avatar_url) navAvatar.innerHTML = `<img src="${me.avatar_url}" alt="">`;
+    if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
     else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
     document.getElementById('menuMyProfile').href = '/profile/' + me.username;
     document.getElementById('navAddBtn').style.display = 'inline-flex';
@@ -379,7 +379,7 @@ function render() {
 
   grid.innerHTML = items.map((p, i) => {
     const u = p.user;
-    const av = u.avatar ? `<img src="${u.avatar}" alt="">` : escapeHtml(u.initials || '?');
+    const av = u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="">` : escapeHtml(u.initials || '?');
     const kindLabel = p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ';
     const priced = p.kind === 'sketch' && p.price_kc;
     const priceTxt = priced
@@ -429,7 +429,7 @@ async function doSearch() {
   if (d.artists?.length) {
     html += '<div class="sd-section"><div class="sd-label">TATÉŘI</div>';
     html += d.artists.map(a => {
-      const av = a.avatar_url ? `<img src="${a.avatar_url}" alt="">` : escapeHtml((a.display_name||'?').slice(0,2).toUpperCase());
+      const av = a.avatar_url ? `<img src="${escapeHtml(a.avatar_url)}" alt="">` : escapeHtml((a.display_name||'?').slice(0,2).toUpperCase());
       const meta = [a.studio, a.city].filter(Boolean).join(' · ');
       const rating = a.rating_count > 0 ? `★ ${a.rating_avg.toFixed(1)} (${a.rating_count})` : '';
       return `<a class="sd-item" href="/profile/${escapeHtml(a.username)}">
@@ -469,10 +469,16 @@ async function doSearch() {
 
 async function toggleLike(id, el) {
   if (!me) { location.href = '/login'; return; }
-  const r = await fetch(`/api/portfolio/${id}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
-  if (!r) return;
-  el.classList.toggle('on', r.liked);
-  el.querySelector('span').textContent = r.like_count;
+  if (el.dataset.busy) return;
+  el.dataset.busy = '1';
+  try {
+    const r = await fetch(`/api/portfolio/${id}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
+    if (!r) return;
+    el.classList.toggle('on', r.liked);
+    el.querySelector('span').textContent = r.like_count;
+  } finally {
+    delete el.dataset.busy;
+  }
 }
 
 function showToast(msg) {
@@ -503,7 +509,7 @@ function openLb(i) {
   document.getElementById('lb-meta').textContent = [p.user.studio, p.user.city].filter(Boolean).join(' · ');
   document.getElementById('lb-cap').textContent = p.caption || '';
   document.getElementById('lb-profile').href = '/profile/' + p.user.username;
-  if (p.user.avatar) document.getElementById('lb-avatar').innerHTML = `<img src="${p.user.avatar}" alt="">`;
+  if (p.user.avatar) document.getElementById('lb-avatar').innerHTML = `<img src="${escapeHtml(p.user.avatar)}" alt="">`;
   else document.getElementById('lb-avatar').textContent = (p.user.initials || '?');
   document.getElementById('lightbox').classList.add('show');
 }
