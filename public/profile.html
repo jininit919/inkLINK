@@ -114,6 +114,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 #bookModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
 #bookModal.show{display:flex}
 .book-card{max-width:560px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:28px;max-height:90vh;overflow-y:auto}
+@media(max-width:560px){#bookModal{padding:0}.book-card{max-height:100vh;height:100vh;padding:18px;border:none}}
 .book-card h3{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.12em;margin-bottom:8px}
 .book-card .when{color:var(--txt2);font-size:13px;margin-bottom:6px}
 .book-card .price{color:var(--txt3);font-size:12px;letter-spacing:0.05em;margin-bottom:18px}
