@@ -531,6 +531,8 @@ async function pollUnread() {
 init().then(() => pollUnread());
 </script>
 
+<script src="/mobile-nav.js?v=4"></script>
+<script>InkLinkMobileNav && InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
 </body>
 </html>

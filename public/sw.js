@@ -1,4 +1,4 @@
-const CACHE = 'inklink-v3';
+const CACHE = 'inklink-v4';
 const PRECACHE = [
   '/',
   '/manifest.json',
@@ -6,10 +6,15 @@ const PRECACHE = [
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap',
 ];
 
-// Install — pre-cache shell
+// Install — nuclear option: smaže VŠECHNY cache (i ne-CACHE keys),
+// pak preloaduje shell. Tím se zbavíme dead entries z předchozích verzí.
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting())
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => caches.open(CACHE))
+      .then(c => c.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
