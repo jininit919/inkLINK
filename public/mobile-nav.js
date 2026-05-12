@@ -8,12 +8,14 @@
  *   <script src="/mobile-nav.js"></script>
  *   <script>InkLinkMobileNav.init();</script>
  *
- * Ikony:
- *   ⌂ Feed (/)
- *   ◷ Rezervace (/my-bookings)
- *   ⚙ Setup (/artist-setup) — vstupní bod pro tatéry
- *   🔔 Notif (otevře notif panel přes InkLinkNotifs)
- *   ◉ Profil (/profile/<me>)
+ * Ikony (5 slotů — Instagram pattern):
+ *   ⌂ Feed       (/)
+ *   ♥ Lajknuté   (/liked)
+ *   ✉ Zprávy     (/messages, s unread badge)
+ *   🔔 Notif      (otevře notif panel přes InkLinkNotifs)
+ *   ◉ Profil     (/profile/<me>)
+ *
+ * Setup, Rezervace, Eventy jsou dostupné z profile / overflow menu.
  */
 
 (() => {
@@ -80,24 +82,32 @@
     </svg>`;
   }
 
-  async function fetchUnread() {
+  async function fetchCount(url) {
     try {
-      const r = await fetch('/api/notifications/count');
+      const r = await fetch(url);
       if (!r.ok) return 0;
       return (await r.json()).count || 0;
     } catch { return 0; }
   }
 
-  async function refreshBadge() {
-    const badge = document.getElementById('il-mnav-notif-badge');
+  function setBadge(id, count) {
+    const badge = document.getElementById(id);
     if (!badge) return;
-    const c = await fetchUnread();
-    if (c > 0) {
+    if (count > 0) {
       badge.classList.add('show');
-      badge.textContent = c > 99 ? '99+' : String(c);
+      badge.textContent = count > 99 ? '99+' : String(count);
     } else {
       badge.classList.remove('show');
     }
+  }
+
+  async function refreshBadge() {
+    const [notifCount, msgCount] = await Promise.all([
+      fetchCount('/api/notifications/count'),
+      fetchCount('/api/messages/unread'),
+    ]);
+    setBadge('il-mnav-notif-badge', notifCount);
+    setBadge('il-mnav-msg-badge', msgCount);
   }
 
   async function mount() {
@@ -106,11 +116,11 @@
     const profileHref = me ? `/profile/${me.username}` : '/login';
 
     const items = [
-      { href: '/',               ico: '⌂',         lbl: 'Feed' },
-      { href: '/my-bookings',    ico: '◷',         lbl: 'Rezervace' },
-      { href: '/artist-setup',   ico: '⚙',         lbl: 'Setup' },
-      { id: 'notif',             ico: 'BELL',      lbl: 'Notif' },
-      { href: profileHref,       ico: '◉',         lbl: 'Profil' },
+      { href: '/',               ico: '⌂',     lbl: 'Feed' },
+      { href: '/liked',          ico: '♥',     lbl: 'Lajknuté' },
+      { href: '/messages',       ico: 'ENV',   lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
+      { id: 'notif',             ico: 'BELL',  lbl: 'Notif' },
+      { href: profileHref,       ico: '◉',     lbl: 'Profil' },
     ];
 
     const html = items.map(it => {
@@ -123,9 +133,11 @@
       }
       const active = isActive(it.href) ? ' active' : '';
       const ico = it.ico === 'ENV' ? svgEnvelope() : `<span style="font-size:20px;line-height:1">${it.ico}</span>`;
-      return `<a class="il-mnav-item${active}" href="${it.href}">
+      const badge = it.badgeId ? `<span class="il-mnav-badge" id="${it.badgeId}"></span>` : '';
+      return `<a class="il-mnav-item${active}" href="${it.href}" aria-label="${it.lbl}">
         <span class="ico">${ico}</span>
         <span class="lbl">${it.lbl}</span>
+        ${badge}
       </a>`;
     }).join('');
 
