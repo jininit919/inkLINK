@@ -136,41 +136,63 @@
     </a>`;
   }
 
-  async function mount() {
-    injectCSS();
-    const me = await getMe();
+  function buildItems(me) {
     const isArtist = !!(me && me.is_artist);
     const profileHref = me ? `/profile/${me.username}` : '/login';
-
     const centerItem = isArtist
       ? { href: '/artist-setup#portfolio', ico: '+', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
       : { href: '/my-bookings', ico: '◷', lbl: 'Rezervace' };
-
-    const items = [
+    return [
       { href: '/',         ico: '⌂',   lbl: 'Feed' },
       { href: '/liked',    ico: '♥',   lbl: 'Lajknuté' },
       centerItem,
       { href: '/messages', ico: 'ENV', lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
       { href: profileHref, ico: '◉',   lbl: me ? 'Profil' : 'Sign In', dotId: 'il-mnav-profile-dot' },
     ];
+  }
 
-    // Diagnostic — pomáhá debugovat když user nahlásí prázdnou navigaci.
-    if (window.console && console.log) {
-      console.log('[il-mnav] mounting', { items: items.length, isArtist, hasMe: !!me });
+  function renderNav(items) {
+    let nav = document.getElementById('il-mnav-root');
+    if (!nav) {
+      nav = document.createElement('nav');
+      nav.id = 'il-mnav-root';
+      nav.className = 'il-mnav';
+      nav.setAttribute('role', 'navigation');
+      nav.setAttribute('aria-label', 'Hlavní navigace');
+      document.body.appendChild(nav);
     }
-
-    const nav = document.createElement('nav');
-    nav.className = 'il-mnav';
-    nav.setAttribute('role', 'navigation');
-    nav.setAttribute('aria-label', 'Hlavní navigace');
     nav.innerHTML = `<div class="il-mnav-grid">${items.map(renderItem).join('')}</div>`;
-    document.body.appendChild(nav);
+  }
 
-    if (me) {
-      await refreshBadge();
-      setInterval(refreshBadge, 60_000);
-      window.addEventListener('focus', refreshBadge);
+  function mount() {
+    try { injectCSS(); } catch (e) { console && console.error && console.error('[il-mnav] css', e); }
+
+    // 1) Render IMMEDIATELY s defaultem (= neauth/klient layout). Tím
+    //    se nav objeví i kdyby /api/me selhalo nebo trvalo dlouho.
+    try {
+      renderNav(buildItems(null));
+      console && console.log && console.log('[il-mnav] mounted with default items');
+    } catch (e) {
+      console && console.error && console.error('[il-mnav] render', e);
+      return;
     }
+
+    // 2) Pak asynchronně načti uživatele a re-renderuj, pokud je tatér
+    //    (jiný center item) nebo chceme upravit profile href.
+    (async () => {
+      try {
+        const me = await getMe();
+        renderNav(buildItems(me));
+        console && console.log && console.log('[il-mnav] re-rendered', { isArtist: !!(me && me.is_artist), hasMe: !!me });
+        if (me) {
+          await refreshBadge();
+          setInterval(refreshBadge, 60_000);
+          window.addEventListener('focus', refreshBadge);
+        }
+      } catch (e) {
+        console && console.error && console.error('[il-mnav] me fetch', e);
+      }
+    })();
   }
 
   function init() {
