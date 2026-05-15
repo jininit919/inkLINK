@@ -144,6 +144,7 @@ PLATFORM_FEE_LISTING = 0.08   # 8 % z ceny inzerátu (provize platformy)
 
 
 RESEND_FROM = os.environ.get('RESEND_FROM', 'InkLink <onboarding@resend.dev>')
+APP_BASE_URL = os.environ.get('APP_BASE_URL', 'https://www.inklink.club').rstrip('/')
 
 
 def send_email(to, subject, html_body):
@@ -162,6 +163,147 @@ def send_email(to, subject, html_body):
         except Exception:
             print(f'[EMAIL ERROR] to={to}: {e}')
         return False
+
+
+# ── Booking emails ───────────────────────────────────────────────────────────
+# Posílají se ze 4 booking endpointů (create / confirm / cancel / complete).
+# Vše v angličtině, dark theme inline styly. Pokud RESEND_API_KEY chybí,
+# send_email() vrátí False a zalogu se, ale endpoint pokračuje (booking
+# nesmí selhat kvůli mailu).
+
+def _fmt_booking_when(start_iso, duration_h=None):
+    """Returns 'May 25, 2026 · 14:00–16:00' or falls back to raw ISO."""
+    try:
+        s = datetime.fromisoformat((start_iso or '').replace('Z', '+00:00'))
+        date_s = s.strftime('%b %d, %Y')
+        start_s = s.strftime('%H:%M')
+        if duration_h:
+            e = s + timedelta(hours=float(duration_h))
+            return f'{date_s} · {start_s}–{e.strftime("%H:%M")}'
+        return f'{date_s} · {start_s}'
+    except Exception:
+        return start_iso or ''
+
+
+def _booking_email_html(event, ctx):
+    """Render (subject, html) for the given booking event."""
+    from html import escape as _h
+    name  = _h(ctx.get('recipient_name') or 'there')
+    other = _h(ctx.get('other_name') or '')
+    when  = _h(ctx.get('when') or '')
+    note  = _h(ctx.get('design_note') or '')
+    url   = _h(ctx.get('booking_url') or APP_BASE_URL + '/my-bookings')
+
+    header = (
+        '<div style="background:#000;color:#ccc;font-family:monospace;'
+        'padding:40px;max-width:520px;margin:0 auto">'
+        '<div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8;margin-bottom:6px">INKLINK</div>'
+        '<div style="font-size:10px;color:#777;letter-spacing:0.15em;margin-bottom:28px">'
+        'TATTOO BOOKING NETWORK</div>'
+    )
+    footer = (
+        f'<p style="color:#555;font-size:11px;margin-top:36px;line-height:1.7">'
+        f'You\'re getting this email because of activity on your InkLink account. '
+        f'<br><a href="{_h(APP_BASE_URL)}" style="color:#888">{_h(APP_BASE_URL)}</a></p>'
+        f'</div>'
+    )
+
+    def cta(label):
+        return (f'<p style="margin-top:22px"><a href="{url}" '
+                f'style="display:inline-block;background:#e8e8e8;color:#000;'
+                f'padding:13px 26px;text-decoration:none;letter-spacing:0.1em;'
+                f'text-transform:uppercase;font-size:12px">{label}</a></p>')
+
+    if event == 'new_booking_for_artist':
+        subject = f'InkLink — New booking from {ctx.get("other_name") or "a client"}'
+        rows = [
+            ('Client', other),
+            ('When', when),
+        ]
+        if note:
+            rows.append(('Notes', note))
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p>You have a new booking request:</p>'
+            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
+            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
+                      f'<td>{v}</td></tr>' for k, v in rows)
+            + '</table>'
+            + cta('View booking')
+        )
+        return subject, header + body + footer
+
+    if event == 'booking_confirmed_for_client':
+        subject = f'InkLink — Booking confirmed with {ctx.get("other_name") or "your tattooer"}'
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p><strong>{other}</strong> confirmed your booking:</p>'
+            f'<p style="font-size:18px;color:#fff;margin:18px 0">{when}</p>'
+            + cta('View booking')
+        )
+        return subject, header + body + footer
+
+    if event == 'booking_cancelled':
+        actor_role = _h(ctx.get('actor_role') or 'The other party')
+        refund_pct = ctx.get('refund_pct')
+        refund_line = ''
+        if refund_pct is not None:
+            refund_line = (f'<p style="color:#aaa;font-size:13px">'
+                           f'Deposit refund: <strong style="color:#fff">{int(refund_pct)} %</strong>.</p>')
+        subject = 'InkLink — Booking cancelled'
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p>{actor_role} cancelled the booking scheduled for '
+            f'<strong style="color:#fff">{when}</strong>.</p>'
+            + refund_line
+            + cta('View details')
+        )
+        return subject, header + body + footer
+
+    if event == 'review_request_for_client':
+        subject = f'InkLink — How was your session with {ctx.get("other_name") or "your tattooer"}?'
+        review_url = _h(ctx.get('review_url') or url)
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p>Your session with <strong>{other}</strong> on {when} is marked complete.</p>'
+            f'<p>Could you take a minute to leave a review? It helps other clients '
+            f'find great tattooers.</p>'
+            f'<p style="margin-top:22px"><a href="{review_url}" '
+            f'style="display:inline-block;background:#e8e8e8;color:#000;'
+            f'padding:13px 26px;text-decoration:none;letter-spacing:0.1em;'
+            f'text-transform:uppercase;font-size:12px">Leave a review</a></p>'
+        )
+        return subject, header + body + footer
+
+    return None, None
+
+
+def send_booking_email(conn, user_id, event, ctx):
+    """Load user.email and dispatch the booking email. Never raises;
+    returns True on success, False otherwise. Booking endpoints must
+    not depend on this succeeding."""
+    if not RESEND_API_KEY:
+        return False
+    try:
+        u = conn.execute('SELECT email, display_name FROM users WHERE id=?',
+                         (user_id,)).fetchone()
+        if not u or not u['email']:
+            return False
+        c = dict(ctx)
+        c.setdefault('recipient_name', u['display_name'] or 'there')
+        c.setdefault('booking_url', APP_BASE_URL + '/my-bookings')
+        subject, html = _booking_email_html(event, c)
+        if not subject or not html:
+            return False
+        return send_email(u['email'], subject, html)
+    except Exception as e:
+        try:
+            app.logger.error(f'[booking_email] {event} for user {user_id}: {e}')
+        except Exception:
+            print(f'[booking_email ERROR] {e}')
+        return False
+
+
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB (pro video)
 
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
@@ -2732,6 +2874,16 @@ def create_booking():
     push_notif(conn, slot['user_id'], session['user_id'], 'booking',
                bid, 'booking', f'Nová rezervace ({duration_hours} h): {design_note[:60]}')
     conn.commit()
+
+    # Email to artist
+    client_row = conn.execute('SELECT display_name FROM users WHERE id=?',
+                              (session['user_id'],)).fetchone()
+    send_booking_email(conn, slot['user_id'], 'new_booking_for_artist', {
+        'other_name': client_row['display_name'] if client_row else 'a client',
+        'when': _fmt_booking_when(slot['start_at'], duration_hours),
+        'design_note': design_note,
+        'booking_url': f'{APP_BASE_URL}/my-bookings',
+    })
     conn.close()
 
     return jsonify({
@@ -3018,6 +3170,16 @@ def cancel_booking(bid):
     push_notif(conn, other, uid, 'booking_cancelled', bid, 'booking',
                f'Rezervace zrušena ({actor}). Refund {refund_pct}%.')
     conn.commit()
+
+    # Email to the other party
+    duration_h = b['duration_hours'] if 'duration_hours' in b.keys() else None
+    when_str = _fmt_booking_when(slot['start_at'] if slot else None, duration_h)
+    send_booking_email(conn, other, 'booking_cancelled', {
+        'actor_role': 'The client' if actor == 'client' else 'The tattooer',
+        'when': when_str,
+        'refund_pct': refund_pct,
+        'booking_url': f'{APP_BASE_URL}/my-bookings',
+    })
     conn.close()
     return jsonify({
         'ok': True,
@@ -3068,6 +3230,21 @@ def complete_booking(bid):
                     WHERE id=?''',
                  (datetime.utcnow().isoformat(), onsite_cents, bid))
     conn.commit()
+
+    # Email to client — review request
+    artist = conn.execute('SELECT display_name, username FROM users WHERE id=?',
+                          (b['artist_id'],)).fetchone()
+    slot = conn.execute('SELECT start_at FROM slots WHERE id=?', (b['slot_id'],)).fetchone()
+    when_str = _fmt_booking_when(slot['start_at'] if slot else None,
+                                 b['duration_hours'] if 'duration_hours' in b.keys() else None)
+    review_url = (f'{APP_BASE_URL}/profile/{artist["username"]}#book-{bid}'
+                  if artist else f'{APP_BASE_URL}/my-bookings')
+    send_booking_email(conn, b['client_id'], 'review_request_for_client', {
+        'other_name': artist['display_name'] if artist else 'your tattooer',
+        'when': when_str,
+        'review_url': review_url,
+        'booking_url': f'{APP_BASE_URL}/my-bookings',
+    })
     conn.close()
 
     return jsonify({
