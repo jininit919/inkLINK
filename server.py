@@ -21,6 +21,44 @@ import stripe
 import boto3
 from botocore.client import Config
 
+# ── Sentry error monitoring ──────────────────────────────────────────────────
+# Init proběhne jen pokud je SENTRY_DSN nastavený (env var v Railway). Bez něj
+# se nic neimportuje a app jede dál.
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '').strip()
+SENTRY_ENV = os.environ.get('SENTRY_ENVIRONMENT', 'production' if SENTRY_DSN else 'development')
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+
+        def _scrub(event, hint):
+            # Strip request bodies & cookies — můžou obsahovat hesla, verify
+            # kódy, message texty. Necháme jen request URL + status code.
+            try:
+                req = event.get('request') or {}
+                req.pop('cookies', None)
+                req.pop('data', None)
+                if 'headers' in req:
+                    for h in ('cookie', 'authorization', 'x-api-key'):
+                        req['headers'].pop(h, None)
+                        req['headers'].pop(h.title(), None)
+            except Exception:
+                pass
+            return event
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=SENTRY_ENV,
+            traces_sample_rate=0.1,   # 10 % requestů — performance monitoring
+            profiles_sample_rate=0.0, # profiling vypnuté (šetří kvótu)
+            send_default_pii=False,   # neposílat IP, cookies, user agent
+            integrations=[FlaskIntegration()],
+            before_send=_scrub,
+            ignore_errors=[KeyboardInterrupt, SystemExit],
+        )
+    except Exception as _e:
+        print(f'[SENTRY] init failed: {_e}')
+
 app = Flask(__name__, static_folder='public', static_url_path='')
 
 # Session secret — načti z env nebo vygeneruj a ulož
