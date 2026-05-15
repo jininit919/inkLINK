@@ -1057,6 +1057,21 @@ def push_unsubscribe():
     return jsonify({'ok': True})
 
 
+# TEMP: Sentry health check. Smazat po ověření v Sentry dashboard.
+@app.route('/api/_sentry_test')
+def _sentry_test():
+    out = {'configured': bool(SENTRY_DSN)}
+    if SENTRY_DSN:
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_message('InkLink Sentry test ✓', level='info')
+            out['sent_message'] = True
+        except Exception as e:
+            out['sent_message'] = False
+            out['error'] = str(e)
+    return jsonify(out)
+
+
 @app.route('/api/me')
 def me():
     if 'user_id' not in session:
