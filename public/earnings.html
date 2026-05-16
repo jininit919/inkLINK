@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Výdělky — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#333;--red2:#e8e8e8;--red3:#fff;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
+  --border:#1a1a1a;--border2:#222;
+  --good:#7fc97f;--warn:#e8c87f;--bad:#e58787;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:0}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);cursor:pointer;white-space:nowrap;flex:1}
+.nav-icons{display:flex;gap:6px;align-items:center}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);font-size:14px;border-radius:2px;transition:all 0.15s}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--red2);cursor:pointer;margin-left:4px;letter-spacing:0.05em;overflow:hidden}
+.nav-avatar img{width:100%;height:100%;object-fit:cover}
+
+.wrap{max-width:1100px;margin:0 auto;padding:78px 20px 80px}
+
+.page-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.18em;color:var(--red2)}
+.page-sub{font-size:11px;letter-spacing:0.1em;color:var(--txt3)}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:36px}
+@media(max-width:880px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.kpi-grid{grid-template-columns:1fr}}
+.kpi{padding:20px 22px;background:var(--bg2);border:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.kpi.primary{border-color:var(--red2)}
+.kpi-label{font-size:10px;letter-spacing:0.12em;color:var(--txt3);text-transform:uppercase}
+.kpi-value{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.04em;color:var(--red2);line-height:1.1}
+.kpi-sub{font-size:11px;color:var(--txt3);letter-spacing:0.04em;line-height:1.4;margin-top:2px}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2)}
+.section-sub{font-size:11px;color:var(--txt3);letter-spacing:0.04em}
+
+.tx-table{display:flex;flex-direction:column;gap:6px}
+.tx-row{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:14px;padding:12px 16px;background:var(--bg2);border:1px solid var(--border);transition:border-color 0.15s}
+.tx-row:hover{border-color:var(--border2)}
+.tx-date{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.06em;color:var(--txt2);min-width:80px}
+.tx-client{display:flex;align-items:center;gap:10px;min-width:0}
+.tx-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.tx-avatar img{width:100%;height:100%;object-fit:cover}
+.tx-client-info{min-width:0}
+.tx-client-name{font-size:12px;color:var(--txt);line-height:1.3}
+.tx-client-session{font-size:10px;color:var(--txt3);letter-spacing:0.04em;margin-top:2px}
+.tx-status{font-size:10px;letter-spacing:0.1em;padding:3px 8px;text-transform:uppercase;white-space:nowrap}
+.tx-status.confirmed{background:rgba(127,201,127,0.1);color:var(--good);border:1px solid rgba(127,201,127,0.3)}
+.tx-status.completed{background:rgba(127,201,127,0.18);color:var(--good);border:1px solid rgba(127,201,127,0.5)}
+.tx-status.pending_payment{background:rgba(232,200,127,0.1);color:var(--warn);border:1px solid rgba(232,200,127,0.3)}
+.tx-status.cancelled_client,.tx-status.cancelled_artist{background:rgba(229,135,135,0.1);color:var(--bad);border:1px solid rgba(229,135,135,0.3)}
+.tx-breakdown{font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.4;text-align:right;white-space:nowrap}
+.tx-net{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.05em;color:var(--red2);text-align:right;min-width:90px}
+.tx-net.zero{color:var(--txt3)}
+
+@media(max-width:720px){
+  .tx-row{grid-template-columns:1fr auto;gap:8px 14px}
+  .tx-date{grid-row:1;grid-column:1;font-size:13px;min-width:0}
+  .tx-net{grid-row:1;grid-column:2;font-size:16px;min-width:0}
+  .tx-client{grid-row:2;grid-column:1/-1}
+  .tx-status{grid-row:3;grid-column:1;justify-self:start}
+  .tx-breakdown{grid-row:3;grid-column:2;text-align:right}
+}
+
+.empty{text-align:center;padding:60px 20px;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.7}
+.empty .b{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.16em;color:var(--red2);display:block;margin-bottom:10px}
+.empty a{color:var(--red2);text-decoration:underline}
+
+.disclaimer{font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.7;padding:14px 16px;background:var(--bg2);border-left:2px solid var(--border2);margin-top:24px}
+.disclaimer b{color:var(--txt2);font-weight:400}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
+  <div class="nav-icons">
+    <button class="nav-icon" onclick="toggleTheme && toggleTheme()" title="Téma" style="background:none;border:none">☀</button>
+    <a class="nav-icon" href="/events" title="Eventy">◷</a>
+    <a class="nav-icon" href="/messages" title="Zprávy">✉</a>
+    <a class="nav-icon" href="/my-bookings" title="Moje rezervace">◉</a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none">♥</a>
+    <div id="notifMount"></div>
+    <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div id="content" style="display:none">
+    <div class="page-head">
+      <h1 class="page-title">Výdělky</h1>
+      <span class="page-sub">Online platby přes InkLink (Stripe)</span>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi primary">
+        <div class="kpi-label">Tento měsíc</div>
+        <div class="kpi-value" id="kpiThisMonth">—</div>
+        <div class="kpi-sub" id="kpiThisMonthSub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Minulý měsíc</div>
+        <div class="kpi-value" id="kpiLastMonth">—</div>
+        <div class="kpi-sub" id="kpiLastMonthSub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Celkem</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub" id="kpiTotalSub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Čekající</div>
+        <div class="kpi-value" id="kpiPending">—</div>
+        <div class="kpi-sub" id="kpiPendingSub">zatím nezaplacené zálohy</div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2 class="section-title">Posledních 30 transakcí</h2>
+      <a class="section-sub" href="/my-bookings" style="text-decoration:underline">Všechny rezervace →</a>
+    </div>
+    <div id="txList" class="tx-table"></div>
+    <div id="txEmpty" class="empty" style="display:none">
+      <span class="b">ZATÍM ŽÁDNÉ TRANSAKCE</span>
+      <span>Až ti někdo zarezervuje termín, uvidíš zde výdělek.<br>
+      <a href="/artist-setup#slots">Přidej volné termíny</a> aby tě klienti našli.</span>
+    </div>
+
+    <div class="disclaimer">
+      <b>Jak se počítá:</b> Net = zaplacená záloha + doplatek − platforma provize − vrácené zálohy.
+      Onsite (vybráno na místě) sledujeme samostatně, do net částky nepočítáme.
+      Pro výplaty bankovním převodem otevři <b>Stripe Express</b> (odkaz v Nastavení tatéra).
+    </div>
+  </div>
+
+  <div id="needLogin" style="display:none">
+    <div class="empty">
+      <span class="b">PŘIHLASTE SE</span>
+      <span>Pro výdělky se musíš přihlásit.<br>
+      <a href="/login">Přihlásit / registrovat</a></span>
+    </div>
+  </div>
+
+  <div id="needArtist" style="display:none">
+    <div class="empty">
+      <span class="b">JEN PRO TATÉRY</span>
+      <span>Výdělky vidí jen tatéři.<br>
+      <a href="/artist-setup">Stát se tatérem →</a></span>
+    </div>
+  </div>
+
+  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Načítám výdělky…</div>
+</div>
+
+<script src="/notifs.js?v=10"></script>
+<script src="/mobile-nav.js?v=10"></script>
+<script src="/cookie-banner.js?v=10"></script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init(); InkLinkCookieBanner.init();</script>
+
+<script>
+let me = null;
+
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+function fmtKc(cents) {
+  if (!cents) return '0 Kč';
+  const sign = cents < 0 ? '−' : '';
+  const abs = Math.abs(Math.round(cents / 100));
+  return sign + abs.toLocaleString('cs-CZ') + ' Kč';
+}
+
+function fmtDate(iso, withYear) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const opts = withYear ? {day:'numeric',month:'short',year:'2-digit'} : {day:'numeric',month:'short'};
+    return d.toLocaleDateString('cs-CZ', opts);
+  } catch { return iso; }
+}
+
+function fmtSessionDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('cs-CZ', {day:'numeric',month:'short',year:'2-digit'})
+         + ' · ' + d.toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'});
+  } catch { return iso; }
+}
+
+const STATUS_LABEL = {
+  'pending_payment': 'Čeká platbu',
+  'confirmed':       'Potvrzeno',
+  'completed':       'Hotovo',
+  'cancelled_client':'Zrušil klient',
+  'cancelled_artist':'Zrušil tatér',
+};
+
+function goToProfile() {
+  if (me && me.username) location.href = '/profile/' + me.username;
+  else location.href = '/login';
+}
+
+async function init() {
+  me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+
+  const navAvatar = document.getElementById('navAvatar');
+  if (me) {
+    if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
+    else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
+    document.getElementById('navLiked').style.display = 'flex';
+  } else {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('needLogin').style.display = 'block';
+    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Přihlásit</a>';
+    return;
+  }
+
+  if (!me.is_artist) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('needArtist').style.display = 'block';
+    return;
+  }
+
+  let data;
+  try {
+    const r = await fetch('/api/me/earnings');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `<div class="il-error-banner">
+      <span>Nepodařilo se načíst výdělky (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="location.reload()">Zkusit znovu</button>
+    </div>`;
+    return;
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+
+  // KPIs
+  document.getElementById('kpiThisMonth').textContent = fmtKc(data.this_month.net_cents);
+  document.getElementById('kpiThisMonthSub').textContent =
+    `${data.this_month.bookings_count} rezervací · onsite ${fmtKc(data.this_month.onsite_cents)}`;
+  document.getElementById('kpiLastMonth').textContent = fmtKc(data.last_month.net_cents);
+  document.getElementById('kpiLastMonthSub').textContent =
+    `${data.last_month.bookings_count} rezervací · onsite ${fmtKc(data.last_month.onsite_cents)}`;
+  document.getElementById('kpiTotal').textContent = fmtKc(data.total.net_cents);
+  document.getElementById('kpiTotalSub').textContent =
+    `${data.total.bookings_count} rezervací celkem · onsite ${fmtKc(data.total.onsite_cents)}`;
+  document.getElementById('kpiPending').textContent = fmtKc(data.pending.net_cents);
+  document.getElementById('kpiPendingSub').textContent = `${data.pending.count} rezervací čeká platbu`;
+
+  // Transactions
+  const list = document.getElementById('txList');
+  if (!data.transactions.length) {
+    list.style.display = 'none';
+    document.getElementById('txEmpty').style.display = 'block';
+    return;
+  }
+
+  list.innerHTML = data.transactions.map(t => {
+    const av = t.client_avatar_url
+      ? `<img src="${escapeHtml(t.client_avatar_url)}" alt="">`
+      : escapeHtml((t.client_name || '?').slice(0,2).toUpperCase());
+    const statusCls = t.status.replace(/[^a-z_]/gi, '');
+    const statusLbl = STATUS_LABEL[t.status] || t.status;
+    const session = t.session_at ? fmtSessionDate(t.session_at) : '';
+
+    // Breakdown na pravé straně (deposit + balance - fees)
+    const parts = [];
+    if (t.deposit_cents)  parts.push(`záloha ${fmtKc(t.deposit_cents)}`);
+    if (t.balance_paid_cents) parts.push(`doplatek ${fmtKc(t.balance_paid_cents)}`);
+    const fees = (t.platform_fee_cents || 0) + (t.balance_charge_fee_cents || 0);
+    if (fees) parts.push(`<span style="color:var(--bad)">− ${fmtKc(fees)}</span>`);
+    if (t.refund_cents) parts.push(`<span style="color:var(--bad)">− refund ${fmtKc(t.refund_cents)}</span>`);
+    if (t.onsite_cents) parts.push(`<span style="color:var(--txt2)">+ onsite ${fmtKc(t.onsite_cents)}</span>`);
+
+    return `<div class="tx-row">
+      <div class="tx-date">${fmtDate(t.created_at)}</div>
+      <a class="tx-client" href="/profile/${escapeHtml(t.client_username)}">
+        <div class="tx-avatar">${av}</div>
+        <div class="tx-client-info">
+          <div class="tx-client-name">${escapeHtml(t.client_name)}</div>
+          ${session ? `<div class="tx-client-session">${session}</div>` : ''}
+        </div>
+      </a>
+      <span class="tx-status ${statusCls}">${statusLbl}</span>
+      <div class="tx-breakdown">${parts.join('<br>') || '—'}</div>
+      <div class="tx-net ${t.net_cents === 0 ? 'zero' : ''}">${fmtKc(t.net_cents)}</div>
+    </div>`;
+  }).join('');
+}
+
+init();
+</script>
+
+</body>
+</html>

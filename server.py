@@ -840,6 +840,11 @@ def map_page():
     return send_from_directory('public', 'map.html')
 
 
+@app.route('/earnings')
+def earnings_page():
+    return send_from_directory('public', 'earnings.html')
+
+
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
     if _s3 and R2_PUBLIC_URL:
@@ -2655,6 +2660,108 @@ def my_checklist():
         'percent':     round(done_n * 100 / len(items)),
         'all_done':    done_n == len(items),
         'is_artist':   bool(u['is_artist']),
+    })
+
+
+@app.route('/api/me/earnings')
+def my_earnings():
+    """Tatérův earnings dashboard — KPIs + posledních 30 transakcí."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+
+    conn = get_db()
+    u = conn.execute('SELECT is_artist FROM users WHERE id=?', (uid,)).fetchone()
+    if not u or not u['is_artist']:
+        conn.close()
+        return jsonify({'error': 'Pouze pro tatéry'}), 403
+
+    now = datetime.utcnow()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_month_end = month_start - timedelta(seconds=1)
+    last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Net revenue = (deposit + balance) - fees - refunds. Onsite je mimo platformu
+    # (cash/karta) → vedeme ho odděleně, nepočítáme do KPI.
+    base_sql = '''
+        SELECT
+          COALESCE(SUM(deposit_cents - platform_fee_cents - refund_cents), 0) AS deposit_net,
+          COALESCE(SUM(balance_paid_cents - balance_charge_fee_cents), 0) AS balance_net,
+          COALESCE(SUM(onsite_amount_cents), 0) AS onsite,
+          COUNT(*) AS n
+        FROM bookings
+        WHERE artist_id = ? AND status IN ('confirmed', 'completed')
+    '''
+
+    def kpi(row):
+        return {
+            'net_cents':         (row['deposit_net'] or 0) + (row['balance_net'] or 0),
+            'deposit_net_cents': row['deposit_net'] or 0,
+            'balance_net_cents': row['balance_net'] or 0,
+            'onsite_cents':      row['onsite'] or 0,
+            'bookings_count':    row['n'] or 0,
+        }
+
+    total       = kpi(conn.execute(base_sql, (uid,)).fetchone())
+    this_month  = kpi(conn.execute(base_sql + ' AND created_at >= ?',
+                                   (uid, month_start.isoformat())).fetchone())
+    last_month  = kpi(conn.execute(base_sql + ' AND created_at >= ? AND created_at < ?',
+                                   (uid, last_month_start.isoformat(),
+                                    month_start.isoformat())).fetchone())
+
+    pending = conn.execute('''
+        SELECT COALESCE(SUM(deposit_cents - platform_fee_cents), 0) AS net,
+               COUNT(*) AS n
+        FROM bookings
+        WHERE artist_id = ? AND status = 'pending_payment'
+    ''', (uid,)).fetchone()
+
+    rows = conn.execute('''
+        SELECT b.id, b.created_at, b.status,
+               b.deposit_cents, b.platform_fee_cents, b.refund_cents,
+               b.balance_paid_cents, b.balance_charge_cents, b.balance_charge_fee_cents,
+               b.onsite_amount_cents,
+               uc.display_name AS client_name, uc.username AS client_username,
+               uc.avatar AS client_avatar,
+               s.start_at AS session_at
+        FROM bookings b
+        JOIN users uc ON uc.id = b.client_id
+        LEFT JOIN slots s ON s.id = b.slot_id
+        WHERE b.artist_id = ?
+        ORDER BY b.created_at DESC
+        LIMIT 30
+    ''', (uid,)).fetchall()
+    conn.close()
+
+    transactions = []
+    for r in rows:
+        net = ((r['deposit_cents'] or 0) - (r['platform_fee_cents'] or 0)
+               - (r['refund_cents'] or 0)
+               + (r['balance_paid_cents'] or 0) - (r['balance_charge_fee_cents'] or 0))
+        transactions.append({
+            'id':                 r['id'],
+            'created_at':         r['created_at'],
+            'session_at':         r['session_at'],
+            'status':             r['status'],
+            'client_name':        r['client_name'],
+            'client_username':    r['client_username'],
+            'client_avatar_url':  f'/uploads/{r["client_avatar"]}' if r['client_avatar'] else None,
+            'deposit_cents':         r['deposit_cents'] or 0,
+            'platform_fee_cents':    r['platform_fee_cents'] or 0,
+            'refund_cents':          r['refund_cents'] or 0,
+            'balance_paid_cents':    r['balance_paid_cents'] or 0,
+            'balance_charge_cents':  r['balance_charge_cents'] or 0,
+            'balance_charge_fee_cents': r['balance_charge_fee_cents'] or 0,
+            'onsite_cents':       r['onsite_amount_cents'] or 0,
+            'net_cents':          net,
+        })
+
+    return jsonify({
+        'this_month':   this_month,
+        'last_month':   last_month,
+        'total':        total,
+        'pending':      {'net_cents': pending['net'] or 0, 'count': pending['n'] or 0},
+        'transactions': transactions,
     })
 
 
