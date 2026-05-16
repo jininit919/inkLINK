@@ -916,6 +916,7 @@ def sitemap():
     urls = []
     # Static / klíčové stránky
     urls.append((f'{base}/', 'hourly', '1.0', ''))
+    urls.append((f'{base}/feed', 'hourly', '0.9', ''))
     urls.append((f'{base}/map', 'weekly', '0.8', ''))
     urls.append((f'{base}/events', 'daily', '0.7', ''))
     urls.append((f'{base}/login', 'monthly', '0.5', ''))
@@ -955,7 +956,20 @@ def logo_download():
 
 @app.route('/')
 def index():
+    # Přihlášený uživatel → feed; host → landing
+    if 'user_id' in session:
+        return send_from_directory('public', 'index.html')
+    return send_from_directory('public', 'landing.html')
+
+
+@app.route('/feed')
+def feed_page():
     return send_from_directory('public', 'index.html')
+
+
+@app.route('/landing')
+def landing_page():
+    return send_from_directory('public', 'landing.html')
 
 
 @app.route('/login')
