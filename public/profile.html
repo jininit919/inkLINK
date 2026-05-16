@@ -40,6 +40,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .meta{display:flex;flex-wrap:wrap;gap:14px 22px;margin-top:14px;font-size:12px;color:var(--txt2);letter-spacing:0.04em}
 .meta b{color:var(--txt);font-weight:400}
 .bio{margin-top:14px;font-size:13px;color:var(--txt2);line-height:1.5;white-space:pre-wrap;max-width:560px}
+.trust-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.trust-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.05em;padding:5px 10px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2)}
+.trust-badge.verified{border-color:#5b8c5b;color:#9bc89b}
+.trust-badge .icon{font-size:11px}
+.trust-badge b{color:var(--txt);font-weight:400}
 .styles{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .style-chip{font-size:11px;padding:3px 10px;border:1px solid var(--border2);color:var(--txt2);letter-spacing:0.05em}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
@@ -174,6 +179,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
           <span id="studioRow" style="display:none">◫ <b id="studio"></b></span>
           <span id="instaRow" style="display:none">@<a id="insta" target="_blank" rel="noopener" style="color:var(--txt);text-decoration:underline"></a></span>
         </div>
+        <div class="trust-row" id="trustRow"></div>
         <div class="styles" id="stylesRow"></div>
         <div class="bio" id="bio"></div>
         <div class="actions" id="actions"></div>
@@ -335,6 +341,29 @@ function render() {
       .filter(Boolean).map(s => `<span class="style-chip">${escapeHtml(s.trim())}</span>`).join('');
   }
   if (profile.bio) document.getElementById('bio').textContent = profile.bio;
+
+  // Trust signals — jen pro tatéry
+  if (profile.is_artist) {
+    const badges = [];
+    if (profile.completed_count > 0) {
+      const word = profile.completed_count === 1 ? 'tetování' : (profile.completed_count < 5 ? 'tetování' : 'tetování');
+      badges.push(`<span class="trust-badge"><span class="icon">✓</span> <b>${profile.completed_count}</b> dokončených ${word}</span>`);
+    }
+    if (profile.can_book) {
+      badges.push(`<span class="trust-badge verified"><span class="icon">⌗</span> Online platby</span>`);
+    }
+    if (profile.member_since) {
+      try {
+        const d = new Date(profile.member_since);
+        const ms = d.toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' });
+        badges.push(`<span class="trust-badge"><span class="icon">◷</span> Tetuje na InkLinku od ${escapeHtml(ms)}</span>`);
+      } catch {}
+    }
+    if (profile.followers > 0) {
+      badges.push(`<span class="trust-badge"><span class="icon">◉</span> <b>${profile.followers}</b> ${profile.followers === 1 ? 'sledující' : 'sledujících'}</span>`);
+    }
+    document.getElementById('trustRow').innerHTML = badges.join('');
+  }
 
   const actions = document.getElementById('actions');
   actions.innerHTML = '';

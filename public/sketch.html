@@ -64,6 +64,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .artist-info{flex:1;min-width:0}
 .artist-info .name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.12em;color:var(--red2)}
 .artist-info .meta{font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px}
+.rating-inline{display:inline-flex;align-items:center;gap:3px;font-family:'DM Mono',monospace;font-size:12px;color:#e8c87f;letter-spacing:0.04em;margin-left:8px;vertical-align:middle}
+.rating-inline .rating-cnt{color:var(--txt3);font-size:10px}
 .artist-cta{font-size:11px;letter-spacing:0.08em;color:var(--txt3)}
 
 .actions{display:flex;gap:10px;flex-wrap:wrap}
@@ -187,7 +189,7 @@ function render() {
     <a class="artist-card" href="/profile/${escapeHtml(u.username)}">
       <div class="artist-avatar">${av}</div>
       <div class="artist-info">
-        <div class="name">${escapeHtml(u.display_name)}</div>
+        <div class="name">${escapeHtml(u.display_name)}${u.rating_count > 0 ? ` <span class="rating-inline">★ ${u.rating_avg.toFixed(1)} <span class="rating-cnt">(${u.rating_count})</span></span>` : ''}</div>
         <div class="meta">${escapeHtml(studioCity)}</div>
       </div>
       <div class="artist-cta">PROFIL →</div>

@@ -80,6 +80,7 @@ main{padding:24px 24px 80px;min-width:0}
 .card-who{flex:1;min-width:0;font-size:12px;line-height:1.3}
 .card-who .name{color:var(--txt);font-weight:400}
 .card-who .meta{color:var(--txt3);font-size:11px;letter-spacing:0.04em}
+.card-rating{display:inline-flex;align-items:center;gap:2px;font-size:11px;color:#e8c87f;letter-spacing:0.04em;margin-left:6px;vertical-align:middle}
 .card-like{font-size:14px;color:#e58787;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;padding:8px 6px;margin:-8px -6px;min-height:36px}
 .card-share{font-size:14px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;font-family:'DM Mono',monospace;padding:8px 8px;margin:-8px -8px;min-height:36px;transition:color 0.15s}
 .card-share:hover{color:var(--red2)}
@@ -237,7 +238,7 @@ function render() {
         <div class="card-foot">
           <a class="card-avatar" href="/profile/${escapeHtml(u.username)}" onclick="event.stopPropagation()">${av}</a>
           <a class="card-who" href="/profile/${escapeHtml(u.username)}" onclick="event.stopPropagation()">
-            <div class="name">${escapeHtml(u.display_name)}</div>
+            <div class="name">${escapeHtml(u.display_name)}${u.rating_count > 0 ? ` <span class="card-rating" title="${u.rating_count} ${u.rating_count===1?'recenze':(u.rating_count<5?'recenze':'recenzí')}">★ ${u.rating_avg.toFixed(1)}</span>` : ''}</div>
             <div class="meta">${escapeHtml([u.studio, u.city].filter(Boolean).join(' · ') || 'tatér')}</div>
           </a>
           <span class="card-like" onclick="event.stopPropagation(); unlike(${p.id})" title="Odebrat z lajků">♥ <span>${p.like_count}</span></span>

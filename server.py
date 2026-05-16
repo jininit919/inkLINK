@@ -1251,6 +1251,8 @@ def feed():
                u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
                u.emoji, u.avatar, u.lat, u.lng,
                u.is_artist, u.studio, u.stripe_charges_enabled,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) AS rating_avg,
+               (SELECT COUNT(*)    FROM reviews WHERE artist_id = u.id) AS rating_count,
                EXISTS(SELECT 1 FROM portfolio_likes WHERE user_id = ? AND item_id = p.id) AS liked
         FROM portfolio_items p
         JOIN users u ON p.user_id = u.id
@@ -1307,6 +1309,8 @@ def feed():
                 'lng':          p['lng'],
                 'is_artist':    bool(p['is_artist']),
                 'can_book':     bool(p['stripe_charges_enabled']),
+                'rating_avg':   round(p['rating_avg'], 1) if p['rating_avg'] else None,
+                'rating_count': p['rating_count'] or 0,
             }
         })
     return jsonify(result)
@@ -1327,6 +1331,8 @@ def liked_feed():
                u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
                u.emoji, u.avatar, u.lat, u.lng,
                u.is_artist, u.studio, u.stripe_charges_enabled,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) AS rating_avg,
+               (SELECT COUNT(*)    FROM reviews WHERE artist_id = u.id) AS rating_count,
                l.created_at AS liked_at
         FROM portfolio_likes l
         JOIN portfolio_items p ON p.id = l.item_id
@@ -1368,6 +1374,8 @@ def liked_feed():
                 'lng':          p['lng'],
                 'is_artist':    bool(p['is_artist']),
                 'can_book':     bool(p['stripe_charges_enabled']),
+                'rating_avg':   round(p['rating_avg'], 1) if p['rating_avg'] else None,
+                'rating_count': p['rating_count'] or 0,
             }
         })
     return jsonify(result)
@@ -1390,6 +1398,8 @@ def sketch_detail(item_id):
                u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
                u.emoji, u.avatar, u.lat, u.lng,
                u.is_artist, u.studio, u.stripe_charges_enabled,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) AS rating_avg,
+               (SELECT COUNT(*)    FROM reviews WHERE artist_id = u.id) AS rating_count,
                EXISTS(SELECT 1 FROM portfolio_likes WHERE user_id = ? AND item_id = p.id) AS liked
         FROM portfolio_items p
         JOIN users u ON u.id = p.user_id
@@ -1422,6 +1432,8 @@ def sketch_detail(item_id):
             'lng':          p['lng'],
             'is_artist':    bool(p['is_artist']),
             'can_book':     bool(p['stripe_charges_enabled']),
+            'rating_avg':   round(p['rating_avg'], 1) if p['rating_avg'] else None,
+            'rating_count': p['rating_count'] or 0,
         }
     })
 
@@ -1926,6 +1938,10 @@ def get_profile(username):
                               (u['id'],)).fetchone()
     rating_avg = round(review_agg['avg'], 2) if review_agg['avg'] else None
     rating_count = review_agg['cnt'] or 0
+    # Trust signals: počet dokončených tetování, čas registrace
+    completed_count = conn.execute(
+        "SELECT COUNT(*) FROM bookings WHERE artist_id=? AND status='completed'",
+        (u['id'],)).fetchone()[0]
     conn.close()
 
     return jsonify({
@@ -1956,6 +1972,8 @@ def get_profile(username):
         'following_count': following_count,
         'rating_avg':      rating_avg,
         'rating_count':    rating_count,
+        'completed_count': completed_count,
+        'member_since':    u['created_at'],
         'portfolio_count': len(portfolio),
         'portfolio': [{
             'id':              p['id'],
