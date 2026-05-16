@@ -192,6 +192,7 @@ async function doRegister(e) {
   const data = await res.json();
 
   if (data.ok) {
+    try { localStorage.setItem('inklink_show_welcome', '1'); } catch {}
     window.location.href = data.verify ? '/verify' : '/';
   } else {
     showError('registerError', data.error || 'Registrace selhala');

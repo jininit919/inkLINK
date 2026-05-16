@@ -149,6 +149,31 @@ main{padding:24px 24px 80px;min-width:0}
 .btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:7px 14px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase;display:inline-block}
 .btn:hover{background:var(--red2);color:var(--bg)}
 
+#welcomeModal{position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:400;padding:24px}
+#welcomeModal.show{display:flex}
+.welcome-card{width:100%;max-width:520px;background:var(--bg2);border:1px solid var(--border2);padding:36px 28px;max-height:90vh;overflow-y:auto;position:relative}
+.welcome-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--txt3);font-size:22px;cursor:pointer;line-height:1;padding:6px}
+.welcome-close:hover{color:var(--red2)}
+.welcome-brand{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);text-align:center;margin-bottom:8px}
+.welcome-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.12em;color:var(--red3);text-align:center;line-height:1.15;margin-bottom:8px}
+.welcome-sub{font-size:13px;color:var(--txt2);text-align:center;line-height:1.6;letter-spacing:0.02em;margin-bottom:28px}
+.welcome-role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.welcome-role{padding:20px 16px;background:var(--bg3);border:1px solid var(--border2);text-align:center;cursor:pointer;transition:all 0.15s;font-family:'DM Mono',monospace;color:inherit}
+.welcome-role:hover{border-color:var(--red2);background:var(--bg4)}
+.welcome-role-icon{font-size:32px;color:var(--red2);margin-bottom:8px;line-height:1}
+.welcome-role-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.12em;color:var(--red2);margin-bottom:4px}
+.welcome-role-sub{font-size:11px;color:var(--txt3);letter-spacing:0.04em;line-height:1.5}
+.welcome-step{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-top:1px solid var(--border)}
+.welcome-step:first-of-type{border-top:none;padding-top:6px}
+.welcome-step-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--bg3);border:1px solid var(--red2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;color:var(--red2);font-size:13px;letter-spacing:0.06em}
+.welcome-step-body{flex:1;min-width:0}
+.welcome-step-title{font-size:13px;color:var(--txt);letter-spacing:0.04em;line-height:1.4}
+.welcome-step-sub{font-size:11px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;margin-top:3px}
+.welcome-cta{width:100%;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.1em;padding:14px;background:var(--red2);color:var(--bg);border:none;cursor:pointer;text-transform:uppercase;margin-top:20px;text-align:center;text-decoration:none;display:block}
+.welcome-cta:hover{background:var(--red3)}
+.welcome-cta-muted{display:block;width:100%;text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;padding:12px;margin-top:6px;background:none;border:none;cursor:pointer;font-family:'DM Mono',monospace}
+.welcome-cta-muted:hover{color:var(--red2)}
+
 #lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:none;align-items:center;justify-content:center;z-index:200;padding:24px;cursor:pointer}
 #lightbox.show{display:flex}
 #lightbox .lb-card{max-width:760px;background:var(--bg2);border:1px solid var(--border);cursor:default}
@@ -300,6 +325,92 @@ main{padding:24px 24px 80px;min-width:0}
 
 <div class="toast" id="toast"></div>
 
+<div id="welcomeModal" onclick="if(event.target===this)closeWelcome()">
+  <div class="welcome-card">
+    <button class="welcome-close" onclick="closeWelcome()" aria-label="Zavřít">×</button>
+    <div id="welcomeStep1">
+      <div class="welcome-brand">INKLINK</div>
+      <h2 class="welcome-title">Vítej v InkLinku</h2>
+      <p class="welcome-sub">Tattoo booking network — najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.<br>Co tě sem přivádí?</p>
+      <div class="welcome-role-grid">
+        <button class="welcome-role" onclick="welcomeRole('client')">
+          <div class="welcome-role-icon">◉</div>
+          <div class="welcome-role-title">Jsem klient</div>
+          <div class="welcome-role-sub">Hledám tatéra</div>
+        </button>
+        <button class="welcome-role" onclick="welcomeRole('artist')">
+          <div class="welcome-role-icon">⚒</div>
+          <div class="welcome-role-title">Jsem tatér</div>
+          <div class="welcome-role-sub">Nabízím termíny</div>
+        </button>
+      </div>
+      <button class="welcome-cta-muted" onclick="closeWelcome()">Přeskočit</button>
+    </div>
+
+    <div id="welcomeStep2Client" style="display:none">
+      <div class="welcome-brand">INKLINK</div>
+      <h2 class="welcome-title">Jak to funguje</h2>
+      <div class="welcome-step">
+        <div class="welcome-step-num">1</div>
+        <div class="welcome-step-body">
+          <div class="welcome-step-title">Prohlédni feed skic a hotových prací</div>
+          <div class="welcome-step-sub">Filtruj podle města, stylu, nebo se podívej na <a href="/map" style="color:var(--red2);text-decoration:underline">mapu tatérů</a>.</div>
+        </div>
+      </div>
+      <div class="welcome-step">
+        <div class="welcome-step-num">2</div>
+        <div class="welcome-step-body">
+          <div class="welcome-step-title">Lajkni ♥ co se ti líbí</div>
+          <div class="welcome-step-sub">Skicy najdeš později v sekci <a href="/liked" style="color:var(--red2);text-decoration:underline">Lajknuté</a>.</div>
+        </div>
+      </div>
+      <div class="welcome-step">
+        <div class="welcome-step-num">3</div>
+        <div class="welcome-step-body">
+          <div class="welcome-step-title">Rezervuj termín přes profil tatéra</div>
+          <div class="welcome-step-sub">Zaplať zálohu kartou, zbytek na místě. Refund podle pravidel tatéra.</div>
+        </div>
+      </div>
+      <button class="welcome-cta" onclick="closeWelcome()">Začít prohlížet</button>
+    </div>
+
+    <div id="welcomeStep2Artist" style="display:none">
+      <div class="welcome-brand">INKLINK</div>
+      <h2 class="welcome-title">4 kroky a jsi vidět</h2>
+      <div class="welcome-step">
+        <div class="welcome-step-num">1</div>
+        <div class="welcome-step-body">
+          <div class="welcome-step-title">Vyplň profil</div>
+          <div class="welcome-step-sub">Jméno, město, studio, bio, styly a hodinová sazba.</div>
+        </div>
+      </div>
+      <div class="welcome-step">
+        <div class="welcome-step-num">2</div>
+        <div class="welcome-step-body">
+          <div class="welcome-step-title">Nahraj portfolio</div>
+          <div class="welcome-step-sub">Skicy s cenou se zobrazí klientům jako "Rezervovat tento návrh →". Hotové práce ukazují tvůj styl.</div>
+        </div>
+      </div>
+      <div class="welcome-step">
+        <div class="welcome-step-num">3</div>
+        <div class="welcome-step-body">
+          <div class="welcome-step-title">Přidej volné termíny</div>
+          <div class="welcome-step-sub">Bloky dostupnosti se zobrazí v tvém kalendáři. Klienti si vyberou velikost a čas.</div>
+        </div>
+      </div>
+      <div class="welcome-step">
+        <div class="welcome-step-num">4</div>
+        <div class="welcome-step-body">
+          <div class="welcome-step-title">Propojení se Stripe Connect</div>
+          <div class="welcome-step-sub">Aby klienti mohli zaplatit zálohu online. Bez Stripe pojede tvůj profil v demo režimu.</div>
+        </div>
+      </div>
+      <a class="welcome-cta" href="/artist-setup">Otevřít nastavení tatéra →</a>
+      <button class="welcome-cta-muted" onclick="closeWelcome()">Později</button>
+    </div>
+  </div>
+</div>
+
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <div class="lb-card">
     <img id="lb-img" src="">
@@ -372,6 +483,32 @@ async function init() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') dropEl.classList.remove('show'); });
 
   await loadFeed();
+
+  // Welcome modal pro nové uživatele po registraci / verify
+  try {
+    if (localStorage.getItem('inklink_show_welcome') === '1') {
+      localStorage.removeItem('inklink_show_welcome');
+      // Defer trochu, ať se feed prokreslí dřív
+      setTimeout(() => {
+        const modal = document.getElementById('welcomeModal');
+        if (modal) modal.classList.add('show');
+      }, 200);
+    }
+  } catch {}
+}
+
+function welcomeRole(role) {
+  document.getElementById('welcomeStep1').style.display = 'none';
+  if (role === 'client') {
+    document.getElementById('welcomeStep2Client').style.display = 'block';
+  } else {
+    document.getElementById('welcomeStep2Artist').style.display = 'block';
+  }
+}
+
+function closeWelcome() {
+  const modal = document.getElementById('welcomeModal');
+  if (modal) modal.classList.remove('show');
 }
 
 function syncFilterState() {

@@ -114,7 +114,7 @@ async function doVerify() {
   if (data.ok) {
     document.getElementById('verifyForm').style.display = 'none';
     document.getElementById('successBox').style.display = 'block';
-    localStorage.setItem('inklink_new_user', '1');
+    try { localStorage.setItem('inklink_show_welcome', '1'); } catch {}
     setTimeout(() => window.location.href = '/', 1500);
   } else {
     showError(data.error || 'Nesprávný kód');
