@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#000000">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Admin — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#333;--red2:#e8e8e8;--red3:#fff;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
+  --border:#1a1a1a;--border2:#222;
+  --good:#7fc97f;--warn:#e8c87f;--bad:#e58787;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:12px}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);flex:1}
+.nav-back{font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase}
+.nav-back:hover{color:var(--red2)}
+
+.wrap{max-width:1200px;margin:0 auto;padding:78px 20px 60px}
+.head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px}
+.title{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.18em;color:var(--red2)}
+.sub{font-size:11px;letter-spacing:0.1em;color:var(--txt3)}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:32px}
+@media(max-width:880px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.kpi-grid{grid-template-columns:1fr}}
+.kpi{padding:18px 20px;background:var(--bg2);border:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.kpi-label{font-size:10px;letter-spacing:0.12em;color:var(--txt3);text-transform:uppercase}
+.kpi-value{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:0.04em;color:var(--red2);line-height:1.1}
+.kpi-sub{font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:2px}
+.kpi.alert .kpi-value{color:var(--warn)}
+.kpi.alert{border-color:var(--warn)}
+
+.section{margin-bottom:36px}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+
+.tbl{display:flex;flex-direction:column;gap:4px}
+.tbl-row{display:grid;grid-template-columns:80px 1fr 1fr 1fr auto;gap:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);align-items:center;font-size:12px}
+.tbl-row.h{background:transparent;border:none;padding:6px 14px;color:var(--txt3);font-size:10px;letter-spacing:0.1em;text-transform:uppercase}
+.tbl-row .mono{font-family:'DM Mono',monospace}
+.tbl-row a{color:var(--red2)}
+.tbl-row a:hover{text-decoration:underline}
+.status-tag{display:inline-block;font-size:9px;letter-spacing:0.08em;padding:2px 6px;text-transform:uppercase}
+.status-tag.confirmed,.status-tag.completed{background:rgba(127,201,127,0.1);color:var(--good);border:1px solid rgba(127,201,127,0.3)}
+.status-tag.pending_payment{background:rgba(232,200,127,0.1);color:var(--warn);border:1px solid rgba(232,200,127,0.3)}
+.status-tag.cancelled_client,.status-tag.cancelled_artist{background:rgba(229,135,135,0.1);color:var(--bad);border:1px solid rgba(229,135,135,0.3)}
+
+.report-card{padding:14px 16px;background:var(--bg2);border:1px solid var(--border);margin-bottom:8px}
+.report-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:11px;color:var(--txt3);letter-spacing:0.04em}
+.report-reason{display:inline-block;font-size:10px;letter-spacing:0.1em;padding:2px 8px;background:rgba(229,135,135,0.15);color:var(--bad);text-transform:uppercase;margin-right:8px}
+.report-resolved{display:inline-block;font-size:10px;letter-spacing:0.1em;padding:2px 8px;background:rgba(127,201,127,0.15);color:var(--good);text-transform:uppercase}
+.report-body{font-size:12px;color:var(--txt);line-height:1.5;margin-bottom:8px}
+.report-review{padding:10px 12px;background:var(--bg3);border-left:2px solid var(--border2);font-size:11px;color:var(--txt2);line-height:1.5;margin:8px 0}
+.report-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.btn-mini{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;padding:5px 10px;border:1px solid var(--border2);background:transparent;color:var(--txt2);cursor:pointer;text-transform:uppercase}
+.btn-mini:hover{border-color:var(--red2);color:var(--red2)}
+.btn-mini.danger:hover{border-color:var(--bad);color:var(--bad)}
+
+.empty{text-align:center;padding:40px;color:var(--txt3);font-size:13px;letter-spacing:0.04em}
+
+@media(max-width:720px){
+  .tbl-row{grid-template-columns:1fr;gap:4px}
+  .tbl-row.h{display:none}
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <a class="nav-logo" href="/">INKLINK</a>
+  <a class="nav-back" href="/">← zpět</a>
+</nav>
+
+<div class="wrap">
+  <div id="content" style="display:none">
+    <div class="head">
+      <h1 class="title">Admin</h1>
+      <span class="sub">InkLink ovládací panel</span>
+    </div>
+
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="section">
+      <div class="section-title">Top tatéři podle revenue</div>
+      <div class="tbl" id="topArtists"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Posledních 10 rezervací</div>
+      <div class="tbl" id="recentBookings"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        Nahlášené recenze
+        <span class="sub" id="reportsCount"></span>
+      </div>
+      <div id="reportsList"></div>
+    </div>
+  </div>
+
+  <div id="needAdmin" style="display:none">
+    <div class="empty">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.16em;color:var(--bad);margin-bottom:10px">PŘÍSTUP ZAMÍTNUT</div>
+      Tato stránka je jen pro adminy.<br>
+      <a href="/" style="color:var(--red2);text-decoration:underline">Zpět na feed</a>
+    </div>
+  </div>
+
+  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Načítám admin panel…</div>
+</div>
+
+<script>
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function fmtKc(c){return (c||0)?(Math.round(c/100)).toLocaleString('cs-CZ') + ' Kč':'0 Kč';}
+function fmtDate(iso){try{return new Date(iso).toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'2-digit'});}catch{return iso||'';}}
+
+const REASON_LABEL = {
+  spam: 'Spam', offensive: 'Urážlivé', false: 'Nepravdivé', private: 'Soukromé', other: 'Jiné'
+};
+const STATUS_LABEL = {
+  pending_payment:'Čeká platbu', confirmed:'Potvrzeno', completed:'Hotovo',
+  cancelled_client:'Zrušil klient', cancelled_artist:'Zrušil tatér'
+};
+
+async function init() {
+  let stats;
+  try {
+    const r = await fetch('/api/admin/stats');
+    if (r.status === 401) { location.href = '/login'; return; }
+    if (r.status === 403) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('needAdmin').style.display = 'block';
+      return;
+    }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    stats = await r.json();
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `<div class="il-error-banner">
+      <span>Nepodařilo se načíst stats (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="location.reload()">Zkusit znovu</button>
+    </div>`;
+    return;
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+
+  // KPIs
+  const kpiHtml = `
+    <div class="kpi">
+      <div class="kpi-label">Uživatelé</div>
+      <div class="kpi-value">${stats.users.total.toLocaleString('cs-CZ')}</div>
+      <div class="kpi-sub">${stats.users.artists} tatérů · +${stats.users.new_this_month} tento měsíc</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Rezervace</div>
+      <div class="kpi-value">${stats.bookings.total.toLocaleString('cs-CZ')}</div>
+      <div class="kpi-sub">${stats.bookings.confirmed} potvrzených · +${stats.bookings.this_month} tento měsíc</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Provize platformy</div>
+      <div class="kpi-value">${fmtKc(stats.platform_fee_cents.total)}</div>
+      <div class="kpi-sub">${fmtKc(stats.platform_fee_cents.this_month)} tento měsíc</div>
+    </div>
+    <div class="kpi ${stats.reports_open ? 'alert' : ''}">
+      <div class="kpi-label">Otevřené reporty</div>
+      <div class="kpi-value">${stats.reports_open}</div>
+      <div class="kpi-sub">${stats.reviews_total} recenzí · ${stats.portfolio_total} portfolio items</div>
+    </div>
+  `;
+  document.getElementById('kpiGrid').innerHTML = kpiHtml;
+
+  // Top artists
+  const taEl = document.getElementById('topArtists');
+  if (!stats.top_artists.length) {
+    taEl.innerHTML = '<div class="empty">Zatím žádní tatéři.</div>';
+  } else {
+    taEl.innerHTML = `
+      <div class="tbl-row h">
+        <div>#</div><div>Tatér</div><div>Username</div><div>Rezervací</div><div>Revenue</div>
+      </div>` + stats.top_artists.map((a, i) => `
+      <div class="tbl-row">
+        <div class="mono" style="color:var(--txt3)">${i + 1}.</div>
+        <div><a href="/profile/${escapeHtml(a.username)}">${escapeHtml(a.display_name || a.username)}</a></div>
+        <div class="mono" style="color:var(--txt3)">@${escapeHtml(a.username)}</div>
+        <div>${a.bookings_n}</div>
+        <div class="mono">${fmtKc(a.revenue_cents)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Recent bookings
+  const rbEl = document.getElementById('recentBookings');
+  if (!stats.recent_bookings.length) {
+    rbEl.innerHTML = '<div class="empty">Žádné rezervace.</div>';
+  } else {
+    rbEl.innerHTML = `
+      <div class="tbl-row h">
+        <div>#</div><div>Klient</div><div>Tatér</div><div>Status</div><div>Záloha</div>
+      </div>` + stats.recent_bookings.map(b => `
+      <div class="tbl-row">
+        <div class="mono" style="color:var(--txt3)">#${b.id}</div>
+        <div><a href="/profile/${escapeHtml(b.client_username)}">${escapeHtml(b.client_name)}</a><div style="font-size:10px;color:var(--txt3);margin-top:2px">${fmtDate(b.created_at)}</div></div>
+        <div><a href="/profile/${escapeHtml(b.artist_username)}">${escapeHtml(b.artist_name)}</a></div>
+        <div><span class="status-tag ${b.status}">${STATUS_LABEL[b.status] || b.status}</span></div>
+        <div class="mono">${fmtKc(b.deposit_cents)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Reports
+  loadReports();
+}
+
+async function loadReports() {
+  const el = document.getElementById('reportsList');
+  let reports;
+  try {
+    const r = await fetch('/api/admin/reports');
+    if (!r.ok) throw new Error();
+    reports = await r.json();
+  } catch {
+    el.innerHTML = '<div class="empty">Nepodařilo se načíst reporty.</div>';
+    return;
+  }
+
+  document.getElementById('reportsCount').textContent =
+    reports.length ? `${reports.length} celkem` : '';
+
+  if (!reports.length) {
+    el.innerHTML = '<div class="empty">Žádné reporty zatím.</div>';
+    return;
+  }
+  el.innerHTML = reports.map(r => `
+    <div class="report-card">
+      <div class="report-head">
+        <div>
+          <span class="report-reason">${REASON_LABEL[r.reason] || r.reason}</span>
+          ${r.resolved ? '<span class="report-resolved">Vyřešeno ✓</span>' : ''}
+          <span style="margin-left:6px">Nahlásil: <a href="/profile/${escapeHtml(r.reporter_username)}" style="color:var(--txt2)">@${escapeHtml(r.reporter_username)}</a></span>
+        </div>
+        <span>${fmtDate(r.created_at)}</span>
+      </div>
+      ${r.note ? `<div class="report-body">"${escapeHtml(r.note)}"</div>` : ''}
+      <div class="report-review">
+        <div style="margin-bottom:4px;color:var(--txt3);font-size:10px;letter-spacing:0.06em">RECENZE #${r.review_id} · ${r.review_rating || '–'}/5</div>
+        <div>${r.review_client_username ? `<a href="/profile/${escapeHtml(r.review_client_username)}" style="color:var(--red2)">${escapeHtml(r.review_client_name)}</a>` : '(smazaný klient)'}
+        → ${r.review_artist_username ? `<a href="/profile/${escapeHtml(r.review_artist_username)}" style="color:var(--red2)">${escapeHtml(r.review_artist_name)}</a>` : '(smazaný tatér)'}
+        </div>
+        ${r.review_text ? `<div style="margin-top:6px;font-style:italic">${escapeHtml(r.review_text)}</div>` : '<div style="margin-top:6px;color:var(--txt3)">(bez textu, jen rating)</div>'}
+      </div>
+      ${r.resolved ? '' : `
+        <div class="report-actions">
+          <button class="btn-mini" onclick="resolveReport(${r.id}, false)">Označit za vyřešený</button>
+          <button class="btn-mini danger" onclick="resolveReport(${r.id}, true)">Smazat recenzi + vyřešit</button>
+          ${r.review_id ? `<a class="btn-mini" href="/profile/${escapeHtml(r.review_artist_username || '')}#reviews">Otevřít na profilu</a>` : ''}
+        </div>
+      `}
+    </div>
+  `).join('');
+}
+
+async function resolveReport(rid, deleteReview) {
+  if (deleteReview && !confirm('Opravdu smazat recenzi?')) return;
+  const r = await fetch(`/api/admin/reports/${rid}/resolve`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({delete_review: deleteReview}),
+  });
+  if (r.ok) {
+    await loadReports();
+    // Refresh KPI count
+    init();
+  } else {
+    alert('Selhalo');
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>

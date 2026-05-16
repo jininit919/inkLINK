@@ -443,7 +443,9 @@ def init_db():
                 # 'client_choice' (klient si vybere v modalu)
                 "default_payment_mode TEXT DEFAULT 'deposit'",
                 # iCal feed token — opaque slug pro Apple/Google Calendar subscription
-                'calendar_token TEXT DEFAULT NULL'):
+                'calendar_token TEXT DEFAULT NULL',
+                # Admin flag — moderace, dashboard. Lze taky přes ADMIN_USERNAME env.
+                'is_admin INTEGER DEFAULT 0'):
         add_col('users', col)
     conn.commit()
 
@@ -795,6 +797,34 @@ def require_login():
     return None
 
 
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', '').strip().lower()
+
+
+def is_admin_user(user_id):
+    """Vrátí True pokud user má is_admin=1 v DB nebo username matchuje
+    ADMIN_USERNAME env var (bootstrap fallback)."""
+    if not user_id:
+        return False
+    conn = get_db()
+    row = conn.execute('SELECT username, is_admin FROM users WHERE id=?', (user_id,)).fetchone()
+    conn.close()
+    if not row:
+        return False
+    if row['is_admin']:
+        return True
+    if ADMIN_USERNAME and (row['username'] or '').lower() == ADMIN_USERNAME:
+        return True
+    return False
+
+
+def require_admin():
+    err = require_login()
+    if err: return err
+    if not is_admin_user(session.get('user_id')):
+        return jsonify({'error': 'Admin only'}), 403
+    return None
+
+
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
 @app.route('/sw.js')
@@ -933,6 +963,11 @@ def map_page():
 @app.route('/earnings')
 def earnings_page():
     return send_from_directory('public', 'earnings.html')
+
+
+@app.route('/admin')
+def admin_page():
+    return send_from_directory('public', 'admin.html')
 
 
 @app.route('/uploads/<path:filename>')
@@ -3164,6 +3199,152 @@ def my_earnings():
         'pending':      {'net_cents': pending['net'] or 0, 'count': pending['n'] or 0},
         'transactions': transactions,
     })
+
+
+# ── Admin API ────────────────────────────────────────────────────────────────
+@app.route('/api/admin/stats')
+def admin_stats():
+    err = require_admin()
+    if err: return err
+
+    now = datetime.utcnow()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    conn = get_db()
+    users_total   = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    users_artists = conn.execute('SELECT COUNT(*) FROM users WHERE is_artist=1').fetchone()[0]
+    users_new     = conn.execute('SELECT COUNT(*) FROM users WHERE created_at >= ?',
+                                  (month_start.isoformat(),)).fetchone()[0]
+
+    bookings_total      = conn.execute('SELECT COUNT(*) FROM bookings').fetchone()[0]
+    bookings_confirmed  = conn.execute(
+        "SELECT COUNT(*) FROM bookings WHERE status IN ('confirmed','completed')").fetchone()[0]
+    bookings_this_month = conn.execute(
+        'SELECT COUNT(*) FROM bookings WHERE created_at >= ?',
+        (month_start.isoformat(),)).fetchone()[0]
+
+    # Platforma revenue z fees
+    fee_total = conn.execute('''
+        SELECT COALESCE(SUM(platform_fee_cents), 0)
+          + COALESCE(SUM(balance_charge_fee_cents), 0)
+        FROM bookings
+        WHERE status IN ('confirmed','completed')
+    ''').fetchone()[0]
+    fee_month = conn.execute('''
+        SELECT COALESCE(SUM(platform_fee_cents), 0)
+          + COALESCE(SUM(balance_charge_fee_cents), 0)
+        FROM bookings
+        WHERE status IN ('confirmed','completed') AND created_at >= ?
+    ''', (month_start.isoformat(),)).fetchone()[0]
+
+    portfolio_total = conn.execute('SELECT COUNT(*) FROM portfolio_items').fetchone()[0]
+    reviews_total   = conn.execute('SELECT COUNT(*) FROM reviews').fetchone()[0]
+    reports_open    = conn.execute(
+        'SELECT COUNT(*) FROM review_reports WHERE resolved=0').fetchone()[0]
+
+    # Top 5 tatérů podle revenue
+    top_artists = conn.execute('''
+        SELECT u.username, u.display_name,
+               COUNT(b.id) AS bookings_n,
+               COALESCE(SUM(b.deposit_cents - b.platform_fee_cents - b.refund_cents
+                            + b.balance_paid_cents - b.balance_charge_fee_cents), 0) AS revenue
+        FROM users u
+        LEFT JOIN bookings b ON b.artist_id = u.id AND b.status IN ('confirmed','completed')
+        WHERE u.is_artist = 1
+        GROUP BY u.id
+        ORDER BY revenue DESC
+        LIMIT 5
+    ''').fetchall()
+
+    # Recent bookings — 10 nejnovějších
+    recent = conn.execute('''
+        SELECT b.id, b.created_at, b.status, b.deposit_cents,
+               ua.username AS artist_username, ua.display_name AS artist_name,
+               uc.username AS client_username, uc.display_name AS client_name
+        FROM bookings b
+        JOIN users ua ON ua.id = b.artist_id
+        JOIN users uc ON uc.id = b.client_id
+        ORDER BY b.created_at DESC
+        LIMIT 10
+    ''').fetchall()
+    conn.close()
+
+    return jsonify({
+        'users':    {'total': users_total, 'artists': users_artists, 'new_this_month': users_new},
+        'bookings': {'total': bookings_total, 'confirmed': bookings_confirmed,
+                     'this_month': bookings_this_month},
+        'platform_fee_cents': {'total': fee_total, 'this_month': fee_month},
+        'portfolio_total': portfolio_total,
+        'reviews_total':   reviews_total,
+        'reports_open':    reports_open,
+        'top_artists': [
+            {'username': r['username'], 'display_name': r['display_name'],
+             'bookings_n': r['bookings_n'], 'revenue_cents': r['revenue']}
+            for r in top_artists
+        ],
+        'recent_bookings': [
+            {'id': r['id'], 'created_at': r['created_at'], 'status': r['status'],
+             'deposit_cents': r['deposit_cents'],
+             'artist_username': r['artist_username'], 'artist_name': r['artist_name'],
+             'client_username': r['client_username'], 'client_name': r['client_name']}
+            for r in recent
+        ],
+    })
+
+
+@app.route('/api/admin/reports')
+def admin_reports():
+    err = require_admin()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT r.id, r.review_id, r.reason, r.note, r.created_at, r.resolved,
+               rep.username AS reporter_username,
+               rv.rating, rv.text AS review_text,
+               uc.username AS review_client_username, uc.display_name AS review_client_name,
+               ua.username AS review_artist_username, ua.display_name AS review_artist_name
+        FROM review_reports r
+        JOIN users rep ON rep.id = r.reporter_id
+        LEFT JOIN reviews rv ON rv.id = r.review_id
+        LEFT JOIN users uc ON uc.id = rv.client_id
+        LEFT JOIN users ua ON ua.id = rv.artist_id
+        ORDER BY r.resolved ASC, r.created_at DESC
+        LIMIT 100
+    ''').fetchall()
+    conn.close()
+    return jsonify([{
+        'id':           r['id'],
+        'review_id':    r['review_id'],
+        'reason':       r['reason'],
+        'note':         r['note'] or '',
+        'created_at':   r['created_at'],
+        'resolved':     bool(r['resolved']),
+        'reporter_username':      r['reporter_username'],
+        'review_rating':          r['rating'],
+        'review_text':            r['review_text'] or '',
+        'review_client_username': r['review_client_username'],
+        'review_client_name':     r['review_client_name'],
+        'review_artist_username': r['review_artist_username'],
+        'review_artist_name':     r['review_artist_name'],
+    } for r in rows])
+
+
+@app.route('/api/admin/reports/<int:rid>/resolve', methods=['POST'])
+def admin_resolve_report(rid):
+    err = require_admin()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    delete_review = bool(data.get('delete_review'))
+    conn = get_db()
+    row = conn.execute('SELECT review_id FROM review_reports WHERE id=?', (rid,)).fetchone()
+    if not row:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    conn.execute('UPDATE review_reports SET resolved=1 WHERE id=?', (rid,))
+    if delete_review and row['review_id']:
+        conn.execute('DELETE FROM reviews WHERE id=?', (row['review_id'],))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'deleted_review': delete_review})
 
 
 @app.route('/api/styles')
