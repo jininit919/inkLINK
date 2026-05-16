@@ -788,11 +788,82 @@ def service_worker():
 
 @app.route('/robots.txt')
 def robots():
-    return send_from_directory('public', 'robots.txt', mimetype='text/plain')
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/\n"
+        "Disallow: /uploads/\n"
+        "Disallow: /verify\n"
+        "Disallow: /artist-setup\n"
+        "Disallow: /my-bookings\n"
+        "Disallow: /messages\n"
+        "Disallow: /earnings\n"
+        "Disallow: /liked\n"
+        "Disallow: /balance-pay/\n"
+        "Disallow: /forgot-password\n"
+        "Disallow: /reset-password\n"
+        f"\nSitemap: {APP_BASE_URL}/sitemap.xml\n"
+    )
+    return Response(body, mimetype='text/plain')
+
 
 @app.route('/sitemap.xml')
 def sitemap():
-    return send_from_directory('public', 'sitemap.xml', mimetype='application/xml')
+    """Dynamicky vygeneruje sitemap z DB — homepage, statické stránky,
+    profily tatérů a detail stránky skic/prací."""
+    base = APP_BASE_URL.rstrip('/')
+    conn = get_db()
+    # Tatéři s public profile
+    artists = conn.execute('''
+        SELECT username, COALESCE(
+            (SELECT MAX(created_at) FROM portfolio_items WHERE user_id = users.id),
+            users.created_at
+        ) AS updated
+        FROM users WHERE is_artist = 1 AND username IS NOT NULL
+        ORDER BY updated DESC
+        LIMIT 5000
+    ''').fetchall()
+    items = conn.execute('''
+        SELECT id, created_at FROM portfolio_items
+        ORDER BY created_at DESC
+        LIMIT 5000
+    ''').fetchall()
+    conn.close()
+
+    def _lastmod(iso):
+        if not iso: return ''
+        try:
+            return iso[:10]  # YYYY-MM-DD
+        except Exception:
+            return ''
+
+    urls = []
+    # Static / klíčové stránky
+    urls.append((f'{base}/', 'hourly', '1.0', ''))
+    urls.append((f'{base}/map', 'weekly', '0.8', ''))
+    urls.append((f'{base}/events', 'daily', '0.7', ''))
+    urls.append((f'{base}/login', 'monthly', '0.5', ''))
+    urls.append((f'{base}/terms', 'yearly', '0.3', ''))
+    urls.append((f'{base}/privacy', 'yearly', '0.3', ''))
+    # Tatéři
+    for a in artists:
+        urls.append((f'{base}/profile/{a["username"]}', 'weekly', '0.7', _lastmod(a['updated'])))
+    # Portfolio items (sketches + done)
+    for it in items:
+        urls.append((f'{base}/sketch/{it["id"]}', 'weekly', '0.6', _lastmod(it['created_at'])))
+
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for loc, freq, prio, mod in urls:
+        parts.append('  <url>')
+        parts.append(f'    <loc>{html_escape(loc)}</loc>')
+        if mod:
+            parts.append(f'    <lastmod>{mod}</lastmod>')
+        parts.append(f'    <changefreq>{freq}</changefreq>')
+        parts.append(f'    <priority>{prio}</priority>')
+        parts.append('  </url>')
+    parts.append('</urlset>')
+    return Response('\n'.join(parts), mimetype='application/xml')
 
 @app.route('/manifest.json')
 def manifest():
@@ -1520,6 +1591,30 @@ def sketch_page(item_id):
     og_image = _sketch_image_url(p['image'])
     og_url = request.host_url.rstrip('/') + f'/sketch/{p["id"]}'
 
+    # JSON-LD structured data (schema.org ImageObject) — pomáhá Google
+    # rendrovat rich preview se skicou v search results.
+    import json as _json
+    ldd = {
+        "@context": "https://schema.org",
+        "@type": "ImageObject",
+        "contentUrl": og_image,
+        "thumbnailUrl": og_image,
+        "name": og_title,
+        "description": og_desc,
+        "url": og_url,
+        "creator": {
+            "@type": "Person",
+            "name": artist,
+        },
+    }
+    if is_sketch and p['price_kc']:
+        ldd["offers"] = {
+            "@type": "Offer",
+            "price": int(p['price_kc']),
+            "priceCurrency": "CZK",
+        }
+    json_ld = _json.dumps(ldd, ensure_ascii=False)
+
     with open(os.path.join('public', 'sketch.html'), 'r', encoding='utf-8') as f:
         page_html = f.read()
     page_html = (page_html
@@ -1527,7 +1622,8 @@ def sketch_page(item_id):
             .replace('{{OG_DESC}}',  html_escape(og_desc))
             .replace('{{OG_IMAGE}}', html_escape(og_image))
             .replace('{{OG_URL}}',   html_escape(og_url))
-            .replace('{{ITEM_ID}}',  str(p['id'])))
+            .replace('{{ITEM_ID}}',  str(p['id']))
+            .replace('{{JSON_LD}}',  json_ld))
     return page_html
 
 
@@ -1907,7 +2003,69 @@ def cities():
 
 @app.route('/profile/<username>')
 def profile_page(username):
-    return send_from_directory('public', 'profile.html')
+    """Server-render profile.html s OG meta tagy a JSON-LD pro SEO."""
+    import json as _json
+    conn = get_db()
+    u = conn.execute('''SELECT id, display_name, username, city, studio, bio, avatar, styles,
+                               is_artist, created_at
+                        FROM users WHERE username = ?''', (username,)).fetchone()
+    review_agg = None
+    if u:
+        review_agg = conn.execute(
+            'SELECT AVG(rating) AS avg, COUNT(*) AS cnt FROM reviews WHERE artist_id=?',
+            (u['id'],)).fetchone()
+    conn.close()
+
+    page_url = APP_BASE_URL.rstrip('/') + f'/profile/{username}'
+    if not u:
+        og_title = 'Profil — InkLink'
+        og_desc  = 'Tetování na rezervaci na InkLinku.'
+        og_image = APP_BASE_URL.rstrip('/') + '/icons/icon-512.png'
+        json_ld  = '{}'
+    else:
+        name = u['display_name'] or u['username']
+        loc  = u['city'] or u['studio'] or ''
+        if u['is_artist']:
+            og_title = f'{name} — tatér' + (f' · {loc}' if loc else '')
+        else:
+            og_title = f'{name} — InkLink'
+        og_desc = (u['bio'] or '').strip()[:180] or f'Profil {name} na InkLinku.'
+        og_image = (f'{APP_BASE_URL.rstrip("/")}/uploads/{u["avatar"]}'
+                    if u['avatar'] else APP_BASE_URL.rstrip('/') + '/icons/icon-512.png')
+
+        ldd = {
+            "@context": "https://schema.org",
+            "@type": "Person",
+            "name": name,
+            "url": page_url,
+        }
+        if u['avatar']:
+            ldd["image"] = og_image
+        if u['is_artist']:
+            ldd["jobTitle"] = "Tattoo artist"
+            if loc:
+                ldd["address"] = {"@type": "PostalAddress", "addressLocality": loc}
+            if u['styles']:
+                ldd["knowsAbout"] = [s.strip() for s in u['styles'].split(',') if s.strip()]
+            if review_agg and review_agg['cnt']:
+                ldd["aggregateRating"] = {
+                    "@type": "AggregateRating",
+                    "ratingValue": round(review_agg['avg'], 1),
+                    "ratingCount": review_agg['cnt'],
+                    "bestRating": 5,
+                    "worstRating": 1,
+                }
+        json_ld = _json.dumps(ldd, ensure_ascii=False)
+
+    with open(os.path.join('public', 'profile.html'), 'r', encoding='utf-8') as f:
+        page_html = f.read()
+    page_html = (page_html
+            .replace('{{OG_TITLE}}', html_escape(og_title))
+            .replace('{{OG_DESC}}',  html_escape(og_desc))
+            .replace('{{OG_IMAGE}}', html_escape(og_image))
+            .replace('{{OG_URL}}',   html_escape(page_url))
+            .replace('{{JSON_LD}}',  json_ld))
+    return page_html
 
 
 @app.route('/events')
