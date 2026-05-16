@@ -50,6 +50,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .hero img{width:100%;max-height:80vh;object-fit:contain;display:block;background:#000}
 .hero-kind{position:absolute;top:12px;left:12px;font-size:10px;letter-spacing:0.18em;padding:4px 10px;background:rgba(0,0,0,0.78);color:#fff}
 .hero-price{position:absolute;top:12px;right:12px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;padding:6px 12px;background:var(--red2);color:var(--bg);line-height:1}
+.hero-thumbs{display:none;gap:6px;margin-top:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.hero-thumbs::-webkit-scrollbar{display:none}
+.hero-thumb{flex:0 0 auto;width:80px;height:80px;background:var(--bg3);cursor:pointer;border:2px solid var(--border);padding:0;transition:border-color 0.15s;overflow:hidden}
+.hero-thumb:hover{border-color:var(--txt3)}
+.hero-thumb.active{border-color:var(--red2)}
+.hero-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 
 .info{padding:24px 4px;display:flex;flex-direction:column;gap:18px}
 .caption{font-size:14px;color:var(--txt);line-height:1.7;letter-spacing:0.03em;white-space:pre-wrap}
@@ -134,6 +140,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
   <div class="hero" id="hero">
     <div class="skeleton">NAČÍTÁM…</div>
   </div>
+  <div class="hero-thumbs" id="heroThumbs"></div>
 
   <div class="info" id="info"></div>
 </div>
@@ -181,11 +188,26 @@ function render() {
     ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč${p.estimated_hours?` · ${(+p.estimated_hours).toString().replace(/\.0$/,'')}h`:''}`
     : '';
 
+  const images = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
   document.getElementById('hero').innerHTML = `
-    <img src="/uploads/${escapeHtml(p.image)}" alt="${escapeHtml(p.caption || kindLabel)}">
+    <img id="heroImg" src="/uploads/${escapeHtml(images[0] || '')}" alt="${escapeHtml(p.caption || kindLabel)}">
     <div class="hero-kind">${kindLabel}</div>
     ${priced ? `<div class="hero-price">${priceTxt}</div>` : ''}
   `;
+  // Thumbnail strip pokud má víc fotek
+  const thumbsEl = document.getElementById('heroThumbs');
+  if (thumbsEl) {
+    if (images.length > 1) {
+      thumbsEl.style.display = 'flex';
+      thumbsEl.innerHTML = images.map((img, i) => `
+        <button class="hero-thumb${i === 0 ? ' active' : ''}" onclick="switchHero(${i}, this)" aria-label="Fotka ${i+1}">
+          <img src="/uploads/${escapeHtml(img)}" alt="" loading="lazy">
+        </button>
+      `).join('');
+    } else {
+      thumbsEl.style.display = 'none';
+    }
+  }
 
   const av = u.avatar
     ? `<img src="${escapeHtml(u.avatar)}" alt="">`
@@ -394,6 +416,13 @@ async function shareSketch() {
   } catch {
     showToast('Zkopíruj URL z adresního řádku');
   }
+}
+
+function switchHero(i, btn) {
+  if (!item || !item.images || !item.images[i]) return;
+  const img = document.getElementById('heroImg');
+  if (img) img.src = '/uploads/' + item.images[i];
+  document.querySelectorAll('.hero-thumb').forEach((el, j) => el.classList.toggle('active', i === j));
 }
 
 function goToProfile() {

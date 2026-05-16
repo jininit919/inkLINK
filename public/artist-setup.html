@@ -304,12 +304,10 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
       <form id="portfolioForm">
         <div class="row">
           <div class="field">
-            <label>Obrázek</label>
-            <input type="file" name="image" id="pImage" accept="image/jpeg,image/png,image/webp" required>
-            <div id="pPreviewWrap" style="display:none;margin-top:10px;width:100%;max-width:200px;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border2);overflow:hidden;position:relative">
-              <img id="pPreview" alt="Náhled" style="width:100%;height:100%;object-fit:cover;display:block">
-              <button type="button" onclick="clearImagePreview()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:22px;height:22px;cursor:pointer;font-size:14px">×</button>
-            </div>
+            <label>Obrázky (1-4 fotky)</label>
+            <input type="file" name="image" id="pImage" accept="image/jpeg,image/png,image/webp" multiple required>
+            <div class="hint" style="margin-top:4px;font-size:11px">První obrázek je hlavní (zobrazí se ve feedu).</div>
+            <div id="pPreviewGrid" style="display:none;margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:340px"></div>
           </div>
           <div class="field">
             <label>Typ</label>
@@ -927,29 +925,60 @@ async function savePortEdit() {
 }
 
 document.getElementById('pImage').addEventListener('change', e => {
-  const f = e.target.files && e.target.files[0];
-  if (!f) { clearImagePreview(); return; }
-  if (f.size > 12 * 1024 * 1024) {
-    flash(`Soubor je velký (${(f.size/1024/1024).toFixed(1)} MB) — max 12 MB`, 'err');
-    e.target.value = '';
-    return;
+  const files = Array.from(e.target.files || []);
+  if (!files.length) { clearImagePreview(); return; }
+  // Validuj velikost
+  for (const f of files) {
+    if (f.size > 12 * 1024 * 1024) {
+      flash(`${f.name} je velký (${(f.size/1024/1024).toFixed(1)} MB) — max 12 MB`, 'err');
+      e.target.value = '';
+      clearImagePreview();
+      return;
+    }
   }
-  const reader = new FileReader();
-  reader.onload = ev => {
-    document.getElementById('pPreview').src = ev.target.result;
-    document.getElementById('pPreviewWrap').style.display = 'block';
-  };
-  reader.readAsDataURL(f);
+  // Max 4 fotky
+  const selected = files.slice(0, 4);
+  if (files.length > 4) {
+    flash('Maximálně 4 fotky — vzal jsem první 4', 'err');
+  }
+  const grid = document.getElementById('pPreviewGrid');
+  grid.style.display = 'grid';
+  grid.innerHTML = '';
+  selected.forEach((f, i) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'aspect-ratio:1;background:var(--bg3);border:1px solid var(--border2);overflow:hidden;position:relative';
+      cell.innerHTML = `<img src="${ev.target.result}" alt="Náhled ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block">${i === 0 ? '<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.78);color:#fff;font-size:9px;padding:2px 6px;letter-spacing:0.08em">HLAVNÍ</div>' : ''}`;
+      grid.appendChild(cell);
+    };
+    reader.readAsDataURL(f);
+  });
 });
 function clearImagePreview() {
   document.getElementById('pImage').value = '';
-  document.getElementById('pPreview').src = '';
-  document.getElementById('pPreviewWrap').style.display = 'none';
+  const g = document.getElementById('pPreviewGrid');
+  if (g) { g.innerHTML = ''; g.style.display = 'none'; }
 }
 
 document.getElementById('portfolioForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const fd = new FormData(e.target);
+  // FormData s `multiple` input zachytí jen 1 file v "image" — musíme rozdělit do image / image2 / image3 / image4
+  const fd = new FormData();
+  const fileInput = document.getElementById('pImage');
+  const files = Array.from(fileInput.files || []).slice(0, 4);
+  if (!files.length) {
+    flash('Vyber alespoň jeden obrázek', 'err');
+    return;
+  }
+  fd.set('image', files[0]);
+  if (files[1]) fd.set('image2', files[1]);
+  if (files[2]) fd.set('image3', files[2]);
+  if (files[3]) fd.set('image4', files[3]);
+  // Ostatní form fields kromě file inputu
+  for (const el of e.target.elements) {
+    if (el.name && el.type !== 'file') fd.set(el.name, el.value);
+  }
   fd.set('styles', readStyles('pStylesGrid'));
   const r = await fetch('/api/portfolio', {method:'POST', body: fd});
   if (r.ok) {

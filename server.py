@@ -549,6 +549,10 @@ def init_db():
     # Tatér může u sketche / návrhu navrhnout fixní celkovou cenu + odhad délky
     add_col('portfolio_items', 'price_kc INTEGER DEFAULT NULL')
     add_col('portfolio_items', 'estimated_hours REAL DEFAULT NULL')
+    # Multi-photo support (1-4 fotek). image je primary, image2-4 jsou volitelné.
+    add_col('portfolio_items', 'image2 TEXT DEFAULT NULL')
+    add_col('portfolio_items', 'image3 TEXT DEFAULT NULL')
+    add_col('portfolio_items', 'image4 TEXT DEFAULT NULL')
 
     c.execute('''CREATE TABLE IF NOT EXISTS portfolio_likes (
         user_id     INTEGER NOT NULL,
@@ -1313,6 +1317,7 @@ def feed():
         result.append({
             'id':            p['id'],
             'image':         p['image'],
+            'images':        _portfolio_images(p),
             'caption':       p['caption'] or '',
             'kind':          p['kind'] or 'done',
             'styles':        p['styles'] or '',
@@ -1378,6 +1383,7 @@ def liked_feed():
         result.append({
             'id':            p['id'],
             'image':         p['image'],
+            'images':        _portfolio_images(p),
             'caption':       p['caption'] or '',
             'kind':          p['kind'] or 'done',
             'styles':        p['styles'] or '',
@@ -1404,6 +1410,19 @@ def liked_feed():
             }
         })
     return jsonify(result)
+
+
+def _portfolio_images(row):
+    """Vrátí list filenames v pořadí image, image2, image3, image4 (jen ne-null)."""
+    out = []
+    if row['image']: out.append(row['image'])
+    for col in ('image2', 'image3', 'image4'):
+        try:
+            v = row[col]
+            if v: out.append(v)
+        except (KeyError, IndexError):
+            pass
+    return out
 
 
 def _sketch_image_url(filename):
@@ -2003,6 +2022,7 @@ def get_profile(username):
         'portfolio': [{
             'id':              p['id'],
             'image':           p['image'],
+            'images':          _portfolio_images(p),
             'caption':         p['caption'] or '',
             'kind':            p['kind'] or 'done',
             'styles':          p['styles'] or '',
@@ -2178,12 +2198,32 @@ def create_portfolio_item():
     err = require_login()
     if err: return err
 
+    # Primary image — povinný. Plus volitelné image2/image3/image4.
     f = request.files.get('image')
     if not f or not f.filename:
         return jsonify({'error': 'Obrázek je povinný'}), 400
-    ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower()
-    if ext not in ('jpg', 'jpeg', 'png', 'webp') or not allowed_image(f):
+
+    def _validate_image(file_storage):
+        if not file_storage or not file_storage.filename:
+            return None, None
+        ext = secure_filename(file_storage.filename).rsplit('.', 1)[-1].lower()
+        if ext not in ('jpg', 'jpeg', 'png', 'webp') or not allowed_image(file_storage):
+            return None, 'invalid'
+        return ext, None
+
+    primary_ext, err = _validate_image(f)
+    if err:
         return jsonify({'error': 'Povolené formáty: JPG, PNG, WEBP'}), 400
+
+    extra_files = []
+    for slot in ('image2', 'image3', 'image4'):
+        ff = request.files.get(slot)
+        if not ff or not ff.filename:
+            continue
+        ext, err = _validate_image(ff)
+        if err:
+            return jsonify({'error': f'{slot}: povolené JPG/PNG/WEBP'}), 400
+        extra_files.append((slot, ff, ext))
 
     caption    = (request.form.get('caption') or '').strip()[:500]
     kind       = (request.form.get('kind') or 'done').strip()
@@ -2209,8 +2249,15 @@ def create_portfolio_item():
     price_kc        = _opt_pos_int('price_kc')
     estimated_hours = _opt_pos_float('estimated_hours')
 
-    name = f'portfolio_{session["user_id"]}_{int(time.time()*1000)}.{ext}'
-    save_upload(f, name)
+    base_ts = int(time.time() * 1000)
+    primary_name = f'portfolio_{session["user_id"]}_{base_ts}.{primary_ext}'
+    save_upload(f, primary_name)
+
+    extra_names = {'image2': None, 'image3': None, 'image4': None}
+    for i, (slot, ff, ext) in enumerate(extra_files, start=1):
+        nm = f'portfolio_{session["user_id"]}_{base_ts}_{i}.{ext}'
+        save_upload(ff, nm)
+        extra_names[slot] = nm
 
     conn = get_db()
     # auto-promote to artist if not yet
@@ -2224,14 +2271,18 @@ def create_portfolio_item():
             n += 1
             slug = f'{base}-{n}'
         conn.execute('UPDATE users SET is_artist=1, artist_slug=? WHERE id=?', (slug, session['user_id']))
-    conn.execute('''INSERT INTO portfolio_items (user_id, image, caption, kind, styles, price_kc, estimated_hours)
-                    VALUES (?,?,?,?,?,?,?)''',
-                 (session['user_id'], name, caption, kind, styles, price_kc, estimated_hours))
+    conn.execute('''INSERT INTO portfolio_items (user_id, image, image2, image3, image4,
+                                                 caption, kind, styles, price_kc, estimated_hours)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                 (session['user_id'], primary_name,
+                  extra_names['image2'], extra_names['image3'], extra_names['image4'],
+                  caption, kind, styles, price_kc, estimated_hours))
     conn.commit()
     item_id = conn.execute('SELECT id FROM portfolio_items WHERE user_id=? ORDER BY id DESC LIMIT 1',
                            (session['user_id'],)).fetchone()['id']
     conn.close()
-    return jsonify({'ok': True, 'id': item_id, 'image': name})
+    return jsonify({'ok': True, 'id': item_id, 'image': primary_name,
+                    'images': [primary_name] + [n for n in extra_names.values() if n]})
 
 
 @app.route('/api/portfolio/<int:item_id>', methods=['DELETE'])

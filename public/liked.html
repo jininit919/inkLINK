@@ -70,6 +70,7 @@ main{padding:24px 24px 80px;min-width:0}
 .card:hover .img img{transform:scale(1.04)}
 .card-price{position:absolute;top:8px;right:8px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.05em;padding:4px 10px;background:var(--red2);color:var(--bg);line-height:1}
 .card-kind{position:absolute;top:8px;left:8px;font-size:9px;letter-spacing:0.15em;padding:3px 8px;background:rgba(0,0,0,0.75);color:#fff}
+.card-imgs-badge{position:absolute;bottom:8px;left:8px;font-size:10px;letter-spacing:0.08em;padding:3px 7px;background:rgba(0,0,0,0.78);color:#fff;display:flex;align-items:center;gap:4px}
 .card-bookcta{position:absolute;bottom:0;left:0;right:0;padding:9px 14px;background:rgba(0,0,0,0.85);color:var(--red2);text-align:center;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;opacity:0;transition:opacity 0.15s}
 .card:hover .card-bookcta{opacity:1}
 .card-bookcta:hover{background:var(--red2);color:var(--bg)}
@@ -232,6 +233,7 @@ function render() {
         <div class="img" onclick="openProfile('${escapeHtml(u.username)}', ${p.id})">
           <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy">
           <div class="card-kind">${kindLabel}</div>
+          ${(p.images && p.images.length > 1) ? `<div class="card-imgs-badge">⧉ +${p.images.length - 1}</div>` : ''}
           ${priced ? `<div class="card-price">${priceTxt}</div>` : ''}
           ${priced ? `<div class="card-bookcta" onclick="event.stopPropagation();goBookSketch('${escapeHtml(u.username)}',${p.id})">Rezervovat tento návrh →</div>` : ''}
         </div>
