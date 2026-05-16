@@ -45,6 +45,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .trust-badge.verified{border-color:#5b8c5b;color:#9bc89b}
 .trust-badge .icon{font-size:11px}
 .trust-badge b{color:var(--txt);font-weight:400}
+
+.similar-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:720px){.similar-grid{grid-template-columns:repeat(2,1fr)}}
+.similar-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 12px;background:var(--bg2);border:1px solid var(--border);text-align:center;text-decoration:none;color:inherit;transition:border-color 0.15s}
+.similar-card:hover{border-color:var(--red2)}
+.similar-avatar{width:64px;height:64px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--red2);overflow:hidden}
+.similar-avatar img{width:100%;height:100%;object-fit:cover}
+.similar-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.08em;color:var(--red2);line-height:1.2}
+.similar-meta{font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.4}
+.similar-rating{font-size:11px;color:#e8c87f;letter-spacing:0.04em}
 .styles{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .style-chip{font-size:11px;padding:3px 10px;border:1px solid var(--border2);color:var(--txt2);letter-spacing:0.05em}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
@@ -207,6 +217,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
       <div class="review-list" id="reviews"></div>
       <div class="empty" id="reviewsEmpty" style="display:none">Žádné recenze. Buď první kdo dá hodnocení po sezení.</div>
     </div>
+
+    <div id="similarBlock" style="display:none;margin-top:60px;border-top:1px solid var(--border);padding-top:32px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:18px">Podobní tatéři</div>
+      <div id="similarList" class="similar-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -363,6 +378,9 @@ function render() {
       badges.push(`<span class="trust-badge"><span class="icon">◉</span> <b>${profile.followers}</b> ${profile.followers === 1 ? 'sledující' : 'sledujících'}</span>`);
     }
     document.getElementById('trustRow').innerHTML = badges.join('');
+
+    // Similar artists block — načte se asynchronně, neblokuje hlavní render
+    loadSimilar(profile.username);
   }
 
   const actions = document.getElementById('actions');
@@ -444,6 +462,32 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   document.getElementById('tab-reviews').style.display = tab === 'reviews' ? 'block' : 'none';
   if (tab === 'reviews' && !window._reviewsLoaded) loadReviews();
 }));
+
+async function loadSimilar(username) {
+  try {
+    const r = await fetch('/api/artists/similar/' + encodeURIComponent(username));
+    if (!r.ok) return;
+    const list = await r.json();
+    if (!list.length) return;
+    const wrap = document.getElementById('similarList');
+    wrap.innerHTML = list.map(a => {
+      const av = a.avatar_url
+        ? `<img src="${escapeHtml(a.avatar_url)}" alt="">`
+        : escapeHtml(a.initials || '?');
+      const meta = [a.studio, a.city].filter(Boolean).map(escapeHtml).join(' · ') || 'tatér';
+      const rating = a.rating_count > 0
+        ? `<div class="similar-rating">★ ${a.rating_avg.toFixed(1)} <span style="color:var(--txt3)">(${a.rating_count})</span></div>`
+        : '';
+      return `<a class="similar-card" href="/profile/${escapeHtml(a.username)}">
+        <div class="similar-avatar">${av}</div>
+        <div class="similar-name">${escapeHtml(a.display_name)}</div>
+        <div class="similar-meta">${meta}</div>
+        ${rating}
+      </a>`;
+    }).join('');
+    document.getElementById('similarBlock').style.display = 'block';
+  } catch {}
+}
 
 function renderStarsStatic(rating) {
   const r = Math.round(rating);

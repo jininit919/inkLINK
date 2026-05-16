@@ -2663,6 +2663,59 @@ def list_styles():
     return jsonify(list(ALLOWED_TATTOO_STYLES))
 
 
+@app.route('/api/artists/similar/<username>')
+def artists_similar(username):
+    """Doporučení podobných tatérů — pro 'Lidé také navštívili' sekci na profilu."""
+    conn = get_db()
+    target = conn.execute('SELECT id, city, styles FROM users WHERE username = ? AND is_artist = 1',
+                          (username,)).fetchone()
+    if not target:
+        conn.close()
+        return jsonify([])
+
+    target_styles = [s.strip().lower() for s in (target['styles'] or '').split(',') if s.strip()]
+    target_city = target['city'] or ''
+
+    # Sběr kandidátů s váhou (city match = 3, style match = 1 per shared style)
+    rows = conn.execute('''
+        SELECT id, username, display_name, city, studio, avatar, styles,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
+               (SELECT COUNT(*)    FROM reviews WHERE artist_id = users.id) AS rating_count
+        FROM users
+        WHERE is_artist = 1 AND id != ?
+        ORDER BY rating_count DESC, rating_avg DESC, id DESC
+        LIMIT 200
+    ''', (target['id'],)).fetchall()
+    conn.close()
+
+    def score(r):
+        s = 0
+        if target_city and (r['city'] or '') == target_city:
+            s += 3
+        if target_styles:
+            r_styles = [x.strip().lower() for x in (r['styles'] or '').split(',') if x.strip()]
+            s += sum(1 for t in target_styles if t in r_styles)
+        # rating boost — preferuj vícekrát hodnocené tatéry
+        s += min(2, (r['rating_count'] or 0) * 0.1)
+        return s
+
+    scored = sorted(rows, key=score, reverse=True)
+    top = scored[:6]
+    return jsonify([
+        {
+            'username':      r['username'],
+            'display_name':  r['display_name'],
+            'city':          r['city'] or '',
+            'studio':        r['studio'] or '',
+            'avatar_url':    f'/uploads/{r["avatar"]}' if r['avatar'] else None,
+            'initials':      initials(r['display_name']),
+            'rating_avg':    round(r['rating_avg'], 1) if r['rating_avg'] else None,
+            'rating_count':  r['rating_count'] or 0,
+        }
+        for r in top
+    ])
+
+
 @app.route('/api/artists/map')
 def artists_map():
     """Vrací seznam tatérů s GPS souřadnicemi pro mapový view."""
