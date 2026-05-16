@@ -50,6 +50,14 @@
   .il-notif-empty{padding:40px 24px;text-align:center;font-size:12px;color:var(--txt3,#777);letter-spacing:0.04em;line-height:1.7}
   .il-notif-empty .b{display:block;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2,#e8e8e8);margin-bottom:8px}
 
+  .il-notif-push{border-top:1px solid var(--border,#1a1a1a);padding:12px 16px;display:none;flex-direction:column;gap:8px}
+  .il-notif-push.show{display:flex}
+  .il-notif-push-text{font-size:11px;color:var(--txt3,#777);letter-spacing:0.04em;line-height:1.5}
+  .il-notif-push-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 14px;background:var(--red2,#e8e8e8);color:var(--bg,#000);border:none;cursor:pointer;text-transform:uppercase;text-align:center}
+  .il-notif-push-btn:hover{background:var(--red3,#fff)}
+  .il-notif-push-btn.muted{background:transparent;color:var(--txt3,#777);border:1px solid var(--border2,#222)}
+  .il-notif-push-btn.muted:hover{color:var(--red2,#e8e8e8);border-color:var(--red2,#e8e8e8)}
+
   @media(max-width:560px){
     .il-notif-panel{right:8px;left:8px;width:auto;top:60px}
   }
@@ -148,6 +156,7 @@
     const panel = document.getElementById('il-notif-panel');
     if (!panel) return;
     panel.classList.add('open');
+    checkPushState();
     await fetchAll();
   }
 
@@ -173,6 +182,108 @@
     }
   }
 
+  // ── Web Push subscribe / unsubscribe ─────────────────────────────────
+  let pushAvailable = false;
+  let pushSubscribed = false;
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  async function checkPushState() {
+    const wrap = document.getElementById('il-notif-push');
+    const text = document.getElementById('il-notif-push-text');
+    const btn  = document.getElementById('il-notif-push-btn');
+    if (!wrap || !text || !btn) return;
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      wrap.classList.remove('show');
+      return;
+    }
+
+    try {
+      const me = await fetch('/api/me').then(r => r.json());
+      if (!me) { wrap.classList.remove('show'); return; }
+      pushAvailable = !!me.push_available;
+      if (!pushAvailable) { wrap.classList.remove('show'); return; }
+    } catch { wrap.classList.remove('show'); return; }
+
+    let perm = Notification.permission;
+    let sub = null;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
+      sub = await reg.pushManager.getSubscription();
+    } catch {}
+    pushSubscribed = !!sub;
+
+    wrap.classList.add('show');
+    if (perm === 'denied') {
+      text.textContent = 'Notifikace zablokované — povol je v nastavení prohlížeče.';
+      btn.style.display = 'none';
+      return;
+    }
+    btn.style.display = '';
+    if (pushSubscribed) {
+      text.textContent = 'Push notifikace zapnuté ✓';
+      btn.textContent = 'Vypnout push';
+      btn.classList.add('muted');
+    } else {
+      text.textContent = 'Dostávej notifikace i když nemáš otevřený InkLink.';
+      btn.textContent = 'Zapnout push notifikace';
+      btn.classList.remove('muted');
+    }
+  }
+
+  async function togglePush() {
+    const btn = document.getElementById('il-notif-push-btn');
+    btn.disabled = true;
+    try {
+      if (pushSubscribed) {
+        await disablePush();
+      } else {
+        await enablePush();
+      }
+    } finally {
+      btn.disabled = false;
+      await checkPushState();
+    }
+  }
+
+  async function enablePush() {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
+    const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
+    const keyResp = await fetch('/api/push/vapid-key').then(r => r.json());
+    if (!keyResp.publicKey) return;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(keyResp.publicKey),
+    });
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(sub),
+    });
+  }
+
+  async function disablePush() {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch('/api/push/unsubscribe', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({endpoint: sub.endpoint}),
+      });
+      await sub.unsubscribe();
+    }
+  }
+
   function mount() {
     const root = document.getElementById('notifMount');
     if (!root) return;
@@ -193,10 +304,15 @@
           <button class="il-notif-mark" id="il-notif-mark">Označit vše přečtené</button>
         </div>
         <div class="il-notif-list" id="il-notif-list"></div>
+        <div class="il-notif-push" id="il-notif-push">
+          <div class="il-notif-push-text" id="il-notif-push-text"></div>
+          <button class="il-notif-push-btn" id="il-notif-push-btn"></button>
+        </div>
       </div>
     `;
     document.getElementById('il-notif-btn').addEventListener('click', e => { e.stopPropagation(); togglePanel(); });
     document.getElementById('il-notif-mark').addEventListener('click', markAllRead);
+    document.getElementById('il-notif-push-btn').addEventListener('click', togglePush);
     document.addEventListener('click', e => {
       const panel = document.getElementById('il-notif-panel');
       const btn   = document.getElementById('il-notif-btn');

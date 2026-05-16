@@ -701,10 +701,10 @@ async function enablePush() {
     if (perm !== 'granted') { flash('Bez povolení nelze zapnout', 'err'); await loadPushStatus(); return; }
     const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
     const keyResp = await fetch('/api/push/vapid-key').then(r => r.json());
-    if (!keyResp.key) { flash('Server nemá VAPID klíč', 'err'); return; }
+    if (!keyResp.publicKey) { flash('Server nemá VAPID klíč', 'err'); return; }
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(keyResp.key),
+      applicationServerKey: urlBase64ToUint8Array(keyResp.publicKey),
     });
     const r = await fetch('/api/push/subscribe', {
       method: 'POST',
