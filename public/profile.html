@@ -86,7 +86,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .star-static .empty{color:var(--border2)}
 
 .review-list{display:flex;flex-direction:column;gap:14px}
-.review-item{padding:16px;background:var(--bg3);border:1px solid var(--border2)}
+.review-item{padding:16px;background:var(--bg3);border:1px solid var(--border2);position:relative}
+.review-report-btn{position:absolute;bottom:8px;right:10px;background:none;border:none;color:var(--txt3);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;cursor:pointer;padding:4px 6px;text-transform:uppercase;opacity:0.5;transition:opacity 0.15s,color 0.15s}
+.review-report-btn:hover{opacity:1;color:#e58787}
+.review-report-btn:disabled{cursor:default;opacity:0.6}
 .review-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .review-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
 .review-avatar img{width:100%;height:100%;object-fit:cover}
@@ -551,6 +554,7 @@ async function loadReviews() {
       ? `<img src="${escapeHtml(rv.client.avatar_url)}" alt="">`
       : escapeHtml((rv.client && rv.client.initials) || '?');
     const date = rv.created_at ? new Date(rv.created_at).toLocaleDateString('cs-CZ', {day:'numeric',month:'long',year:'numeric'}) : '';
+    const canReport = me && rv.client && me.id !== rv.client.id;
     return `
       <div class="review-item">
         <div class="review-head">
@@ -563,9 +567,49 @@ async function loadReviews() {
         </div>
         ${rv.text ? `<div class="review-text">${escapeHtml(rv.text)}</div>` : ''}
         ${rv.response ? `<div class="review-resp"><b>Odpověď tatéra:</b> ${escapeHtml(rv.response)}</div>` : ''}
+        ${canReport ? `<button class="review-report-btn" onclick="reportReview(${rv.id}, this)" title="Nahlásit nevhodný obsah">⚐ Nahlásit</button>` : ''}
       </div>
     `;
   }).join('');
+}
+
+async function reportReview(rid, btn) {
+  const reasons = [
+    {key:'spam', label:'Spam / reklama'},
+    {key:'offensive', label:'Urážlivý obsah'},
+    {key:'false', label:'Nepravdivá recenze'},
+    {key:'private', label:'Soukromé údaje'},
+    {key:'other', label:'Jiné'},
+  ];
+  const promptText = 'Důvod nahlášení?\n' +
+    reasons.map((r, i) => `${i + 1}) ${r.label}`).join('\n');
+  const choice = prompt(promptText, '1');
+  if (!choice) return;
+  const idx = parseInt(choice, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= reasons.length) {
+    alert('Neplatná volba.');
+    return;
+  }
+  const note = prompt('Volitelně přidej poznámku (krátký popis):', '') || '';
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/reviews/${rid}/report`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({reason: reasons[idx].key, note}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      btn.textContent = d.duplicate ? '⚐ Už nahlášeno' : '⚐ Nahlášeno ✓';
+      btn.style.color = 'var(--txt3)';
+    } else {
+      btn.disabled = false;
+      alert(d.error || 'Nepodařilo se nahlásit.');
+    }
+  } catch {
+    btn.disabled = false;
+    alert('Síťová chyba.');
+  }
 }
 
 async function toggleFollow() {

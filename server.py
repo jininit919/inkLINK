@@ -643,6 +643,19 @@ def init_db():
         FOREIGN KEY (artist_id)  REFERENCES users(id)
     )''')
 
+    # Reportace nevhodných recenzí — moderace
+    c.execute('''CREATE TABLE IF NOT EXISTS review_reports (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        review_id   INTEGER NOT NULL,
+        reporter_id INTEGER NOT NULL,
+        reason      TEXT NOT NULL,
+        note        TEXT DEFAULT '',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved    INTEGER DEFAULT 0,
+        FOREIGN KEY (review_id)   REFERENCES reviews(id) ON DELETE CASCADE,
+        FOREIGN KEY (reporter_id) REFERENCES users(id)
+    )''')
+
     conn.commit()
     conn.close()
 
@@ -4180,6 +4193,38 @@ def respond_to_review(rid):
     push_notif(conn, row['client_id'], row['artist_id'], 'review_response',
                rid, 'review',
                f'Tatér odpověděl na tvou recenzi{(": " + text[:80]) if text else ""}')
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/reviews/<int:rid>/report', methods=['POST'])
+@limiter.limit('10 per hour')
+def report_review(rid):
+    """Klient/tatér může nahlásit nevhodnou recenzi. Moderace ručně z DB."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or request.form
+    reason = (data.get('reason') or '').strip().lower()[:30]
+    note   = (data.get('note') or '').strip()[:500]
+    ALLOWED = ('spam', 'offensive', 'false', 'private', 'other')
+    if reason not in ALLOWED:
+        return jsonify({'error': 'Neplatný důvod'}), 400
+
+    conn = get_db()
+    rv = conn.execute('SELECT id FROM reviews WHERE id=?', (rid,)).fetchone()
+    if not rv:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    # Idempotent: stejný user + stejný review → nevadí, jen vrátit ok
+    dup = conn.execute(
+        'SELECT 1 FROM review_reports WHERE review_id=? AND reporter_id=?',
+        (rid, session['user_id'])).fetchone()
+    if dup:
+        conn.close()
+        return jsonify({'ok': True, 'duplicate': True})
+    conn.execute(
+        'INSERT INTO review_reports (review_id, reporter_id, reason, note) VALUES (?,?,?,?)',
+        (rid, session['user_id'], reason, note))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
