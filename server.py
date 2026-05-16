@@ -1235,6 +1235,7 @@ def feed():
     style_filter  = request.args.get('style', '').strip()
     kind_filter   = request.args.get('kind', '').strip().lower()
     search        = request.args.get('q', '').strip()
+    sort          = request.args.get('sort', '').strip().lower()
     offset        = int(request.args.get('offset', 0))
     try:
         flat, flng = float(request.args.get('lat', '')), float(request.args.get('lng', ''))
@@ -1272,7 +1273,21 @@ def feed():
         query += ' AND (p.caption LIKE ? OR u.display_name LIKE ? OR u.styles LIKE ?)'
         params += [f'%{search}%', f'%{search}%', f'%{search}%']
 
-    query += ' ORDER BY p.created_at DESC LIMIT 200 OFFSET ?'
+    # Sort order — všechny mají DESC fallback na created_at pro tie-break
+    if sort == 'rating':
+        # Top rated artists first (null ratings na konec)
+        query += ' ORDER BY (SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) IS NULL, ' \
+                 '(SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) DESC, p.created_at DESC'
+    elif sort == 'price':
+        # Nejlevnější skicy / práce (NULL ceny na konec)
+        query += ' ORDER BY p.price_kc IS NULL, p.price_kc ASC, p.created_at DESC'
+    elif sort == 'popular':
+        # Nejvíc lajknuté
+        query += ' ORDER BY p.like_count DESC, p.created_at DESC'
+    else:
+        # 'newest' (default)
+        query += ' ORDER BY p.created_at DESC'
+    query += ' LIMIT 200 OFFSET ?'
     params.append(offset)
 
     rows = conn.execute(query, params).fetchall()
