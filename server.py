@@ -275,6 +275,35 @@ def _booking_email_html(event, ctx):
         )
         return subject, header + body + footer
 
+    if event == 'reminder_for_client':
+        subject = f'InkLink — Tomorrow you\'ve got a tattoo session'
+        studio = _h(ctx.get('studio') or '')
+        city = _h(ctx.get('city') or '')
+        location_parts = [x for x in (studio, city) if x]
+        location_line = ''
+        if location_parts:
+            location_line = (f'<p style="color:#aaa;font-size:13px;margin-top:8px">'
+                             f'Where: <strong style="color:#fff">{", ".join(location_parts)}</strong></p>')
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p>Quick reminder — tomorrow you\'ve got a tattoo session with '
+            f'<strong>{other}</strong>:</p>'
+            f'<p style="font-size:20px;color:#fff;margin:18px 0">{when}</p>'
+            + location_line
+            + cta('View booking')
+        )
+        return subject, header + body + footer
+
+    if event == 'reminder_for_artist':
+        subject = f'InkLink — Tomorrow {ctx.get("other_name") or "a client"} is coming in'
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p>Quick reminder — <strong>{other}</strong> is booked in tomorrow:</p>'
+            f'<p style="font-size:20px;color:#fff;margin:18px 0">{when}</p>'
+            + cta('View booking')
+        )
+        return subject, header + body + footer
+
     return None, None
 
 
@@ -617,6 +646,8 @@ def init_db():
     add_col('bookings', "size_label TEXT DEFAULT ''")
     # Klient se může rezervovat na konkrétní portfolio sketch — pak se cena fixuje
     add_col('bookings', 'portfolio_item_id INTEGER DEFAULT NULL')
+    # 24h reminder — kdy byl reminder email/push odeslán, aby se neopakoval
+    add_col('bookings', 'reminder_sent_at TEXT DEFAULT NULL')
     # M7: Plná platba předem + doplatek přes platformu
     add_col('bookings', "payment_mode TEXT DEFAULT 'deposit'")          # 'deposit'|'full'
     add_col('bookings', 'total_price_cents INTEGER NOT NULL DEFAULT 0') # celková cena při bookingu
@@ -3345,6 +3376,93 @@ def admin_resolve_report(rid):
     conn.commit()
     conn.close()
     return jsonify({'ok': True, 'deleted_review': delete_review})
+
+
+CRON_SECRET = os.environ.get('CRON_SECRET', '').strip()
+
+
+def _check_cron_auth():
+    """Authorize cron request. Expects Bearer header nebo ?key=...
+    Vrátí None pokud OK, Response pokud not authorized."""
+    if not CRON_SECRET:
+        return jsonify({'error': 'CRON_SECRET not configured on server'}), 503
+    provided = (request.headers.get('Authorization', '')
+                .replace('Bearer ', '').strip())
+    if not provided:
+        provided = (request.args.get('key', '') or '').strip()
+    if provided != CRON_SECRET:
+        return jsonify({'error': 'unauthorized'}), 401
+    return None
+
+
+@app.route('/api/cron/booking-reminders', methods=['GET', 'POST'])
+def cron_booking_reminders():
+    """Posílá 24h reminder pro bookings, které začínají za 22-26h
+    a ještě nedostaly reminder. Voláno externím cronem (cron-job.org)
+    každou hodinu. Idempotent — duplicate volání nepošlou reminder 2x
+    dík reminder_sent_at flagu."""
+    err = _check_cron_auth()
+    if err: return err
+
+    now = datetime.utcnow()
+    win_start = (now + timedelta(hours=22)).isoformat()
+    win_end   = (now + timedelta(hours=26)).isoformat()
+
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT b.id, b.client_id, b.artist_id, b.booking_start_at, b.duration_hours,
+               ua.display_name AS artist_name, ua.studio AS artist_studio, ua.city AS artist_city,
+               uc.display_name AS client_name
+        FROM bookings b
+        JOIN users ua ON ua.id = b.artist_id
+        JOIN users uc ON uc.id = b.client_id
+        WHERE b.status IN ('confirmed', 'pending_payment')
+          AND b.booking_start_at >= ?
+          AND b.booking_start_at <  ?
+          AND b.reminder_sent_at IS NULL
+    ''', (win_start, win_end)).fetchall()
+
+    sent = []
+    failed = []
+    for b in rows:
+        when_str = _fmt_booking_when(b['booking_start_at'], b['duration_hours'])
+        try:
+            # Email + push klientovi
+            send_booking_email(conn, b['client_id'], 'reminder_for_client', {
+                'other_name': b['artist_name'],
+                'when':       when_str,
+                'studio':     b['artist_studio'] or '',
+                'city':       b['artist_city'] or '',
+                'booking_url': f'{APP_BASE_URL}/my-bookings',
+            })
+            push_notif(conn, b['client_id'], b['artist_id'], 'booking_reminder',
+                       b['id'], 'booking',
+                       f'Zítra v {b["booking_start_at"][11:16]} máš tetování u {b["artist_name"]}')
+            # Email + push tatérovi
+            send_booking_email(conn, b['artist_id'], 'reminder_for_artist', {
+                'other_name': b['client_name'],
+                'when':       when_str,
+                'booking_url': f'{APP_BASE_URL}/my-bookings',
+            })
+            push_notif(conn, b['artist_id'], b['client_id'], 'booking_reminder',
+                       b['id'], 'booking',
+                       f'Zítra v {b["booking_start_at"][11:16]} máš klienta {b["client_name"]}')
+            # Marker, aby se neopakovalo
+            conn.execute('UPDATE bookings SET reminder_sent_at=? WHERE id=?',
+                         (datetime.utcnow().isoformat(), b['id']))
+            sent.append(b['id'])
+        except Exception as e:
+            failed.append({'id': b['id'], 'err': str(e)})
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'ok':     True,
+        'window': [win_start, win_end],
+        'sent':   sent,
+        'failed': failed,
+        'count':  len(sent),
+    })
 
 
 @app.route('/api/styles')
