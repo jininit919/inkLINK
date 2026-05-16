@@ -5000,6 +5000,40 @@ def unread_count():
     return jsonify({'count': count})
 
 
+@app.route('/api/users/search')
+def users_search():
+    """Vyhledávání uživatelů pro start nové konverzace (artists i clients)."""
+    err = require_login()
+    if err: return err
+    q = (request.args.get('q') or '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    like = f'%{q}%'
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT id, username, display_name, avatar, is_artist
+        FROM users
+        WHERE id != ?
+          AND username IS NOT NULL
+          AND (LOWER(username) LIKE LOWER(?) OR LOWER(display_name) LIKE LOWER(?))
+        ORDER BY is_artist DESC, display_name ASC
+        LIMIT 12
+    ''', (session['user_id'], like, like)).fetchall()
+    conn.close()
+    def _initials(name):
+        if not name: return '??'
+        parts = [p for p in name.strip().split() if p]
+        return ''.join(p[0] for p in parts[:2]).upper() or '??'
+    return jsonify([{
+        'id': r['id'],
+        'username': r['username'],
+        'display_name': r['display_name'] or r['username'],
+        'avatar': r['avatar'] or '',
+        'initials': _initials(r['display_name'] or r['username']),
+        'is_artist': bool(r['is_artist']),
+    } for r in rows])
+
+
 # ── Favorite cities API ───────────────────────────────────────────────────────
 
 @app.route('/api/favorites/cities')

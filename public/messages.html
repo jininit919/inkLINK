@@ -42,6 +42,15 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 
 /* CONVERSATIONS LIST */
 .conv-panel{width:280px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+
+/* CONV → user suggestion (start new) */
+.conv-section-label{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt3);padding:10px 16px 4px;background:var(--bg2)}
+.conv-item.new-suggestion{opacity:0.85}
+.conv-item.new-suggestion .conv-preview{color:var(--red2);letter-spacing:0.08em;text-transform:uppercase;font-size:9px}
+
+/* Mobile back button (chat header) */
+.mobile-back-btn{display:none;background:none;border:none;color:var(--txt2);font-size:18px;cursor:pointer;padding:4px 6px;margin-right:4px;line-height:1}
+.mobile-back-btn:hover{color:var(--red2)}
 .conv-header{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .conv-header-title{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3)}
 .new-msg-btn{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;transition:all 0.15s}
@@ -132,6 +141,18 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 
 @keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
 .loading{padding:40px;text-align:center;color:var(--txt3);font-size:11px;animation:pulse 1.5s ease infinite}
+
+/* ─── MOBILE: jen jeden panel viditelný ─── */
+@media(max-width:760px){
+  .layout{flex-direction:column}
+  .conv-panel{width:100%;border-right:none;border-bottom:none}
+  .chat-panel{display:none}
+  body.mobile-chat-open .conv-panel{display:none}
+  body.mobile-chat-open .chat-panel{display:flex;flex:1}
+  .mobile-back-btn{display:inline-flex !important;align-items:center;justify-content:center}
+  /* Place chat input bar above mobile FAB nav */
+  .chat-input-bar{padding-bottom:80px}
+}
 </style>
 </head>
 <body>
@@ -222,33 +243,77 @@ async function loadConversations() {
 function renderConvs(convs) {
   const el = document.getElementById('convList');
   if (!convs.length) {
-    el.innerHTML = '<div class="conv-empty">No conversations yet.<br>Start a new message.</div>';
+    el.innerHTML = '<div class="conv-empty">No conversations yet.<br>Hledej uživatele nahoře nebo klikni + New.</div>';
     return;
   }
-  el.innerHTML = convs.map(c => {
-    const avatarHTML = c.avatar
-      ? `<div class="conv-avatar"><img src="/uploads/${esc(c.avatar)}" alt=""></div>`
-      : `<div class="conv-avatar">${esc(c.initials)}</div>`;
-    return `<div class="conv-item ${activeUserId === c.user_id ? 'active' : ''}" onclick="openChat(${c.user_id}, '${escJs(c.display_name)}', '${escJs(c.initials)}', '${escJs(c.avatar || '')}', '${escJs(c.username)}')">
-      ${avatarHTML}
-      <div class="conv-info">
-        <div class="conv-name">${esc(c.display_name)}</div>
-        <div class="conv-preview">${esc(c.last_msg)}</div>
-      </div>
-      <div class="conv-meta">
-        <div class="conv-time">${esc(c.last_at)}</div>
-        ${c.unread > 0 ? `<div class="conv-unread">${c.unread}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  el.innerHTML = convs.map(c => convItemHTML(c, false)).join('');
 }
 
+let searchDebounce = null;
 function filterConvs(q) {
-  const filtered = allConvs.filter(c =>
-    c.display_name.toLowerCase().includes(q.toLowerCase()) ||
-    c.username.toLowerCase().includes(q.toLowerCase())
-  );
-  renderConvs(filtered);
+  clearTimeout(searchDebounce);
+  const query = (q || '').trim().toLowerCase();
+  // Lokální filtr na existující konverzace — okamžitě
+  const localMatches = !query
+    ? allConvs
+    : allConvs.filter(c =>
+        (c.display_name || '').toLowerCase().includes(query) ||
+        (c.username || '').toLowerCase().includes(query)
+      );
+  renderConvs(localMatches);
+
+  // Pokud zadal aspoň 2 znaky → debounced search ve všech uživatelích
+  if (query.length >= 2) {
+    searchDebounce = setTimeout(async () => {
+      try {
+        const r = await fetch('/api/users/search?q=' + encodeURIComponent(query));
+        if (!r.ok) return;
+        const users = await r.json();
+        // odfiltruj ty, co už máš v conv listu
+        const existingIds = new Set(localMatches.map(c => c.user_id));
+        const newOnes = users.filter(u => !existingIds.has(u.id));
+        renderConvsWithSuggestions(localMatches, newOnes);
+      } catch (e) { /* tichý fail */ }
+    }, 220);
+  }
+}
+
+function renderConvsWithSuggestions(convs, newUsers) {
+  const el = document.getElementById('convList');
+  let html = '';
+  if (convs.length) {
+    html += convs.map(c => convItemHTML(c, false)).join('');
+  }
+  if (newUsers.length) {
+    html += `<div class="conv-section-label">Start new conversation</div>`;
+    html += newUsers.map(u => convItemHTML({
+      user_id: u.id, username: u.username, display_name: u.display_name,
+      avatar: u.avatar, initials: u.initials,
+      last_msg: u.is_artist ? '@' + u.username + ' · tatér' : '@' + u.username,
+      last_at: '', unread: 0
+    }, true)).join('');
+  }
+  if (!html) {
+    html = '<div class="conv-empty">Žádné výsledky.</div>';
+  }
+  el.innerHTML = html;
+}
+
+function convItemHTML(c, isSuggestion) {
+  const avatarHTML = c.avatar
+    ? `<div class="conv-avatar"><img src="/uploads/${esc(c.avatar)}" alt=""></div>`
+    : `<div class="conv-avatar">${esc(c.initials)}</div>`;
+  return `<div class="conv-item ${isSuggestion ? 'new-suggestion' : ''} ${activeUserId === c.user_id ? 'active' : ''}" onclick="openChat(${c.user_id}, '${escJs(c.display_name)}', '${escJs(c.initials)}', '${escJs(c.avatar || '')}', '${escJs(c.username)}')">
+    ${avatarHTML}
+    <div class="conv-info">
+      <div class="conv-name">${esc(c.display_name)}</div>
+      <div class="conv-preview">${isSuggestion ? '+ Nová zpráva' : esc(c.last_msg)}</div>
+    </div>
+    <div class="conv-meta">
+      <div class="conv-time">${esc(c.last_at)}</div>
+      ${c.unread > 0 ? `<div class="conv-unread">${c.unread}</div>` : ''}
+    </div>
+  </div>`;
 }
 
 // ── Open chat ─────────────────────────────────────────────────────────────────
@@ -260,9 +325,13 @@ async function openChat(userId, name, ini, avatar, username) {
   document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
   event && event.currentTarget && event.currentTarget.classList.add('active');
 
+  // Mobile: switch to chat view
+  document.body.classList.add('mobile-chat-open');
+
   const panel = document.getElementById('chatPanel');
   panel.innerHTML = `
     <div class="chat-header">
+      <button class="mobile-back-btn" onclick="closeChatMobile()" title="Zpět">←</button>
       <a class="chat-avatar" href="/profile/${esc(username)}">
         ${avatar ? `<img src="/uploads/${esc(avatar)}" alt="">` : esc(ini)}
       </a>
@@ -356,6 +425,23 @@ function pollMessages(userId) {
       pollMessages(userId);
     }
   }, 4000);
+}
+
+// Mobile: zpět na seznam konverzací
+function closeChatMobile() {
+  document.body.classList.remove('mobile-chat-open');
+  activeUserId = null;
+  clearTimeout(pollTimer);
+  // Vyčistíme chat panel zpátky na empty state
+  const panel = document.getElementById('chatPanel');
+  if (panel) {
+    panel.innerHTML = `
+      <div class="chat-empty" id="chatEmpty">
+        <div class="icon">◻</div>
+        <p>Select a conversation<br>or start a new message.</p>
+      </div>`;
+  }
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
 }
 
 // ── Send ──────────────────────────────────────────────────────────────────────
