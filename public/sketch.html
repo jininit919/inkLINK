@@ -57,7 +57,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .meta-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--txt3);letter-spacing:0.06em}
 .meta-row .dot{width:3px;height:3px;border-radius:50%;background:var(--txt3)}
 
-.artist-card{display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg2);border:1px solid var(--border);text-decoration:none;color:inherit;transition:border-color 0.15s}
+.artist-card{display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg2);border:1px solid var(--border);transition:border-color 0.15s}
 .artist-card:hover{border-color:var(--border2)}
 .artist-avatar{width:54px;height:54px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0;font-family:'Bebas Neue',sans-serif;letter-spacing:0.08em}
 .artist-avatar img{width:100%;height:100%;object-fit:cover}
@@ -66,6 +66,18 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .artist-info .meta{font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px}
 .rating-inline{display:inline-flex;align-items:center;gap:3px;font-family:'DM Mono',monospace;font-size:12px;color:#e8c87f;letter-spacing:0.04em;margin-left:8px;vertical-align:middle}
 .rating-inline .rating-cnt{color:var(--txt3);font-size:10px}
+
+/* Price block — výrazný, pod caption */
+.price-block{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:18px 20px;background:var(--bg2);border:1px solid var(--border2);flex-wrap:wrap}
+.price-main{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.06em;color:var(--red2);line-height:1}
+.price-meta{font-size:11px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;line-height:1.5}
+.price-meta b{color:var(--txt);font-weight:400}
+
+/* Artist actions — message btn next to profile link */
+.artist-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0}
+.artist-actions .btn-msg{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:7px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;white-space:nowrap}
+.artist-actions .btn-msg:hover{border-color:var(--red2);color:var(--red2)}
+.artist-actions .profile-link{font-size:10px;letter-spacing:0.1em;color:var(--txt3);text-transform:uppercase}
 .artist-cta{font-size:11px;letter-spacing:0.08em;color:var(--txt3)}
 
 .actions{display:flex;gap:10px;flex-wrap:wrap}
@@ -181,19 +193,33 @@ function render() {
   const studioCity = [u.studio, u.city].filter(Boolean).join(' · ') || 'tatér';
   const styles = (p.styles || u.styles || '').trim();
 
+  const priceBlock = priced
+    ? `<div class="price-block">
+         <div class="price-main">${priceTxt}</div>
+         <div class="price-meta">${isSketch ? 'Cena za <b>celou skicu</b> včetně realizace' : 'Hotová práce — referenční cena'}</div>
+       </div>`
+    : '';
+
   document.getElementById('info').innerHTML = `
     <div class="caption ${p.caption?'':'empty'}">${escapeHtml(p.caption || (isSketch ? 'Skica bez popisu.' : 'Hotová práce bez popisu.'))}</div>
 
     ${styles ? `<div class="meta-row"><span>${escapeHtml(styles)}</span></div>` : ''}
 
-    <a class="artist-card" href="/profile/${escapeHtml(u.username)}">
-      <div class="artist-avatar">${av}</div>
-      <div class="artist-info">
-        <div class="name">${escapeHtml(u.display_name)}${u.rating_count > 0 ? ` <span class="rating-inline">★ ${u.rating_avg.toFixed(1)} <span class="rating-cnt">(${u.rating_count})</span></span>` : ''}</div>
-        <div class="meta">${escapeHtml(studioCity)}</div>
+    ${priceBlock}
+
+    <div class="artist-card">
+      <a href="/profile/${escapeHtml(u.username)}" style="display:flex;align-items:center;gap:14px;flex:1;min-width:0;color:inherit;text-decoration:none">
+        <div class="artist-avatar">${av}</div>
+        <div class="artist-info">
+          <div class="name">${escapeHtml(u.display_name)}${u.rating_count > 0 ? ` <span class="rating-inline">★ ${u.rating_avg.toFixed(1)} <span class="rating-cnt">(${u.rating_count})</span></span>` : ''}</div>
+          <div class="meta">${escapeHtml(studioCity)}</div>
+        </div>
+      </a>
+      <div class="artist-actions">
+        <a class="btn-msg" href="/messages?to=${encodeURIComponent(u.username)}">✉ Zpráva</a>
+        <a class="profile-link" href="/profile/${escapeHtml(u.username)}">Profil →</a>
       </div>
-      <div class="artist-cta">PROFIL →</div>
-    </a>
+    </div>
 
     <div id="slotsMount"></div>
 
