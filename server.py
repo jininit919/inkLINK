@@ -441,7 +441,9 @@ def init_db():
                 # M7: defaultní platební režim tatéra
                 # 'deposit' (jen záloha + doplatek na místě), 'full' (vše předem),
                 # 'client_choice' (klient si vybere v modalu)
-                "default_payment_mode TEXT DEFAULT 'deposit'"):
+                "default_payment_mode TEXT DEFAULT 'deposit'",
+                # iCal feed token — opaque slug pro Apple/Google Calendar subscription
+                'calendar_token TEXT DEFAULT NULL'):
         add_col('users', col)
     conn.commit()
 
@@ -2787,6 +2789,183 @@ def my_calendar():
             'bookings': bookings_by_slot.get(s['id'], []),
         } for s in slots],
     })
+
+
+# ── Calendar (.ics) export ──────────────────────────────────────────────────
+def _ics_escape(s):
+    """Escape special chars dle RFC5545."""
+    if not s: return ''
+    return (str(s).replace('\\', '\\\\')
+                  .replace(',', '\\,')
+                  .replace(';', '\\;')
+                  .replace('\n', '\\n')
+                  .replace('\r', ''))
+
+
+def _ics_fold(line):
+    """RFC5545 line folding — 75 oktetů max, pokračování s úvodní mezerou."""
+    if len(line) <= 75:
+        return line
+    out = [line[:75]]
+    rest = line[75:]
+    while rest:
+        out.append(' ' + rest[:74])
+        rest = rest[74:]
+    return '\r\n'.join(out)
+
+
+def _build_ics_for_user(user_id):
+    """Vrátí .ics text pro daného usera — všechny aktivní bookings
+    (jako tatér i klient) plus volné sloty (jen pro tatéra)."""
+    conn = get_db()
+    me = conn.execute('SELECT display_name, is_artist FROM users WHERE id=?', (user_id,)).fetchone()
+    if not me:
+        conn.close()
+        return None
+    bookings = conn.execute('''
+        SELECT b.id, b.artist_id, b.client_id, b.booking_start_at, b.booking_end_at,
+               b.status, b.design_note, b.size_label,
+               ua.display_name AS artist_name, ua.studio AS artist_studio, ua.city AS artist_city,
+               uc.display_name AS client_name
+        FROM bookings b
+        JOIN users ua ON ua.id = b.artist_id
+        JOIN users uc ON uc.id = b.client_id
+        WHERE (b.artist_id = ? OR b.client_id = ?)
+          AND b.status NOT IN ('cancelled_client', 'cancelled_artist')
+          AND b.booking_start_at IS NOT NULL
+        ORDER BY b.booking_start_at ASC
+    ''', (user_id, user_id)).fetchall()
+    free_slots = []
+    if me['is_artist']:
+        now_iso = datetime.utcnow().isoformat()
+        free_slots = conn.execute('''
+            SELECT id, start_at, end_at FROM slots
+            WHERE user_id=? AND status='free' AND start_at >= ?
+            ORDER BY start_at ASC
+        ''', (user_id, now_iso)).fetchall()
+    conn.close()
+
+    def _ical_dt(iso):
+        try:
+            d = datetime.fromisoformat((iso or '').replace('Z', '+00:00'))
+            if d.tzinfo is None:
+                # Naive — assume UTC (DB stores UTC ISO)
+                return d.strftime('%Y%m%dT%H%M%SZ')
+            return d.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        except Exception:
+            return None
+
+    now_stamp = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+    lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//InkLink//Calendar//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'X-WR-CALNAME:InkLink',
+        'X-WR-TIMEZONE:Europe/Prague',
+    ]
+    status_map = {'confirmed': 'CONFIRMED', 'completed': 'CONFIRMED',
+                  'pending_payment': 'TENTATIVE'}
+    for b in bookings:
+        start_s = _ical_dt(b['booking_start_at'])
+        end_s   = _ical_dt(b['booking_end_at'])
+        if not start_s or not end_s:
+            continue
+        is_artist_for_this = (user_id == b['artist_id'])
+        if is_artist_for_this:
+            partner = b['client_name'] or 'klient'
+            summary = f'Tetování — {partner}'
+        else:
+            partner = b['artist_name'] or 'tatér'
+            summary = f'Tetování u {partner}'
+        location_parts = [x for x in (b['artist_studio'], b['artist_city']) if x]
+        location = ', '.join(location_parts) if location_parts else 'InkLink'
+        desc_parts = [f'InkLink booking #{b["id"]}']
+        if b['size_label']:
+            desc_parts.append(f'Velikost: {b["size_label"]}')
+        if b['design_note']:
+            desc_parts.append(b['design_note'][:200])
+        lines += [
+            'BEGIN:VEVENT',
+            _ics_fold(f'UID:booking-{b["id"]}@inklink.club'),
+            f'DTSTAMP:{now_stamp}',
+            f'DTSTART:{start_s}',
+            f'DTEND:{end_s}',
+            _ics_fold(f'SUMMARY:{_ics_escape(summary)}'),
+            _ics_fold(f'DESCRIPTION:{_ics_escape(chr(10).join(desc_parts))}'),
+            _ics_fold(f'LOCATION:{_ics_escape(location)}'),
+            f'STATUS:{status_map.get(b["status"], "CONFIRMED")}',
+            'END:VEVENT',
+        ]
+    for s in free_slots:
+        start_s = _ical_dt(s['start_at'])
+        end_s   = _ical_dt(s['end_at'])
+        if not start_s or not end_s:
+            continue
+        lines += [
+            'BEGIN:VEVENT',
+            f'UID:slot-{s["id"]}@inklink.club',
+            f'DTSTAMP:{now_stamp}',
+            f'DTSTART:{start_s}',
+            f'DTEND:{end_s}',
+            'SUMMARY:Volný termín (InkLink)',
+            'TRANSP:TRANSPARENT',
+            'STATUS:TENTATIVE',
+            'END:VEVENT',
+        ]
+    lines.append('END:VCALENDAR')
+    return '\r\n'.join(lines) + '\r\n'
+
+
+@app.route('/api/me/calendar.ics')
+def my_calendar_ics():
+    """Session-protected jednorázové stažení .ics souboru."""
+    err = require_login()
+    if err: return err
+    body = _build_ics_for_user(session['user_id'])
+    if body is None:
+        return jsonify({'error': 'not found'}), 404
+    return Response(body, mimetype='text/calendar',
+                    headers={'Content-Disposition': 'attachment; filename="inklink.ics"'})
+
+
+@app.route('/api/me/calendar-token', methods=['GET', 'POST'])
+def my_calendar_token():
+    """Vrátí (či vygeneruje) iCal token. POST = regenerate, GET = read."""
+    err = require_login()
+    if err: return err
+    import secrets as _secrets
+    uid = session['user_id']
+    conn = get_db()
+    row = conn.execute('SELECT calendar_token FROM users WHERE id=?', (uid,)).fetchone()
+    token = row['calendar_token'] if row else None
+    if request.method == 'POST' or not token:
+        token = _secrets.token_urlsafe(24)
+        conn.execute('UPDATE users SET calendar_token=? WHERE id=?', (token, uid))
+        conn.commit()
+    conn.close()
+    return jsonify({
+        'token': token,
+        'subscribe_url': f'{APP_BASE_URL}/calendar/{token}.ics',
+    })
+
+
+@app.route('/calendar/<token>.ics')
+def public_calendar_ics(token):
+    """Token-based feed pro Apple/Google Calendar subscription (no session)."""
+    if not token or len(token) < 10:
+        return jsonify({'error': 'invalid token'}), 404
+    conn = get_db()
+    row = conn.execute('SELECT id FROM users WHERE calendar_token=?', (token,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'error': 'invalid token'}), 404
+    body = _build_ics_for_user(row['id'])
+    if body is None:
+        return jsonify({'error': 'not found'}), 404
+    return Response(body, mimetype='text/calendar',
+                    headers={'Cache-Control': 'private, max-age=300'})
 
 
 @app.route('/api/me/portfolio')

@@ -30,6 +30,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 
 .wrap{max-width:880px;margin:0 auto;padding:84px 24px 80px}
 h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:24px}
+.cal-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.cal-tools .btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.muted{border-color:var(--border2);color:var(--txt2)}
+.btn.muted:hover{background:transparent;color:var(--red2);border-color:var(--red2)}
 
 .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
@@ -122,6 +126,19 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
   </div>
 
   <div id="content" style="display:none">
+    <div class="cal-tools" id="calTools">
+      <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics">⇩ Stáhnout .ics</a>
+      <button class="btn muted" onclick="showCalendarSubscribe()">⌷ Subscribe URL</button>
+    </div>
+    <div id="calSubBox" style="display:none;margin:14px 0;padding:14px;background:var(--bg2);border:1px solid var(--border2);font-size:11px;letter-spacing:0.04em;color:var(--txt2);line-height:1.7">
+      <div style="margin-bottom:8px;color:var(--txt)">Continuous sync URL — vlož do Apple/Google Calendar (Subscribe to calendar):</div>
+      <input id="calSubUrl" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;letter-spacing:0.02em" onclick="this.select()">
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px">Kopírovat</button>
+        <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)">Regenerovat (zneplatní starou URL)</button>
+      </div>
+    </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="client">Jako klient<span class="count" id="cntClient"></span></div>
       <div class="tab" data-tab="artist">Jako tatér<span class="count" id="cntArtist"></span></div>
@@ -625,6 +642,42 @@ async function confirmComplete() {
     alert('Hotovo. Doplatek přes InkLink se v demo módu (bez Stripe) označil rovnou jako zaplacený.');
   } else if (j.balance_charge && j.balance_charge.payment_url) {
     alert('Hotovo. Klientovi jsme poslali e-mail s linkem na zaplacení doplatku.');
+  }
+}
+
+async function showCalendarSubscribe() {
+  const box = document.getElementById('calSubBox');
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  try {
+    const r = await fetch('/api/me/calendar-token');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    document.getElementById('calSubUrl').value = d.subscribe_url;
+    box.style.display = 'block';
+  } catch (e) {
+    alert('Nepodařilo se získat subscribe URL.');
+  }
+}
+
+function copyCalSubUrl() {
+  const el = document.getElementById('calSubUrl');
+  el.select();
+  try {
+    navigator.clipboard.writeText(el.value);
+    alert('URL zkopírována.');
+  } catch {}
+}
+
+async function regenerateCalToken() {
+  if (!confirm('Vygenerovat nový token? Stará subscribe URL přestane fungovat — musíš ji v kalendáři nahradit.')) return;
+  try {
+    const r = await fetch('/api/me/calendar-token', {method:'POST'});
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    document.getElementById('calSubUrl').value = d.subscribe_url;
+    alert('Nový token vygenerován. Aktualizuj subscribe URL v kalendáři.');
+  } catch {
+    alert('Nepodařilo se regenerovat token.');
   }
 }
 
