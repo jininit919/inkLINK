@@ -835,6 +835,11 @@ def liked_page():
     return send_from_directory('public', 'liked.html')
 
 
+@app.route('/map')
+def map_page():
+    return send_from_directory('public', 'map.html')
+
+
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
     if _s3 and R2_PUBLIC_URL:
@@ -2656,6 +2661,39 @@ def my_checklist():
 @app.route('/api/styles')
 def list_styles():
     return jsonify(list(ALLOWED_TATTOO_STYLES))
+
+
+@app.route('/api/artists/map')
+def artists_map():
+    """Vrací seznam tatérů s GPS souřadnicemi pro mapový view."""
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT id, username, display_name, city, studio, styles, avatar, lat, lng,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
+               (SELECT COUNT(*)    FROM reviews WHERE artist_id = users.id) AS rating_count
+        FROM users
+        WHERE is_artist = 1
+          AND lat IS NOT NULL AND lng IS NOT NULL
+        ORDER BY display_name ASC
+    ''').fetchall()
+    conn.close()
+    return jsonify([
+        {
+            'id':            r['id'],
+            'username':      r['username'],
+            'display_name':  r['display_name'],
+            'city':          r['city'] or '',
+            'studio':        r['studio'] or '',
+            'styles':        r['styles'] or '',
+            'avatar_url':    f'/uploads/{r["avatar"]}' if r['avatar'] else None,
+            'initials':      initials(r['display_name']),
+            'lat':           r['lat'],
+            'lng':           r['lng'],
+            'rating_avg':    round(r['rating_avg'], 1) if r['rating_avg'] else None,
+            'rating_count':  r['rating_count'] or 0,
+        }
+        for r in rows
+    ])
 
 
 @app.route('/api/sizes')

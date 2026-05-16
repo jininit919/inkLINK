@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mapa tatérů — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#080808;--bg3:#101010;--bg4:#181818;
+  --red:#333;--red2:#e8e8e8;--red3:#fff;
+  --txt:#e8e8e8;--txt2:#aaa;--txt3:#777;
+  --border:#1a1a1a;--border2:#222;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;overflow:hidden}
+a{color:inherit;text-decoration:none}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:0}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);cursor:pointer;white-space:nowrap;flex:1}
+.nav-icons{display:flex;gap:6px;align-items:center}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);font-size:14px;border-radius:2px;transition:all 0.15s}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--red2);cursor:pointer;margin-left:4px;letter-spacing:0.05em;overflow:hidden}
+.nav-avatar img{width:100%;height:100%;object-fit:cover}
+
+#map{position:fixed;top:54px;left:0;right:0;bottom:0;background:#0a0a0a}
+@media(max-width:768px){#map{bottom:62px}}
+
+/* Dark filter on tiles — OSM výchozí stránky jsou světlé */
+.leaflet-tile-pane{filter:invert(0.9) hue-rotate(180deg) brightness(0.9) contrast(0.95)}
+.leaflet-control-attribution{background:rgba(0,0,0,0.7) !important;color:#888 !important;font-size:10px !important}
+.leaflet-control-attribution a{color:#aaa !important}
+.leaflet-control-zoom a{background:var(--bg3) !important;color:var(--txt) !important;border-color:var(--border2) !important}
+.leaflet-control-zoom a:hover{background:var(--bg4) !important}
+
+/* Custom marker — avatar circle */
+.artist-marker{position:relative;width:42px;height:42px;cursor:pointer}
+.artist-marker .av{position:absolute;inset:0;border-radius:50%;background:var(--bg4);border:2px solid var(--red2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--red2);overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.5);transition:transform 0.15s}
+.artist-marker .av img{width:100%;height:100%;object-fit:cover}
+.artist-marker:hover .av{transform:scale(1.08)}
+.artist-marker .rating-badge{position:absolute;bottom:-4px;right:-6px;background:#e8c87f;color:#000;font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;font-weight:700;border-radius:8px;letter-spacing:0.04em;line-height:1}
+
+/* Custom popup */
+.leaflet-popup-content-wrapper{background:var(--bg2) !important;color:var(--txt) !important;border:1px solid var(--border2) !important;border-radius:0 !important;box-shadow:0 12px 32px rgba(0,0,0,0.6) !important;padding:0 !important}
+.leaflet-popup-tip{background:var(--bg2) !important;border:1px solid var(--border2) !important}
+.leaflet-popup-content{margin:0 !important;font-family:'DM Mono',monospace !important;width:240px !important}
+.leaflet-popup-close-button{color:var(--txt3) !important;padding:8px 10px !important}
+
+.artist-pop{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.artist-pop-head{display:flex;align-items:center;gap:10px}
+.artist-pop-avatar{width:42px;height:42px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.artist-pop-avatar img{width:100%;height:100%;object-fit:cover}
+.artist-pop-info{flex:1;min-width:0}
+.artist-pop-info .name{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.1em;color:var(--red2);line-height:1.2}
+.artist-pop-info .meta{font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:3px}
+.artist-pop-rating{font-size:11px;color:#e8c87f;letter-spacing:0.04em;margin-top:6px}
+.artist-pop-styles{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.artist-pop-style-chip{font-size:9px;padding:2px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt3);letter-spacing:0.06em;text-transform:uppercase}
+.artist-pop-cta{display:block;text-align:center;padding:10px;background:var(--red2);color:var(--bg);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;font-family:'DM Mono',monospace;margin-top:4px;transition:background 0.15s}
+.artist-pop-cta:hover{background:var(--red3)}
+
+#mapInfo{position:fixed;top:66px;left:12px;z-index:500;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);border:1px solid var(--border2);padding:10px 14px;font-size:11px;letter-spacing:0.06em;color:var(--txt2);display:flex;align-items:center;gap:8px;max-width:calc(100vw - 24px)}
+#mapInfo .il-spinner{margin-right:2px}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
+  <div class="nav-icons">
+    <button class="nav-icon" onclick="toggleTheme && toggleTheme()" title="Téma" style="background:none;border:none">☀</button>
+    <a class="nav-icon" href="/events" title="Eventy">◷</a>
+    <a class="nav-icon" href="/messages" title="Zprávy">✉</a>
+    <a class="nav-icon" href="/my-bookings" title="Moje rezervace">◉</a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none">♥</a>
+    <div id="notifMount"></div>
+    <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
+  </div>
+</nav>
+
+<div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText">Načítám tatéry…</span></div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/notifs.js?v=10"></script>
+<script src="/mobile-nav.js?v=10"></script>
+<script src="/cookie-banner.js?v=10"></script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init(); InkLinkCookieBanner.init();</script>
+
+<script>
+let me = null;
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+async function initNav() {
+  me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  const navAvatar = document.getElementById('navAvatar');
+  if (me) {
+    if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
+    else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
+    document.getElementById('navLiked').style.display = 'flex';
+  } else {
+    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Přihlásit</a>';
+  }
+}
+
+function goToProfile() {
+  if (me && me.username) location.href = '/profile/' + me.username;
+  else location.href = '/login';
+}
+
+function buildMarker(a) {
+  const avHtml = a.avatar_url
+    ? `<img src="${escapeHtml(a.avatar_url)}" alt="">`
+    : escapeHtml(a.initials || '?');
+  const rating = a.rating_count > 0
+    ? `<span class="rating-badge">★ ${a.rating_avg.toFixed(1)}</span>`
+    : '';
+  return L.divIcon({
+    className: '',
+    html: `<div class="artist-marker"><div class="av">${avHtml}</div>${rating}</div>`,
+    iconSize: [42, 42],
+    iconAnchor: [21, 21],
+  });
+}
+
+function buildPopup(a) {
+  const avHtml = a.avatar_url
+    ? `<img src="${escapeHtml(a.avatar_url)}" alt="">`
+    : escapeHtml(a.initials || '?');
+  const meta = [a.studio, a.city].filter(Boolean).map(escapeHtml).join(' · ') || 'tatér';
+  const styles = (a.styles || '').split(',').filter(Boolean).slice(0, 4)
+    .map(s => `<span class="artist-pop-style-chip">${escapeHtml(s.trim())}</span>`).join('');
+  const rating = a.rating_count > 0
+    ? `<div class="artist-pop-rating">★ ${a.rating_avg.toFixed(1)} <span style="color:var(--txt3)">(${a.rating_count} ${a.rating_count === 1 ? 'recenze' : (a.rating_count < 5 ? 'recenze' : 'recenzí')})</span></div>`
+    : '';
+  return `
+    <div class="artist-pop">
+      <div class="artist-pop-head">
+        <div class="artist-pop-avatar">${avHtml}</div>
+        <div class="artist-pop-info">
+          <div class="name">${escapeHtml(a.display_name)}</div>
+          <div class="meta">${meta}</div>
+        </div>
+      </div>
+      ${rating}
+      ${styles ? `<div class="artist-pop-styles">${styles}</div>` : ''}
+      <a class="artist-pop-cta" href="/profile/${escapeHtml(a.username)}">Otevřít profil →</a>
+    </div>
+  `;
+}
+
+async function init() {
+  initNav();
+
+  // Map default: ČR centrovaný (Praha), zoom 7 (vidět celé Česko)
+  const map = L.map('map', {
+    center: [49.8, 15.5],
+    zoom: 7,
+    zoomControl: true,
+    attributionControl: true,
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map);
+
+  const info = document.getElementById('mapInfoText');
+  try {
+    const r = await fetch('/api/artists/map');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const artists = await r.json();
+    if (!artists.length) {
+      info.textContent = 'Žádní tatéři na mapě zatím nejsou.';
+      return;
+    }
+    const bounds = [];
+    artists.forEach(a => {
+      const marker = L.marker([a.lat, a.lng], { icon: buildMarker(a) }).addTo(map);
+      marker.bindPopup(buildPopup(a), { maxWidth: 240, autoPan: true });
+      bounds.push([a.lat, a.lng]);
+    });
+    // Pokud máme dost markerů, fit bounds; jinak default ČR
+    if (artists.length > 1) {
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
+    } else if (artists.length === 1) {
+      map.setView(bounds[0], 12);
+    }
+    info.textContent = `${artists.length} ${artists.length === 1 ? 'tatér' : (artists.length < 5 ? 'tatéři' : 'tatérů')}`;
+    document.querySelector('#mapInfo .il-spinner').style.display = 'none';
+  } catch (e) {
+    info.textContent = 'Nepodařilo se načíst tatéry.';
+    document.querySelector('#mapInfo .il-spinner').style.display = 'none';
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
