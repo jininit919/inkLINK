@@ -85,9 +85,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 main{padding:24px 24px 80px;min-width:0}
 .feed-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;font-size:11px;letter-spacing:0.1em;color:var(--txt3);gap:10px}
 .feed-toolbar .left{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.sort-select{background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:6px 10px;cursor:pointer;outline:none;text-transform:uppercase}
-.sort-select:focus{border-color:var(--red2)}
-.sort-select:hover{border-color:var(--txt3)}
+.sort-select{background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:6px 28px 6px 12px;cursor:pointer;outline:none;text-transform:uppercase;-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='none' stroke='%23999' stroke-width='1.4' d='M1 1l4 4 4-4'/></svg>");background-repeat:no-repeat;background-position:right 10px center;transition:all 0.15s}
+.sort-select:focus{border-color:var(--txt3);color:var(--txt)}
+.sort-select:hover{border-color:var(--txt3);color:var(--txt)}
 
 .filter-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:6px 12px;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;transition:all 0.15s}
 .filter-btn:hover{border-color:var(--txt3);color:var(--txt)}
@@ -213,7 +213,6 @@ main{padding:24px 24px 80px;min-width:0}
 
 <nav>
   <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
-  <a class="add-btn" id="navAddBtn" href="/artist-setup#portfolio" style="display:none;margin-right:14px">+ Přidat</a>
   <div class="nav-icons">
     <button class="nav-icon" onclick="toggleTheme && toggleTheme()" title="Téma" style="background:none;border:none">☀</button>
     <a class="nav-icon" href="/events" title="Eventy">◷</a>
@@ -277,10 +276,8 @@ main{padding:24px 24px 80px;min-width:0}
         ⊕ Filtr<span class="count" id="filterCount" style="display:none">0</span>
       </button>
       <select id="sortSelect" class="sort-select" onchange="setSort(this.value)" aria-label="Řazení">
-        <option value="newest">Nejnovější</option>
-        <option value="rating">Top hodnocení</option>
         <option value="price">Nejlevnější</option>
-        <option value="popular">Nejvíc lajků</option>
+        <option value="price_desc">Nejdražší</option>
       </select>
       <a class="add-btn" id="mainAddBtn" href="/artist-setup#portfolio" style="display:none">+ Přidat skicu</a>
     </div>
@@ -441,7 +438,7 @@ main{padding:24px 24px 80px;min-width:0}
 </div>
 
 <script>
-let me = null, items = [], styleFilter = '', cityFilter = '', searchQuery = '', kindFilter = 'sketch', sortBy = 'newest';
+let me = null, items = [], styleFilter = '', cityFilter = '', searchQuery = '', kindFilter = 'sketch', sortBy = 'price';
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -453,7 +450,6 @@ async function init() {
     if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
     else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
     document.getElementById('menuMyProfile').href = '/profile/' + me.username;
-    document.getElementById('navAddBtn').style.display = 'inline-flex';
     document.getElementById('mainAddBtn').style.display = 'inline-flex';
     document.getElementById('navLiked').style.display = 'flex';
     document.getElementById('menuLiked').style.display = 'flex';
@@ -584,7 +580,7 @@ function setCity(c) {
 }
 
 function setSort(value) {
-  sortBy = value || 'newest';
+  sortBy = value || 'price';
   loadFeed();
 }
 
@@ -594,7 +590,7 @@ async function loadFeed() {
   if (cityFilter) params.set('city', cityFilter);
   if (searchQuery) params.set('q', searchQuery);
   if (kindFilter) params.set('kind', kindFilter);
-  if (sortBy && sortBy !== 'newest') params.set('sort', sortBy);
+  if (sortBy) params.set('sort', sortBy);
   const grid = document.getElementById('feed');
   grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Načítám feed…</div>';
   try {

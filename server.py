@@ -1447,6 +1447,9 @@ def feed():
     elif sort == 'price':
         # Nejlevnější skicy / práce (NULL ceny na konec)
         query += ' ORDER BY p.price_kc IS NULL, p.price_kc ASC, p.created_at DESC'
+    elif sort == 'price_desc':
+        # Nejdražší (NULL ceny na konec)
+        query += ' ORDER BY p.price_kc IS NULL, p.price_kc DESC, p.created_at DESC'
     elif sort == 'popular':
         # Nejvíc lajknuté
         query += ' ORDER BY p.like_count DESC, p.created_at DESC'
