@@ -323,10 +323,24 @@ async function load() {
 
   // hash routing: /profile/<u>#book-<sketchId> → auto-open booking modal pro daný sketch
   const m = (location.hash || '').match(/^#book-(\d+)$/);
-  if (m && me) {
+  if (m) {
+    if (!me) {
+      // Nepřihlášený → pošli na login a vrať zpátky
+      sessionStorage.setItem('postLoginRedirect', location.pathname + location.hash);
+      location.href = '/login';
+      return;
+    }
     const item = profile.portfolio.find(p => p.id === parseInt(m[1]));
-    if (item && item.price_kc && item.estimated_hours) {
-      // simulace bookPortfolioItem ale bez double-fetch
+    if (!item) {
+      showBookFallback('Tato skica byla smazána nebo už není dostupná.', null);
+    } else if (!item.price_kc || !item.estimated_hours) {
+      // Skica nemá kompletní data → nemůžeme rezervovat, ale dáme možnost napsat tatérovi
+      const missing = !item.price_kc ? 'cena' : 'odhad času';
+      showBookFallback(
+        `Tato skica zatím nemá vyplněný <b>${missing}</b>, takže ji nelze rezervovat přímo. Napiš tatérovi a domluvte se na detailech.`,
+        item
+      );
+    } else {
       const need = +item.estimated_hours;
       const fit = profile.slots.find(s => {
         const total = (new Date(s.end_at) - new Date(s.start_at)) / 36e5;
@@ -341,11 +355,40 @@ async function load() {
         document.getElementById('tab-slots').style.display = 'block';
         setTimeout(() => bookSlot(fit.id, item), 100);
       } else {
-        alert('Tatér zatím nemá dost volného času pro tento návrh.');
+        showBookFallback(
+          `Tatér zatím nemá v kalendáři volný blok aspoň <b>${need} h</b> pro tento návrh. Napiš mu a domluvte se na termínu.`,
+          item
+        );
       }
     }
     history.replaceState(null, '', location.pathname);
   }
+}
+
+function showBookFallback(messageHTML, item) {
+  // Plain overlay modal — vysvětlí proč to nešlo a nabídne "Napsat zprávu"
+  const itemBlurb = item ? `<div style="margin:14px 0;padding:10px 12px;border:1px solid var(--border2);background:var(--bg3);font-size:11px;letter-spacing:0.04em;color:var(--txt2)"><b>${escapeHtml(item.caption || 'Skica')}</b>${item.price_kc?` · ${(+item.price_kc).toLocaleString('cs-CZ')} Kč`:''}${item.estimated_hours?` · ${item.estimated_hours} h`:''}</div>` : '';
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'DM Mono\',monospace';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);max-width:440px;width:100%;padding:28px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;color:var(--txt);margin-bottom:12px">REZERVACE NELZE OTEVŘÍT</div>
+      <div style="font-size:13px;color:var(--txt2);line-height:1.6">${messageHTML}</div>
+      ${itemBlurb}
+      <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn" data-act="msg" style="flex:1">Napsat zprávu</button>
+        <button class="btn" data-act="close" style="flex:1;background:transparent;border:1px solid var(--border3);color:var(--txt2)">Zavřít</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => {
+    const act = e.target?.dataset?.act;
+    if (act === 'close' || e.target === overlay) { overlay.remove(); }
+    if (act === 'msg') {
+      overlay.remove();
+      location.href = `/messages?user=${encodeURIComponent(profile.username)}`;
+    }
+  });
 }
 
 function render() {
@@ -757,13 +800,15 @@ function bookPortfolioItem(itemId) {
   const item = profile.portfolio.find(p => p.id === itemId);
   if (!item) return;
   if (!item.price_kc || !item.estimated_hours) {
-    alert('Tento návrh nemá nastavenou cenu / délku.'); return;
+    const missing = !item.price_kc ? 'cena' : 'odhad času';
+    showBookFallback(`Tato skica zatím nemá vyplněný <b>${missing}</b>. Napiš tatérovi a domluvte se na detailech.`, item);
+    return;
   }
   // najdi blok s dostatečným volným časem
   const need = +item.estimated_hours;
   const fit = profile.slots.find(s => freeHoursTotal(s) >= need - 0.01);
   if (!fit) {
-    alert(`Žádný volný blok ${need} h+ — tatér zatím nenabízí dost volného času pro tento návrh.`);
+    showBookFallback(`Tatér nemá v kalendáři volný blok aspoň <b>${need} h</b> pro tento návrh.`, item);
     return;
   }
   bookSlot(fit.id, item);

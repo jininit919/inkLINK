@@ -643,6 +643,7 @@ function render() {
     const av = u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="">` : escapeHtml(u.initials || '?');
     const kindLabel = p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ';
     const priced = p.kind === 'sketch' && p.price_kc;
+    const bookable = priced && p.estimated_hours;  // rezervovatelné jen s cenou I odhadem času
     const priceTxt = priced
       ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč${p.estimated_hours?` · ${(+p.estimated_hours).toString().replace(/\.0$/,'')}h`:''}`
       : '';
@@ -654,7 +655,7 @@ function render() {
           <div class="card-kind">${kindLabel}</div>
           ${imgCount > 1 ? `<div class="card-imgs-badge">⧉ +${imgCount - 1}</div>` : ''}
           ${priced ? `<div class="card-price">${priceTxt}</div>` : ''}
-          ${priced ? `<div class="card-bookcta" onclick="event.stopPropagation();goBookSketch('${escapeHtml(u.username)}',${p.id})">Rezervovat tento návrh →</div>` : ''}
+          ${bookable ? `<div class="card-bookcta" onclick="event.stopPropagation();goBookSketch('${escapeHtml(u.username)}',${p.id})">Rezervovat tento návrh →</div>` : ''}
         </div>
         <div class="card-foot">
           <a class="card-avatar" href="/profile/${escapeHtml(u.username)}" onclick="event.stopPropagation()">${av}</a>
