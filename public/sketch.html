@@ -266,7 +266,7 @@ function fmtDate(iso) {
 
 function fmtPrice(min, max, unit) {
   const suffix = unit === 'flat' ? ' Kč' : ' Kč/h';
-  if (!min && !max) return 'cena dohodou';
+  if (!min && !max) return 'cena dle dohody';
   if (min && max && min !== max) return `${min.toLocaleString('cs-CZ')}–${max.toLocaleString('cs-CZ')}${suffix}`;
   return `${(min||max).toLocaleString('cs-CZ')}${suffix}`;
 }

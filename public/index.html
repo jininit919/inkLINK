@@ -151,9 +151,7 @@ main{padding:24px 24px 80px;min-width:0}
 .card-price{position:absolute;top:8px;right:8px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.05em;padding:4px 10px;background:var(--red2);color:var(--bg);line-height:1}
 .card-kind{position:absolute;top:8px;left:8px;font-size:9px;letter-spacing:0.15em;padding:3px 8px;background:rgba(0,0,0,0.75);color:#fff}
 .card-imgs-badge{position:absolute;bottom:8px;left:8px;font-size:10px;letter-spacing:0.08em;padding:3px 7px;background:rgba(0,0,0,0.78);color:#fff;display:flex;align-items:center;gap:4px}
-.card-bookcta{position:absolute;bottom:0;left:0;right:0;padding:9px 14px;background:rgba(0,0,0,0.85);color:var(--red2);text-align:center;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;opacity:0;transition:opacity 0.15s}
-.card:hover .card-bookcta{opacity:1}
-@media(hover:none){.card-bookcta{opacity:1}}
+.card-bookcta{position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:rgba(0,0,0,0.92);color:var(--red2);text-align:center;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:background 0.15s,color 0.15s;border-top:1px solid var(--border2)}
 .card-bookcta:hover{background:var(--red2);color:var(--bg)}
 .card-foot{padding:12px 14px;display:flex;align-items:center;gap:10px}
 .card-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
@@ -285,8 +283,8 @@ main{padding:24px 24px 80px;min-width:0}
     <div id="feed" class="feed-grid"></div>
     <div id="emptyState" class="empty" style="display:none">
       <span class="b" id="emptyTitle">ZATÍM ŽÁDNÉ SKICY</span>
-      <span id="emptyText">Tatéři ještě nepřidali žádné návrhy k rezervaci.<br>
-      Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej skicu s cenou</a> a klienti si tě najdou.</span>
+      <span id="emptyText">Nové skicy se tu objeví, jakmile je tatéři přidají.<br>
+      Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svoji první skicu</a> a klienti si tě najdou.</span>
     </div>
   </main>
 
@@ -396,7 +394,7 @@ main{padding:24px 24px 80px;min-width:0}
         </div>
       </div>
       <a class="welcome-cta" href="/artist-setup">Otevřít nastavení tatéra →</a>
-      <button class="welcome-cta-muted" onclick="closeWelcome()">Později</button>
+      <button class="welcome-cta-muted" onclick="closeWelcome()">Přeskočit</button>
     </div>
   </div>
 </div>
@@ -626,13 +624,13 @@ function render() {
     if (kindFilter === 'sketch') {
       document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ SKICY';
       document.getElementById('emptyText').innerHTML =
-        'Tatéři ještě nepřidali žádné návrhy k rezervaci.<br>'
-        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej skicu s cenou</a> a klienti si tě najdou.';
+        'Nové skicy se tu objeví, jakmile je tatéři přidají.<br>'
+        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svoji první skicu</a> a klienti si tě najdou.';
     } else {
       document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ PRÁCE';
       document.getElementById('emptyText').innerHTML =
-        'Tatéři ještě nenahráli hotové tetování do galerie.<br>'
-        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej fotku své práce</a>.';
+        'Galerie hotových tetování se brzy zaplní.<br>'
+        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Sdílej svoji první práci</a>.';
     }
     return;
   }

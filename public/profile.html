@@ -240,7 +240,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
     <div id="tab-reviews" style="display:none">
       <div id="reviewsHead" style="margin-bottom:18px;font-size:13px;color:var(--txt2);letter-spacing:0.04em"></div>
       <div class="review-list" id="reviews"></div>
-      <div class="empty" id="reviewsEmpty" style="display:none">Žádné recenze. Buď první kdo dá hodnocení po sezení.</div>
+      <div class="empty" id="reviewsEmpty" style="display:none">Recenze se tu objeví po prvním dokončeném sezení.</div>
     </div>
 
     <div id="similarBlock" style="display:none;margin-top:60px;border-top:1px solid var(--border);padding-top:32px">
@@ -276,7 +276,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 
     <label style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;text-transform:none;letter-spacing:0.04em;color:var(--txt2);font-size:12px;cursor:pointer">
       <input type="checkbox" id="bm-payfull" style="margin-top:2px;width:auto;accent-color:var(--red2)" onchange="refreshDeposit()">
-      <span><b style="color:var(--txt)">Zaplatit celé předem</b> (přes InkLink kartou) — na místě už nic.<br>
+      <span><b style="color:var(--txt)">Zaplatit celou částku teď</b> — na místě už nic.<br>
       <span style="color:var(--txt3);font-size:11px">Jinak platíš jen zálohu, zbytek dohodnete na místě (hotově / kartou) nebo ti tatér po sezení pošle link na doplatek přes InkLink.</span></span>
     </label>
 
@@ -299,7 +299,7 @@ function fmtDate(iso) {
 }
 function fmtPrice(min, max, unit) {
   const suffix = unit === 'flat' ? ' Kč' : ' Kč/h';
-  if (!min && !max) return 'cena dohodou';
+  if (!min && !max) return 'cena se domluví s tatérem';
   if (min && max && min !== max) return `${min.toLocaleString('cs-CZ')}–${max.toLocaleString('cs-CZ')}${suffix}`;
   return `${(min||max).toLocaleString('cs-CZ')}${suffix}`;
 }
@@ -912,8 +912,14 @@ async function submitBook() {
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
+    const msg = escapeHtml(j.error || 'Rezervace selhala');
+    const username = profile && profile.username ? escapeHtml(profile.username) : '';
     document.getElementById('bm-flash').innerHTML =
-      `<div class="flash-modal err">${escapeHtml(j.error || 'Rezervace selhala')}</div>`;
+      `<div class="flash-modal err" style="line-height:1.6">
+        <div style="margin-bottom:8px"><b>${msg}</b></div>
+        <div style="font-size:11px;color:var(--txt2);margin-bottom:10px">Zkus jinou platební metodu nebo se domluv s tatérem na alternativním řešení.</div>
+        ${username ? `<a href="/messages?user=${username}" style="display:inline-block;padding:6px 12px;border:1px solid var(--red2);color:var(--red2);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none">Napsat tatérovi →</a>` : ''}
+      </div>`;
     btn.disabled = false;
     return;
   }
