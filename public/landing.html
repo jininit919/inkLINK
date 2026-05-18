@@ -88,6 +88,13 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .lp-btn-primary:hover{background:#f5f5f5;border-color:#f5f5f5;color:var(--bg-0)}
 .lp-btn .icon{width:13px;height:13px}
 
+/* Language switcher — CS / EN pill */
+.lang-switch{display:inline-flex;background:var(--bg-3);border:1px solid var(--bd-2);border-radius:var(--r-md);padding:3px;gap:2px}
+.lang-btn{background:transparent;border:none;color:var(--tx-3);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;padding:6px 10px;border-radius:4px;cursor:pointer;transition:all var(--t-fast) var(--ease);text-transform:uppercase;font-weight:500}
+.lang-btn:hover{color:var(--tx-1)}
+.lang-btn.active{background:var(--bg-1);color:var(--tx-1);box-shadow:0 1px 3px rgba(0,0,0,0.5)}
+@media(max-width:760px){.lang-switch{padding:2px}.lang-btn{padding:5px 8px;font-size:10px}}
+
 @media(max-width:760px){
   nav.lp-nav{padding:0 20px;gap:12px;height:60px}
   .lp-nav-links{display:none}
@@ -268,7 +275,7 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 .price-card{background:var(--bg-2);border:1px solid var(--bd-1);border-radius:var(--r-lg);padding:38px 36px;display:flex;flex-direction:column;gap:20px;position:relative;transition:all 0.3s var(--ease)}
 .price-card:hover{border-color:var(--bd-3);transform:translateY(-3px)}
 .price-card.featured{border-color:var(--ac-w);background:linear-gradient(180deg, rgba(255,255,255,0.025) 0%, var(--bg-2) 80%)}
-.price-card.featured::before{content:'Doporučujeme';position:absolute;top:-1px;right:18px;background:var(--ac-w);color:var(--bg-0);font-size:9px;letter-spacing:0.14em;padding:5px 11px;border-radius:0 0 var(--r-sm) var(--r-sm);text-transform:uppercase;font-weight:600}
+.price-card.featured .featured-ribbon{position:absolute;top:-1px;right:18px;background:var(--ac-w);color:var(--bg-0);font-size:9px;letter-spacing:0.14em;padding:5px 11px;border-radius:0 0 var(--r-sm) var(--r-sm);text-transform:uppercase;font-weight:600}
 .price-tag{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .price-tag .big{font-family:'Bebas Neue',sans-serif;font-size:56px;color:var(--tx-1);letter-spacing:0.01em;line-height:0.9;font-weight:400}
 .price-tag .unit{font-size:13px;color:var(--tx-3);letter-spacing:0.04em}
@@ -357,14 +364,18 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
   </a>
   <div class="lp-nav-spacer"></div>
   <div class="lp-nav-links">
-    <a class="lp-nav-link" href="#how">Jak to funguje</a>
-    <a class="lp-nav-link" href="#features">Funkce</a>
-    <a class="lp-nav-link" href="#pricing">Ceník</a>
-    <a class="lp-nav-link" href="#faq">FAQ</a>
+    <a class="lp-nav-link" href="#how" data-i18n="nav.howItWorks">Jak to funguje</a>
+    <a class="lp-nav-link" href="#features" data-i18n="nav.features">Funkce</a>
+    <a class="lp-nav-link" href="#pricing" data-i18n="nav.pricing">Ceník</a>
+    <a class="lp-nav-link" href="#faq" data-i18n="nav.faq">FAQ</a>
+  </div>
+  <div class="lang-switch" role="group" aria-label="Language">
+    <button type="button" class="lang-btn" data-i18n-switch="cs" onclick="InkLinkI18N.set('cs')">CS</button>
+    <button type="button" class="lang-btn" data-i18n-switch="en" onclick="InkLinkI18N.set('en')">EN</button>
   </div>
   <div class="lp-nav-cta">
-    <a class="lp-btn" href="/login">Přihlásit</a>
-    <a class="lp-btn lp-btn-primary" href="/login"><svg class="icon"><use href="#i-arrow-right"/></svg> Začít</a>
+    <a class="lp-btn" href="/login" data-i18n="nav.signIn">Přihlásit</a>
+    <a class="lp-btn lp-btn-primary" href="/login"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="nav.start">Začít</span></a>
   </div>
 </nav>
 
@@ -372,18 +383,18 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <header class="hero">
   <div class="hero-bg"></div>
   <div>
-    <div class="hero-tag"><span class="live"></span>CZ · Tattoo Marketplace · Live</div>
+    <div class="hero-tag"><span class="live"></span><span data-i18n="hero.tag">CZ · Tattoo Marketplace · Live</span></div>
     <h1 id="heroHeadline">
-      <span class="row" data-text="PROHLÉDNI SKICY."></span>
-      <span class="row accent" data-text="NAJDI TATÉRA."></span>
+      <span class="row" data-i18n="hero.title1">PROHLÉDNI SKICY.</span>
+      <span class="row accent" data-i18n="hero.title2">NAJDI TATÉRA.</span>
     </h1>
-    <p class="hero-sub">
+    <p class="hero-sub" data-i18n="hero.sub">
       Vyber si skicu nebo objev tatéra podle stylu a města.
       Rezervuj zálohou nebo celou částku předem.
     </p>
     <div class="hero-cta">
-      <a class="lp-btn lp-btn-primary" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> Prohlížet skicy</a>
-      <a class="lp-btn" href="/map">Mapa tatérů</a>
+      <a class="lp-btn lp-btn-primary" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="hero.ctaPrimary">Prohlížet skicy</span></a>
+      <a class="lp-btn" href="/map" data-i18n="hero.ctaMap">Mapa tatérů</a>
     </div>
   </div>
   <div class="hero-showcase" id="heroShowcase" aria-hidden="true">
@@ -519,23 +530,23 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
   <div class="stats-grid">
     <div class="stat">
       <div class="stat-num" id="stat-artists" data-count-to="12" data-suffix="+">0</div>
-      <div class="stat-lbl">Tatérů</div>
-      <div class="stat-sub">aktivních v ČR</div>
+      <div class="stat-lbl" data-i18n="stats.artists">Tatérů</div>
+      <div class="stat-sub" data-i18n="stats.artistsSub">aktivních v ČR</div>
     </div>
     <div class="stat">
       <div class="stat-num" id="stat-sketches" data-count-to="80" data-suffix="+">0</div>
-      <div class="stat-lbl">Skic</div>
-      <div class="stat-sub">k rezervaci</div>
+      <div class="stat-lbl" data-i18n="stats.sketches">Skic</div>
+      <div class="stat-sub" data-i18n="stats.sketchesSub">k rezervaci</div>
     </div>
     <div class="stat">
       <div class="stat-num" data-count-to="8" data-suffix="%">0</div>
-      <div class="stat-lbl">Provize</div>
-      <div class="stat-sub">jen z bookingu</div>
+      <div class="stat-lbl" data-i18n="stats.commission">Provize</div>
+      <div class="stat-sub" data-i18n="stats.commissionSub">jen z bookingu</div>
     </div>
     <div class="stat">
       <div class="stat-num" data-count-to="24" data-suffix="h">0</div>
-      <div class="stat-lbl">Připomínka</div>
-      <div class="stat-sub">před termínem</div>
+      <div class="stat-lbl" data-i18n="stats.reminder">Připomínka</div>
+      <div class="stat-sub" data-i18n="stats.reminderSub">před termínem</div>
     </div>
   </div>
 </section>
@@ -574,9 +585,9 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <!-- ===================================== HOW IT WORKS ===================================== -->
 <section id="how">
   <div class="section-inner">
-    <div class="section-eyebrow" data-reveal>Jak to funguje</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1">Tři kroky od skicy k tetování.</h2>
-    <p class="section-lead" data-reveal data-reveal-delay="2">
+    <div class="section-eyebrow" data-reveal data-i18n="how.eyebrow">Jak to funguje</div>
+    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="how.title">Tři kroky od skicy k tetování.</h2>
+    <p class="section-lead" data-reveal data-reveal-delay="2" data-i18n="how.lead">
       Žádné scrollování přes Instagramy. Žádné nečitelné DM zprávy.
       Tetování si rezervuješ stejně snadno jako lístek do kina.
     </p>
@@ -585,20 +596,20 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
       <div class="how-card" data-reveal data-reveal-delay="1">
         <div class="how-num">01</div>
         <div class="ico-circle"><svg><use href="#i-search"/></svg></div>
-        <h3>Najdi co se ti líbí</h3>
-        <p>Prohlížej feed skic, mapu nebo profily tatérů. Filtruj podle stylu, města, ceny. Lajkuj si oblíbené skicy nebo sleduj tatéry pro pozdější rezervaci.</p>
+        <h3 data-i18n="how.s1Title">Najdi co se ti líbí</h3>
+        <p data-i18n="how.s1Desc">Prohlížej feed skic, mapu nebo profily tatérů. Filtruj podle stylu, města, ceny. Lajkuj si oblíbené skicy nebo sleduj tatéry pro pozdější rezervaci.</p>
       </div>
       <div class="how-card" data-reveal data-reveal-delay="2">
         <div class="how-num">02</div>
         <div class="ico-circle"><svg><use href="#i-calendar"/></svg></div>
-        <h3>Vyber termín</h3>
-        <p>Otevři tatérův kalendář, vyber volný blok a velikost (Mini 1 h · Velké 5 h · Celý den 8 h). Cena se počítá automaticky.</p>
+        <h3 data-i18n="how.s2Title">Vyber termín</h3>
+        <p data-i18n="how.s2Desc">Otevři tatérův kalendář, vyber volný blok a velikost (Mini 1 h · Velké 5 h · Celý den 8 h). Cena se počítá automaticky.</p>
       </div>
       <div class="how-card" data-reveal data-reveal-delay="3">
         <div class="how-num">03</div>
         <div class="ico-circle"><svg><use href="#i-shield-check"/></svg></div>
-        <h3>Plať bezpečně</h3>
-        <p>Záloha nebo celá částka předem přes Stripe. Peníze jsou chráněné a tatérovi se uvolní až poté, co oba potvrdíte dokončení tetování.</p>
+        <h3 data-i18n="how.s3Title">Plať bezpečně</h3>
+        <p data-i18n="how.s3Desc">Záloha nebo celá částka předem přes Stripe. Peníze jsou chráněné a tatérovi se uvolní až poté, co oba potvrdíte dokončení tetování.</p>
       </div>
     </div>
   </div>
@@ -607,21 +618,21 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <!-- ===================================== FEATURES GRID ===================================== -->
 <section id="features">
   <div class="section-inner">
-    <div class="section-eyebrow" data-reveal>Co dostaneš</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1">Vše pro jednu objednávku tetování na jednom místě.</h2>
-    <p class="section-lead" data-reveal data-reveal-delay="2">
+    <div class="section-eyebrow" data-reveal data-i18n="feat.eyebrow">Co dostaneš</div>
+    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="feat.title">Vše pro jednu objednávku tetování na jednom místě.</h2>
+    <p class="section-lead" data-reveal data-reveal-delay="2" data-i18n="feat.lead">
       Od prvního prolistování skic až po push notifikaci 24 hodin před termínem.
       Vše navržené tak, ať klient i tatér ušetří půlhodinu DM korespondence.
     </p>
     <div class="feature-grid" data-reveal data-reveal-delay="2">
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-home"/></svg><span class="ic-num">01</span></div><h3>Feed skic</h3><p>Curated feed dostupných skic. Filtruj podle stylu, města, ceny. Najdi to, co tě chytne.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-map-pin"/></svg><span class="ic-num">02</span></div><h3>Mapa tatérů</h3><p>Černobílá mapa s pinkami tatérů. Klikni a uvidíš jejich portfolio a hodnocení.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-shield-check"/></svg><span class="ic-num">03</span></div><h3>Chráněná platba</h3><p>Plať zálohu nebo celou částku předem přes Stripe. Peníze se tatérovi uvolní až po vzájemném potvrzení dokončení.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-star"/></svg><span class="ic-num">04</span></div><h3>Recenze a hodnocení</h3><p>Recenze od reálných klientů po skutečném tetování. Žádné falešné hvězdičky.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-bell"/></svg><span class="ic-num">05</span></div><h3>Připomínka 24 h před</h3><p>E-mail i push notifikace den před termínem. Nezapomeneš.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-arrow-right"/></svg><span class="ic-num">06</span></div><h3>Kalendář export</h3><p>Stáhni si .ics nebo si přidej InkLink kalendář do Apple / Google jako odběr.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-heart"/></svg><span class="ic-num">07</span></div><h3>Lajky &amp; uložené</h3><p>Lajkuj skicy a vracej se k nim. Tvůj wishlist pro příští kus.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-share"/></svg><span class="ic-num">08</span></div><h3>Sdílení na Stories</h3><p>Jedním klikem hotový obrázek pro Instagram Story s odkazem na skicu.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-home"/></svg><span class="ic-num">01</span></div><h3 data-i18n="feat.f1Title">Feed skic</h3><p data-i18n="feat.f1Desc">Curated feed dostupných skic. Filtruj podle stylu, města, ceny. Najdi to, co tě chytne.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-map-pin"/></svg><span class="ic-num">02</span></div><h3 data-i18n="feat.f2Title">Mapa tatérů</h3><p data-i18n="feat.f2Desc">Černobílá mapa s pinkami tatérů. Klikni a uvidíš jejich portfolio a hodnocení.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-shield-check"/></svg><span class="ic-num">03</span></div><h3 data-i18n="feat.f3Title">Chráněná platba</h3><p data-i18n="feat.f3Desc">Plať zálohu nebo celou částku předem přes Stripe. Peníze se tatérovi uvolní až po vzájemném potvrzení dokončení.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-star"/></svg><span class="ic-num">04</span></div><h3 data-i18n="feat.f4Title">Recenze a hodnocení</h3><p data-i18n="feat.f4Desc">Recenze od reálných klientů po skutečném tetování. Žádné falešné hvězdičky.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-bell"/></svg><span class="ic-num">05</span></div><h3 data-i18n="feat.f5Title">Připomínka 24 h před</h3><p data-i18n="feat.f5Desc">E-mail i push notifikace den před termínem. Nezapomeneš.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-arrow-right"/></svg><span class="ic-num">06</span></div><h3 data-i18n="feat.f6Title">Kalendář export</h3><p data-i18n="feat.f6Desc">Stáhni si .ics nebo si přidej InkLink kalendář do Apple / Google jako odběr.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-heart"/></svg><span class="ic-num">07</span></div><h3 data-i18n="feat.f7Title">Lajky &amp; uložené</h3><p data-i18n="feat.f7Desc">Lajkuj skicy a vracej se k nim. Tvůj wishlist pro příští kus.</p></div>
+      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-share"/></svg><span class="ic-num">08</span></div><h3 data-i18n="feat.f8Title">Sdílení na Stories</h3><p data-i18n="feat.f8Desc">Jedním klikem hotový obrázek pro Instagram Story s odkazem na skicu.</p></div>
     </div>
   </div>
 </section>
@@ -629,32 +640,32 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <!-- ===================================== SPLIT ===================================== -->
 <section id="for">
   <div class="section-inner">
-    <div class="section-eyebrow" data-reveal>Pro koho</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1">Dvě strany, jedna síť.</h2>
+    <div class="section-eyebrow" data-reveal data-i18n="split.eyebrow">Pro koho</div>
+    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="split.title">Dvě strany, jedna síť.</h2>
 
     <div class="split" data-reveal data-reveal-delay="2">
       <div class="split-col">
-        <div class="sub">Klient</div>
-        <h2>Najdi si svého tatéra.</h2>
+        <div class="sub" data-i18n="split.clientSub">Klient</div>
+        <h2 data-i18n="split.clientTitle">Najdi si svého tatéra.</h2>
         <ul class="split-list">
-          <li><strong>Browse zdarma</strong> — feed, mapa i profily otevřené i bez účtu.</li>
-          <li><strong>Filtruj podle stylu</strong> — fineline, blackwork, traditional, realism…</li>
-          <li><strong>Rezervuj v 60 vteřinách</strong> — záloha přes Stripe, potvrzení e-mailem.</li>
-          <li><strong>Měj přehled</strong> — všechny rezervace, kalendář, recenze v jednom dashboardu.</li>
+          <li data-i18n-html="split.clientL1"><strong>Browse zdarma</strong> — feed, mapa i profily otevřené i bez účtu.</li>
+          <li data-i18n-html="split.clientL2"><strong>Filtruj podle stylu</strong> — fineline, blackwork, traditional, realism…</li>
+          <li data-i18n-html="split.clientL3"><strong>Rezervuj v 60 vteřinách</strong> — záloha přes Stripe, potvrzení e-mailem.</li>
+          <li data-i18n-html="split.clientL4"><strong>Měj přehled</strong> — všechny rezervace, kalendář, recenze v jednom dashboardu.</li>
         </ul>
-        <a class="lp-btn" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> Prohlížet feed</a>
+        <a class="lp-btn" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="split.clientCta">Prohlížet feed</span></a>
       </div>
 
       <div class="split-col">
-        <div class="sub">Tatér</div>
-        <h2>Dostaň bookingy, ne DMs.</h2>
+        <div class="sub" data-i18n="split.artistSub">Tatér</div>
+        <h2 data-i18n="split.artistTitle">Dostaň bookingy, ne DMs.</h2>
         <ul class="split-list">
-          <li><strong>Portfolio zdarma</strong> — nahraj skicy 1–4 foto, nastav cenu a styl.</li>
-          <li><strong>Stripe Connect</strong> — peníze chodí přímo na tvůj účet po dokončení.</li>
-          <li><strong>Earnings dashboard</strong> — co kolik vyneslo, co je v procesu, výplaty.</li>
-          <li><strong>Žádné měsíční poplatky</strong> — platíš jen procento z toho, co skutečně vyděláš.</li>
+          <li data-i18n-html="split.artistL1"><strong>Portfolio zdarma</strong> — nahraj skicy 1–4 foto, nastav cenu a styl.</li>
+          <li data-i18n-html="split.artistL2"><strong>Stripe Connect</strong> — peníze chodí přímo na tvůj účet po dokončení.</li>
+          <li data-i18n-html="split.artistL3"><strong>Earnings dashboard</strong> — co kolik vyneslo, co je v procesu, výplaty.</li>
+          <li data-i18n-html="split.artistL4"><strong>Žádné měsíční poplatky</strong> — platíš jen procento z toho, co skutečně vyděláš.</li>
         </ul>
-        <a class="lp-btn lp-btn-primary" href="/artist-setup"><svg class="icon"><use href="#i-arrow-right"/></svg> Stát se tatérem</a>
+        <a class="lp-btn lp-btn-primary" href="/artist-setup"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="split.artistCta">Stát se tatérem</span></a>
       </div>
     </div>
   </div>
@@ -663,41 +674,42 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <!-- ===================================== PRICING ===================================== -->
 <section id="pricing">
   <div class="section-inner">
-    <div class="section-eyebrow" data-reveal>Ceník</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1">Transparentně. Žádné překvapení.</h2>
-    <p class="section-lead" data-reveal data-reveal-delay="2">
+    <div class="section-eyebrow" data-reveal data-i18n="pricing.eyebrow">Ceník</div>
+    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="pricing.title">Transparentně. Žádné překvapení.</h2>
+    <p class="section-lead" data-reveal data-reveal-delay="2" data-i18n="pricing.lead">
       Klienti za používání InkLinku neplatí nic. Tatéři platí jen procento z bookingu —
       žádné setup fees, žádné měsíční předplatné.
     </p>
 
     <div class="pricing-grid">
       <div class="price-card" data-reveal data-reveal-delay="1">
-        <h3>Klient</h3>
+        <h3 data-i18n="pricing.clientTitle">Klient</h3>
         <div class="price-tag"><span class="big">0 Kč</span></div>
-        <p class="lead">Browse, filtruj, lajkuj a rezervuj — vše bez poplatku za InkLink.</p>
+        <p class="lead" data-i18n="pricing.clientLead">Browse, filtruj, lajkuj a rezervuj — vše bez poplatku za InkLink.</p>
         <ul>
-          <li>Neomezené procházení skic a profilů</li>
-          <li>Rezervace zálohou nebo celou částkou předem</li>
-          <li>Peníze chráněné Stripem do dokončení tetování</li>
-          <li>Připomínka 24 h před termínem</li>
-          <li>Recenze a kalendář export</li>
+          <li data-i18n="pricing.clientL1">Neomezené procházení skic a profilů</li>
+          <li data-i18n="pricing.clientL2">Rezervace zálohou nebo celou částkou předem</li>
+          <li data-i18n="pricing.clientL3">Peníze chráněné Stripem do dokončení tetování</li>
+          <li data-i18n="pricing.clientL4">Připomínka 24 h před termínem</li>
+          <li data-i18n="pricing.clientL5">Recenze a kalendář export</li>
         </ul>
-        <a class="lp-btn" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> Procházet</a>
+        <a class="lp-btn" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="pricing.clientCta">Procházet</span></a>
       </div>
 
       <div class="price-card featured" data-reveal data-reveal-delay="2">
-        <h3>Tatér</h3>
-        <div class="price-tag"><span class="big">8%</span><span class="unit">z bookingu</span></div>
-        <p class="lead">Žádné měsíční poplatky. Platíš jen z toho, co skutečně vyděláš.</p>
+        <span class="featured-ribbon" data-i18n="pricing.featured">Doporučujeme</span>
+        <h3 data-i18n="pricing.artistTitle">Tatér</h3>
+        <div class="price-tag"><span class="big">8%</span><span class="unit" data-i18n="pricing.artistUnit">z bookingu</span></div>
+        <p class="lead" data-i18n="pricing.artistLead">Žádné měsíční poplatky. Platíš jen z toho, co skutečně vyděláš.</p>
         <ul>
-          <li>Neomezené portfolio (skicy + hotové práce)</li>
-          <li>Stripe Connect — peníze přímo na tvůj účet</li>
-          <li>Kalendář s opakováním a slot managementem</li>
-          <li>Earnings dashboard a měsíční PDF reporty</li>
-          <li>E-mail + push notifikace o bookingech</li>
-          <li>Profil s mapou, rating, sdílení na Stories</li>
+          <li data-i18n="pricing.artistL1">Neomezené portfolio (skicy + hotové práce)</li>
+          <li data-i18n="pricing.artistL2">Stripe Connect — peníze přímo na tvůj účet</li>
+          <li data-i18n="pricing.artistL3">Kalendář s opakováním a slot managementem</li>
+          <li data-i18n="pricing.artistL4">Earnings dashboard a měsíční PDF reporty</li>
+          <li data-i18n="pricing.artistL5">E-mail + push notifikace o bookingech</li>
+          <li data-i18n="pricing.artistL6">Profil s mapou, rating, sdílení na Stories</li>
         </ul>
-        <a class="lp-btn lp-btn-primary" href="/artist-setup"><svg class="icon"><use href="#i-arrow-right"/></svg> Začít jako tatér</a>
+        <a class="lp-btn lp-btn-primary" href="/artist-setup"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="pricing.artistCta">Začít jako tatér</span></a>
       </div>
     </div>
   </div>
@@ -706,39 +718,39 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <!-- ===================================== TESTIMONIALS ===================================== -->
 <section id="testimonials">
   <div class="section-inner">
-    <div class="section-eyebrow" data-reveal>Z první ruky</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1">Co o InkLinku říkají.</h2>
+    <div class="section-eyebrow" data-reveal data-i18n="test.eyebrow">Z první ruky</div>
+    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="test.title">Co o InkLinku říkají.</h2>
 
     <div class="testimonial-grid">
       <div class="testimonial" data-reveal data-reveal-delay="1">
-        <div class="quote">Konečně mi rezervace nezabere týden DM ping-pongu. Vyber, zaplať, hotovo.</div>
+        <div class="quote" data-i18n="test.t1Quote">Konečně mi rezervace nezabere týden DM ping-pongu. Vyber, zaplať, hotovo.</div>
         <div class="testimonial-foot">
           <div class="testimonial-avatar">VS</div>
           <div>
             <div class="testimonial-name">Veronika S.</div>
-            <div class="testimonial-role">Klient · Praha</div>
+            <div class="testimonial-role" data-i18n="test.t1Role">Klient · Praha</div>
             <div class="testimonial-stars">★ ★ ★ ★ ★</div>
           </div>
         </div>
       </div>
       <div class="testimonial" data-reveal data-reveal-delay="2">
-        <div class="quote">Klient platí dopředu, peníze čekají na Stripe a uvolní se až po dokončení. Žádné no-showy, jistota pro obě strany.</div>
+        <div class="quote" data-i18n="test.t2Quote">Klient platí dopředu, peníze čekají na Stripe a uvolní se až po dokončení. Žádné no-showy, jistota pro obě strany.</div>
         <div class="testimonial-foot">
           <div class="testimonial-avatar">MK</div>
           <div>
             <div class="testimonial-name">Martin K.</div>
-            <div class="testimonial-role">Tatér · Brno</div>
+            <div class="testimonial-role" data-i18n="test.t2Role">Tatér · Brno</div>
             <div class="testimonial-stars">★ ★ ★ ★ ★</div>
           </div>
         </div>
       </div>
       <div class="testimonial" data-reveal data-reveal-delay="3">
-        <div class="quote">Mapa a filtrace mi pomohly najít tatérku s blackwork stylem v Olomouci za 10 minut.</div>
+        <div class="quote" data-i18n="test.t3Quote">Mapa a filtrace mi pomohly najít tatérku s blackwork stylem v Olomouci za 10 minut.</div>
         <div class="testimonial-foot">
           <div class="testimonial-avatar">DL</div>
           <div>
             <div class="testimonial-name">David L.</div>
-            <div class="testimonial-role">Klient · Olomouc</div>
+            <div class="testimonial-role" data-i18n="test.t3Role">Klient · Olomouc</div>
             <div class="testimonial-stars">★ ★ ★ ★ ★</div>
           </div>
         </div>
@@ -750,37 +762,37 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <!-- ===================================== FAQ ===================================== -->
 <section id="faq">
   <div class="section-inner" style="max-width:920px">
-    <div class="section-eyebrow" data-reveal>FAQ</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1">Často se ptáte.</h2>
+    <div class="section-eyebrow" data-reveal data-i18n="faq.eyebrow">FAQ</div>
+    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="faq.title">Často se ptáte.</h2>
 
     <div class="faq" data-reveal data-reveal-delay="2">
       <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text">Kolik si InkLink bere z bookingu?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a">8 % z každé úspěšné rezervace, žádné měsíční poplatky. Peníze nikdy nedržíme — chodí přímo na účet tatéra přes Stripe Connect.</div>
+        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q1">Kolik si InkLink bere z bookingu?</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a" data-i18n="faq.a1">8 % z každé úspěšné rezervace, žádné měsíční poplatky. Peníze nikdy nedržíme — chodí přímo na účet tatéra přes Stripe Connect.</div>
       </div>
       <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text">Můžu prohlížet bez účtu?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a">Ano. Feed, mapa, profily tatérů i jednotlivé skicy jsou veřejně dostupné. Účet potřebuješ až ve chvíli, kdy chceš rezervovat termín nebo psát zprávu.</div>
+        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q2">Můžu prohlížet bez účtu?</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a" data-i18n="faq.a2">Ano. Feed, mapa, profily tatérů i jednotlivé skicy jsou veřejně dostupné. Účet potřebuješ až ve chvíli, kdy chceš rezervovat termín nebo psát zprávu.</div>
       </div>
       <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text">Co když termín nestihnu nebo chci zrušit?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a">Zrušení 48+ hodin před termínem je bez sankce — záloha se ti vrátí. Při zrušení do 48 hodin pravidla určuje konkrétní tatér ve svém profilu.</div>
+        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q3">Co když termín nestihnu nebo chci zrušit?</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a" data-i18n="faq.a3">Zrušení 48+ hodin před termínem je bez sankce — záloha se ti vrátí. Při zrušení do 48 hodin pravidla určuje konkrétní tatér ve svém profilu.</div>
       </div>
       <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text">Jak fungují platby a kdy dostane tatér peníze?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a">Klient platí přes Stripe — buď zálohu (typicky 30 %, zbytek po dokončení) nebo celou částku předem. Peníze jsou chráněné a tatérovi se uvolní až ve chvíli, kdy obě strany potvrdí, že je tetování dokončené. Po uvolnění Stripe peníze obvykle převede na bankovní účet do 2 pracovních dnů.</div>
+        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q4">Jak fungují platby a kdy dostane tatér peníze?</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a" data-i18n="faq.a4">Klient platí přes Stripe — buď zálohu (typicky 30 %, zbytek po dokončení) nebo celou částku předem. Peníze jsou chráněné a tatérovi se uvolní až ve chvíli, kdy obě strany potvrdí, že je tetování dokončené. Po uvolnění Stripe peníze obvykle převede na bankovní účet do 2 pracovních dnů.</div>
       </div>
       <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text">Co když nastane spor mezi klientem a tatérem?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a">Pokud jedna ze stran nepotvrdí dokončení, peníze zůstanou pozdrženy a my pomůžeme situaci vyřešit. Stripe poskytuje dispute resolution pro problémy s kartou, my zase prostředkování mezi klientem a tatérem podle pravidel platformy.</div>
+        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q5">Co když nastane spor mezi klientem a tatérem?</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a" data-i18n="faq.a5">Pokud jedna ze stran nepotvrdí dokončení, peníze zůstanou pozdrženy a my pomůžeme situaci vyřešit. Stripe poskytuje dispute resolution pro problémy s kartou, my zase prostředkování mezi klientem a tatérem podle pravidel platformy.</div>
       </div>
       <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text">Funguje to na mobilu?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a">Ano, InkLink je PWA — můžeš si ho přidat na home screen a chovat se jako nativní apka, včetně push notifikací. Žádné stahování z App Store.</div>
+        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q6">Funguje to na mobilu?</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a" data-i18n="faq.a6">Ano, InkLink je PWA — můžeš si ho přidat na home screen a chovat se jako nativní apka, včetně push notifikací. Žádné stahování z App Store.</div>
       </div>
       <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text">Komu napsat, když něco nefunguje?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a">Napiš nám na <a href="mailto:contact@inklink.club" style="color:var(--tx-1);border-bottom:1px solid var(--tx-3)">contact@inklink.club</a>. Reagujeme do 24 hodin v pracovní dny.</div>
+        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q7">Komu napsat, když něco nefunguje?</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a" data-i18n-html="faq.a7">Napiš nám na <a href="mailto:contact@inklink.club" style="color:var(--tx-1);border-bottom:1px solid var(--tx-3)">contact@inklink.club</a>. Reagujeme do 24 hodin v pracovní dny.</div>
       </div>
     </div>
   </div>
@@ -788,11 +800,11 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 
 <!-- ===================================== FINAL CTA ===================================== -->
 <section class="final">
-  <h2 data-reveal>READY TO INK?</h2>
-  <p data-reveal data-reveal-delay="1">Vytvoř si účet a najdi tatéra ještě dnes. Nebo se zaregistruj jako tatér a začni přijímat bookingy během odpoledne.</p>
+  <h2 data-reveal data-i18n="final.title">READY TO INK?</h2>
+  <p data-reveal data-reveal-delay="1" data-i18n="final.lead">Vytvoř si účet a najdi tatéra ještě dnes. Nebo se zaregistruj jako tatér a začni přijímat bookingy během odpoledne.</p>
   <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1" data-reveal data-reveal-delay="2">
-    <a class="lp-btn lp-btn-primary" href="/login"><svg class="icon"><use href="#i-arrow-right"/></svg> Vytvořit účet</a>
-    <a class="lp-btn" href="/feed">Jen se podívat</a>
+    <a class="lp-btn lp-btn-primary" href="/login"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="final.ctaPrimary">Vytvořit účet</span></a>
+    <a class="lp-btn" href="/feed" data-i18n="final.ctaSecondary">Jen se podívat</a>
   </div>
 </section>
 
@@ -801,18 +813,21 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
   <div class="footer-inner">
     <div>
       <div class="footer-logo">INKLINK</div>
-      <div class="footer-tag">Tattoo Booking Network · Praha, CZ</div>
+      <div class="footer-tag" data-i18n="footer.tag">Tattoo Booking Network · Praha, CZ</div>
     </div>
     <div class="footer-links">
-      <a href="/feed">Feed</a>
-      <a href="/map">Mapa</a>
-      <a href="/login">Přihlásit</a>
-      <a href="/privacy">Ochrana údajů</a>
-      <a href="/terms">Podmínky</a>
-      <a href="mailto:contact@inklink.club">Kontakt</a>
+      <a href="/feed" data-i18n="footer.feed">Feed</a>
+      <a href="/map" data-i18n="footer.map">Mapa</a>
+      <a href="/login" data-i18n="footer.signIn">Přihlásit</a>
+      <a href="/privacy" data-i18n="footer.privacy">Ochrana údajů</a>
+      <a href="/terms" data-i18n="footer.terms">Podmínky</a>
+      <a href="mailto:contact@inklink.club" data-i18n="footer.contact">Kontakt</a>
     </div>
   </div>
 </footer>
+
+<!-- i18n must load BEFORE hero letter-reveal so translated text exists -->
+<script src="/i18n.js?v=1"></script>
 
 <script>
 // JSON-LD
@@ -826,22 +841,36 @@ const s = document.createElement('script'); s.type = 'application/ld+json';
 s.textContent = JSON.stringify(ld); document.head.appendChild(s);
 
 // ── Letter-by-letter hero reveal ─────────────────────────────────────────────
-(function heroLetterReveal(){
+// i18n-aware: splits translated textContent on each apply
+let __heroAnimated = false;
+function splitHeroLetters(animate) {
   const rows = document.querySelectorAll('#heroHeadline .row');
   let letterIdx = 0;
   rows.forEach(row => {
-    const text = row.getAttribute('data-text') || '';
+    const text = (row.textContent && row.textContent.trim()) || '';
     row.innerHTML = '';
     [...text].forEach(ch => {
       const span = document.createElement('span');
       span.className = 'ltr';
-      span.textContent = ch === ' ' ? ' ' : ch;
-      span.style.animationDelay = (0.04 * letterIdx + 0.15) + 's';
+      span.textContent = ch === ' ' ? ' ' : ch;
+      if (animate) {
+        span.style.animationDelay = (0.04 * letterIdx + 0.15) + 's';
+      } else {
+        span.style.opacity = '1';
+        span.style.transform = 'none';
+        span.style.filter = 'none';
+        span.style.animation = 'none';
+      }
       row.appendChild(span);
       letterIdx++;
     });
   });
-})();
+}
+document.addEventListener('il-i18n-applied', () => {
+  splitHeroLetters(!__heroAnimated);
+  __heroAnimated = true;
+});
+setTimeout(() => { if (!__heroAnimated) { splitHeroLetters(true); __heroAnimated = true; } }, 250);
 
 // ── Scroll reveal via IntersectionObserver ───────────────────────────────────
 const io = new IntersectionObserver((entries) => {
