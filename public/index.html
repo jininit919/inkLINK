@@ -42,8 +42,20 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .nav-icons{display:flex;gap:6px;align-items:center}
 .nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);font-size:14px;border-radius:2px;transition:all 0.15s}
 .nav-icon:hover{color:var(--red2);background:var(--bg3)}
-.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--red2);cursor:pointer;margin-left:4px;letter-spacing:0.05em;overflow:hidden}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--red2);cursor:pointer;margin-left:4px;letter-spacing:0.05em;overflow:hidden;transition:border-color 0.15s}
 .nav-avatar img{width:100%;height:100%;object-fit:cover}
+.nav-avatar:hover{border-color:var(--red2)}
+
+/* Avatar dropdown menu */
+.nav-avatar-wrap{position:relative}
+.avatar-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;min-width:220px;padding:8px;display:none;flex-direction:column;gap:1px;box-shadow:0 16px 40px rgba(0,0,0,0.7);z-index:200;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.avatar-menu.open{display:flex}
+.avatar-menu a, .avatar-menu button{padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.04em;color:var(--txt2);border-radius:6px;display:flex;align-items:center;gap:10px;cursor:pointer;background:none;border:none;text-align:left;width:100%;transition:background 0.12s,color 0.12s}
+.avatar-menu a:hover, .avatar-menu button:hover{background:var(--bg3);color:var(--txt)}
+.avatar-menu .icon{width:15px;height:15px;color:var(--txt3)}
+.avatar-menu a:hover .icon, .avatar-menu button:hover .icon{color:var(--txt)}
+.avatar-menu .divider{border:none;border-top:1px solid var(--border);margin:4px 2px}
+.avatar-menu .menu-section-label{font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:0.16em;color:var(--txt3);padding:6px 12px 4px;text-transform:uppercase}
 
 .layout{display:grid;grid-template-columns:240px 1fr 240px;gap:0;padding-top:54px;min-height:100vh;max-width:1400px;margin:0 auto}
 @media(max-width:980px){.layout{grid-template-columns:1fr}.sidebar-left,.sidebar-right{display:none !important}}
@@ -234,13 +246,24 @@ main{padding:24px 24px 80px;min-width:0}
 <nav>
   <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
   <div class="nav-icons">
-    <button class="nav-icon" onclick="toggleTheme && toggleTheme()" title="Téma" style="background:none;border:none"><svg class="icon"><use href="#i-sun"/></svg></button>
-    <a class="nav-icon" href="/events" title="Eventy"><svg class="icon"><use href="#i-calendar"/></svg></a>
-    <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
-    <a class="nav-icon" href="/my-bookings" title="Moje rezervace"><svg class="icon"><use href="#i-bookmark"/></svg></a>
+    <a class="nav-icon" href="/" title="Feed"><svg class="icon"><use href="#i-home"/></svg></a>
+    <a class="nav-icon" href="/map" title="Mapa tatérů"><svg class="icon"><use href="#i-map-pin"/></svg></a>
     <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
+    <a class="nav-icon" href="/my-bookings" title="Moje rezervace"><svg class="icon"><use href="#i-calendar"/></svg></a>
     <div id="notifMount"></div>
-    <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
+    <div class="nav-avatar-wrap">
+      <div class="nav-avatar" id="navAvatar" title="Účet" onclick="toggleAvatarMenu(event)">??</div>
+      <div class="avatar-menu" id="avatarMenu" onclick="event.stopPropagation()">
+        <a id="amProfile" href="#"><svg class="icon"><use href="#i-user"/></svg> Můj profil</a>
+        <a id="amSetup" href="/artist-setup" style="display:none"><svg class="icon"><use href="#i-settings"/></svg> Nastavení tatéra</a>
+        <a id="amEarnings" href="/earnings" style="display:none"><svg class="icon"><use href="#i-trending"/></svg> Výdělky</a>
+        <hr class="divider">
+        <a href="/messages"><svg class="icon"><use href="#i-message"/></svg> Zprávy</a>
+        <button type="button" onclick="toggleTheme && toggleTheme()"><svg class="icon"><use href="#i-sun"/></svg> Přepnout téma</button>
+        <hr class="divider">
+        <button type="button" onclick="doLogout()"><svg class="icon"><use href="#i-log-out"/></svg> Odhlásit</button>
+      </div>
+    </div>
   </div>
 </nav>
 <script src="/notifs.js?v=5"></script>
@@ -256,24 +279,8 @@ main{padding:24px 24px 80px;min-width:0}
       <div class="search-drop" id="searchDrop"></div>
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-label">Menu</div>
-      <a class="sidebar-link active" href="/" id="menuFeed"><span class="icon">⌂</span> Feed</a>
-      <a class="sidebar-link" href="/map"><span class="icon">⌖</span> Mapa tatérů</a>
-      <a class="sidebar-link" id="menuMyProfile" href="#"><svg class="icon"><use href="#i-bookmark"/></svg> Můj profil</a>
-      <a class="sidebar-link" id="menuLiked" href="/liked" style="display:none"><svg class="icon"><use href="#i-heart"/></svg> Lajknuté</a>
-      <a class="sidebar-link" href="/artist-setup"><span class="icon">⚙</span> Nastavení tatéra</a>
-      <a class="sidebar-link" id="menuEarnings" href="/earnings" style="display:none"><span class="icon">⌒</span> Výdělky</a>
-      <a class="sidebar-link" href="/my-bookings"><svg class="icon"><use href="#i-calendar"/></svg> Moje rezervace</a>
-      <a class="sidebar-link" href="/events"><span class="icon">◳</span> Eventy</a>
-      <a class="sidebar-link" href="/messages"><svg class="icon"><use href="#i-message"/></svg> Zprávy</a>
-    </div>
-
     <div style="flex:1"></div>
 
-    <div class="sidebar-section">
-      <a class="sidebar-link" onclick="doLogout()" style="cursor:pointer"><svg class="icon icon-sm" style="margin-right:8px"><use href="#i-log-out"/></svg> Odhlásit</a>
-    </div>
     <div style="display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--txt3);letter-spacing:0.05em">
       <a href="/privacy">Ochrana údajů</a>
       <a href="/terms">Podmínky</a>
@@ -462,6 +469,18 @@ let me = null, items = [], styleFilter = '', cityFilter = '', searchQuery = '', 
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
+function toggleAvatarMenu(e) {
+  e && e.stopPropagation();
+  const m = document.getElementById('avatarMenu');
+  if (m) m.classList.toggle('open');
+}
+
+// Close avatar menu on outside click
+document.addEventListener('click', () => {
+  const m = document.getElementById('avatarMenu');
+  if (m) m.classList.remove('open');
+});
+
 async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
 
@@ -469,14 +488,18 @@ async function init() {
   if (me) {
     if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
     else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
-    document.getElementById('menuMyProfile').href = '/profile/' + me.username;
+    // Avatar dropdown items
+    document.getElementById('amProfile').href = '/profile/' + me.username;
     document.getElementById('mainAddBtn').style.display = 'inline-flex';
     document.getElementById('navLiked').style.display = 'flex';
-    document.getElementById('menuLiked').style.display = 'flex';
-    if (me.is_artist) document.getElementById('menuEarnings').style.display = 'flex';
+    if (me.is_artist) {
+      document.getElementById('amSetup').style.display = 'flex';
+      document.getElementById('amEarnings').style.display = 'flex';
+    }
   } else {
-    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px">Přihlásit</a>';
-    document.getElementById('menuMyProfile').style.display = 'none';
+    // Host: avatar → Přihlásit button
+    const wrap = navAvatar.closest('.nav-avatar-wrap');
+    if (wrap) wrap.outerHTML = '<a href="/login" class="btn" style="margin-left:6px">Přihlásit</a>';
   }
 
   // feed tabs
