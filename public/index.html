@@ -57,12 +57,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .avatar-menu .divider{border:none;border-top:1px solid var(--border);margin:4px 2px}
 .avatar-menu .menu-section-label{font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:0.16em;color:var(--txt3);padding:6px 12px 4px;text-transform:uppercase}
 
-.layout{display:grid;grid-template-columns:240px 1fr 240px;gap:0;padding-top:54px;min-height:100vh;max-width:1400px;margin:0 auto}
-@media(max-width:980px){.layout{grid-template-columns:1fr}.sidebar-left,.sidebar-right{display:none !important}}
-
-.sidebar-left,.sidebar-right{padding:24px 16px;position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;display:flex;flex-direction:column}
-.sidebar-left{border-right:1px solid var(--border)}
-.sidebar-right{border-left:1px solid var(--border)}
+.layout{padding-top:54px;min-height:100vh;max-width:1240px;margin:0 auto}
 
 .sidebar-section{margin-bottom:26px}
 .sidebar-label{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.18em;color:var(--txt3);margin-bottom:10px}
@@ -105,6 +100,18 @@ main{padding:24px 24px 80px;min-width:0}
 .filter-btn:hover{border-color:var(--txt3);color:var(--txt)}
 .filter-btn.has-active{border-color:var(--red2);color:var(--red2)}
 .filter-btn .count{background:var(--red2);color:var(--bg);font-size:10px;padding:1px 6px;letter-spacing:0.04em;font-weight:700}
+
+/* Search overlay — full-screen modal */
+#searchOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:none;align-items:flex-start;justify-content:center;z-index:500;padding:80px 16px 16px;-webkit-tap-highlight-color:transparent}
+#searchOverlay.show{display:flex}
+.search-card{width:100%;max-width:640px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;max-height:calc(100vh - 96px);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.7)}
+.search-bar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.search-bar input{flex:1;background:transparent;border:none;color:var(--txt);font-family:'DM Mono',monospace;font-size:15px;outline:none;letter-spacing:0.02em}
+.search-bar input::placeholder{color:var(--txt4,var(--txt3))}
+.search-close{background:transparent;border:none;color:var(--txt3);cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:background 0.12s,color 0.12s}
+.search-close:hover{background:var(--bg3);color:var(--txt)}
+.search-drop-inner{flex:1;overflow-y:auto}
+.search-drop-inner:empty::before{content:'Začni psát aspoň 2 znaky…';display:block;padding:24px;text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.06em}
 
 #filterModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:400;padding:60px 16px 16px;-webkit-tap-highlight-color:transparent}
 #filterModal.show{display:flex}
@@ -246,6 +253,7 @@ main{padding:24px 24px 80px;min-width:0}
 <nav>
   <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
   <div class="nav-icons">
+    <button class="nav-icon" onclick="openSearchOverlay()" title="Hledat" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
     <a class="nav-icon" href="/" title="Feed"><svg class="icon"><use href="#i-home"/></svg></a>
     <a class="nav-icon" href="/map" title="Mapa tatérů"><svg class="icon"><use href="#i-map-pin"/></svg></a>
     <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
@@ -272,22 +280,6 @@ main{padding:24px 24px 80px;min-width:0}
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init(); InkLinkCookieBanner.init();</script>
 
 <div class="layout">
-
-  <aside class="sidebar-left">
-    <div class="search-wrap">
-      <input type="text" class="search-input" id="searchInput" placeholder="⌕ Hledat tatéra, styl, město…" autocomplete="off">
-      <div class="search-drop" id="searchDrop"></div>
-    </div>
-
-    <div style="flex:1"></div>
-
-    <div style="display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--txt3);letter-spacing:0.05em">
-      <a href="/privacy">Ochrana údajů</a>
-      <a href="/terms">Podmínky</a>
-      <a href="mailto:info@inklink.cz">Kontakt</a>
-    </div>
-  </aside>
-
   <main>
     <div class="feed-tabs">
       <div class="feed-tab active" data-kind="sketch">Skicy <span class="tab-hint" id="cntSketch"></span></div>
@@ -299,13 +291,9 @@ main{padding:24px 24px 80px;min-width:0}
         <span id="feedCount"></span>
         <div id="activeChips" style="display:flex;gap:6px"></div>
       </div>
-      <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filtr">
-        <svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-filter"/></svg> Filtr<span class="count" id="filterCount" style="display:none">0</span>
+      <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filtr a řazení">
+        <svg class="icon icon-sm"><use href="#i-filter"/></svg> Filtr & řazení<span class="count" id="filterCount" style="display:none">0</span>
       </button>
-      <select id="sortSelect" class="sort-select" onchange="setSort(this.value)" aria-label="Řazení">
-        <option value="price">Nejlevnější</option>
-        <option value="price_desc">Nejdražší</option>
-      </select>
       <a class="add-btn" id="mainAddBtn" href="/artist-setup#portfolio" style="display:none">+ Přidat skicu</a>
     </div>
 
@@ -316,28 +304,6 @@ main{padding:24px 24px 80px;min-width:0}
       Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svoji první skicu</a> a klienti si tě najdou.</span>
     </div>
   </main>
-
-  <aside class="sidebar-right">
-    <div class="sidebar-section">
-      <div class="sidebar-label">Začni tady</div>
-      <a class="sidebar-link" href="/artist-setup"><span class="icon">⚙</span> Stát se tatérem</a>
-      <p style="font-size:11px;color:var(--txt3);line-height:1.6;letter-spacing:0.04em;padding:8px 8px 0">
-        InkLink je platforma, kde tatéři ukazují portfolio, sdílí volné termíny a klienti rezervují se zálohou přes Stripe Connect.
-      </p>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">Jak to funguje</div>
-      <ol style="font-size:11px;color:var(--txt2);line-height:1.8;letter-spacing:0.04em;padding-left:16px">
-        <li>Vyber styl a město</li>
-        <li>Najdi tatéra v feedu</li>
-        <li>Zarezervuj volný termín</li>
-        <li>Záloha přes Stripe</li>
-        <li>Zbytek na místě</li>
-      </ol>
-    </div>
-  </aside>
-
 </div>
 
 <div class="toast" id="toast"></div>
@@ -428,11 +394,30 @@ main{padding:24px 24px 80px;min-width:0}
   </div>
 </div>
 
+<!-- Search overlay (full-screen) — opens from nav magnifier -->
+<div id="searchOverlay" onclick="if(event.target===this)closeSearchOverlay()">
+  <div class="search-card">
+    <div class="search-bar">
+      <svg class="icon" style="color:var(--txt3);flex-shrink:0"><use href="#i-search"/></svg>
+      <input type="text" id="searchInput" placeholder="Hledat tatéra, styl, město…" autocomplete="off">
+      <button class="search-close" onclick="closeSearchOverlay()" aria-label="Zavřít"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    <div id="searchDrop" class="search-drop-inner"></div>
+  </div>
+</div>
+
 <div id="filterModal" onclick="if(event.target===this)closeFilterModal()">
   <div class="filter-card">
     <div class="filter-head">
-      <h3>Filtr</h3>
+      <h3>Filtr & řazení</h3>
       <button class="filter-close" onclick="closeFilterModal()" aria-label="Zavřít">×</button>
+    </div>
+    <div class="filter-section">
+      <div class="filter-section-label">Řadit podle</div>
+      <div class="filter-chips" id="filterSortChips">
+        <button class="filter-chip" data-sort="price">Nejlevnější</button>
+        <button class="filter-chip" data-sort="price_desc">Nejdražší</button>
+      </div>
     </div>
     <div class="filter-section">
       <div class="filter-section-label">Město</div>
@@ -502,6 +487,16 @@ async function init() {
     if (wrap) wrap.outerHTML = '<a href="/login" class="btn" style="margin-left:6px">Přihlásit</a>';
   }
 
+  // sort chips in filter modal
+  document.querySelectorAll('#filterSortChips .filter-chip').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('#filterSortChips .filter-chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      sortBy = c.dataset.sort;
+      loadFeed();
+    });
+  });
+
   // feed tabs
   document.querySelectorAll('.feed-tab').forEach(t => t.addEventListener('click', () => {
     document.querySelectorAll('.feed-tab').forEach(x => x.classList.remove('active'));
@@ -536,16 +531,15 @@ async function init() {
 
   const searchEl = document.getElementById('searchInput');
   const dropEl   = document.getElementById('searchDrop');
-  searchEl.addEventListener('input', e => {
-    searchQuery = e.target.value.trim();
-    clearTimeout(window._sq);
-    window._sq = setTimeout(() => { loadFeed(); doSearch(); }, 250);
-  });
-  searchEl.addEventListener('focus', () => { if (searchQuery.length >= 2) doSearch(); });
-  document.addEventListener('click', e => {
-    if (!searchEl.contains(e.target) && !dropEl.contains(e.target)) dropEl.classList.remove('show');
-  });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') dropEl.classList.remove('show'); });
+  if (searchEl && dropEl) {
+    searchEl.addEventListener('input', e => {
+      searchQuery = e.target.value.trim();
+      clearTimeout(window._sq);
+      window._sq = setTimeout(() => { loadFeed(); doSearch(); }, 250);
+    });
+    searchEl.addEventListener('focus', () => { if (searchQuery.length >= 2) doSearch(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSearchOverlay(); });
+  }
 
   await loadFeed();
 
@@ -600,10 +594,35 @@ function updateFilterCount() {
 function openFilterModal() {
   const m = document.getElementById('filterModal');
   if (m) m.classList.add('show');
+  // Sync active sort chip
+  document.querySelectorAll('#filterSortChips .filter-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.sort === sortBy);
+  });
 }
 function closeFilterModal() {
   const m = document.getElementById('filterModal');
   if (m) m.classList.remove('show');
+}
+
+function openSearchOverlay() {
+  const o = document.getElementById('searchOverlay');
+  if (!o) return;
+  o.classList.add('show');
+  setTimeout(() => {
+    const inp = document.getElementById('searchInput');
+    if (inp) inp.focus();
+  }, 50);
+}
+
+// Auto-open search overlay if ?search=1 (used by other pages to deep-link)
+if (new URLSearchParams(location.search).get('search') === '1') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(openSearchOverlay, 100));
+}
+function closeSearchOverlay() {
+  const o = document.getElementById('searchOverlay');
+  if (o) o.classList.remove('show');
+  const drop = document.getElementById('searchDrop');
+  if (drop) drop.classList.remove('show');
 }
 function clearFilters() {
   cityFilter = '';
