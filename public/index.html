@@ -174,9 +174,11 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .filter-section:last-of-type{border-bottom:none}
 .filter-section-label{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:0.18em;color:var(--txt3);margin-bottom:12px}
 .filter-chips{display:flex;flex-wrap:wrap;gap:6px}
-.filter-chip-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:7px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
-.filter-chip-btn:hover{border-color:var(--txt3);color:var(--txt)}
-.filter-chip-btn.active{background:var(--red2);color:var(--bg);border-color:var(--red2)}
+/* Pill chips (sort, city, style) — design-system unified */
+.filter-chip, .filter-chip-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:all 0.15s var(--ease,cubic-bezier(0.32,0.72,0,1));-webkit-tap-highlight-color:transparent;border-radius:999px;display:inline-flex;align-items:center;gap:6px;text-transform:uppercase}
+.filter-chip:hover, .filter-chip-btn:hover{border-color:var(--txt3);color:var(--txt)}
+.filter-chip.active, .filter-chip-btn.active{background:var(--red2);color:var(--bg);border-color:var(--red2)}
+.filter-chip.active .icon, .filter-chip-btn.active .icon{display:inline-block;width:11px;height:11px}
 .filter-foot{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0}
 .filter-foot button{flex:1;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:11px;cursor:pointer;text-transform:uppercase}
 .filter-clear{background:transparent;border:1px solid var(--border2);color:var(--txt2)}
@@ -195,8 +197,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 @media(max-width:980px){.mfilter{display:flex;flex-direction:column;gap:8px;margin:-6px 0 14px}}
 .mfilter-row{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0}
 .mfilter-row::-webkit-scrollbar{display:none}
-.mfilter-chip{flex-shrink:0;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:7px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
-.mfilter-chip:hover{border-color:var(--txt3)}
+.mfilter-chip{flex-shrink:0;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:all 0.15s;-webkit-tap-highlight-color:transparent;border-radius:999px;text-transform:uppercase}
+.mfilter-chip:hover{border-color:var(--txt3);color:var(--txt)}
 .mfilter-chip.active{background:var(--red2);color:var(--bg);border-color:var(--red2)}
 .mfilter-label{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:0.18em;color:var(--txt3);padding:0 2px;align-self:flex-start;min-width:54px;display:flex;align-items:center;margin-right:2px}
 .mfilter-row-wrap{display:flex;align-items:center;gap:6px}
