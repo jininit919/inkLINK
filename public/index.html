@@ -269,7 +269,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     <a class="nav-icon" href="/map" title="Mapa tatérů"><svg class="icon"><use href="#i-map-pin"/></svg></a>
     <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
     <a class="nav-icon" href="/my-bookings" title="Moje rezervace"><svg class="icon"><use href="#i-calendar"/></svg></a>
-    <div id="notifMount"></div>
+    <a class="nav-icon" href="/messages" title="Zprávy" id="navMessages" style="position:relative"><svg class="icon"><use href="#i-message"/></svg><span id="navMessagesBadge" style="display:none;position:absolute;top:4px;right:4px;min-width:8px;height:8px;border-radius:50%;background:var(--red2);border:1.5px solid var(--bg)"></span></a>
     <div class="nav-avatar-wrap">
       <div class="nav-avatar" id="navAvatar" title="Účet" onclick="toggleAvatarMenu(event)">??</div>
       <div class="avatar-menu" id="avatarMenu" onclick="event.stopPropagation()">
@@ -277,7 +277,6 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
         <a id="amSetup" href="/artist-setup" style="display:none"><svg class="icon"><use href="#i-settings"/></svg> Nastavení tatéra</a>
         <a id="amEarnings" href="/earnings" style="display:none"><svg class="icon"><use href="#i-trending"/></svg> Výdělky</a>
         <hr class="divider">
-        <a href="/messages"><svg class="icon"><use href="#i-message"/></svg> Zprávy</a>
         <button type="button" onclick="toggleTheme && toggleTheme()"><svg class="icon"><use href="#i-sun"/></svg> Přepnout téma</button>
         <hr class="divider">
         <button type="button" onclick="doLogout()"><svg class="icon"><use href="#i-log-out"/></svg> Odhlásit</button>

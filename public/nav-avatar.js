@@ -77,7 +77,6 @@
       ${isArtist ? `<a href="/artist-setup"><svg class="icon"><use href="#i-settings"/></svg> Nastavení tatéra</a>` : ''}
       ${isArtist ? `<a href="/earnings"><svg class="icon"><use href="#i-trending"/></svg> Výdělky</a>` : ''}
       <hr class="divider">
-      <a href="/messages"><svg class="icon"><use href="#i-message"/></svg> Zprávy</a>
       <button type="button" data-action="theme"><svg class="icon"><use href="#i-sun"/></svg> Přepnout téma</button>
       <hr class="divider">
       <button type="button" data-action="logout"><svg class="icon"><use href="#i-log-out"/></svg> Odhlásit</button>
