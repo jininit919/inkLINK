@@ -116,18 +116,19 @@
   }
 
   function renderItem(it) {
-    const active  = isActive(it.href) ? ' active' : '';
+    const active  = it.href && isActive(it.href) ? ' active' : '';
     const ariaLbl = it.aria || it.lbl;
+    const onclickAttr = it.onclick ? ` onclick="${it.onclick}; return false"` : '';
+    const hrefAttr = it.href ? ` href="${it.href}"` : ' href="#"';
     if (it.primary) {
-      // Primary má kruhový vystrčený ikon (.ico-circle) — absolutně pozicovaný
-      return `<a class="il-mnav-item${active} primary" href="${it.href}" aria-label="${ariaLbl}">
+      return `<a class="il-mnav-item${active} primary"${hrefAttr}${onclickAttr} aria-label="${ariaLbl}">
         <span class="ico-circle">${svgIcon(it.ico)}</span>
         <span class="lbl">${it.lbl}</span>
       </a>`;
     }
     const badge = it.badgeId ? `<span class="il-mnav-badge" id="${it.badgeId}"></span>` : '';
     const dot   = it.dotId   ? `<span class="il-mnav-dot" id="${it.dotId}"></span>` : '';
-    return `<a class="il-mnav-item${active}" href="${it.href}" aria-label="${ariaLbl}">
+    return `<a class="il-mnav-item${active}"${hrefAttr}${onclickAttr} aria-label="${ariaLbl}">
       <span class="ico">${svgIcon(it.ico)}</span>
       <span class="lbl">${it.lbl}</span>
       ${badge}${dot}
@@ -137,8 +138,14 @@
   function buildItems(me) {
     const isArtist = !!(me && me.is_artist);
     const profileHref = me ? `/profile/${me.username}` : '/login';
+    // Pokud jsme na feedu (/) a window.openAddPortfolio existuje → použij modal,
+    // jinak redirect na artist-setup#portfolio.
+    const onFeed = location.pathname === '/' || location.pathname === '/feed';
+    const useModal = isArtist && onFeed && typeof window.openAddPortfolio === 'function';
     const centerItem = isArtist
-      ? { href: '/artist-setup#portfolio', ico: 'i-plus',     lbl: 'Přidat',    primary: true, aria: 'Přidat skicu nebo práci' }
+      ? (useModal
+          ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
+          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' })
       : { href: '/my-bookings',            ico: 'i-calendar', lbl: 'Rezervace' };
     return [
       { href: '/',         ico: 'i-home',    lbl: 'Feed' },
