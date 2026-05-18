@@ -100,11 +100,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 }
 .sheet-handle{width:44px;height:5px;background:var(--border2);border-radius:3px;margin:8px auto 0}
 @media(min-width:761px){.sheet-handle{display:none}}
-.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border)}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border);flex:0 0 auto}
 .sheet-head h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.14em;color:var(--txt);font-weight:400}
 .sheet-close{background:transparent;border:none;color:var(--txt3);cursor:pointer;padding:6px;border-radius:6px;transition:all 0.12s;display:flex;align-items:center;justify-content:center}
 .sheet-close:hover{background:var(--bg3);color:var(--txt)}
-.sheet-body{padding:20px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+.sheet-body{padding:20px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;flex:1 1 auto;min-height:0}
 
 /* FIELDS */
 .fld{display:flex;flex-direction:column;gap:7px}
@@ -137,7 +137,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .quick-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-family:'DM Mono',monospace;font-size:10px;padding:6px 11px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;transition:all 0.12s}
 .quick-btn:hover{border-color:var(--txt3);color:var(--txt)}
 
-.sheet-foot{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--border);background:var(--bg2);position:sticky;bottom:0}
+.sheet-foot{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--border);background:var(--bg2);flex:0 0 auto}
 .sheet-foot .btn{flex:1;padding:13px 16px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);transition:all 0.12s;font-weight:500}
 .sheet-foot .btn:hover{background:var(--bg4)}
 .sheet-foot .btn.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);flex:1.5}
