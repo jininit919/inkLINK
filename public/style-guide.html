@@ -668,12 +668,8 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
 </head>
 <body>
 
-<!-- Include icon sprite -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <!-- Reference: we use external sprite file -->
-  </defs>
-</svg>
+<!-- Inject icon sprite (fetches /icons.svg, prepends to body) -->
+<script src="/icons.js"></script>
 
 <nav class="sg-nav">
   <a class="sg-brand" href="/">
@@ -714,64 +710,64 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
     <h2 class="sg-h2">Ikon set</h2>
     <p class="sg-lead">
       40+ ikon z Lucide (MIT). Konzistentní 1.6px stroke, currentColor, viewBox 0 0 24 24.
-      Centrálně v <code>public/icons.svg</code>, použití: <code>&lt;svg class="icon"&gt;&lt;use href="/icons.svg#name"/&gt;&lt;/svg&gt;</code>
+      Centrálně v <code>public/icons.svg</code>, použití: <code>&lt;svg class="icon"&gt;&lt;use href="#name"/&gt;&lt;/svg&gt;</code>
     </p>
 
     <div class="icon-grid">
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-heart"/></svg><span class="icon-name">heart</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-heart-filled"/></svg><span class="icon-name">heart-fill</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-bookmark"/></svg><span class="icon-name">bookmark</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-star"/></svg><span class="icon-name">star</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-star-filled"/></svg><span class="icon-name">star-fill</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-share"/></svg><span class="icon-name">share</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-heart"/></svg><span class="icon-name">heart</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-heart-filled"/></svg><span class="icon-name">heart-fill</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-bookmark"/></svg><span class="icon-name">bookmark</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-star"/></svg><span class="icon-name">star</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-star-filled"/></svg><span class="icon-name">star-fill</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-share"/></svg><span class="icon-name">share</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-message"/></svg><span class="icon-name">message</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-mail"/></svg><span class="icon-name">mail</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-send"/></svg><span class="icon-name">send</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-bell"/></svg><span class="icon-name">bell</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-message"/></svg><span class="icon-name">message</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-mail"/></svg><span class="icon-name">mail</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-send"/></svg><span class="icon-name">send</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-bell"/></svg><span class="icon-name">bell</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-calendar"/></svg><span class="icon-name">calendar</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-clock"/></svg><span class="icon-name">clock</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-map-pin"/></svg><span class="icon-name">map-pin</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-credit-card"/></svg><span class="icon-name">credit-card</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-calendar"/></svg><span class="icon-name">calendar</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-clock"/></svg><span class="icon-name">clock</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-map-pin"/></svg><span class="icon-name">map-pin</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-credit-card"/></svg><span class="icon-name">credit-card</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-search"/></svg><span class="icon-name">search</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-filter"/></svg><span class="icon-name">filter</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-plus"/></svg><span class="icon-name">plus</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-x"/></svg><span class="icon-name">x</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-check"/></svg><span class="icon-name">check</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-menu"/></svg><span class="icon-name">menu</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-search"/></svg><span class="icon-name">search</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-filter"/></svg><span class="icon-name">filter</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-plus"/></svg><span class="icon-name">plus</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-x"/></svg><span class="icon-name">x</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-check"/></svg><span class="icon-name">check</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-menu"/></svg><span class="icon-name">menu</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-arrow-right"/></svg><span class="icon-name">arrow-right</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-arrow-left"/></svg><span class="icon-name">arrow-left</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-chevron-right"/></svg><span class="icon-name">chevron-right</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-chevron-left"/></svg><span class="icon-name">chevron-left</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-chevron-down"/></svg><span class="icon-name">chevron-down</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-external"/></svg><span class="icon-name">external</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-arrow-right"/></svg><span class="icon-name">arrow-right</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-arrow-left"/></svg><span class="icon-name">arrow-left</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-chevron-right"/></svg><span class="icon-name">chevron-right</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-chevron-left"/></svg><span class="icon-name">chevron-left</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-chevron-down"/></svg><span class="icon-name">chevron-down</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-external"/></svg><span class="icon-name">external</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-user"/></svg><span class="icon-name">user</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-users"/></svg><span class="icon-name">users</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-settings"/></svg><span class="icon-name">settings</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-log-out"/></svg><span class="icon-name">log-out</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-shield-check"/></svg><span class="icon-name">shield-check</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-user"/></svg><span class="icon-name">user</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-users"/></svg><span class="icon-name">users</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-settings"/></svg><span class="icon-name">settings</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-log-out"/></svg><span class="icon-name">log-out</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-shield-check"/></svg><span class="icon-name">shield-check</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-image"/></svg><span class="icon-name">image</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-camera"/></svg><span class="icon-name">camera</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-smile"/></svg><span class="icon-name">smile</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-eye"/></svg><span class="icon-name">eye</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-image"/></svg><span class="icon-name">image</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-camera"/></svg><span class="icon-name">camera</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-smile"/></svg><span class="icon-name">smile</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-eye"/></svg><span class="icon-name">eye</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-info"/></svg><span class="icon-name">info</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-alert"/></svg><span class="icon-name">alert</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-check-circle"/></svg><span class="icon-name">check-circle</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-sparkles"/></svg><span class="icon-name">sparkles</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-info"/></svg><span class="icon-name">info</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-alert"/></svg><span class="icon-name">alert</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-check-circle"/></svg><span class="icon-name">check-circle</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-sparkles"/></svg><span class="icon-name">sparkles</span></div>
 
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-edit"/></svg><span class="icon-name">edit</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-trash"/></svg><span class="icon-name">trash</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-trending"/></svg><span class="icon-name">trending</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-sun"/></svg><span class="icon-name">sun</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-moon"/></svg><span class="icon-name">moon</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-home"/></svg><span class="icon-name">home</span></div>
-      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-grid"/></svg><span class="icon-name">grid</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-edit"/></svg><span class="icon-name">edit</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-trash"/></svg><span class="icon-name">trash</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-trending"/></svg><span class="icon-name">trending</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-sun"/></svg><span class="icon-name">sun</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-moon"/></svg><span class="icon-name">moon</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-home"/></svg><span class="icon-name">home</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="#i-grid"/></svg><span class="icon-name">grid</span></div>
     </div>
   </section>
 
@@ -813,10 +809,10 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
 
     <div class="label-meta">Varianty</div>
     <div class="row">
-      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Primary</button>
+      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="#i-arrow-right"/></svg> Primary</button>
       <button class="btn">Secondary</button>
       <button class="btn btn-ghost">Ghost</button>
-      <button class="btn btn-danger"><svg class="icon icon-sm"><use href="/icons.svg#i-trash"/></svg> Danger</button>
+      <button class="btn btn-danger"><svg class="icon icon-sm"><use href="#i-trash"/></svg> Danger</button>
       <button class="btn" disabled>Disabled</button>
     </div>
 
@@ -829,18 +825,18 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
 
     <div class="label-meta">S ikonami</div>
     <div class="row">
-      <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-heart"/></svg> Lajknout</button>
-      <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-share"/></svg> Sdílet</button>
-      <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-message"/></svg> Zpráva</button>
-      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-credit-card"/></svg> Zaplatit zálohu</button>
+      <button class="btn"><svg class="icon icon-sm"><use href="#i-heart"/></svg> Lajknout</button>
+      <button class="btn"><svg class="icon icon-sm"><use href="#i-share"/></svg> Sdílet</button>
+      <button class="btn"><svg class="icon icon-sm"><use href="#i-message"/></svg> Zpráva</button>
+      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="#i-credit-card"/></svg> Zaplatit zálohu</button>
     </div>
 
     <div class="label-meta">Icon only</div>
     <div class="row">
-      <button class="btn btn-icon" title="Lajk"><svg class="icon"><use href="/icons.svg#i-heart"/></svg></button>
-      <button class="btn btn-icon" title="Sdílet"><svg class="icon"><use href="/icons.svg#i-share"/></svg></button>
-      <button class="btn btn-icon" title="Smazat"><svg class="icon"><use href="/icons.svg#i-trash"/></svg></button>
-      <button class="btn btn-icon btn-primary" title="Přidat"><svg class="icon"><use href="/icons.svg#i-plus"/></svg></button>
+      <button class="btn btn-icon" title="Lajk"><svg class="icon"><use href="#i-heart"/></svg></button>
+      <button class="btn btn-icon" title="Sdílet"><svg class="icon"><use href="#i-share"/></svg></button>
+      <button class="btn btn-icon" title="Smazat"><svg class="icon"><use href="#i-trash"/></svg></button>
+      <button class="btn btn-icon btn-primary" title="Přidat"><svg class="icon"><use href="#i-plus"/></svg></button>
     </div>
 
     <div class="label-meta">Loading state</div>
@@ -865,14 +861,14 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
         <div class="field">
           <label>Email</label>
           <div class="input-icon-wrap">
-            <svg class="icon"><use href="/icons.svg#i-mail"/></svg>
+            <svg class="icon"><use href="#i-mail"/></svg>
             <input class="input" type="email" placeholder="ty@inklink.club" />
           </div>
         </div>
         <div class="field">
           <label>Vyhledávání</label>
           <div class="input-icon-wrap">
-            <svg class="icon"><use href="/icons.svg#i-search"/></svg>
+            <svg class="icon"><use href="#i-search"/></svg>
             <input class="input" placeholder="Tatér, město, styl…" />
           </div>
         </div>
@@ -914,21 +910,21 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
 
     <div class="label-meta">Filter chips</div>
     <div class="chip-row" style="margin-bottom:24px">
-      <button class="chip"><svg class="icon"><use href="/icons.svg#i-sparkles"/></svg> Fineline</button>
+      <button class="chip"><svg class="icon"><use href="#i-sparkles"/></svg> Fineline</button>
       <button class="chip">Blackwork</button>
-      <button class="chip active"><svg class="icon"><use href="/icons.svg#i-check"/></svg> Traditional</button>
+      <button class="chip active"><svg class="icon"><use href="#i-check"/></svg> Traditional</button>
       <button class="chip">Realism</button>
       <button class="chip">Lettering</button>
-      <button class="chip"><svg class="icon"><use href="/icons.svg#i-map-pin"/></svg> Praha</button>
+      <button class="chip"><svg class="icon"><use href="#i-map-pin"/></svg> Praha</button>
     </div>
 
     <div class="label-meta">Status badges</div>
     <div class="row">
-      <span class="badge"><svg class="icon"><use href="/icons.svg#i-clock"/></svg> Pending</span>
-      <span class="badge badge-success"><svg class="icon"><use href="/icons.svg#i-check"/></svg> Active</span>
-      <span class="badge badge-warn"><svg class="icon"><use href="/icons.svg#i-alert"/></svg> Akce nutná</span>
-      <span class="badge badge-error"><svg class="icon"><use href="/icons.svg#i-x"/></svg> Selhalo</span>
-      <span class="badge"><svg class="icon"><use href="/icons.svg#i-shield-check"/></svg> Verified</span>
+      <span class="badge"><svg class="icon"><use href="#i-clock"/></svg> Pending</span>
+      <span class="badge badge-success"><svg class="icon"><use href="#i-check"/></svg> Active</span>
+      <span class="badge badge-warn"><svg class="icon"><use href="#i-alert"/></svg> Akce nutná</span>
+      <span class="badge badge-error"><svg class="icon"><use href="#i-x"/></svg> Selhalo</span>
+      <span class="badge"><svg class="icon"><use href="#i-shield-check"/></svg> Verified</span>
     </div>
   </section>
 
@@ -943,7 +939,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
         <div class="card-img">
           <div class="card-badge">SKICA</div>
           <div class="card-price">4 500 Kč · 3 h</div>
-          <div class="card-cta"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Rezervovat</div>
+          <div class="card-cta"><svg class="icon icon-sm"><use href="#i-arrow-right"/></svg> Rezervovat</div>
         </div>
         <div class="card-body">
           <div class="card-meta">
@@ -953,7 +949,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
               <div style="font-size:10px;color:var(--tx-3);letter-spacing:0.06em">Praha · fineline</div>
             </div>
             <button class="btn btn-icon btn-sm" style="margin-left:auto;height:26px;width:26px" title="Lajk">
-              <svg class="icon icon-sm"><use href="/icons.svg#i-heart"/></svg>
+              <svg class="icon icon-sm"><use href="#i-heart"/></svg>
             </button>
           </div>
         </div>
@@ -963,7 +959,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
         <div class="card-img" style="background:linear-gradient(135deg,#1c1c1f 0%, #2a2a2e 100%)">
           <div class="card-badge">SKICA</div>
           <div class="card-price">12 000 Kč · 5 h</div>
-          <div class="card-cta"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Rezervovat</div>
+          <div class="card-cta"><svg class="icon icon-sm"><use href="#i-arrow-right"/></svg> Rezervovat</div>
         </div>
         <div class="card-body">
           <div class="card-meta">
@@ -973,7 +969,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
               <div style="font-size:10px;color:var(--tx-3);letter-spacing:0.06em">Brno · blackwork</div>
             </div>
             <button class="btn btn-icon btn-sm" style="margin-left:auto;height:26px;width:26px" title="Lajk">
-              <svg class="icon icon-sm" style="color:var(--ac-r)"><use href="/icons.svg#i-heart-filled"/></svg>
+              <svg class="icon icon-sm" style="color:var(--ac-r)"><use href="#i-heart-filled"/></svg>
             </button>
           </div>
         </div>
@@ -1002,10 +998,10 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
     <h2 class="sg-h2">Empty states</h2>
 
     <div class="empty">
-      <svg class="icon icon-xl"><use href="/icons.svg#i-sparkles"/></svg>
+      <svg class="icon icon-xl"><use href="#i-sparkles"/></svg>
       <h3>Zatím žádné skicy</h3>
       <p>Nové skicy se tu objeví, jakmile je tatéři přidají. Mezitím se podívej na <a href="/map" style="color:var(--tx-1);border-bottom:1px solid var(--bd-3)">mapu tatérů</a>.</p>
-      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-map-pin"/></svg> Otevřít mapu</button>
+      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg> Otevřít mapu</button>
     </div>
   </section>
 
@@ -1018,7 +1014,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
       <div class="modal-demo">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
           <h3>POTVRDIT REZERVACI</h3>
-          <button class="btn btn-icon btn-ghost btn-sm" style="margin:-6px -6px 0 0"><svg class="icon"><use href="/icons.svg#i-x"/></svg></button>
+          <button class="btn btn-icon btn-ghost btn-sm" style="margin:-6px -6px 0 0"><svg class="icon"><use href="#i-x"/></svg></button>
         </div>
         <p>Rezervuješ termín u <b style="color:var(--tx-1)">Matěj Gajdoš</b> · čtvrtek 23. května · 14:00–17:00.</p>
         <div style="background:var(--bg-3);border:1px solid var(--bd-2);border-radius:var(--r-md);padding:14px;margin-bottom:22px">
@@ -1034,7 +1030,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
         </div>
         <div class="row" style="margin-bottom:0">
           <button class="btn btn-ghost" style="flex:1">Zrušit</button>
-          <button class="btn btn-primary" style="flex:1.4"><svg class="icon icon-sm"><use href="/icons.svg#i-credit-card"/></svg> Zaplatit zálohu</button>
+          <button class="btn btn-primary" style="flex:1.4"><svg class="icon icon-sm"><use href="#i-credit-card"/></svg> Zaplatit zálohu</button>
         </div>
       </div>
     </div>
@@ -1056,9 +1052,9 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
       </div>
       <div>
         <h4>Po</h4>
-        <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-calendar"/></svg> Rezervovat</button>
+        <button class="btn"><svg class="icon icon-sm"><use href="#i-calendar"/></svg> Rezervovat</button>
         &nbsp;&nbsp;
-        <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-credit-card"/></svg> Zaplatit</button>
+        <button class="btn btn-primary"><svg class="icon icon-sm"><use href="#i-credit-card"/></svg> Zaplatit</button>
       </div>
     </div>
 
@@ -1073,7 +1069,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
       <div>
         <h4>Po</h4>
         <button class="chip">Fineline</button>
-        <button class="chip active"><svg class="icon"><use href="/icons.svg#i-check"/></svg> Blackwork</button>
+        <button class="chip active"><svg class="icon"><use href="#i-check"/></svg> Blackwork</button>
         <button class="chip">Realism</button>
       </div>
     </div>
@@ -1093,11 +1089,11 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
       <div>
         <h4>Po</h4>
         <div style="display:flex;gap:14px;color:var(--tx-2)">
-          <svg class="icon icon-lg"><use href="/icons.svg#i-heart"/></svg>
-          <svg class="icon icon-lg"><use href="/icons.svg#i-calendar"/></svg>
-          <svg class="icon icon-lg"><use href="/icons.svg#i-message"/></svg>
-          <svg class="icon icon-lg"><use href="/icons.svg#i-filter"/></svg>
-          <svg class="icon icon-lg"><use href="/icons.svg#i-sun"/></svg>
+          <svg class="icon icon-lg"><use href="#i-heart"/></svg>
+          <svg class="icon icon-lg"><use href="#i-calendar"/></svg>
+          <svg class="icon icon-lg"><use href="#i-message"/></svg>
+          <svg class="icon icon-lg"><use href="#i-filter"/></svg>
+          <svg class="icon icon-lg"><use href="#i-sun"/></svg>
         </div>
       </div>
     </div>
@@ -1116,7 +1112,7 @@ section { margin-bottom: 80px; scroll-margin-top: 80px; }
         <div class="card" style="max-width:200px">
           <div class="card-img">
             <div class="card-badge">SKICA</div>
-            <div class="card-cta"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Rezervovat</div>
+            <div class="card-cta"><svg class="icon icon-sm"><use href="#i-arrow-right"/></svg> Rezervovat</div>
           </div>
         </div>
       </div>
