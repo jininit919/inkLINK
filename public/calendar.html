@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex">
+<title>Kalendář — InkLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e10;--bg2:#141416;--bg3:#1c1c1f;--bg4:#26262a;
+  --red:#3a3a3e;--red2:#e8e8e8;--red3:#fff;
+  --txt:#f5f5f7;--txt2:#a8a8ac;--txt3:#6e6e73;
+  --border:#1c1c1f;--border2:#2a2a2e;
+  --accent:#0a84ff;            /* iOS blue accent */
+  --ok:#30d158;
+  --r-md:8px;
+  --r-lg:14px;
+  --ease:cubic-bezier(0.32,0.72,0,1);
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.78);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:0}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);cursor:pointer;white-space:nowrap;flex:1}
+.nav-icons{display:flex;gap:6px;align-items:center}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);border-radius:6px;transition:all 0.15s}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+.nav-icon.active{color:var(--red2);background:var(--bg3)}
+.nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--red2);cursor:pointer;margin-left:4px;letter-spacing:0.05em;overflow:hidden}
+.nav-avatar img{width:100%;height:100%;object-fit:cover}
+
+/* LAYOUT */
+.wrap{max-width:1240px;margin:0 auto;padding:80px 24px 100px}
+@media(max-width:560px){.wrap{padding:72px 16px 100px}}
+
+/* HERO */
+.cal-hero{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap}
+.cal-hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(34px,5vw,52px);letter-spacing:0.04em;line-height:1;color:var(--txt);font-weight:400}
+.cal-hero .sub{font-size:12px;color:var(--txt3);letter-spacing:0.08em;margin-top:6px;text-transform:uppercase}
+
+/* WEEK NAV (Apple-style segmented) */
+.week-nav{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-md);padding:4px}
+.week-nav button{background:transparent;border:none;color:var(--txt2);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;border-radius:5px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px;letter-spacing:0.04em}
+.week-nav button:hover{background:var(--bg3);color:var(--txt)}
+.week-nav button.today{background:var(--bg3);color:var(--txt);font-weight:500;padding:6px 12px}
+.week-nav .label{font-size:12px;color:var(--txt);letter-spacing:0.06em;padding:0 8px;min-width:140px;text-align:center}
+.week-nav .icon{width:14px;height:14px}
+
+/* WEEK GRID */
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:24px}
+@media(max-width:760px){.week-grid{grid-template-columns:1fr;gap:6px}}
+.day-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 12px;min-height:200px;display:flex;flex-direction:column;gap:8px;transition:border-color 0.15s,background 0.15s}
+.day-col.today{background:linear-gradient(180deg, rgba(10,132,255,0.05) 0%, var(--bg2) 100%);border-color:rgba(10,132,255,0.3)}
+.day-col.past{opacity:0.5}
+.day-col:hover{border-color:var(--border2)}
+.day-head{display:flex;flex-direction:column;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:4px}
+.day-name{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.16em;color:var(--txt3);text-transform:uppercase}
+.day-num{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.02em;color:var(--txt);line-height:1;margin-top:2px}
+.day-col.today .day-num{color:var(--accent)}
+.day-col.today .day-name{color:var(--accent)}
+
+.slot-pill{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:all 0.15s;position:relative}
+.slot-pill:hover{border-color:var(--txt3);background:var(--bg4);transform:translateY(-1px)}
+.slot-pill .t{font-size:11px;color:var(--txt);letter-spacing:0.04em;font-weight:500}
+.slot-pill .p{font-size:10px;color:var(--txt3);letter-spacing:0.02em}
+.slot-pill.booked{border-color:rgba(48,209,88,0.4);background:rgba(48,209,88,0.06)}
+.slot-pill.booked .t{color:var(--ok)}
+.slot-pill .del{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.4);border:none;color:var(--txt3);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;font-size:10px;line-height:1}
+.slot-pill:hover .del{display:flex}
+.slot-pill .del:hover{background:var(--ac-r,#ff453a);color:#fff}
+.day-col .empty-day{color:var(--txt3);font-size:10px;letter-spacing:0.06em;text-align:center;padding:20px 0;border:1px dashed var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
+.day-col .empty-day:hover{border-color:var(--accent);color:var(--accent);background:rgba(10,132,255,0.05)}
+
+/* FAB ADD */
+.fab-add-slot{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;box-shadow:0 12px 32px rgba(10,132,255,0.4),0 2px 6px rgba(0,0,0,0.4);transition:transform 0.18s var(--ease),box-shadow 0.18s;z-index:200;border:none;font-size:0}
+.fab-add-slot:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 16px 40px rgba(10,132,255,0.55),0 4px 10px rgba(0,0,0,0.4)}
+.fab-add-slot:active{transform:translateY(0) scale(0.96)}
+.fab-add-slot .icon{width:24px;height:24px;stroke-width:2}
+@media(max-width:760px){.fab-add-slot{bottom:80px;right:20px}}
+
+/* SHEET MODAL — Apple-style slide up */
+#slotSheet{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:500;opacity:0;pointer-events:none;transition:opacity 0.2s var(--ease)}
+#slotSheet.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:560px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:0;display:flex;flex-direction:column;max-height:90vh;transition:transform 0.34s var(--ease);box-shadow:0 -24px 60px rgba(0,0,0,0.7)}
+@media(min-width:761px){
+  .sheet{border-radius:var(--r-lg);bottom:auto;top:50%;transform:translate(-50%, -40%);max-height:85vh}
+  #slotSheet.show .sheet{transform:translate(-50%, -50%)}
+}
+@media(max-width:760px){
+  #slotSheet.show .sheet{transform:translateX(-50%) translateY(0)}
+}
+.sheet-handle{width:44px;height:5px;background:var(--border2);border-radius:3px;margin:8px auto 0}
+@media(min-width:761px){.sheet-handle{display:none}}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border)}
+.sheet-head h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.14em;color:var(--txt);font-weight:400}
+.sheet-close{background:transparent;border:none;color:var(--txt3);cursor:pointer;padding:6px;border-radius:6px;transition:all 0.12s;display:flex;align-items:center;justify-content:center}
+.sheet-close:hover{background:var(--bg3);color:var(--txt)}
+.sheet-body{padding:20px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+
+/* FIELDS */
+.fld{display:flex;flex-direction:column;gap:7px}
+.fld label{font-size:10px;letter-spacing:0.14em;color:var(--txt3);text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.fld label .hint{font-size:9px;color:var(--txt3);text-transform:none;letter-spacing:0.04em;font-weight:300}
+.fld input[type="date"],.fld input[type="time"],.fld input[type="number"],.fld input[type="text"],.fld select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:14px;padding:11px 14px;border-radius:8px;outline:none;transition:all 0.12s;letter-spacing:0.02em;-webkit-appearance:none;-moz-appearance:none;appearance:none}
+.fld input::-webkit-calendar-picker-indicator,.fld input::-webkit-date-and-time-value{filter:invert(0.7)}
+.fld input:focus,.fld select:focus{border-color:var(--accent);background:var(--bg4);box-shadow:0 0 0 4px rgba(10,132,255,0.15)}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:420px){.row2{grid-template-columns:1fr}}
+
+/* SEGMENTED CONTROL (iOS-style) */
+.segmented{display:grid;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:0;position:relative}
+.segmented[data-count="2"]{grid-template-columns:1fr 1fr}
+.segmented[data-count="3"]{grid-template-columns:1fr 1fr 1fr}
+.segmented label{cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:8px 10px;border-radius:6px;text-align:center;color:var(--txt2);transition:all 0.18s var(--ease);text-transform:uppercase;background:transparent}
+.segmented input{position:absolute;opacity:0;pointer-events:none}
+.segmented input:checked + label{background:var(--bg);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,0.4)}
+.segmented label:hover{color:var(--txt)}
+
+/* DAY PICKER (recurrence) */
+.day-picker{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day-picker button{background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-family:'DM Mono',monospace;font-size:11px;padding:10px 0;border-radius:6px;cursor:pointer;transition:all 0.12s;letter-spacing:0.04em;text-transform:uppercase}
+.day-picker button:hover{border-color:var(--txt3);color:var(--txt)}
+.day-picker button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* QUICK BUTTONS */
+.quick-row{display:flex;gap:6px;flex-wrap:wrap}
+.quick-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-family:'DM Mono',monospace;font-size:10px;padding:6px 11px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;transition:all 0.12s}
+.quick-btn:hover{border-color:var(--txt3);color:var(--txt)}
+
+.sheet-foot{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--border);background:var(--bg2);position:sticky;bottom:0}
+.sheet-foot .btn{flex:1;padding:13px 16px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);transition:all 0.12s;font-weight:500}
+.sheet-foot .btn:hover{background:var(--bg4)}
+.sheet-foot .btn.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);flex:1.5}
+.sheet-foot .btn.btn-primary:hover{background:#0a7aff}
+.sheet-foot .btn[disabled]{opacity:0.5;cursor:not-allowed}
+
+.flash{padding:11px 14px;border-radius:8px;font-size:12px;letter-spacing:0.04em;text-align:center}
+.flash.ok{background:rgba(48,209,88,0.12);color:var(--ok);border:1px solid rgba(48,209,88,0.25)}
+.flash.err{background:rgba(255,69,58,0.12);color:#ff453a;border:1px solid rgba(255,69,58,0.25)}
+
+.empty-state{text-align:center;padding:60px 24px;color:var(--txt3);font-size:13px;line-height:1.7;letter-spacing:0.04em;background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--r-lg)}
+.empty-state svg{color:var(--txt3);margin-bottom:12px}
+.empty-state h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.14em;color:var(--txt);margin-bottom:8px;font-weight:400}
+
+.gate-msg{text-align:center;padding:80px 24px;color:var(--txt3);font-size:13px;line-height:1.7}
+.gate-msg a{color:var(--accent);border-bottom:1px solid currentColor}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
+  <div class="nav-icons">
+    <button class="nav-icon" onclick="location.href='/?search=1'" title="Hledat" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
+    <a class="nav-icon" href="/" title="Feed"><svg class="icon"><use href="#i-home"/></svg></a>
+    <a class="nav-icon" href="/map" title="Mapa tatérů"><svg class="icon"><use href="#i-map-pin"/></svg></a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
+    <a class="nav-icon active" href="/calendar" title="Kalendář"><svg class="icon"><use href="#i-calendar"/></svg></a>
+    <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
+    <div class="nav-avatar" id="navAvatar" title="Účet">??</div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <div id="gate" class="gate-msg" style="display:none">
+    Tato stránka je jen pro tatéry.<br>
+    <a href="/artist-setup">Staň se tatérem →</a>
+  </div>
+
+  <div id="cal" style="display:none">
+    <div class="cal-hero">
+      <div>
+        <h1>MŮJ KALENDÁŘ</h1>
+        <div class="sub" id="weekRange">Načítám…</div>
+      </div>
+      <div class="week-nav">
+        <button onclick="shiftWeek(-1)" title="Předchozí týden"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
+        <span class="label" id="weekLabel">Týden</span>
+        <button class="today" onclick="goToToday()">Dnes</button>
+        <button onclick="shiftWeek(1)" title="Další týden"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+      </div>
+    </div>
+
+    <div class="week-grid" id="weekGrid"></div>
+
+    <div id="emptyHint" class="empty-state" style="display:none">
+      <svg class="icon icon-xl" style="width:32px;height:32px"><use href="#i-calendar"/></svg>
+      <h3>ŽÁDNÉ TERMÍNY</h3>
+      <p>V tomto týdnu nejsou volné bloky. Klikni na <b style="color:var(--accent)">+</b> dole vpravo a přidej.</p>
+    </div>
+  </div>
+</div>
+
+<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Přidat termín" aria-label="Přidat volný termín">
+  <svg class="icon"><use href="#i-plus"/></svg>
+</button>
+
+<!-- Sheet Modal — Apple-style -->
+<div id="slotSheet" onclick="if(event.target===this)closeSlotSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <h3>NOVÝ TERMÍN</h3>
+      <button class="sheet-close" type="button" onclick="closeSlotSheet()" aria-label="Zavřít"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    <form id="slotSheetForm" class="sheet-body">
+      <div class="fld">
+        <label>Datum</label>
+        <input type="date" id="ssDate" required>
+      </div>
+
+      <div class="row2">
+        <div class="fld">
+          <label>Od</label>
+          <input type="time" id="ssFrom" required value="10:00" step="900">
+        </div>
+        <div class="fld">
+          <label>Do</label>
+          <input type="time" id="ssTo" required value="18:00" step="900">
+        </div>
+      </div>
+
+      <div class="quick-row">
+        <button type="button" class="quick-btn" onclick="setTimes('09:00','13:00')">Dopoledne</button>
+        <button type="button" class="quick-btn" onclick="setTimes('13:00','18:00')">Odpoledne</button>
+        <button type="button" class="quick-btn" onclick="setTimes('09:00','18:00')">Celý den</button>
+        <button type="button" class="quick-btn" onclick="setTimes('17:00','21:00')">Večer</button>
+      </div>
+
+      <div class="row2">
+        <div class="fld">
+          <label>Sazba od (Kč/h)</label>
+          <input type="number" id="ssPriceMin" min="0" placeholder="1200">
+        </div>
+        <div class="fld">
+          <label>Sazba do (Kč/h)</label>
+          <input type="number" id="ssPriceMax" min="0" placeholder="1800">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="fld">
+          <label>Min. rezervace (h)</label>
+          <input type="number" id="ssMinDur" min="1" max="12" value="1">
+        </div>
+        <div class="fld">
+          <label>Záloha % <span class="hint">— volitelně</span></label>
+          <input type="number" id="ssDeposit" min="0" max="100" placeholder="30">
+        </div>
+      </div>
+
+      <div class="fld">
+        <label>Poznámka <span class="hint">— volitelně</span></label>
+        <input type="text" id="ssNote" maxlength="200" placeholder="Realismus, konzultace předem">
+      </div>
+
+      <!-- Recurrence -->
+      <div class="fld">
+        <label>Opakování</label>
+        <div class="segmented" data-count="2">
+          <input type="radio" name="recurType" id="recurNone" value="none" checked>
+          <label for="recurNone">Jednorázově</label>
+          <input type="radio" name="recurType" id="recurWeekly" value="weekly">
+          <label for="recurWeekly">Týdně</label>
+        </div>
+      </div>
+
+      <div id="recurOptions" style="display:none;flex-direction:column;gap:14px">
+        <div class="fld">
+          <label>Dny v týdnu</label>
+          <div class="day-picker" id="recurDays">
+            <button type="button" data-day="0">PO</button>
+            <button type="button" data-day="1">ÚT</button>
+            <button type="button" data-day="2">ST</button>
+            <button type="button" data-day="3">ČT</button>
+            <button type="button" data-day="4">PÁ</button>
+            <button type="button" data-day="5">SO</button>
+            <button type="button" data-day="6">NE</button>
+          </div>
+        </div>
+        <div class="quick-row">
+          <button type="button" class="quick-btn" onclick="setRecurDays([0,1,2,3,4])">Pracovní dny</button>
+          <button type="button" class="quick-btn" onclick="setRecurDays([5,6])">Víkend</button>
+          <button type="button" class="quick-btn" onclick="setRecurDays([0,1,2,3,4,5,6])">Celý týden</button>
+        </div>
+        <div class="fld">
+          <label>Opakovat do</label>
+          <input type="date" id="recurUntil">
+        </div>
+      </div>
+
+      <div id="ssFlash"></div>
+    </form>
+
+    <div class="sheet-foot">
+      <button type="button" class="btn" onclick="closeSlotSheet()">Zrušit</button>
+      <button type="button" class="btn btn-primary" id="ssSubmit" onclick="submitSlot()">Uložit termín</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let me = null;
+let weekStart = startOfWeek(new Date());  // monday
+let slotsData = [];
+
+function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+function startOfWeek(d){
+  const dt = new Date(d);
+  const day = dt.getDay(); // 0=Sun
+  const diff = (day === 0 ? -6 : 1 - day);
+  dt.setDate(dt.getDate() + diff);
+  dt.setHours(0,0,0,0);
+  return dt;
+}
+function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+function fmtDate(d){ return d.toISOString().slice(0,10); }
+function fmtDayNum(d){ return d.getDate().toString().padStart(2,'0'); }
+function dayName(d){ return ['NE','PO','ÚT','ST','ČT','PÁ','SO'][d.getDay()]; }
+function csMonth(d){ return ['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'][d.getMonth()]; }
+function fmtTime(iso){ const d = new Date(iso); return d.toTimeString().slice(0,5); }
+
+async function init() {
+  me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  if (!me) { location.href = '/login'; return; }
+  if (!me.is_artist) {
+    document.getElementById('gate').style.display = 'block';
+    document.getElementById('fabAddSlot').style.display = 'none';
+    document.getElementById('navAvatar').textContent = (me.display_name||me.username||'?').slice(0,2).toUpperCase();
+    return;
+  }
+  document.getElementById('cal').style.display = 'block';
+  const navAvatar = document.getElementById('navAvatar');
+  if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
+  else navAvatar.textContent = (me.display_name||me.username||'?').slice(0,2).toUpperCase();
+  document.getElementById('navLiked').style.display = 'flex';
+
+  // Default form date = today
+  document.getElementById('ssDate').value = fmtDate(new Date());
+
+  // Recurrence toggle
+  document.querySelectorAll('input[name="recurType"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('recurOptions').style.display = r.value === 'weekly' ? 'flex' : 'none';
+    });
+  });
+  // Day picker click
+  document.querySelectorAll('#recurDays button').forEach(b => {
+    b.addEventListener('click', () => b.classList.toggle('on'));
+  });
+
+  await loadWeek();
+}
+
+async function loadWeek() {
+  const r = await fetch('/api/me/slots');
+  slotsData = r.ok ? await r.json() : [];
+  render();
+}
+
+function render() {
+  const grid = document.getElementById('weekGrid');
+  const weekEnd = addDays(weekStart, 6);
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  document.getElementById('weekLabel').textContent = `${weekStart.getDate()}.${weekStart.getMonth()+1}. – ${weekEnd.getDate()}.${weekEnd.getMonth()+1}.`;
+  document.getElementById('weekRange').textContent = `${csMonth(weekStart)} ${weekStart.getFullYear()}`;
+
+  const slotsByDay = {};
+  for (const s of slotsData) {
+    const dayKey = s.start_at.slice(0,10);
+    (slotsByDay[dayKey] = slotsByDay[dayKey] || []).push(s);
+  }
+
+  grid.innerHTML = '';
+  let totalSlots = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(weekStart, i);
+    const key = fmtDate(d);
+    const isToday = d.getTime() === today.getTime();
+    const isPast = d < today;
+    const daySlots = (slotsByDay[key] || []).sort((a,b) => a.start_at.localeCompare(b.start_at));
+    totalSlots += daySlots.length;
+    grid.innerHTML += `
+      <div class="day-col${isToday ? ' today' : ''}${isPast ? ' past' : ''}">
+        <div class="day-head">
+          <div class="day-name">${dayName(d)}</div>
+          <div class="day-num">${fmtDayNum(d)}</div>
+        </div>
+        ${daySlots.length
+          ? daySlots.map(s => `
+              <div class="slot-pill ${s.status==='booked'?'booked':''}">
+                <span class="t">${fmtTime(s.start_at)}–${fmtTime(s.end_at)}</span>
+                <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} Kč/h` : 'cena dohodou'}</span>
+                ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="Smazat">×</button>` : ''}
+              </div>`).join('')
+          : (isPast
+              ? '<div style="color:var(--txt4);font-size:10px;text-align:center;padding:8px 0;letter-spacing:0.06em">—</div>'
+              : `<div class="empty-day" onclick="openSlotSheetForDay('${key}')">+ Termín</div>`)
+        }
+      </div>`;
+  }
+  document.getElementById('emptyHint').style.display = totalSlots === 0 ? 'block' : 'none';
+}
+
+function shiftWeek(dir) {
+  weekStart = addDays(weekStart, dir * 7);
+  render();
+}
+function goToToday() {
+  weekStart = startOfWeek(new Date());
+  render();
+}
+
+function openSlotSheet() {
+  document.getElementById('slotSheet').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function openSlotSheetForDay(dateStr) {
+  document.getElementById('ssDate').value = dateStr;
+  openSlotSheet();
+}
+function closeSlotSheet() {
+  document.getElementById('slotSheet').classList.remove('show');
+  document.body.style.overflow = '';
+  document.getElementById('ssFlash').innerHTML = '';
+}
+
+function setTimes(from, to) {
+  document.getElementById('ssFrom').value = from;
+  document.getElementById('ssTo').value = to;
+}
+function setRecurDays(arr) {
+  document.querySelectorAll('#recurDays button').forEach(b => {
+    const day = parseInt(b.dataset.day);
+    b.classList.toggle('on', arr.includes(day));
+  });
+}
+
+async function submitSlot() {
+  const flash = document.getElementById('ssFlash');
+  const btn = document.getElementById('ssSubmit');
+  const date = document.getElementById('ssDate').value;
+  const from = document.getElementById('ssFrom').value;
+  const to = document.getElementById('ssTo').value;
+  if (!date || !from || !to) {
+    flash.innerHTML = '<div class="flash err">Vyplň datum a časy</div>'; return;
+  }
+  if (from >= to) {
+    flash.innerHTML = '<div class="flash err">Konec musí být po začátku</div>'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Ukládám…';
+  const start_at = `${date}T${from}:00`;
+  const end_at = `${date}T${to}:00`;
+
+  const body = {
+    start_at, end_at,
+    price_min: document.getElementById('ssPriceMin').value || 0,
+    price_max: document.getElementById('ssPriceMax').value || 0,
+    deposit_pct: document.getElementById('ssDeposit').value || null,
+    min_duration_hours: document.getElementById('ssMinDur').value || 1,
+    price_unit: 'hour',
+    note: document.getElementById('ssNote').value || '',
+  };
+
+  // Recurrence
+  const recurType = document.querySelector('input[name="recurType"]:checked').value;
+  if (recurType === 'weekly') {
+    const days = Array.from(document.querySelectorAll('#recurDays button.on')).map(b => parseInt(b.dataset.day));
+    const until = document.getElementById('recurUntil').value;
+    if (!days.length || !until) {
+      flash.innerHTML = '<div class="flash err">Pro opakování vyber dny a "Opakovat do"</div>';
+      btn.disabled = false; btn.textContent = 'Uložit termín';
+      return;
+    }
+    body.recur = { days, until };
+  }
+
+  try {
+    const r = await fetch('/api/slots', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (r.ok) {
+      const j = await r.json();
+      flash.innerHTML = `<div class="flash ok">Vytvořeno ${j.created || 1} termín${(j.created||1)>1?'ů':'u'} ✓</div>`;
+      setTimeout(() => {
+        closeSlotSheet();
+        // Reset
+        document.querySelector('input[name="recurType"][value="none"]').checked = true;
+        document.getElementById('recurOptions').style.display = 'none';
+        document.querySelectorAll('#recurDays button.on').forEach(b => b.classList.remove('on'));
+        document.getElementById('ssNote').value = '';
+        loadWeek();
+      }, 700);
+    } else {
+      const j = await r.json().catch(() => ({}));
+      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || 'Nepodařilo se uložit')}</div>`;
+    }
+  } catch {
+    flash.innerHTML = '<div class="flash err">Chyba sítě</div>';
+  }
+  btn.disabled = false; btn.textContent = 'Uložit termín';
+}
+
+async function delSlot(id) {
+  if (!confirm('Smazat tento termín?')) return;
+  const r = await fetch('/api/slots/' + id, {method:'DELETE'});
+  if (r.ok) await loadWeek();
+  else alert((await r.json()).error || 'Nepodařilo se smazat');
+}
+
+init();
+</script>
+
+<script src="/icons.js?v=2"></script>
+<script src="/nav-avatar.js?v=1"></script>
+<script>InkLinkNavAvatar.init();</script>
+<script src="/mobile-nav.js?v=14"></script>
+<script>InkLinkMobileNav.init();</script>
+</body>
+</html>

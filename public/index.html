@@ -307,7 +307,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     <a class="nav-icon" href="/" title="Feed"><svg class="icon"><use href="#i-home"/></svg></a>
     <a class="nav-icon" href="/map" title="Mapa tatérů"><svg class="icon"><use href="#i-map-pin"/></svg></a>
     <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
-    <a class="nav-icon" href="/my-bookings" title="Moje rezervace"><svg class="icon"><use href="#i-calendar"/></svg></a>
+    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-calendar"/></svg></a>
     <a class="nav-icon" href="/messages" title="Zprávy" id="navMessages" style="position:relative"><svg class="icon"><use href="#i-message"/></svg><span id="navMessagesBadge" style="display:none;position:absolute;top:4px;right:4px;min-width:8px;height:8px;border-radius:50%;background:var(--red2);border:1.5px solid var(--bg)"></span></a>
     <div class="nav-avatar-wrap">
       <div class="nav-avatar" id="navAvatar" title="Účet" onclick="toggleAvatarMenu(event)">??</div>
@@ -595,6 +595,10 @@ async function init() {
       document.getElementById('fabAdd').classList.add('visible');
       document.getElementById('amSetup').style.display = 'flex';
       document.getElementById('amEarnings').style.display = 'flex';
+      // Pro tatéry kalendář vede na /calendar (slot management),
+      // pro klienty zůstává /my-bookings (přehled rezervací)
+      const navCal = document.getElementById('navCalendar');
+      if (navCal) { navCal.href = '/calendar'; navCal.title = 'Kalendář — moje termíny'; }
     }
   } else {
     // Host: avatar → Přihlásit button

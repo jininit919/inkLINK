@@ -146,6 +146,7 @@
       ? (useModal
           ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
           : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' })
+      // Klient: kalendář vede na rezervace, tatér: kalendář na slot management
       : { href: '/my-bookings',            ico: 'i-calendar', lbl: 'Rezervace' };
     return [
       { href: '/',         ico: 'i-home',    lbl: 'Feed' },

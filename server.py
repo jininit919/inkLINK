@@ -1005,6 +1005,11 @@ def my_bookings_page():
     return send_from_directory('public', 'my-bookings.html')
 
 
+@app.route('/calendar')
+def calendar_page():
+    return send_from_directory('public', 'calendar.html')
+
+
 @app.route('/liked')
 def liked_page():
     return send_from_directory('public', 'liked.html')
@@ -2683,12 +2688,59 @@ def create_slot():
         min_dur = 1
     min_dur = max(1, min(24, min_dur))
 
+    # ── Recurrence ────────────────────────────────────────────────────
+    # Volitelný shape: {"days": [0..6, ...], "until": "YYYY-MM-DD"}
+    # 0=pondělí, 6=neděle (ISO weekday: Monday=0 to align s JS getDay()-1 adjust).
+    # Pokud chybí 'days' nebo je prázdný → vytvoříme jen jeden slot (jednorázový).
+    recur = data.get('recur') if isinstance(data.get('recur'), dict) else None
+    occurrences = [(s_dt, e_dt)]  # default: jen základní termín
+
+    if recur:
+        days_raw = recur.get('days') or []
+        try:
+            days = sorted(set(int(d) for d in days_raw if 0 <= int(d) <= 6))
+        except (TypeError, ValueError):
+            days = []
+        until_str = (recur.get('until') or '').strip()
+        if days and until_str:
+            try:
+                until_date = datetime.fromisoformat(until_str).date()
+            except ValueError:
+                until_date = None
+            if until_date:
+                # rozsah délky bloku (timedelta) zachováme stejný
+                duration = e_dt - s_dt
+                # iteruj od dne base+1 do until_date včetně
+                from datetime import date as _date, time as _time
+                base_date = s_dt.date()
+                # pondělí=0 v Pythonu weekday()
+                cur = base_date + timedelta(days=1)
+                start_time = s_dt.time()
+                # bezpečnostní limit — max 200 výskytů
+                while cur <= until_date and len(occurrences) < 200:
+                    if cur.weekday() in days:
+                        ns = datetime.combine(cur, start_time)
+                        ne = ns + duration
+                        occurrences.append((ns, ne))
+                    cur += timedelta(days=1)
+                # přidej i základní den pouze pokud jeho weekday je mezi vybranými dny
+                # (jinak je v occurrences už od inicializace — necháme tak ať uživatel
+                #  vidí, že jeho výchozí termín se vytvořil)
+
     conn = get_db()
-    conn.execute('''INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max,
-                                       deposit_pct, note, price_unit, min_duration_hours)
-                    VALUES (?,?,?,'free',?,?,?,?,?,?)''',
-                 (session['user_id'], s_dt.isoformat(), e_dt.isoformat(),
-                  price_min, price_max, deposit_pct, note, price_unit, min_dur))
+    created_ids = []
+    for ns, ne in occurrences:
+        conn.execute('''INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max,
+                                           deposit_pct, note, price_unit, min_duration_hours)
+                        VALUES (?,?,?,'free',?,?,?,?,?,?)''',
+                     (session['user_id'], ns.isoformat(), ne.isoformat(),
+                      price_min, price_max, deposit_pct, note, price_unit, min_dur))
+        if not conn._pg:
+            sid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        else:
+            sid = conn.execute('SELECT lastval()').fetchone()[0]
+        created_ids.append(sid)
+
     # auto-promote to artist
     u = conn.execute('SELECT is_artist, artist_slug, display_name, username FROM users WHERE id=?',
                      (session['user_id'],)).fetchone()
@@ -2701,10 +2753,9 @@ def create_slot():
             slug = f'{base}-{n}'
         conn.execute('UPDATE users SET is_artist=1, artist_slug=? WHERE id=?', (slug, session['user_id']))
     conn.commit()
-    sid = conn.execute('SELECT id FROM slots WHERE user_id=? ORDER BY id DESC LIMIT 1',
-                       (session['user_id'],)).fetchone()['id']
     conn.close()
-    return jsonify({'ok': True, 'id': sid})
+    return jsonify({'ok': True, 'id': created_ids[0] if created_ids else None,
+                    'created': len(created_ids), 'ids': created_ids})
 
 
 @app.route('/api/slots/<int:slot_id>', methods=['DELETE'])

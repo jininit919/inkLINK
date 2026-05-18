@@ -48,6 +48,12 @@
       return;
     }
 
+    // Pro tatéry přesměrovat kalendář na /calendar (slot management)
+    if (me.is_artist) {
+      const cal = document.getElementById('navCalendar');
+      if (cal) { cal.href = '/calendar'; cal.title = 'Kalendář — moje termíny'; }
+    }
+
     // Wrap avatar v .nav-avatar-wrap (pokud ještě není)
     let wrap = avatar.closest('.nav-avatar-wrap');
     if (!wrap) {
