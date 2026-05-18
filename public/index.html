@@ -139,21 +139,43 @@ main{padding:24px 24px 80px;min-width:0}
 .add-btn{display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:7px 14px;background:var(--red2);color:var(--bg);border:none;cursor:pointer;text-transform:uppercase;text-decoration:none}
 .add-btn:hover{background:var(--red3)}
 
-.feed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-@media(max-width:1100px){.feed-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.feed-grid{grid-template-columns:1fr}}
+/* Masonry feed — CSS columns layout (Pinterest-style) */
+.feed-grid{column-count:3;column-gap:10px}
+@media(max-width:1100px){.feed-grid{column-count:2}}
+@media(max-width:560px){.feed-grid{column-count:2;column-gap:6px}}
 
-.card{background:var(--bg3);border:1px solid var(--border);position:relative;overflow:hidden;cursor:pointer;transition:border-color 0.15s}
-.card:hover{border-color:var(--border2)}
-.card .img{aspect-ratio:1;background:var(--bg4);overflow:hidden;position:relative}
-.card .img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.4s}
-.card:hover .img img{transform:scale(1.04)}
-.card-price{position:absolute;top:8px;right:8px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.05em;padding:4px 10px;background:var(--red2);color:var(--bg);line-height:1}
-.card-kind{position:absolute;top:8px;left:8px;font-size:9px;letter-spacing:0.15em;padding:3px 8px;background:rgba(0,0,0,0.75);color:#fff}
-.card-imgs-badge{position:absolute;bottom:8px;left:8px;font-size:10px;letter-spacing:0.08em;padding:3px 7px;background:rgba(0,0,0,0.78);color:#fff;display:flex;align-items:center;gap:4px}
-.card-bookcta{position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:rgba(0,0,0,0.92);color:var(--red2);text-align:center;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:background 0.15s,color 0.15s;border-top:1px solid var(--border2)}
-.card-bookcta:hover{background:var(--red2);color:var(--bg)}
-.card-foot{padding:12px 14px;display:flex;align-items:center;gap:10px}
+.card{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin-bottom:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;position:relative;overflow:hidden;cursor:pointer;transition:transform 0.25s cubic-bezier(0.32,0.72,0,1),box-shadow 0.25s,border-color 0.15s;display:block}
+.card:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 14px 32px rgba(0,0,0,0.5)}
+.card .img{background:var(--bg4);overflow:hidden;position:relative}
+.card .img img{width:100%;height:auto;display:block;transition:transform 0.5s cubic-bezier(0.32,0.72,0,1)}
+.card:hover .img img{transform:scale(1.03)}
+
+/* Subtle price pill — glass blur, less harsh */
+.card-price{position:absolute;top:10px;right:10px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.04em;padding:5px 10px;background:rgba(0,0,0,0.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:6px;line-height:1.2}
+.card-kind{position:absolute;top:10px;left:10px;font-size:9px;letter-spacing:0.16em;padding:4px 8px;background:rgba(0,0,0,0.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:4px}
+.card-imgs-badge{position:absolute;bottom:10px;left:10px;font-size:10px;letter-spacing:0.06em;padding:3px 7px;background:rgba(0,0,0,0.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:4px;display:flex;align-items:center;gap:4px}
+
+/* Hover overlay — image-first, action revealed only on hover */
+.card-actions{position:absolute;top:10px;right:10px;display:flex;gap:6px;opacity:0;transform:translateY(-4px);transition:opacity 0.2s,transform 0.2s;pointer-events:none}
+.card:hover .card-actions{opacity:1;transform:translateY(0);pointer-events:auto}
+.card-price-with-actions{right:auto;left:10px;top:10px}
+.card-action-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border:none;border-radius:50%;cursor:pointer;transition:background 0.15s;padding:0}
+.card-action-btn:hover{background:rgba(255,255,255,0.95);color:#000}
+.card-action-btn .icon{width:15px;height:15px}
+
+/* Bottom-right floating CTA — visible only on hover */
+.card-bookcta{position:absolute;bottom:10px;right:10px;padding:8px 12px;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#000;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;gap:5px;opacity:0;transform:translateY(4px);transition:opacity 0.2s,transform 0.2s;font-weight:500}
+.card:hover .card-bookcta{opacity:1;transform:translateY(0)}
+.card-bookcta:hover{background:#fff}
+.card-bookcta .icon{width:12px;height:12px}
+
+/* On touch devices show CTA always (no hover) */
+@media(hover:none){
+  .card-actions{opacity:1;transform:none;pointer-events:auto}
+  .card-bookcta{opacity:1;transform:none}
+}
+
+.card-foot{padding:10px 12px;display:flex;align-items:center;gap:10px}
 .card-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
 .card-avatar img{width:100%;height:100%;object-fit:cover}
 .card-who{flex:1;min-width:0;font-size:12px;line-height:1.3}
@@ -250,7 +272,7 @@ main{padding:24px 24px 80px;min-width:0}
     <div style="flex:1"></div>
 
     <div class="sidebar-section">
-      <a class="sidebar-link" onclick="doLogout()" style="cursor:pointer"><span class="icon">←</span> Odhlásit</a>
+      <a class="sidebar-link" onclick="doLogout()" style="cursor:pointer"><svg class="icon icon-sm" style="margin-right:8px"><use href="#i-log-out"/></svg> Odhlásit</a>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--txt3);letter-spacing:0.05em">
       <a href="/privacy">Ochrana údajů</a>
@@ -651,9 +673,9 @@ function render() {
         <div class="img" onclick="openLb(${i})">
           <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy">
           <div class="card-kind">${kindLabel}</div>
-          ${imgCount > 1 ? `<div class="card-imgs-badge">⧉ +${imgCount - 1}</div>` : ''}
+          ${imgCount > 1 ? `<div class="card-imgs-badge"><svg class="icon icon-sm"><use href="#i-image"/></svg> +${imgCount - 1}</div>` : ''}
           ${priced ? `<div class="card-price">${priceTxt}</div>` : ''}
-          ${bookable ? `<div class="card-bookcta" onclick="event.stopPropagation();goBookSketch('${escapeHtml(u.username)}',${p.id})">Rezervovat tento návrh →</div>` : ''}
+          ${bookable ? `<div class="card-bookcta" onclick="event.stopPropagation();goBookSketch('${escapeHtml(u.username)}',${p.id})"><svg class="icon"><use href="#i-arrow-right"/></svg> Rezervovat</div>` : ''}
         </div>
         <div class="card-foot">
           <a class="card-avatar" href="/profile/${escapeHtml(u.username)}" onclick="event.stopPropagation()">${av}</a>
