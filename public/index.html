@@ -299,7 +299,10 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 #lightbox .lb-who:hover{background:var(--bg3)}
 #lightbox .lb-who .name{font-size:13px;color:var(--txt);line-height:1.3;letter-spacing:0.02em}
 #lightbox .lb-who .meta{font-size:11px;color:var(--txt3);letter-spacing:0.04em;line-height:1.4;margin-top:2px}
-#lightbox .lb-price{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.04em;padding:6px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);border-radius:999px;flex:0 0 auto}
+#lightbox .lb-meta-pills{display:flex;gap:6px;flex-wrap:wrap;flex:0 0 auto}
+#lightbox .lb-pill{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.04em;padding:6px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);border-radius:999px;flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;line-height:1.2;white-space:nowrap}
+#lightbox .lb-pill .icon{width:12px;height:12px;color:var(--txt3)}
+#lightbox .lb-pill.muted{color:var(--txt3)}
 #lightbox .lb-actions{display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto}
 #lightbox .lb-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;padding:9px 16px;border-radius:999px;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;text-decoration:none;border:1px solid var(--border2);background:var(--bg3);color:var(--txt2);font-weight:400}
 #lightbox .lb-btn:hover{background:var(--bg4);border-color:var(--border3,var(--border2));color:var(--txt)}
@@ -311,7 +314,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
   #lightbox{padding:12px}
   #lightbox .lb-foot{padding:12px;gap:10px}
   #lightbox .lb-who{order:1;width:100%;flex:1 1 100%}
-  #lightbox .lb-price{order:2;margin-left:auto}
+  #lightbox .lb-meta-pills{order:2;width:100%;justify-content:flex-start}
   #lightbox .lb-actions{order:3;width:100%;justify-content:stretch}
   #lightbox .lb-actions .lb-btn{flex:1;justify-content:center;padding:10px 8px;font-size:10px}
 }
@@ -578,7 +581,10 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
           <div class="meta" id="lb-meta"></div>
         </div>
       </a>
-      <span class="lb-price" id="lb-price" style="display:none"></span>
+      <div class="lb-meta-pills" id="lb-meta-pills">
+        <span class="lb-pill" id="lb-pill-price" style="display:none"></span>
+        <span class="lb-pill" id="lb-pill-dur" style="display:none"></span>
+      </div>
       <div class="lb-actions">
         <a class="lb-btn" id="lb-profile" href="#"><svg class="icon"><use href="#i-user"/></svg> Profil</a>
         <a class="lb-btn" id="lb-message" href="#"><svg class="icon"><use href="#i-message"/></svg> Zpráva</a>
@@ -1118,23 +1124,42 @@ function openLb(i) {
   if (p.user.avatar) document.getElementById('lb-avatar').innerHTML = `<img src="${escapeHtml(p.user.avatar)}" alt="">`;
   else document.getElementById('lb-avatar').textContent = (p.user.initials || '?');
 
-  // Cena (pokud je nastavená)
-  const priceEl = document.getElementById('lb-price');
-  const priced = p.kind === 'sketch' && p.price_kc;
-  if (priced) {
-    const hoursTxt = p.estimated_hours ? ` · ${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '';
-    priceEl.textContent = `${(+p.price_kc).toLocaleString('cs-CZ')} Kč${hoursTxt}`;
-    priceEl.style.display = 'inline-flex';
+  // Cena + Délka jako 2 samostatné pilly
+  const isSketch = p.kind === 'sketch';
+  const pricePill = document.getElementById('lb-pill-price');
+  const durPill = document.getElementById('lb-pill-dur');
+
+  if (p.price_kc) {
+    pricePill.innerHTML = `<svg class="icon"><use href="#i-credit-card"/></svg> ${(+p.price_kc).toLocaleString('cs-CZ')} Kč`;
+    pricePill.classList.remove('muted');
+    pricePill.style.display = 'inline-flex';
+  } else if (isSketch) {
+    pricePill.innerHTML = `<svg class="icon"><use href="#i-credit-card"/></svg> cena dle domluvy`;
+    pricePill.classList.add('muted');
+    pricePill.style.display = 'inline-flex';
   } else {
-    priceEl.style.display = 'none';
+    pricePill.style.display = 'none';
+  }
+
+  if (p.estimated_hours) {
+    const hTxt = (+p.estimated_hours).toString().replace(/\.0$/, '');
+    durPill.innerHTML = `<svg class="icon"><use href="#i-clock"/></svg> ~${hTxt} h`;
+    durPill.classList.remove('muted');
+    durPill.style.display = 'inline-flex';
+  } else if (isSketch) {
+    durPill.innerHTML = `<svg class="icon"><use href="#i-clock"/></svg> délka dle domluvy`;
+    durPill.classList.add('muted');
+    durPill.style.display = 'inline-flex';
+  } else {
+    durPill.style.display = 'none';
   }
 
   // Action buttons
   document.getElementById('lb-profile').href = profileHref;
   document.getElementById('lb-message').href = '/messages?user=' + encodeURIComponent(username);
   const bookBtn = document.getElementById('lb-book');
-  const bookable = priced && p.estimated_hours;
-  if (bookable) {
+  // Rezervovat vždy zobrazit pro skicy — pokud chybí cena/hours, profil ukáže fallback modal
+  if (isSketch) {
     bookBtn.href = `/profile/${encodeURIComponent(username)}#book-${p.id}`;
     bookBtn.style.display = 'inline-flex';
   } else {
