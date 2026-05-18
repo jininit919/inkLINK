@@ -85,6 +85,28 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 
 .disclaimer{font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.7;padding:14px 16px;background:var(--bg2);border-left:2px solid var(--border2);margin-top:24px}
 .disclaimer b{color:var(--txt2);font-weight:400}
+
+/* Report card */
+.report-card{margin:14px 0 28px;padding:22px 24px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;gap:14px}
+.report-card h3{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.16em;color:var(--txt);font-weight:400;display:flex;align-items:center;gap:10px}
+.report-card h3 .icon{width:18px;height:18px;color:var(--txt3)}
+.report-card p{font-size:12px;color:var(--txt2);line-height:1.6;letter-spacing:0.02em;max-width:620px}
+.report-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.report-row .fld{display:flex;flex-direction:column;gap:6px;flex:0 0 auto;min-width:200px}
+.report-row .fld label{font-size:10px;letter-spacing:0.14em;color:var(--txt3);text-transform:uppercase}
+.report-row .fld input{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:10px 14px;border-radius:6px;outline:none;transition:all 0.12s;-webkit-appearance:none;appearance:none}
+.report-row .fld input::-webkit-calendar-picker-indicator{filter:invert(0.7)}
+.report-row .fld input:focus{border-color:var(--red2);background:var(--bg4);box-shadow:0 0 0 3px rgba(255,255,255,0.06)}
+.report-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;padding:11px 18px;border-radius:6px;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:7px;transition:all 0.12s;border:1px solid var(--border2);background:var(--bg3);color:var(--txt)}
+.report-btn:hover{background:var(--bg4)}
+.report-btn.primary{background:var(--red2);color:var(--bg);border-color:var(--red2)}
+.report-btn.primary:hover{background:#fff}
+.report-btn .icon{width:14px;height:14px}
+.report-flash{font-size:11px;letter-spacing:0.04em;padding:8px 12px;border-radius:6px}
+.report-flash.err{background:rgba(229,135,135,0.1);color:var(--bad);border:1px solid rgba(229,135,135,0.3)}
+.report-flash.ok{background:rgba(127,201,127,0.1);color:var(--good);border:1px solid rgba(127,201,127,0.3)}
+#reportPreview{margin-top:6px;display:none}
+#reportPreview pre{font-size:11px;background:var(--bg3);padding:14px;border:1px solid var(--border2);border-radius:6px;max-height:320px;overflow:auto;white-space:pre-wrap;color:var(--txt2);letter-spacing:0.02em}
 </style>
 </head>
 <body data-theme="dark">
@@ -128,6 +150,31 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
         <div class="kpi-value" id="kpiPending">—</div>
         <div class="kpi-sub" id="kpiPendingSub">zatím nezaplacené zálohy</div>
       </div>
+    </div>
+
+    <div class="report-card">
+      <h3><svg class="icon"><use href="#i-credit-card"/></svg> Měsíční report</h3>
+      <p>
+        Stáhni si <b style="color:var(--txt)">PDF report</b> za vybraný měsíc — obsahuje
+        všechny rezervace, zaplacené zálohy, hotovost na místě, provize InkLinku
+        a čistý příjem. Vhodné pro daňovou evidenci.
+      </p>
+      <form id="reportForm" onsubmit="downloadReport(event)">
+        <div class="report-row">
+          <div class="fld">
+            <label>Měsíc</label>
+            <input type="month" id="reportMonth" required>
+          </div>
+          <button class="report-btn primary" type="submit">
+            <svg class="icon"><use href="#i-arrow-right"/></svg> Stáhnout PDF
+          </button>
+          <button class="report-btn" type="button" onclick="previewReport()">
+            <svg class="icon"><use href="#i-eye"/></svg> Náhled (JSON)
+          </button>
+        </div>
+      </form>
+      <div id="reportFlash"></div>
+      <div id="reportPreview"><pre id="reportJson"></pre></div>
     </div>
 
     <div class="section-head">
@@ -306,10 +353,52 @@ async function init() {
   }).join('');
 }
 
+// ── Monthly report ───────────────────────────────────────────────────────────
+function reportMonthOrErr() {
+  const m = document.getElementById('reportMonth').value;
+  const flash = document.getElementById('reportFlash');
+  if (!m) {
+    flash.innerHTML = '<div class="report-flash err">Vyber měsíc</div>';
+    return null;
+  }
+  flash.innerHTML = '';
+  const [y, mm] = m.split('-');
+  return { y, mm };
+}
+
+function downloadReport(e) {
+  e.preventDefault();
+  const x = reportMonthOrErr();
+  if (!x) return;
+  // přímý download — server vrátí PDF s Content-Disposition: attachment
+  window.location.href = `/api/me/report/${x.y}/${x.mm}`;
+}
+
+async function previewReport() {
+  const x = reportMonthOrErr();
+  if (!x) return;
+  const flash = document.getElementById('reportFlash');
+  const r = await fetch(`/api/me/report/${x.y}/${x.mm}?format=json`);
+  if (!r.ok) {
+    flash.innerHTML = '<div class="report-flash err">Načtení selhalo</div>';
+    return;
+  }
+  const j = await r.json();
+  const box = document.getElementById('reportPreview');
+  document.getElementById('reportJson').textContent = JSON.stringify(j, null, 2);
+  box.style.display = 'block';
+}
+
+// Pre-fill report month = aktuální měsíc
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  const el = document.getElementById('reportMonth');
+  if (el) el.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+});
+
 init();
 </script>
 
-<script src="/icons.js?v=2"></script>
 <script src="/icons.js?v=2"></script>
 <script src="/nav-avatar.js?v=1"></script>
 <script>InkLinkNavAvatar.init();</script>

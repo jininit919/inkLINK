@@ -210,11 +210,13 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 
   <div class="tabs">
     <div class="tab active" data-tab="profile">Profil</div>
-    <div class="tab" data-tab="portfolio">Portfolio</div>
-    <div class="tab" data-tab="slots">Kalendář</div>
     <div class="tab" data-tab="payments">Platby</div>
-    <div class="tab" data-tab="reports">Reporty</div>
   </div>
+  <p style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin:8px 0 0">
+    Portfolio přidáš z <a href="/" style="color:var(--red2);border-bottom:1px solid currentColor">feedu (+)</a>,
+    termíny v <a href="/calendar" style="color:var(--red2);border-bottom:1px solid currentColor">kalendáři</a>,
+    výdělky a měsíční reporty ve <a href="/earnings" style="color:var(--red2);border-bottom:1px solid currentColor">výdělcích</a>.
+  </p>
 
   <!-- ── PROFILE TAB ── -->
   <div id="tab-profile">
@@ -293,161 +295,6 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
         <span id="pushStatusText">Načítám stav…</span>
       </div>
       <div id="pushActions" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"></div>
-    </div>
-  </div>
-
-  <!-- ── PORTFOLIO TAB ── -->
-  <div id="tab-portfolio" style="display:none">
-    <div class="card">
-      <h2>PŘIDAT POLOŽKU</h2>
-      <p class="hint">Skicy a hotové práce. JPG / PNG / WEBP, do 10 MB. Klienti je uvidí na tvém profilu i ve feedu.</p>
-      <form id="portfolioForm">
-        <div class="row">
-          <div class="field">
-            <label>Obrázky (1-4 fotky)</label>
-            <input type="file" name="image" id="pImage" accept="image/jpeg,image/png,image/webp" multiple required>
-            <div class="hint" style="margin-top:4px;font-size:11px">První obrázek je hlavní (zobrazí se ve feedu).</div>
-            <div id="pPreviewGrid" style="display:none;margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:340px"></div>
-          </div>
-          <div class="field">
-            <label>Typ</label>
-            <select name="kind" id="pKind">
-              <option value="done">Hotová práce</option>
-              <option value="sketch">Skica / návrh k tetování</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <label>Popis / název návrhu</label>
-          <input type="text" name="caption" id="pCaption" maxlength="500" placeholder="Vlk na předloktí, realismus">
-        </div>
-        <div class="row">
-          <div class="field">
-            <label>Cena (Kč) — volitelně</label>
-            <input type="number" name="price_kc" id="pPrice" min="0" placeholder="4500">
-          </div>
-          <div class="field">
-            <label>Odhad délky (h) — volitelně</label>
-            <input type="number" name="estimated_hours" id="pHours" min="0.5" max="24" step="0.5" placeholder="3">
-          </div>
-        </div>
-        <p class="hint" style="margin:0 0 8px;color:var(--txt3);font-size:11px">
-          Pokud vyplníš cenu + délku u skici, klient si může <b>rezervovat přímo tento návrh</b> za pevnou cenu — nepoužije se hodinová sazba bloku.
-        </p>
-        <div class="field">
-          <label>Styly (volitelně, max 4)</label>
-          <div class="styles-grid" id="pStylesGrid"></div>
-        </div>
-        <button class="btn" type="submit">Nahrát</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>MOJE PORTFOLIO <span id="pCount" style="color:var(--txt3);font-family:'DM Mono',monospace;font-size:13px"></span></h2>
-      <div class="gallery" id="gallery"></div>
-      <div id="galleryEmpty" style="text-align:center;padding:40px;color:var(--txt3);font-size:12px;display:none">Zatím nic. Přidej první kousek výš.</div>
-    </div>
-  </div>
-
-  <!-- ── SLOTS TAB ── -->
-  <div id="tab-slots" style="display:none">
-    <div class="card">
-      <h2>KALENDÁŘ TÝDNE</h2>
-      <p class="hint">Klik na prázdné místo otevře formulář s předvyplněným časem. Klik na blok ukáže detail a rezervace klientů.</p>
-      <div class="cal-nav">
-        <button id="calPrev" title="Předchozí týden"><svg class="icon icon-sm"><use href="#i-chevron-left"/></svg></button>
-        <h3 id="calLabel">…</h3>
-        <button id="calToday">Dnes</button>
-        <button id="calNext" title="Další týden"><svg class="icon icon-sm"><use href="#i-chevron-right"/></svg></button>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
-    </div>
-
-    <div class="card">
-      <h2>PŘIDAT BLOK DOSTUPNOSTI</h2>
-      <p class="hint">
-        Tohle je <b>blok</b>, do kterého se klienti rezervují podle velikosti tetování. Zadej třeba celý den
-        (9:00–17:00, 8 h) a klienti si vyberou kolik hodin potřebují (Mini 1 h, Velké 5 h, Celý den 8 h…).
-        Sazba je <b>za hodinu</b>; cena rezervace = délka × sazba. Více klientů se může střídat ve stejném dni.
-      </p>
-      <form id="slotForm">
-        <div class="row">
-          <div class="field">
-            <label>Začátek bloku</label>
-            <input type="datetime-local" name="start_at" id="sStart" required>
-          </div>
-          <div class="field">
-            <label>Konec bloku</label>
-            <input type="datetime-local" name="end_at" id="sEnd" required>
-          </div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label>Hodinová sazba od (Kč/h)</label>
-            <input type="number" name="price_min" id="sPriceMin" min="0" placeholder="1200">
-          </div>
-          <div class="field">
-            <label>Hodinová sazba do (Kč/h)</label>
-            <input type="number" name="price_max" id="sPriceMax" min="0" placeholder="1800">
-          </div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label>Min. délka rezervace (h)</label>
-            <input type="number" name="min_duration_hours" id="sMinDur" min="1" max="12" value="1">
-          </div>
-          <div class="field">
-            <label>Záloha % (přepíše default)</label>
-            <input type="number" name="deposit_pct" id="sDeposit" min="0" max="100" placeholder="30">
-          </div>
-        </div>
-        <div class="field">
-          <label>Poznámka (volitelně)</label>
-          <input type="text" name="note" id="sNote" maxlength="200" placeholder="Realismus, konzultace předem">
-        </div>
-        <button class="btn" type="submit">Přidat blok</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>MOJE BLOKY</h2>
-      <div class="slot-list" id="slotList"></div>
-      <div id="slotsEmpty" style="text-align:center;padding:40px;color:var(--txt3);font-size:12px;display:none">Zatím nemáš žádné bloky dostupnosti.</div>
-    </div>
-  </div>
-
-  <!-- ── REPORTS TAB ── -->
-  <div id="tab-reports" style="display:none">
-    <div class="card">
-      <h2>MĚSÍČNÍ PŘEHLED</h2>
-      <p class="hint">
-        PDF report se všemi rezervacemi za vybraný měsíc — celkový obrat, zálohy, provize InkLinku,
-        propadlé zálohy z late storna, hotovost na místě, čistý příjem. Vhodné pro daňovou evidenci.
-      </p>
-      <form id="reportForm" onsubmit="downloadReport(event)">
-        <div class="row">
-          <div class="field">
-            <label>Měsíc</label>
-            <input type="month" id="reportMonth" required>
-          </div>
-          <div class="field" style="display:flex;align-items:flex-end;gap:8px">
-            <button class="btn" type="submit">Stáhnout PDF</button>
-            <button class="btn muted" type="button" onclick="previewReport()">Náhled JSON</button>
-          </div>
-        </div>
-      </form>
-      <div id="reportPreview" style="margin-top:18px;display:none">
-        <pre id="reportJson" style="font-size:11px;background:var(--bg3);padding:14px;border:1px solid var(--border2);max-height:360px;overflow:auto;white-space:pre-wrap"></pre>
-      </div>
-    </div>
-    <div class="card">
-      <h2>JAK TO FUNGUJE</h2>
-      <p class="hint" style="line-height:1.7">
-        • Záloha přes InkLink → automaticky se objeví v reportu.<br>
-        • <b>Po sezení</b> v Kalendáři klikni "Označit dokončené" a zadej, kolik klient zaplatil <b>na místě</b> v hotovosti / kartě → propíše se do reportu.<br>
-        • Refundy ze storna se zohlední podle pravidel (zdarma 96+ h · 50 % mezi 96–48 h · 0 % pod 48 h).<br>
-        • Provize InkLinku (8 %) se počítá z částky, co tatérovi zůstala po refundech.
-      </p>
     </div>
   </div>
 
@@ -551,32 +398,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   });
 }));
 
-// default reportu = aktuální měsíc
-document.addEventListener('DOMContentLoaded', () => {
-  const now = new Date();
-  document.getElementById('reportMonth').value =
-    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-});
-
-async function previewReport() {
-  const m = document.getElementById('reportMonth').value;
-  if (!m) { flash('Vyber měsíc', 'err'); return; }
-  const [y, mm] = m.split('-');
-  const r = await fetch(`/api/me/report/${y}/${mm}?format=json`);
-  if (!r.ok) { flash('Načtení selhalo', 'err'); return; }
-  const j = await r.json();
-  document.getElementById('reportPreview').style.display = 'block';
-  document.getElementById('reportJson').textContent = JSON.stringify(j, null, 2);
-}
-
-function downloadReport(e) {
-  e.preventDefault();
-  const m = document.getElementById('reportMonth').value;
-  if (!m) { flash('Vyber měsíc', 'err'); return; }
-  const [y, mm] = m.split('-');
-  // přímý download — server vrátí PDF s Content-Disposition: attachment
-  window.location.href = `/api/me/report/${y}/${mm}`;
-}
+// Reporty se přesunuly na /earnings — funkce zde už nejsou potřeba
 
 async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
@@ -610,14 +432,18 @@ async function init() {
   if (profile) document.getElementById('bio').value = profile.bio || '';
 
   // pre-fill slot form z user defaults
-  if (me.hourly_rate_min) document.getElementById('sPriceMin').placeholder = me.hourly_rate_min;
-  if (me.hourly_rate_max) document.getElementById('sPriceMax').placeholder = me.hourly_rate_max;
-  if (me.deposit_pct_default) document.getElementById('sDeposit').placeholder = me.deposit_pct_default;
-  document.getElementById('sPriceMin').value = me.hourly_rate_min ?? '';
-  document.getElementById('sPriceMax').value = me.hourly_rate_max ?? '';
+  // Portfolio / sloty / reporty teď žijí na jiných stránkách (feed FAB / /calendar / /earnings)
+  // Volání jsou guardována ať neselžou na missing DOM elementech
+  if (document.getElementById('sPriceMin')) {
+    if (me.hourly_rate_min) document.getElementById('sPriceMin').placeholder = me.hourly_rate_min;
+    if (me.hourly_rate_max) document.getElementById('sPriceMax').placeholder = me.hourly_rate_max;
+    if (me.deposit_pct_default) document.getElementById('sDeposit').placeholder = me.deposit_pct_default;
+    document.getElementById('sPriceMin').value = me.hourly_rate_min ?? '';
+    document.getElementById('sPriceMax').value = me.hourly_rate_max ?? '';
+  }
 
-  await loadPortfolio();
-  await loadSlots();
+  if (document.getElementById('gallery')) await loadPortfolio();
+  if (document.getElementById('slotList')) await loadSlots();
   await loadStripeStatus();
   await loadChecklist();
   await loadPushStatus();
@@ -627,22 +453,16 @@ async function init() {
   if (qs.get('stripe') === 'ok') {
     flash('Vrátil ses ze Stripe — kontroluju stav…');
     history.replaceState(null, '', '/artist-setup#payments');
-    document.querySelector('.tab[data-tab="payments"]').click();
+    document.querySelector('.tab[data-tab="payments"]')?.click();
   }
 
-  // hash routing: /artist-setup#portfolio nebo #slots / #payments / #profile
+  // hash routing — odkazy z jiných stránek mohou stále směřovat na #portfolio/#slots/#reports;
+  // ty teď žijí jinde, takže redirectneme.
   const hash = (location.hash || '').replace('#', '').toLowerCase();
-  const validTabs = {profile:1, portfolio:1, slots:1, payments:1, reports:1};
-  if (validTabs[hash]) {
-    const tabEl = document.querySelector(`.tab[data-tab="${hash}"]`);
-    if (tabEl) tabEl.click();
-    if (hash === 'portfolio') {
-      // pre-select kind=sketch a focus
-      const kindSel = document.getElementById('pKind');
-      if (kindSel) kindSel.value = 'sketch';
-      setTimeout(() => document.getElementById('pImage')?.focus(), 80);
-    }
-  }
+  if (hash === 'portfolio') { location.replace('/'); return; }
+  if (hash === 'slots')     { location.replace('/calendar'); return; }
+  if (hash === 'reports')   { location.replace('/earnings'); return; }
+  if (hash === 'payments') document.querySelector('.tab[data-tab="payments"]')?.click();
 }
 
 // ── Push notifikace opt-in ─────────────────────────────────────────────────
@@ -961,7 +781,7 @@ function clearImagePreview() {
   if (g) { g.innerHTML = ''; g.style.display = 'none'; }
 }
 
-document.getElementById('portfolioForm').addEventListener('submit', async e => {
+document.getElementById('portfolioForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   // FormData s `multiple` input zachytí jen 1 file v "image" — musíme rozdělit do image / image2 / image3 / image4
   const fd = new FormData();
@@ -1311,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-document.getElementById('slotForm').addEventListener('submit', async e => {
+document.getElementById('slotForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.target);
   // datetime-local doesn't include timezone — keep as-is, server interprets local then we normalize
