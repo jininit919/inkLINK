@@ -13,10 +13,12 @@
         div.setAttribute('aria-hidden', 'true');
         div.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
         div.innerHTML = txt;
-        if (document.body) document.body.prepend(div);
-        else document.addEventListener('DOMContentLoaded', function () {
+        function attach() {
           document.body.prepend(div);
-        });
+          document.dispatchEvent(new Event('il-icons-ready'));
+        }
+        if (document.body) attach();
+        else document.addEventListener('DOMContentLoaded', attach);
       })
       .catch(function () { /* tichý fail — sprite není kritický */ });
   }

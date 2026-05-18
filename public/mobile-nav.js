@@ -24,13 +24,15 @@
   .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:rgba(0,0,0,0.96) !important;backdrop-filter:blur(12px);border-top:1px solid var(--border,#1a1a1a);display:none;height:62px !important;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent;padding:0 !important;margin:0 !important}
   .il-mnav-grid{display:grid;grid-template-columns:repeat(5,1fr);height:100%}
   .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#777);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
-  .il-mnav-item .ico{font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center}
+  .il-mnav-item .ico{line-height:1;display:flex;align-items:center;justify-content:center}
+  .il-mnav-item .ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   .il-mnav-item .lbl{font-size:9px;letter-spacing:0.06em;color:var(--txt3,#777);white-space:nowrap}
   .il-mnav-item.active{color:var(--red2,#e8e8e8)}
   .il-mnav-item.active .lbl{color:var(--red2,#e8e8e8)}
   .il-mnav-item:active .ico{transform:scale(0.92)}
   .il-mnav-item.primary{justify-content:flex-end;padding-bottom:8px}
-  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:var(--red2,#e8e8e8);color:var(--bg,#000);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:300;line-height:1;box-shadow:0 4px 14px rgba(232,232,232,0.18);transition:transform 0.15s,box-shadow 0.15s}
+  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:var(--red2,#e8e8e8);color:var(--bg,#000);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(232,232,232,0.18);transition:transform 0.15s,box-shadow 0.15s}
+  .il-mnav-item.primary .ico-circle svg{width:24px;height:24px;stroke:var(--bg,#000);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .il-mnav-item.primary:active .ico-circle{transform:scale(0.92);box-shadow:0 2px 8px rgba(232,232,232,0.12)}
   .il-mnav-item.primary .lbl{color:var(--red2,#e8e8e8);font-weight:500}
   .il-mnav-badge{position:absolute;top:6px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);font-size:9px;color:var(--bg,#000);display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
@@ -75,11 +77,8 @@
     return cachedMe;
   }
 
-  function svgEnvelope() {
-    return `<svg width="20" height="20" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M2 4.5 L10.5 4.5 M8 2 L10.5 4.5 L8 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M15 12.5 L6.5 12.5 M9 10 L6.5 12.5 L9 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>`;
+  function svgIcon(id) {
+    return `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
   }
 
   async function fetchCount(url) {
@@ -118,22 +117,18 @@
 
   function renderItem(it) {
     const active  = isActive(it.href) ? ' active' : '';
-    const primary = it.primary ? ' primary' : '';
     const ariaLbl = it.aria || it.lbl;
     if (it.primary) {
       // Primary má kruhový vystrčený ikon (.ico-circle) — absolutně pozicovaný
       return `<a class="il-mnav-item${active} primary" href="${it.href}" aria-label="${ariaLbl}">
-        <span class="ico-circle">${it.ico}</span>
+        <span class="ico-circle">${svgIcon(it.ico)}</span>
         <span class="lbl">${it.lbl}</span>
       </a>`;
     }
-    const ico = it.ico === 'ENV'
-      ? svgEnvelope()
-      : `<span style="font-size:20px;line-height:1">${it.ico}</span>`;
     const badge = it.badgeId ? `<span class="il-mnav-badge" id="${it.badgeId}"></span>` : '';
     const dot   = it.dotId   ? `<span class="il-mnav-dot" id="${it.dotId}"></span>` : '';
     return `<a class="il-mnav-item${active}" href="${it.href}" aria-label="${ariaLbl}">
-      <span class="ico">${ico}</span>
+      <span class="ico">${svgIcon(it.ico)}</span>
       <span class="lbl">${it.lbl}</span>
       ${badge}${dot}
     </a>`;
@@ -143,14 +138,14 @@
     const isArtist = !!(me && me.is_artist);
     const profileHref = me ? `/profile/${me.username}` : '/login';
     const centerItem = isArtist
-      ? { href: '/artist-setup#portfolio', ico: '+', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
-      : { href: '/my-bookings', ico: '◷', lbl: 'Rezervace' };
+      ? { href: '/artist-setup#portfolio', ico: 'i-plus',     lbl: 'Přidat',    primary: true, aria: 'Přidat skicu nebo práci' }
+      : { href: '/my-bookings',            ico: 'i-calendar', lbl: 'Rezervace' };
     return [
-      { href: '/',         ico: '⌂',   lbl: 'Feed' },
-      { href: '/liked',    ico: '♥',   lbl: 'Lajknuté' },
+      { href: '/',         ico: 'i-home',    lbl: 'Feed' },
+      { href: '/liked',    ico: 'i-heart',   lbl: 'Lajknuté' },
       centerItem,
-      { href: '/messages', ico: 'ENV', lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
-      { href: profileHref, ico: '◉',   lbl: me ? 'Profil' : 'Přihlásit', dotId: 'il-mnav-profile-dot' },
+      { href: '/messages', ico: 'i-message', lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
+      { href: profileHref, ico: 'i-user',    lbl: me ? 'Profil' : 'Přihlásit', dotId: 'il-mnav-profile-dot' },
     ];
   }
 
@@ -181,6 +176,13 @@
     } catch (e) {
       console && console.error && console.error('[il-mnav] render', e);
       return;
+    }
+
+    // Re-render once when icon sprite arrives (icons.js dispatches this)
+    if (!document.getElementById('il-icon-sprite')) {
+      document.addEventListener('il-icons-ready', () => {
+        try { renderNav(buildItems(cachedMe || null)); } catch {}
+      }, { once: true });
     }
 
     // 2) Pak asynchronně načti uživatele a re-renderuj, pokud je tatér
