@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InkLink — Style Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ============================================================
+   NEW DESIGN TOKENS — Apple-Dark Lite × Tattoo Edge
+   ============================================================ */
+:root {
+  /* Background layers — subtle depth, ne pure black */
+  --bg-0: #08080a;            /* deepest / void */
+  --bg-1: #0e0e10;            /* base background */
+  --bg-2: #141416;            /* surface (cards) */
+  --bg-3: #1c1c1f;            /* elevated (modal, hover) */
+  --bg-4: #26262a;            /* interactive */
+
+  /* Text hierarchy */
+  --tx-1: #f5f5f7;            /* primary */
+  --tx-2: #a8a8ac;            /* secondary */
+  --tx-3: #6e6e73;            /* tertiary / hint */
+  --tx-4: #48484c;            /* disabled / placeholder */
+
+  /* Borders */
+  --bd-1: #1c1c1f;            /* subtle / dividers */
+  --bd-2: #2a2a2e;            /* default */
+  --bd-3: #3a3a3e;            /* emphasized / focus ring */
+
+  /* Accent — tattoo red (keep brand) */
+  --ac:    #e8e8e8;           /* primary brand white (current) */
+  --ac-r:  #ff453a;           /* Apple system red */
+  --ac-w:  #ffffff;           /* pure white for emphasis */
+
+  /* Radius */
+  --r-sm:  4px;
+  --r-md:  6px;
+  --r-lg:  10px;
+  --r-pill: 999px;
+
+  /* Shadows — subtle depth */
+  --sh-1: 0 1px 2px rgba(0,0,0,0.4);
+  --sh-2: 0 4px 12px rgba(0,0,0,0.5);
+  --sh-3: 0 12px 32px rgba(0,0,0,0.7);
+
+  /* Motion */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --t-fast: 120ms;
+  --t-med: 220ms;
+}
+
+html, body {
+  background: var(--bg-1);
+  color: var(--tx-1);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.02em;
+}
+a { color: inherit; text-decoration: none; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb { background: var(--bd-3); border-radius: 3px; }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+nav.sg-nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(14, 14, 16, 0.78);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--bd-1);
+  padding: 0 28px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.sg-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  color: var(--tx-1);
+}
+.sg-brand svg { width: 18px; height: 18px; }
+.sg-nav-link {
+  font-size: 11px; letter-spacing: 0.12em; color: var(--tx-3);
+  text-transform: uppercase; transition: color var(--t-fast);
+}
+.sg-nav-link:hover { color: var(--tx-1); }
+
+main { padding: 60px 28px 120px; max-width: 1240px; margin: 0 auto; }
+section { margin-bottom: 80px; scroll-margin-top: 80px; }
+
+.sg-eyebrow {
+  font-size: 10px; letter-spacing: 0.22em; color: var(--tx-3);
+  text-transform: uppercase; margin-bottom: 14px;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.sg-eyebrow::before {
+  content: ''; width: 22px; height: 1px; background: var(--tx-3);
+}
+.sg-h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(40px, 6vw, 64px);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  margin-bottom: 14px;
+  color: var(--tx-1);
+}
+.sg-h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.06em;
+  margin-bottom: 20px;
+  color: var(--tx-1);
+}
+.sg-lead {
+  font-size: 14px;
+  color: var(--tx-2);
+  max-width: 640px;
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+
+/* ============================================================
+   ICONS — consistent sizing
+   ============================================================ */
+.icon {
+  width: 18px; height: 18px;
+  vertical-align: middle;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.icon-sm { width: 14px; height: 14px; }
+.icon-lg { width: 24px; height: 24px; }
+.icon-xl { width: 32px; height: 32px; }
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 1px;
+  background: var(--bd-1);
+  border: 1px solid var(--bd-1);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.icon-cell {
+  background: var(--bg-2);
+  padding: 22px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: background var(--t-fast);
+}
+.icon-cell:hover { background: var(--bg-3); }
+.icon-cell .icon { width: 22px; height: 22px; color: var(--tx-1); }
+.icon-name {
+  font-size: 9px; letter-spacing: 0.08em;
+  color: var(--tx-3);
+  text-transform: lowercase;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ============================================================
+   COLORS
+   ============================================================ */
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.color-swatch {
+  background: var(--bg-2);
+  border: 1px solid var(--bd-1);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.color-fill {
+  height: 88px;
+  border-bottom: 1px solid var(--bd-1);
+}
+.color-meta {
+  padding: 12px 14px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.color-meta b {
+  display: block;
+  color: var(--tx-1);
+  font-weight: 400;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  margin-bottom: 3px;
+}
+.color-meta code {
+  color: var(--tx-3);
+  font-size: 10px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--bd-2);
+  background: var(--bg-2);
+  color: var(--tx-1);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all var(--t-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:hover {
+  background: var(--bg-3);
+  border-color: var(--bd-3);
+}
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: var(--ac-w);
+  color: var(--bg-0);
+  border-color: var(--ac-w);
+}
+.btn-primary:hover {
+  background: #f5f5f5;
+  border-color: #f5f5f5;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--tx-2);
+}
+.btn-ghost:hover {
+  background: var(--bg-2);
+  color: var(--tx-1);
+}
+.btn-danger {
+  border-color: var(--ac-r);
+  color: var(--ac-r);
+}
+.btn-danger:hover {
+  background: var(--ac-r);
+  color: var(--ac-w);
+}
+.btn-lg {
+  height: 44px;
+  padding: 0 22px;
+  font-size: 12px;
+}
+.btn-sm {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 10px;
+}
+.btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  width: 36px;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* ============================================================
+   FORM FIELDS
+   ============================================================ */
+.field { margin-bottom: 18px; max-width: 360px; }
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--tx-3);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.input, .select, .textarea {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--bd-2);
+  color: var(--tx-1);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  outline: none;
+  transition: all var(--t-fast) var(--ease);
+  letter-spacing: 0.02em;
+}
+.input::placeholder, .textarea::placeholder {
+  color: var(--tx-4);
+}
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--ac-w);
+  background: var(--bg-3);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+}
+.input-icon-wrap {
+  position: relative;
+}
+.input-icon-wrap .icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--tx-3);
+  pointer-events: none;
+}
+.input-icon-wrap input {
+  padding-left: 38px;
+}
+.textarea { min-height: 96px; resize: vertical; }
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--bd-2);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: all var(--t-med) var(--ease);
+  position: relative;
+}
+.card:hover {
+  border-color: var(--bd-3);
+  transform: translateY(-2px);
+  box-shadow: var(--sh-2);
+}
+.card-img {
+  aspect-ratio: 4/5;
+  background: linear-gradient(135deg, #1a1a1d 0%, #26262a 100%);
+  position: relative;
+  overflow: hidden;
+}
+.card-img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.05) 0%, transparent 60%);
+}
+.card-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--tx-1);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  text-transform: uppercase;
+}
+.card-price {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--tx-1);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+}
+.card-cta {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 10px 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  color: var(--tx-1);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--bd-1);
+  transition: background var(--t-fast);
+  cursor: pointer;
+}
+.card-cta:hover { background: var(--ac-w); color: var(--bg-0); }
+.card-body {
+  padding: 14px;
+}
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  color: var(--tx-2);
+}
+.card-meta .avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--bg-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--tx-1);
+}
+
+/* ============================================================
+   CHIPS / PILLS
+   ============================================================ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--bd-2);
+  color: var(--tx-2);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.chip:hover {
+  border-color: var(--bd-3);
+  color: var(--tx-1);
+}
+.chip.active {
+  background: var(--ac-w);
+  color: var(--bg-0);
+  border-color: var(--ac-w);
+}
+.chip .icon { width: 12px; height: 12px; }
+
+.chip-row {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  padding: 3px 8px;
+  text-transform: uppercase;
+  border-radius: var(--r-sm);
+  background: var(--bg-3);
+  color: var(--tx-2);
+  border: 1px solid var(--bd-2);
+}
+.badge .icon { width: 11px; height: 11px; }
+.badge-success {
+  background: rgba(48, 209, 88, 0.12);
+  color: #4dd964;
+  border-color: rgba(48, 209, 88, 0.25);
+}
+.badge-warn {
+  background: rgba(255, 159, 10, 0.12);
+  color: #ffa940;
+  border-color: rgba(255, 159, 10, 0.25);
+}
+.badge-error {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--ac-r);
+  border-color: rgba(255, 69, 58, 0.25);
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty {
+  background: var(--bg-2);
+  border: 1px dashed var(--bd-2);
+  border-radius: var(--r-lg);
+  padding: 56px 28px;
+  text-align: center;
+}
+.empty .icon-xl { color: var(--tx-3); margin-bottom: 18px; }
+.empty h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  color: var(--tx-1);
+  margin-bottom: 8px;
+}
+.empty p {
+  font-size: 12px;
+  color: var(--tx-2);
+  line-height: 1.7;
+  max-width: 320px;
+  margin: 0 auto 20px;
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.modal-demo {
+  background: var(--bg-2);
+  border: 1px solid var(--bd-2);
+  border-radius: var(--r-lg);
+  padding: 26px;
+  max-width: 420px;
+  box-shadow: var(--sh-3);
+}
+.modal-demo h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.1em;
+  margin-bottom: 14px;
+}
+.modal-demo p {
+  font-size: 12px;
+  color: var(--tx-2);
+  line-height: 1.7;
+  margin-bottom: 22px;
+}
+
+/* ============================================================
+   SPINNER (already used in app — show it works)
+   ============================================================ */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--bd-3);
+  border-top-color: var(--ac-w);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   SPLIT — two columns
+   ============================================================ */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+@media (max-width: 720px) {
+  .split { grid-template-columns: 1fr; }
+}
+
+.label-meta {
+  font-size: 9px; letter-spacing: 0.16em; color: var(--tx-3);
+  text-transform: uppercase; margin-bottom: 12px;
+}
+
+/* ============================================================
+   COMPARISON TABLE
+   ============================================================ */
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--bd-1);
+  border: 1px solid var(--bd-1);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.compare > div {
+  background: var(--bg-2);
+  padding: 24px;
+}
+.compare h4 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  color: var(--tx-3);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+/* OLD style demo (for comparison) */
+.old-btn {
+  background: var(--bg-2);
+  border: 1px solid var(--bd-2);
+  color: var(--tx-1);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 9px 16px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 0;
+}
+.old-input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--bd-2);
+  color: var(--tx-1);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 0;
+  outline: none;
+}
+
+.old-card-cta {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.85);
+  color: var(--ac);
+  padding: 9px 14px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--bd-1);
+}
+.old-card {
+  background: var(--bg-2);
+  border: 1px solid var(--bd-2);
+  border-radius: 0;
+  overflow: hidden;
+}
+</style>
+</head>
+<body>
+
+<!-- Include icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Reference: we use external sprite file -->
+  </defs>
+</svg>
+
+<nav class="sg-nav">
+  <a class="sg-brand" href="/">
+    <svg viewBox="0 0 240 180" fill="currentColor" aria-hidden="true">
+      <rect x="44" y="4" width="12" height="8" rx="2"/>
+      <rect x="30" y="12" width="40" height="110" rx="8"/>
+      <polygon points="38,122 62,122 54,148 46,148"/>
+      <rect x="49" y="148" width="2" height="18" rx="1"/>
+      <path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/>
+      <rect x="196" y="143" width="22" height="2" rx="1"/>
+    </svg>
+    INKLINK
+  </a>
+  <a class="sg-nav-link" href="#icons">Ikony</a>
+  <a class="sg-nav-link" href="#colors">Barvy</a>
+  <a class="sg-nav-link" href="#buttons">Buttony</a>
+  <a class="sg-nav-link" href="#forms">Form</a>
+  <a class="sg-nav-link" href="#cards">Cards</a>
+  <a class="sg-nav-link" href="#compare">Před / Po</a>
+</nav>
+
+<main>
+
+  <!-- HERO -->
+  <section style="margin-bottom:40px">
+    <div class="sg-eyebrow">Design System v2</div>
+    <h1 class="sg-h1">STYLE GUIDE</h1>
+    <p class="sg-lead">
+      Apple-Dark Lite × Tattoo Edge. Konzistentní Lucide ikony, jemně zaoblené rohy,
+      glass blur na navigaci, depth shadows na cards. Editorial typografie zůstává
+      (Bebas Neue + DM Mono) — žádný produktový SaaS feel.
+    </p>
+  </section>
+
+  <!-- ICONS -->
+  <section id="icons">
+    <div class="sg-eyebrow">Ikony · Lucide</div>
+    <h2 class="sg-h2">Ikon set</h2>
+    <p class="sg-lead">
+      40+ ikon z Lucide (MIT). Konzistentní 1.6px stroke, currentColor, viewBox 0 0 24 24.
+      Centrálně v <code>public/icons.svg</code>, použití: <code>&lt;svg class="icon"&gt;&lt;use href="/icons.svg#name"/&gt;&lt;/svg&gt;</code>
+    </p>
+
+    <div class="icon-grid">
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-heart"/></svg><span class="icon-name">heart</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-heart-filled"/></svg><span class="icon-name">heart-fill</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-bookmark"/></svg><span class="icon-name">bookmark</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-star"/></svg><span class="icon-name">star</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-star-filled"/></svg><span class="icon-name">star-fill</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-share"/></svg><span class="icon-name">share</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-message"/></svg><span class="icon-name">message</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-mail"/></svg><span class="icon-name">mail</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-send"/></svg><span class="icon-name">send</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-bell"/></svg><span class="icon-name">bell</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-calendar"/></svg><span class="icon-name">calendar</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-clock"/></svg><span class="icon-name">clock</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-map-pin"/></svg><span class="icon-name">map-pin</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-credit-card"/></svg><span class="icon-name">credit-card</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-search"/></svg><span class="icon-name">search</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-filter"/></svg><span class="icon-name">filter</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-plus"/></svg><span class="icon-name">plus</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-x"/></svg><span class="icon-name">x</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-check"/></svg><span class="icon-name">check</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-menu"/></svg><span class="icon-name">menu</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-arrow-right"/></svg><span class="icon-name">arrow-right</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-arrow-left"/></svg><span class="icon-name">arrow-left</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-chevron-right"/></svg><span class="icon-name">chevron-right</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-chevron-left"/></svg><span class="icon-name">chevron-left</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-chevron-down"/></svg><span class="icon-name">chevron-down</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-external"/></svg><span class="icon-name">external</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-user"/></svg><span class="icon-name">user</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-users"/></svg><span class="icon-name">users</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-settings"/></svg><span class="icon-name">settings</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-log-out"/></svg><span class="icon-name">log-out</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-shield-check"/></svg><span class="icon-name">shield-check</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-image"/></svg><span class="icon-name">image</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-camera"/></svg><span class="icon-name">camera</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-smile"/></svg><span class="icon-name">smile</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-eye"/></svg><span class="icon-name">eye</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-info"/></svg><span class="icon-name">info</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-alert"/></svg><span class="icon-name">alert</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-check-circle"/></svg><span class="icon-name">check-circle</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-sparkles"/></svg><span class="icon-name">sparkles</span></div>
+
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-edit"/></svg><span class="icon-name">edit</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-trash"/></svg><span class="icon-name">trash</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-trending"/></svg><span class="icon-name">trending</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-sun"/></svg><span class="icon-name">sun</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-moon"/></svg><span class="icon-name">moon</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-home"/></svg><span class="icon-name">home</span></div>
+      <div class="icon-cell"><svg class="icon"><use href="/icons.svg#i-grid"/></svg><span class="icon-name">grid</span></div>
+    </div>
+  </section>
+
+  <!-- COLORS -->
+  <section id="colors">
+    <div class="sg-eyebrow">Tokens</div>
+    <h2 class="sg-h2">Color palette</h2>
+    <p class="sg-lead">Background vrstvy s subtle depth (#08–#26), text hierarchy ve 4 vrstvách, Apple system red jako jediný barevný akcent.</p>
+
+    <div class="label-meta">Background layers</div>
+    <div class="color-grid" style="margin-bottom:24px">
+      <div class="color-swatch"><div class="color-fill" style="background:#08080a"></div><div class="color-meta"><b>BG-0</b><code>#08080a · void</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#0e0e10"></div><div class="color-meta"><b>BG-1</b><code>#0e0e10 · base</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#141416"></div><div class="color-meta"><b>BG-2</b><code>#141416 · surface</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#1c1c1f"></div><div class="color-meta"><b>BG-3</b><code>#1c1c1f · elevated</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#26262a"></div><div class="color-meta"><b>BG-4</b><code>#26262a · interactive</code></div></div>
+    </div>
+
+    <div class="label-meta">Text hierarchy</div>
+    <div class="color-grid" style="margin-bottom:24px">
+      <div class="color-swatch"><div class="color-fill" style="background:#f5f5f7"></div><div class="color-meta"><b>TX-1</b><code>#f5f5f7 · primary</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#a8a8ac"></div><div class="color-meta"><b>TX-2</b><code>#a8a8ac · secondary</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#6e6e73"></div><div class="color-meta"><b>TX-3</b><code>#6e6e73 · tertiary</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#48484c"></div><div class="color-meta"><b>TX-4</b><code>#48484c · disabled</code></div></div>
+    </div>
+
+    <div class="label-meta">Accent</div>
+    <div class="color-grid">
+      <div class="color-swatch"><div class="color-fill" style="background:#ffffff"></div><div class="color-meta"><b>AC-W</b><code>#ffffff · primary</code></div></div>
+      <div class="color-swatch"><div class="color-fill" style="background:#ff453a"></div><div class="color-meta"><b>AC-R</b><code>#ff453a · system red</code></div></div>
+    </div>
+  </section>
+
+  <!-- BUTTONS -->
+  <section id="buttons">
+    <div class="sg-eyebrow">Components</div>
+    <h2 class="sg-h2">Buttony</h2>
+    <p class="sg-lead">Buttony s mírně zaoblenými rohy (6px), subtle hover, scale on click. Editorial typography (DM Mono uppercase).</p>
+
+    <div class="label-meta">Varianty</div>
+    <div class="row">
+      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Primary</button>
+      <button class="btn">Secondary</button>
+      <button class="btn btn-ghost">Ghost</button>
+      <button class="btn btn-danger"><svg class="icon icon-sm"><use href="/icons.svg#i-trash"/></svg> Danger</button>
+      <button class="btn" disabled>Disabled</button>
+    </div>
+
+    <div class="label-meta">Velikosti</div>
+    <div class="row">
+      <button class="btn btn-lg btn-primary">Large primary</button>
+      <button class="btn btn-primary">Default</button>
+      <button class="btn btn-sm">Small</button>
+    </div>
+
+    <div class="label-meta">S ikonami</div>
+    <div class="row">
+      <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-heart"/></svg> Lajknout</button>
+      <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-share"/></svg> Sdílet</button>
+      <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-message"/></svg> Zpráva</button>
+      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-credit-card"/></svg> Zaplatit zálohu</button>
+    </div>
+
+    <div class="label-meta">Icon only</div>
+    <div class="row">
+      <button class="btn btn-icon" title="Lajk"><svg class="icon"><use href="/icons.svg#i-heart"/></svg></button>
+      <button class="btn btn-icon" title="Sdílet"><svg class="icon"><use href="/icons.svg#i-share"/></svg></button>
+      <button class="btn btn-icon" title="Smazat"><svg class="icon"><use href="/icons.svg#i-trash"/></svg></button>
+      <button class="btn btn-icon btn-primary" title="Přidat"><svg class="icon"><use href="/icons.svg#i-plus"/></svg></button>
+    </div>
+
+    <div class="label-meta">Loading state</div>
+    <div class="row">
+      <button class="btn btn-primary" disabled><span class="spinner" style="border-top-color:var(--bg-0)"></span> Posílám…</button>
+      <button class="btn" disabled><span class="spinner"></span> Načítám</button>
+    </div>
+  </section>
+
+  <!-- FORMS -->
+  <section id="forms">
+    <div class="sg-eyebrow">Components</div>
+    <h2 class="sg-h2">Formuláře</h2>
+    <p class="sg-lead">Inputs s rounded rohy (6px), focus glow (subtle ring), placeholder v TX-4. Search má leading ikonu.</p>
+
+    <div class="split">
+      <div>
+        <div class="field">
+          <label>Username</label>
+          <input class="input" placeholder="ink_link" />
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <div class="input-icon-wrap">
+            <svg class="icon"><use href="/icons.svg#i-mail"/></svg>
+            <input class="input" type="email" placeholder="ty@inklink.club" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Vyhledávání</label>
+          <div class="input-icon-wrap">
+            <svg class="icon"><use href="/icons.svg#i-search"/></svg>
+            <input class="input" placeholder="Tatér, město, styl…" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Bio</label>
+          <textarea class="textarea" placeholder="Pár slov o tobě…"></textarea>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>City</label>
+          <select class="select">
+            <option>Praha</option>
+            <option>Brno</option>
+            <option>Ostrava</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Cena (Kč)</label>
+          <input class="input" type="number" placeholder="4500" />
+        </div>
+        <div class="field">
+          <label>Focused (preview)</label>
+          <input class="input" value="@matej_gajdos" style="border-color:var(--ac-w);background:var(--bg-3);box-shadow:0 0 0 3px rgba(255,255,255,0.06)" />
+        </div>
+        <div class="field">
+          <label>Disabled</label>
+          <input class="input" value="locked" disabled style="opacity:0.4;cursor:not-allowed" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHIPS -->
+  <section>
+    <div class="sg-eyebrow">Components</div>
+    <h2 class="sg-h2">Chips & Badges</h2>
+    <p class="sg-lead">Pill chips pro filtry (style/city). Badges pro statusy.</p>
+
+    <div class="label-meta">Filter chips</div>
+    <div class="chip-row" style="margin-bottom:24px">
+      <button class="chip"><svg class="icon"><use href="/icons.svg#i-sparkles"/></svg> Fineline</button>
+      <button class="chip">Blackwork</button>
+      <button class="chip active"><svg class="icon"><use href="/icons.svg#i-check"/></svg> Traditional</button>
+      <button class="chip">Realism</button>
+      <button class="chip">Lettering</button>
+      <button class="chip"><svg class="icon"><use href="/icons.svg#i-map-pin"/></svg> Praha</button>
+    </div>
+
+    <div class="label-meta">Status badges</div>
+    <div class="row">
+      <span class="badge"><svg class="icon"><use href="/icons.svg#i-clock"/></svg> Pending</span>
+      <span class="badge badge-success"><svg class="icon"><use href="/icons.svg#i-check"/></svg> Active</span>
+      <span class="badge badge-warn"><svg class="icon"><use href="/icons.svg#i-alert"/></svg> Akce nutná</span>
+      <span class="badge badge-error"><svg class="icon"><use href="/icons.svg#i-x"/></svg> Selhalo</span>
+      <span class="badge"><svg class="icon"><use href="/icons.svg#i-shield-check"/></svg> Verified</span>
+    </div>
+  </section>
+
+  <!-- CARDS -->
+  <section id="cards">
+    <div class="sg-eyebrow">Components</div>
+    <h2 class="sg-h2">Feed Cards</h2>
+    <p class="sg-lead">Skica card s rounded corners, lift on hover (translateY −2px + shadow), glass blur na price/cta overlay.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-img">
+          <div class="card-badge">SKICA</div>
+          <div class="card-price">4 500 Kč · 3 h</div>
+          <div class="card-cta"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Rezervovat</div>
+        </div>
+        <div class="card-body">
+          <div class="card-meta">
+            <div class="avatar">MG</div>
+            <div>
+              <div style="color:var(--tx-1);font-size:12px">Matěj Gajdoš</div>
+              <div style="font-size:10px;color:var(--tx-3);letter-spacing:0.06em">Praha · fineline</div>
+            </div>
+            <button class="btn btn-icon btn-sm" style="margin-left:auto;height:26px;width:26px" title="Lajk">
+              <svg class="icon icon-sm"><use href="/icons.svg#i-heart"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-img" style="background:linear-gradient(135deg,#1c1c1f 0%, #2a2a2e 100%)">
+          <div class="card-badge">SKICA</div>
+          <div class="card-price">12 000 Kč · 5 h</div>
+          <div class="card-cta"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Rezervovat</div>
+        </div>
+        <div class="card-body">
+          <div class="card-meta">
+            <div class="avatar">KP</div>
+            <div>
+              <div style="color:var(--tx-1);font-size:12px">Karolína Pelová</div>
+              <div style="font-size:10px;color:var(--tx-3);letter-spacing:0.06em">Brno · blackwork</div>
+            </div>
+            <button class="btn btn-icon btn-sm" style="margin-left:auto;height:26px;width:26px" title="Lajk">
+              <svg class="icon icon-sm" style="color:var(--ac-r)"><use href="/icons.svg#i-heart-filled"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-img" style="background:linear-gradient(135deg,#08080a 0%, #1c1c1f 100%)">
+          <div class="card-badge">HOTOVÉ</div>
+        </div>
+        <div class="card-body">
+          <div class="card-meta">
+            <div class="avatar">JR</div>
+            <div>
+              <div style="color:var(--tx-1);font-size:12px">Jan Růžička</div>
+              <div style="font-size:10px;color:var(--tx-3);letter-spacing:0.06em">Ostrava · realism</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EMPTY STATE -->
+  <section>
+    <div class="sg-eyebrow">Components</div>
+    <h2 class="sg-h2">Empty states</h2>
+
+    <div class="empty">
+      <svg class="icon icon-xl"><use href="/icons.svg#i-sparkles"/></svg>
+      <h3>Zatím žádné skicy</h3>
+      <p>Nové skicy se tu objeví, jakmile je tatéři přidají. Mezitím se podívej na <a href="/map" style="color:var(--tx-1);border-bottom:1px solid var(--bd-3)">mapu tatérů</a>.</p>
+      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-map-pin"/></svg> Otevřít mapu</button>
+    </div>
+  </section>
+
+  <!-- MODAL -->
+  <section>
+    <div class="sg-eyebrow">Components</div>
+    <h2 class="sg-h2">Modal</h2>
+
+    <div style="display:flex;justify-content:center;padding:30px;background:rgba(0,0,0,0.5);border-radius:var(--r-lg)">
+      <div class="modal-demo">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <h3>POTVRDIT REZERVACI</h3>
+          <button class="btn btn-icon btn-ghost btn-sm" style="margin:-6px -6px 0 0"><svg class="icon"><use href="/icons.svg#i-x"/></svg></button>
+        </div>
+        <p>Rezervuješ termín u <b style="color:var(--tx-1)">Matěj Gajdoš</b> · čtvrtek 23. května · 14:00–17:00.</p>
+        <div style="background:var(--bg-3);border:1px solid var(--bd-2);border-radius:var(--r-md);padding:14px;margin-bottom:22px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx-2);margin-bottom:6px">
+            <span>Cena</span><span style="color:var(--tx-1)">4 500 Kč</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx-2);margin-bottom:6px">
+            <span>Záloha (30 %)</span><span style="color:var(--tx-1)">1 350 Kč</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx-2);padding-top:8px;margin-top:8px;border-top:1px solid var(--bd-2)">
+            <span>Doplatek na místě</span><span style="color:var(--tx-1)">3 150 Kč</span>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:0">
+          <button class="btn btn-ghost" style="flex:1">Zrušit</button>
+          <button class="btn btn-primary" style="flex:1.4"><svg class="icon icon-sm"><use href="/icons.svg#i-credit-card"/></svg> Zaplatit zálohu</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section id="compare">
+    <div class="sg-eyebrow">Před / Po</div>
+    <h2 class="sg-h2">Srovnání</h2>
+    <p class="sg-lead">Levá strana — současný stav. Pravá — nový design system.</p>
+
+    <div class="label-meta" style="margin-top:30px">Tlačítka</div>
+    <div class="compare">
+      <div>
+        <h4>Před</h4>
+        <button class="old-btn">Rezervovat</button>
+        &nbsp;&nbsp;
+        <button class="old-btn" style="background:#e8e8e8;color:#000">Zaplatit</button>
+      </div>
+      <div>
+        <h4>Po</h4>
+        <button class="btn"><svg class="icon icon-sm"><use href="/icons.svg#i-calendar"/></svg> Rezervovat</button>
+        &nbsp;&nbsp;
+        <button class="btn btn-primary"><svg class="icon icon-sm"><use href="/icons.svg#i-credit-card"/></svg> Zaplatit</button>
+      </div>
+    </div>
+
+    <div class="label-meta" style="margin-top:24px">Filter chips</div>
+    <div class="compare">
+      <div>
+        <h4>Před</h4>
+        <button class="old-btn" style="font-size:10px;padding:5px 10px">Fineline</button>
+        &nbsp;<button class="old-btn" style="font-size:10px;padding:5px 10px;background:#e8e8e8;color:#000">Blackwork</button>
+        &nbsp;<button class="old-btn" style="font-size:10px;padding:5px 10px">Realism</button>
+      </div>
+      <div>
+        <h4>Po</h4>
+        <button class="chip">Fineline</button>
+        <button class="chip active"><svg class="icon"><use href="/icons.svg#i-check"/></svg> Blackwork</button>
+        <button class="chip">Realism</button>
+      </div>
+    </div>
+
+    <div class="label-meta" style="margin-top:24px">Ikony v navigaci</div>
+    <div class="compare">
+      <div>
+        <h4>Před</h4>
+        <div style="display:flex;gap:14px;font-size:18px;color:var(--tx-2)">
+          <span>♥</span>
+          <span>◷</span>
+          <span>✉</span>
+          <span>⊕</span>
+          <span>☀</span>
+        </div>
+      </div>
+      <div>
+        <h4>Po</h4>
+        <div style="display:flex;gap:14px;color:var(--tx-2)">
+          <svg class="icon icon-lg"><use href="/icons.svg#i-heart"/></svg>
+          <svg class="icon icon-lg"><use href="/icons.svg#i-calendar"/></svg>
+          <svg class="icon icon-lg"><use href="/icons.svg#i-message"/></svg>
+          <svg class="icon icon-lg"><use href="/icons.svg#i-filter"/></svg>
+          <svg class="icon icon-lg"><use href="/icons.svg#i-sun"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="label-meta" style="margin-top:24px">Card</div>
+    <div class="compare">
+      <div>
+        <h4>Před</h4>
+        <div class="old-card" style="max-width:200px;position:relative">
+          <div style="aspect-ratio:4/5;background:linear-gradient(135deg,#1a1a1d,#26262a)"></div>
+          <div class="old-card-cta">Rezervovat →</div>
+        </div>
+      </div>
+      <div>
+        <h4>Po</h4>
+        <div class="card" style="max-width:200px">
+          <div class="card-img">
+            <div class="card-badge">SKICA</div>
+            <div class="card-cta"><svg class="icon icon-sm"><use href="/icons.svg#i-arrow-right"/></svg> Rezervovat</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <section style="border-top:1px solid var(--bd-1);padding-top:40px;margin-top:80px;text-align:center">
+    <p style="font-size:11px;color:var(--tx-3);letter-spacing:0.08em">
+      InkLink Design System v2 — Lucide × Tattoo Edge × Apple-Dark Lite
+    </p>
+  </section>
+
+</main>
+
+</body>
+</html>

@@ -972,6 +972,16 @@ def landing_page():
     return send_from_directory('public', 'landing.html')
 
 
+@app.route('/style-guide')
+def style_guide_page():
+    return send_from_directory('public', 'style-guide.html')
+
+
+@app.route('/icons.svg')
+def icons_sprite():
+    return send_from_directory('public', 'icons.svg', mimetype='image/svg+xml')
+
+
 @app.route('/login')
 def login_page():
     if 'user_id' in session:
