@@ -44,7 +44,9 @@
   --bd-2:#2a2a2e;            /* default */
   --bd-3:#3a3a3e;            /* emphasized */
   --ac-w:#ffffff;            /* primary brand white */
-  --ac-r:#ff453a;            /* secondary (rare use) */
+  --ac-r:#ff453a;            /* system red (errors) */
+  --ink:#9f1239;             /* INK CRIMSON — tattoo brand accent */
+  --ink-glow:rgba(159,18,57,0.18);
 
   --r-sm:4px;
   --r-md:6px;
@@ -137,8 +139,8 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 @media(max-width:980px){.hero{grid-template-columns:1fr;gap:60px;padding:110px 24px 70px}}
 
 .hero-tag{font-size:11px;letter-spacing:0.22em;color:var(--tx-3);text-transform:uppercase;margin-bottom:24px;display:inline-flex;align-items:center;gap:10px;font-weight:500;opacity:0;animation:fade-in 0.6s var(--ease) 0.1s forwards}
-.hero-tag::before{content:'';width:24px;height:1px;background:var(--tx-3)}
-.hero-tag .live{width:6px;height:6px;border-radius:50%;background:var(--tx-1);animation:pulse-dot 2s ease infinite;margin-right:2px}
+.hero-tag::before{content:'';width:24px;height:1px;background:var(--ink)}
+.hero-tag .live{width:6px;height:6px;border-radius:50%;background:var(--ink);box-shadow:0 0 8px var(--ink-glow);animation:pulse-dot 2s ease infinite;margin-right:2px}
 
 .hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px, 8.8vw, 134px);line-height:0.88;letter-spacing:0.005em;color:var(--tx-1);margin-bottom:30px;font-weight:400;perspective:800px}
 .hero h1 .row{display:block}
@@ -157,8 +159,9 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 @media(max-width:560px){.hero-showcase{display:none}}
 .hs-tile{background:var(--bg-3);border:1px solid var(--bd-2);border-radius:var(--r-lg);overflow:hidden;position:relative;transition:transform 0.5s var(--ease),border-color 0.3s,box-shadow 0.5s;transform-style:preserve-3d}
 .hs-tile::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 30%,rgba(255,255,255,0.06) 100%);pointer-events:none}
-.hs-tile::before{content:'';position:absolute;inset:-1px;border-radius:var(--r-lg);background:linear-gradient(135deg,rgba(255,255,255,0.04),transparent 60%);pointer-events:none;z-index:1}
-.hs-tile:hover{border-color:var(--bd-3);transform:translateZ(20px);box-shadow:var(--sh-2)}
+.hs-tile::before{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.035 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");background-size:200px 200px;pointer-events:none;z-index:1;opacity:0.85;mix-blend-mode:overlay}
+.hs-tile:hover{border-color:var(--ink);transform:translateZ(20px);box-shadow:var(--sh-2),0 0 0 1px var(--ink-glow)}
+.hs-tile:hover .hs-sketch{stroke:var(--ink);opacity:0.85}
 .hs-tile.t1{grid-column:1/3;grid-row:1/3;background:linear-gradient(135deg,#0a0a0c,#26262a)}
 .hs-tile.t2{grid-column:3/4;grid-row:1/2;background:linear-gradient(180deg,#16161a,#2a2a2e)}
 .hs-tile.t3{grid-column:3/4;grid-row:2/4;background:linear-gradient(225deg,#101012,#1f1f24)}
@@ -166,6 +169,11 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hs-tile.t5{grid-column:2/4;grid-row:4/5;background:linear-gradient(90deg,#16161a,#26262a)}
 .hs-tile.t6{grid-column:2/3;grid-row:3/4;background:linear-gradient(135deg,#1f1f24,#0a0a0c)}
 .hs-glyph{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,82px);color:var(--tx-4);letter-spacing:0.1em;opacity:0.55;line-height:1;text-align:center;z-index:2}
+
+/* Tattoo sketch SVGs uvnitř hero showcase */
+.hs-sketch{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:62%;height:62%;color:var(--tx-3);stroke:currentColor;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;opacity:0.55;z-index:2;transition:stroke 0.4s var(--ease),opacity 0.4s,transform 0.5s var(--ease)}
+.hs-sketch.dotwork{stroke-dasharray:1 4}
+.hs-tile:hover .hs-sketch{transform:translate(-50%,-50%) scale(1.05)}
 
 /* Subtle grid noise / dot pattern for hero bg */
 .hero-bg{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.025) 1px,transparent 0);background-size:32px 32px;mask:radial-gradient(ellipse 80% 60% at 50% 40%, #000, transparent);z-index:-1}
@@ -202,7 +210,7 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 @media(max-width:760px){section{padding:80px 22px}}
 .section-inner{max-width:1240px;margin:0 auto}
 .section-eyebrow{font-size:11px;letter-spacing:0.22em;color:var(--tx-3);text-transform:uppercase;margin-bottom:18px;display:inline-flex;align-items:center;gap:10px;font-weight:500}
-.section-eyebrow::before{content:'';width:24px;height:1px;background:var(--tx-3)}
+.section-eyebrow::before{content:'';width:24px;height:1px;background:var(--ink)}
 .section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(40px, 6.2vw, 76px);line-height:0.94;letter-spacing:0.005em;color:var(--tx-1);margin-bottom:24px;max-width:920px;font-weight:400}
 .section-lead{font-size:15px;color:var(--tx-2);max-width:620px;line-height:1.7;margin-bottom:64px;letter-spacing:0.01em;font-weight:300}
 
@@ -265,7 +273,7 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 .price-card p.lead{font-size:13px;color:var(--tx-2);line-height:1.6}
 .price-card ul{list-style:none;display:flex;flex-direction:column;gap:10px}
 .price-card ul li{padding-left:24px;position:relative;font-size:13px;color:var(--tx-2);line-height:1.5}
-.price-card ul li::before{content:'';position:absolute;left:0;top:7px;width:11px;height:6px;border-left:1.5px solid var(--ac-w);border-bottom:1.5px solid var(--ac-w);transform:rotate(-45deg)}
+.price-card ul li::before{content:'';position:absolute;left:0;top:7px;width:11px;height:6px;border-left:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);transform:rotate(-45deg)}
 .price-card .lp-btn{align-self:flex-start;margin-top:auto;padding:12px 22px}
 
 /* ============================================================
@@ -376,12 +384,58 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
     </div>
   </div>
   <div class="hero-showcase" id="heroShowcase" aria-hidden="true">
-    <div class="hs-tile t1"><span class="hs-glyph">INK</span></div>
-    <div class="hs-tile t2"></div>
-    <div class="hs-tile t3"><span class="hs-glyph">CZ</span></div>
-    <div class="hs-tile t4"></div>
-    <div class="hs-tile t5"><span class="hs-glyph">2026</span></div>
-    <div class="hs-tile t6"></div>
+    <!-- t1: Snake (winding line, fineline) -->
+    <div class="hs-tile t1">
+      <svg class="hs-sketch" viewBox="0 0 100 100">
+        <path d="M15 78 Q15 60 35 60 Q55 60 55 45 Q55 30 75 30 Q88 30 88 18"/>
+        <path d="M82 14 L88 18 L82 22"/>
+        <circle cx="86" cy="20" r="0.8" fill="currentColor"/>
+        <path d="M20 78 L18 82 M28 78 L26 82"/>
+      </svg>
+    </div>
+    <!-- t2: Crescent moon + stars -->
+    <div class="hs-tile t2">
+      <svg class="hs-sketch" viewBox="0 0 100 100">
+        <path d="M55 25 A28 28 0 1 0 55 80 A20 22 0 1 1 55 25 Z"/>
+        <circle cx="78" cy="32" r="1" fill="currentColor"/>
+        <circle cx="84" cy="55" r="0.8" fill="currentColor"/>
+        <path d="M76 30 L80 30 M78 28 L78 32"/>
+      </svg>
+    </div>
+    <!-- t3: Dagger -->
+    <div class="hs-tile t3">
+      <svg class="hs-sketch" viewBox="0 0 100 100">
+        <path d="M50 8 L42 65 L50 70 L58 65 Z"/>
+        <path d="M30 62 L70 62"/>
+        <path d="M50 70 L50 88"/>
+        <path d="M44 85 L56 85"/>
+        <circle cx="50" cy="92" r="3"/>
+      </svg>
+    </div>
+    <!-- t4: Rose with stem -->
+    <div class="hs-tile t4">
+      <svg class="hs-sketch" viewBox="0 0 100 100">
+        <circle cx="50" cy="30" r="14"/>
+        <path d="M44 30 Q44 22 50 22 Q56 22 56 30"/>
+        <path d="M40 30 Q40 38 50 38 Q60 38 60 30"/>
+        <path d="M50 23 Q47 30 50 36"/>
+        <path d="M50 44 L50 88"/>
+        <path d="M45 60 Q35 58 33 50 Q40 52 48 58"/>
+        <path d="M55 72 Q65 70 67 62 Q60 64 52 70"/>
+      </svg>
+    </div>
+    <!-- t5: "EST 2026" lettering -->
+    <div class="hs-tile t5"><span class="hs-glyph">EST · 2026</span></div>
+    <!-- t6: All-seeing eye in triangle -->
+    <div class="hs-tile t6">
+      <svg class="hs-sketch" viewBox="0 0 100 100">
+        <polygon points="50,12 86,82 14,82"/>
+        <ellipse cx="50" cy="55" rx="20" ry="11"/>
+        <circle cx="50" cy="55" r="6"/>
+        <circle cx="50" cy="55" r="2" fill="currentColor"/>
+        <path class="dotwork" d="M30 45 L70 45 M30 65 L70 65"/>
+      </svg>
+    </div>
   </div>
 </header>
 
