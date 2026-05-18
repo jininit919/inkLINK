@@ -233,7 +233,10 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 /* ============================================================
    FEATURES GRID
    ============================================================ */
-.feature-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1px;background:var(--bd-1);border:1px solid var(--bd-1);border-radius:var(--r-lg);overflow:hidden}
+/* 8 features = 4×2 grid (wide) / 2×4 (tablet) / 1×8 (mobile) — no empty slots */
+.feature-grid{display:grid;grid-template-columns:repeat(4, 1fr);gap:1px;background:var(--bd-1);border:1px solid var(--bd-1);border-radius:var(--r-lg);overflow:hidden}
+@media(max-width:880px){.feature-grid{grid-template-columns:repeat(2, 1fr)}}
+@media(max-width:480px){.feature-grid{grid-template-columns:1fr}}
 .feature{background:var(--bg-1);padding:34px 28px;display:flex;flex-direction:column;gap:12px;transition:background 0.25s}
 .feature:hover{background:var(--bg-2)}
 .feature .ic{display:flex;align-items:center;justify-content:space-between;color:var(--tx-1)}
