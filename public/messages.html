@@ -182,7 +182,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
   <!-- CHAT -->
   <div class="chat-panel" id="chatPanel">
     <div class="chat-empty" id="chatEmpty">
-      <div class="icon">◻</div>
+      <svg class="icon icon-2xl" style="opacity:0.3"><use href="#i-message"/></svg>
       <p>Select a conversation<br>or start a new message.</p>
     </div>
   </div>
@@ -437,7 +437,7 @@ function closeChatMobile() {
   if (panel) {
     panel.innerHTML = `
       <div class="chat-empty" id="chatEmpty">
-        <div class="icon">◻</div>
+        <svg class="icon icon-2xl" style="opacity:0.3"><use href="#i-message"/></svg>
         <p>Select a conversation<br>or start a new message.</p>
       </div>`;
   }
@@ -620,5 +620,7 @@ init().then(() => pollUnread());
 <script src="/mobile-nav.js?v=7"></script>
 <script>InkLinkMobileNav && InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
+<script src="/icons.js?v=1"></script>
+<script src="/icons.js?v=1"></script>
 </body>
 </html>

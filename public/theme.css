@@ -148,3 +148,22 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--red2); }
   letter-spacing: 0.06em;
 }
 .il-error-banner button:hover { background: rgba(229, 135, 135, 0.15); }
+
+/* ── Lucide icon utility — used with /icons.svg sprite + /icons.js loader ──── */
+.icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+}
+.icon-sm { width: 14px; height: 14px; }
+.icon-lg { width: 22px; height: 22px; }
+.icon-xl { width: 32px; height: 32px; }
+.icon-2xl { width: 44px; height: 44px; }
+
+/* Force icon stroke (some Lucide symbols set fill on root) */
+.icon[data-fill] { fill: currentColor; stroke: none; }
+

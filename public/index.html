@@ -212,11 +212,11 @@ main{padding:24px 24px 80px;min-width:0}
 <nav>
   <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
   <div class="nav-icons">
-    <button class="nav-icon" onclick="toggleTheme && toggleTheme()" title="Téma" style="background:none;border:none">☀</button>
-    <a class="nav-icon" href="/events" title="Eventy">◷</a>
-    <a class="nav-icon" href="/messages" title="Zprávy">✉</a>
-    <a class="nav-icon" href="/my-bookings" title="Moje rezervace">◉</a>
-    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none">♥</a>
+    <button class="nav-icon" onclick="toggleTheme && toggleTheme()" title="Téma" style="background:none;border:none"><svg class="icon"><use href="#i-sun"/></svg></button>
+    <a class="nav-icon" href="/events" title="Eventy"><svg class="icon"><use href="#i-calendar"/></svg></a>
+    <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
+    <a class="nav-icon" href="/my-bookings" title="Moje rezervace"><svg class="icon"><use href="#i-bookmark"/></svg></a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
     <div id="notifMount"></div>
     <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
   </div>
@@ -238,13 +238,13 @@ main{padding:24px 24px 80px;min-width:0}
       <div class="sidebar-label">Menu</div>
       <a class="sidebar-link active" href="/" id="menuFeed"><span class="icon">⌂</span> Feed</a>
       <a class="sidebar-link" href="/map"><span class="icon">⌖</span> Mapa tatérů</a>
-      <a class="sidebar-link" id="menuMyProfile" href="#"><span class="icon">◉</span> Můj profil</a>
-      <a class="sidebar-link" id="menuLiked" href="/liked" style="display:none"><span class="icon">♥</span> Lajknuté</a>
+      <a class="sidebar-link" id="menuMyProfile" href="#"><svg class="icon"><use href="#i-bookmark"/></svg> Můj profil</a>
+      <a class="sidebar-link" id="menuLiked" href="/liked" style="display:none"><svg class="icon"><use href="#i-heart"/></svg> Lajknuté</a>
       <a class="sidebar-link" href="/artist-setup"><span class="icon">⚙</span> Nastavení tatéra</a>
       <a class="sidebar-link" id="menuEarnings" href="/earnings" style="display:none"><span class="icon">⌒</span> Výdělky</a>
-      <a class="sidebar-link" href="/my-bookings"><span class="icon">◷</span> Moje rezervace</a>
+      <a class="sidebar-link" href="/my-bookings"><svg class="icon"><use href="#i-calendar"/></svg> Moje rezervace</a>
       <a class="sidebar-link" href="/events"><span class="icon">◳</span> Eventy</a>
-      <a class="sidebar-link" href="/messages"><span class="icon">✉</span> Zprávy</a>
+      <a class="sidebar-link" href="/messages"><svg class="icon"><use href="#i-message"/></svg> Zprávy</a>
     </div>
 
     <div style="flex:1"></div>
@@ -271,7 +271,7 @@ main{padding:24px 24px 80px;min-width:0}
         <div id="activeChips" style="display:flex;gap:6px"></div>
       </div>
       <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filtr">
-        ⊕ Filtr<span class="count" id="filterCount" style="display:none">0</span>
+        <svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-filter"/></svg> Filtr<span class="count" id="filterCount" style="display:none">0</span>
       </button>
       <select id="sortSelect" class="sort-select" onchange="setSort(this.value)" aria-label="Řazení">
         <option value="price">Nejlevnější</option>
@@ -322,12 +322,12 @@ main{padding:24px 24px 80px;min-width:0}
       <p class="welcome-sub">Tattoo booking network — najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.<br>Co tě sem přivádí?</p>
       <div class="welcome-role-grid">
         <button class="welcome-role" onclick="welcomeRole('client')">
-          <div class="welcome-role-icon">◉</div>
+          <div class="welcome-role-icon"><svg class="icon icon-2xl"><use href="#i-user"/></svg></div>
           <div class="welcome-role-title">Jsem klient</div>
           <div class="welcome-role-sub">Hledám tatéra</div>
         </button>
         <button class="welcome-role" onclick="welcomeRole('artist')">
-          <div class="welcome-role-icon">⚒</div>
+          <div class="welcome-role-icon"><svg class="icon icon-2xl"><use href="#i-edit"/></svg></div>
           <div class="welcome-role-title">Jsem tatér</div>
           <div class="welcome-role-sub">Nabízím termíny</div>
         </button>
@@ -661,7 +661,7 @@ function render() {
             <div class="name">${escapeHtml(u.display_name)}${u.rating_count > 0 ? ` <span class="card-rating" title="${u.rating_count} ${u.rating_count===1?'recenze':(u.rating_count<5?'recenze':'recenzí')}">★ ${u.rating_avg.toFixed(1)}</span>` : ''}</div>
             <div class="meta">${escapeHtml([u.studio, u.city].filter(Boolean).join(' · ') || 'tatér')}</div>
           </a>
-          <span class="card-like ${p.liked ? 'on' : ''}" onclick="event.stopPropagation(); toggleLike(${p.id}, this)">♥ <span>${p.like_count}</span></span>
+          <span class="card-like ${p.liked ? 'on' : ''}" onclick="event.stopPropagation(); toggleLike(${p.id}, this)"><svg class="icon icon-sm"><use href="#i-heart"/></svg> <span>${p.like_count}</span></span>
           <span class="card-share" onclick="event.stopPropagation(); shareSketch(${p.id})" title="Sdílet">↗</span>
         </div>
       </article>
@@ -719,7 +719,7 @@ async function doSearch() {
   if (d.events?.length) {
     html += '<div class="sd-section"><div class="sd-label">EVENTY</div>';
     html += d.events.map(e => `<a class="sd-item" href="/events">
-      <div class="sd-avatar" style="background:var(--bg3)">◷</div>
+      <div class="sd-avatar" style="background:var(--bg3)"><svg class="icon icon-sm"><use href="#i-calendar"/></svg</div>
       <div class="sd-body"><div class="n">${escapeHtml(e.title)}</div>
         <div class="m">${escapeHtml(e.date)}${e.city?' · '+escapeHtml(e.city):''}</div></div>
     </a>`).join('');
@@ -783,5 +783,7 @@ async function doLogout() { await fetch('/api/logout', {method:'POST'}); locatio
 
 init();
 </script>
+<script src="/icons.js?v=1"></script>
+<script src="/icons.js?v=1"></script>
 </body>
 </html>

@@ -235,7 +235,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
     <a class="nav-link" href="/artist-setup">Pro tatéry</a>
   </div>
   <div class="nav-icons">
-    <button class="nav-icon" id="themeToggle" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:none;cursor:pointer;font-size:16px">☀</button>
+    <button class="nav-icon" id="themeToggle" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:none;cursor:pointer;font-size:16px"><svg class="icon"><use href="#i-sun"/></svg></button>
     <a class="nav-icon" href="/messages" title="Messages" id="msgIcon" style="position:relative">
       <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M2 4.5 L10.5 4.5 M8 2 L10.5 4.5 L8 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12.5 L6.5 12.5 M9 10 L6.5 12.5 L9 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div class="msg-badge" id="msgBadge"></div>
@@ -290,7 +290,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
   <!-- VIEW TABS -->
   <div class="view-tabs">
     <button class="view-tab active" id="tabCal" onclick="switchView('cal')">◫ Calendar</button>
-    <button class="view-tab" id="tabMap" onclick="switchView('map')">⊕ Map</button>
+    <button class="view-tab" id="tabMap" onclick="switchView('map')"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-map-pin"/></svg> Map</button>
   </div>
 
   <!-- CALENDAR VIEW -->
@@ -837,7 +837,7 @@ function openDetail(ev) {
     : '';
   const saveBtn = !ev.is_own
     ? `<button class="detail-save-btn ${ev.is_saved ? 'saved' : ''}" id="evSaveBtn-${ev.id}" onclick="toggleEventSave(${ev.id},this)">
-        ${ev.is_saved ? '◷ Saved to calendar' : '◷ Save to calendar'}
+        ${ev.is_saved ? '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-check"/></svg> Saved to calendar' : '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-calendar"/></svg> Save to calendar'}
        </button>`
     : '';
   const ticketBtn = ev.is_own
@@ -968,7 +968,7 @@ async function toggleEventSave(id, btn) {
   const data = await res.json();
   if (data.saved !== undefined) {
     btn.classList.toggle('saved', data.saved);
-    btn.textContent = data.saved ? '◷ Saved to calendar' : '◷ Save to calendar';
+    btn.textContent = data.saved ? '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-check"/></svg> Saved to calendar' : '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-calendar"/></svg> Save to calendar';
     showToast(data.saved ? 'Saved to calendar' : 'Removed from calendar');
   }
 }
@@ -1135,5 +1135,7 @@ init();
 <script src="/mobile-nav.js?v=7"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
+<script src="/icons.js?v=1"></script>
+<script src="/icons.js?v=1"></script>
 </body>
 </html>
