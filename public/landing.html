@@ -21,7 +21,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Metal+Mania&family=Pirata+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Metal+Mania&family=Pirata+One&family=Playfair+Display:ital,wght@1,500;1,700&family=Rye&family=Yuji+Mai&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/theme.css">
 
 <style>
@@ -63,7 +63,12 @@
   --t-slow:600ms;
 }
 
-html,body{background:var(--bg-1);color:var(--tx-1);font-family:'DM Mono',monospace;font-size:13px;-webkit-font-smoothing:antialiased;line-height:1.55;letter-spacing:0.02em;overflow-x:hidden}
+html,body{background:var(--bg-1);color:var(--tx-1);font-family:'DM Mono',monospace;font-size:13px;-webkit-font-smoothing:antialiased;line-height:1.55;letter-spacing:0.02em;overflow-x:hidden;cursor:url('/img/cursor-tattoo.svg') 3 30, auto}
+a,button,.lp-btn,.lp-nav-link,.faq-item,.lang-btn,.hs-tile{cursor:url('/img/cursor-tattoo.svg') 3 30, pointer}
+@media(max-width:760px){
+  html,body,a,button,.lp-btn,.lp-nav-link,.faq-item,.lang-btn,.hs-tile{cursor:auto}
+  a,button,.lp-btn{cursor:pointer}
+}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
 ::-webkit-scrollbar{width:6px;height:6px}
@@ -179,13 +184,17 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hs-glyph.signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(48px,7.5vw,98px);letter-spacing:0.02em;color:var(--tx-3);opacity:0.9;font-weight:400;text-transform:none;line-height:1}
 .hs-tile.t5:hover .hs-glyph.signature{color:var(--ink);opacity:1}
 
-/* Real tattoo images — invert + grayscale to fit dark theme */
-.hs-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;opacity:0.85;filter:invert(1) grayscale(1) contrast(1.05);mix-blend-mode:screen;transition:opacity 0.4s var(--ease),filter 0.4s var(--ease),transform 0.6s var(--ease);transform:scale(1.02)}
-.hs-tile:hover .hs-photo{opacity:1;filter:invert(1) grayscale(0.4) contrast(1.1) sepia(0.3) hue-rotate(-15deg) saturate(2);transform:scale(1.05)}
-/* Variant: invert ON for dark sketches (koi, flower line) so they show white on dark bg */
-.hs-photo.dark-on-light{filter:invert(1) grayscale(1) contrast(1.15);mix-blend-mode:screen}
-/* Variant: image is already light (e.g. blackletter on white) — invert + screen */
-.hs-photo.line-art{filter:invert(1) grayscale(1) contrast(1.2);mix-blend-mode:screen}
+/* Tile style labels — each tile a tattoo style name in style-appropriate font */
+.hs-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92%;text-align:center;color:var(--tx-2);line-height:1;letter-spacing:0.02em;z-index:2;transition:color 0.4s var(--ease),transform 0.5s var(--ease);user-select:none;pointer-events:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.hs-tile:hover .hs-label{color:var(--ink);transform:translate(-50%,-50%) scale(1.04)}
+
+/* Per-tile font + sizing */
+.hs-label.s-traditional{font-family:'Rye',serif;font-size:clamp(28px,5.5vw,76px);letter-spacing:0.04em;font-weight:400}
+.hs-label.s-fineline{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:clamp(22px,3.8vw,52px);letter-spacing:0.02em;text-transform:lowercase}
+.hs-label.s-japanese{font-family:'Yuji Mai',serif;font-size:clamp(26px,4.5vw,62px);letter-spacing:0.06em;text-transform:lowercase}
+.hs-label.s-blackwork{font-family:'Anton',sans-serif;font-size:clamp(28px,5vw,70px);letter-spacing:0.05em;font-weight:400;text-transform:uppercase}
+.hs-label.s-realism{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:clamp(22px,3.6vw,48px);letter-spacing:0.01em;text-transform:lowercase}
+.hs-label.s-signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(48px,7.5vw,98px);letter-spacing:0.02em;color:var(--tx-2);opacity:0.95;text-transform:none}
 
 /* Subtle grid noise / dot pattern for hero bg */
 .hero-bg{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.025) 1px,transparent 0);background-size:32px 32px;mask:radial-gradient(ellipse 80% 60% at 50% 40%, #000, transparent);z-index:-1}
@@ -404,34 +413,34 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
   </div>
   <div class="hero-showcase" id="heroShowcase" aria-hidden="true">
 
-    <!-- t1: BIG TILE — KOI Japanese flash (will be replaced with HEART once provided) -->
+    <!-- t1: BIG — TRADITIONAL v Rye fontu (American Western feel) -->
     <div class="hs-tile t1">
-      <img class="hs-photo line-art" src="/img/sketches/koi.png" alt="" loading="lazy">
+      <span class="hs-label s-traditional">TRADITIONAL</span>
     </div>
 
-    <!-- t2: MOON/SMALL — minimalist line flower -->
+    <!-- t2: SMALL — FINELINE v Cormorant italic (delicate) -->
     <div class="hs-tile t2">
-      <img class="hs-photo" src="/img/sketches/flower.jpg" alt="" loading="lazy">
+      <span class="hs-label s-fineline">fineline</span>
     </div>
 
-    <!-- t3: TALL — Abstract fractal blackwork -->
+    <!-- t3: TALL RIGHT — JAPANESE v Yuji Mai (brush calligraphy) -->
     <div class="hs-tile t3">
-      <img class="hs-photo line-art" src="/img/sketches/fractal.png" alt="" loading="lazy">
+      <span class="hs-label s-japanese">japanese</span>
     </div>
 
-    <!-- t4: TALL — Koi again (or replace with heart-mom when ready) -->
+    <!-- t4: TALL LEFT — BLACKWORK v Anton (heavy condensed) -->
     <div class="hs-tile t4">
-      <img class="hs-photo line-art" src="/img/sketches/koi.png" alt="" loading="lazy" style="object-position:center top">
+      <span class="hs-label s-blackwork">BLACKWORK</span>
     </div>
 
-    <!-- t5: BLACKLETTER InkLink -->
+    <!-- t5: WIDE BOTTOM — InkLink signature v Metal Mania -->
     <div class="hs-tile t5">
-      <img class="hs-photo line-art" src="/img/sketches/inklink-blackletter.png" alt="InkLink" style="object-fit:contain;padding:18%">
+      <span class="hs-label s-signature">InkLink</span>
     </div>
 
-    <!-- t6: SMALL — Abstract fractal cropped -->
+    <!-- t6: SMALL CENTER — REALISM v Playfair italic (elegant) -->
     <div class="hs-tile t6">
-      <img class="hs-photo line-art" src="/img/sketches/fractal.png" alt="" loading="lazy" style="object-position:center 70%">
+      <span class="hs-label s-realism">realism</span>
     </div>
   </div>
 </header>
