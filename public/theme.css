@@ -167,3 +167,28 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--red2); }
 /* Force icon stroke (some Lucide symbols set fill on root) */
 .icon[data-fill] { fill: currentColor; stroke: none; }
 
+/* ── Tattoo machine cursor — global napříč InkLinkem ─────────────────────── */
+body {
+  cursor: url('/img/cursor-tattoo.svg') 3 30, auto;
+}
+a, button, [role="button"], [onclick], label[for],
+.nav-icon, .nav-avatar, .lp-btn, .btn, .filter-btn, .filter-chip, .filter-chip-btn,
+.faq-item, .card, .lang-btn, .hs-tile, .lp-nav-link {
+  cursor: url('/img/cursor-tattoo.svg') 3 30, pointer;
+}
+input[type="text"], input[type="email"], input[type="password"],
+input[type="number"], input[type="search"], input[type="tel"],
+input[type="url"], input[type="date"], input[type="time"],
+input[type="month"], textarea, select {
+  cursor: text;
+}
+/* Touch devices — disable custom cursor */
+@media (hover: none) and (pointer: coarse) {
+  body, a, button, [role="button"], [onclick], label[for],
+  .nav-icon, .nav-avatar, .lp-btn, .btn, .filter-btn, .filter-chip,
+  .filter-chip-btn, .faq-item, .card, .lang-btn, .hs-tile, .lp-nav-link {
+    cursor: auto;
+  }
+  a, button, [role="button"] { cursor: pointer; }
+}
+
