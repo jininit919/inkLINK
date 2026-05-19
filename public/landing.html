@@ -181,16 +181,16 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hs-tile.t5:hover .hs-glyph.signature{color:var(--ink);opacity:1}
 
 /* Tile style labels — each tile a tattoo style name in style-appropriate font */
-.hs-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92%;text-align:center;color:var(--tx-2);line-height:1;letter-spacing:0.02em;z-index:2;transition:color 0.4s var(--ease),transform 0.5s var(--ease);user-select:none;pointer-events:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.hs-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:88%;text-align:center;color:var(--tx-2);line-height:1;letter-spacing:0.01em;z-index:2;transition:color 0.4s var(--ease),transform 0.5s var(--ease);user-select:none;pointer-events:none;display:block;white-space:nowrap}
 .hs-tile:hover .hs-label{color:var(--ink);transform:translate(-50%,-50%) scale(1.04)}
 
-/* Per-tile font + sizing */
-.hs-label.s-traditional{font-family:'Rye',serif;font-size:clamp(28px,5.5vw,76px);letter-spacing:0.04em;font-weight:400}
-.hs-label.s-fineline{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:clamp(22px,3.8vw,52px);letter-spacing:0.02em;text-transform:lowercase}
-.hs-label.s-japanese{font-family:'Yuji Mai',serif;font-size:clamp(26px,4.5vw,62px);letter-spacing:0.06em;text-transform:lowercase}
-.hs-label.s-blackwork{font-family:'Anton',sans-serif;font-size:clamp(28px,5vw,70px);letter-spacing:0.05em;font-weight:400;text-transform:uppercase}
-.hs-label.s-realism{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:clamp(22px,3.6vw,48px);letter-spacing:0.01em;text-transform:lowercase}
-.hs-label.s-signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(48px,7.5vw,98px);letter-spacing:0.02em;color:var(--tx-2);opacity:0.95;text-transform:none}
+/* Per-tile font + sizing — calibrated tak aby se text vždy vešel do tile */
+.hs-label.s-traditional{font-family:'Rye',serif;font-size:clamp(15px,2.9vw,40px);letter-spacing:0.01em;font-weight:400}
+.hs-label.s-fineline{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:clamp(18px,2.6vw,34px);letter-spacing:0.01em;text-transform:lowercase}
+.hs-label.s-japanese{font-family:'Yuji Mai',serif;font-size:clamp(16px,2.4vw,32px);letter-spacing:0.04em;text-transform:uppercase}
+.hs-label.s-blackwork{font-family:'Anton',sans-serif;font-size:clamp(20px,3.6vw,48px);letter-spacing:0.03em;font-weight:400;text-transform:uppercase}
+.hs-label.s-realism{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:clamp(16px,2.4vw,30px);letter-spacing:0.01em;text-transform:lowercase}
+.hs-label.s-signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(36px,5.5vw,76px);letter-spacing:0.02em;color:var(--tx-2);opacity:0.95;text-transform:none}
 
 /* Subtle grid noise / dot pattern for hero bg */
 .hero-bg{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.025) 1px,transparent 0);background-size:32px 32px;mask:radial-gradient(ellipse 80% 60% at 50% 40%, #000, transparent);z-index:-1}
