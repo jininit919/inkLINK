@@ -21,7 +21,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Pirata+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Metal+Mania&family=Pirata+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/theme.css">
 
 <style>
@@ -176,7 +176,7 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hs-tile.t5{grid-column:2/4;grid-row:4/5;background:linear-gradient(90deg,#16161a,#26262a)}
 .hs-tile.t6{grid-column:2/3;grid-row:3/4;background:linear-gradient(135deg,#1f1f24,#0a0a0c)}
 .hs-glyph{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,82px);color:var(--tx-4);letter-spacing:0.1em;opacity:0.55;line-height:1;text-align:center;z-index:2}
-.hs-glyph.signature{font-family:'Pirata One',serif;font-size:clamp(46px,7vw,92px);letter-spacing:0.02em;color:var(--tx-3);opacity:0.85;font-weight:400;text-transform:none;line-height:1}
+.hs-glyph.signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(48px,7.5vw,98px);letter-spacing:0.02em;color:var(--tx-3);opacity:0.9;font-weight:400;text-transform:none;line-height:1}
 .hs-tile.t5:hover .hs-glyph.signature{color:var(--ink);opacity:1}
 
 /* Tattoo sketch SVGs uvnitř hero showcase */
@@ -883,7 +883,8 @@ function splitHeroLetters(animate) {
     [...text].forEach(ch => {
       const span = document.createElement('span');
       span.className = 'ltr';
-      span.textContent = ch === ' ' ? ' ' : ch;
+      // U inline-block spanu s pouhým ' ' collapse → použij NBSP
+      span.textContent = ch === ' ' ? ' ' : ch;
       if (animate) {
         span.style.animationDelay = (0.04 * letterIdx + 0.15) + 's';
       } else {
