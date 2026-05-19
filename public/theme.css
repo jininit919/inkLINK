@@ -169,12 +169,12 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--red2); }
 
 /* ── Tattoo machine cursor — global napříč InkLinkem ─────────────────────── */
 body {
-  cursor: url('/img/cursor-tattoo.svg') 3 30, auto;
+  cursor: url('/img/cursor-tattoo.svg?v=2') 3 3, auto;
 }
 a, button, [role="button"], [onclick], label[for],
 .nav-icon, .nav-avatar, .lp-btn, .btn, .filter-btn, .filter-chip, .filter-chip-btn,
 .faq-item, .card, .lang-btn, .hs-tile, .lp-nav-link {
-  cursor: url('/img/cursor-tattoo.svg') 3 30, pointer;
+  cursor: url('/img/cursor-tattoo.svg?v=2') 3 3, pointer;
 }
 input[type="text"], input[type="email"], input[type="password"],
 input[type="number"], input[type="search"], input[type="tel"],
