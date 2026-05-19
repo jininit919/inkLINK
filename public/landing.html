@@ -27,7 +27,8 @@
 <style>
 @font-face{
   font-family:'Pickyside';
-  src:url('/fonts/Pickyside.otf') format('opentype');
+  src:url('/fonts/Pickyside.otf?v=2') format('opentype'),
+      url('/fonts/Pickyside.otf?v=2') format('truetype');
   font-display:swap;
   font-weight:400;
   font-style:normal;
@@ -184,7 +185,7 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hs-tile.t5{grid-column:2/4;grid-row:4/5;background:linear-gradient(90deg,#16161a,#26262a)}
 .hs-tile.t6{grid-column:2/3;grid-row:3/4;background:linear-gradient(135deg,#1f1f24,#0a0a0c)}
 .hs-glyph{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,82px);color:var(--tx-4);letter-spacing:0.1em;opacity:0.55;line-height:1;text-align:center;z-index:2}
-.hs-glyph.signature{font-family:'Pickyside',cursive;font-size:clamp(54px,8vw,110px);letter-spacing:0;color:var(--tx-3);opacity:0.85;font-weight:400;text-transform:none}
+.hs-glyph.signature{font-family:'Pickyside',cursive;font-size:clamp(54px,8vw,110px);letter-spacing:0;color:var(--tx-3);opacity:0.85;font-weight:400;text-transform:none;font-feature-settings:"liga" 1, "dlig" 1, "ss01" 1, "salt" 1, "swsh" 1;-webkit-font-feature-settings:"liga" 1, "dlig" 1, "ss01" 1, "salt" 1, "swsh" 1;font-variant-ligatures:common-ligatures discretionary-ligatures}
 .hs-tile.t5:hover .hs-glyph.signature{color:var(--ink);opacity:1}
 
 /* Tattoo sketch SVGs uvnitř hero showcase */

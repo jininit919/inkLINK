@@ -950,6 +950,22 @@ def manifest():
 def icons(filename):
     return send_from_directory('public/icons', filename)
 
+
+@app.route('/fonts/<path:filename>')
+def fonts(filename):
+    # Explicit MIME types pro web fonty (některé deploy targety nemají defaults)
+    mime = None
+    fl = filename.lower()
+    if fl.endswith('.otf'):
+        mime = 'font/otf'
+    elif fl.endswith('.ttf'):
+        mime = 'font/ttf'
+    elif fl.endswith('.woff'):
+        mime = 'font/woff'
+    elif fl.endswith('.woff2'):
+        mime = 'font/woff2'
+    return send_from_directory('public/fonts', filename, mimetype=mime)
+
 @app.route('/logo-1080.svg')
 def logo_download():
     return send_from_directory('public', 'logo-1080.svg', mimetype='image/svg+xml')
