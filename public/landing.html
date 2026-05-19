@@ -21,19 +21,10 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Pirata+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/theme.css">
 
 <style>
-@font-face{
-  font-family:'Pickyside';
-  src:url('/fonts/Pickyside.otf?v=2') format('opentype'),
-      url('/fonts/Pickyside.otf?v=2') format('truetype');
-  font-display:swap;
-  font-weight:400;
-  font-style:normal;
-}
-
 *{box-sizing:border-box;margin:0;padding:0}
 
 /* ============================================================
@@ -185,7 +176,7 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hs-tile.t5{grid-column:2/4;grid-row:4/5;background:linear-gradient(90deg,#16161a,#26262a)}
 .hs-tile.t6{grid-column:2/3;grid-row:3/4;background:linear-gradient(135deg,#1f1f24,#0a0a0c)}
 .hs-glyph{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,82px);color:var(--tx-4);letter-spacing:0.1em;opacity:0.55;line-height:1;text-align:center;z-index:2}
-.hs-glyph.signature{font-family:'Pickyside',cursive;font-size:clamp(54px,8vw,110px);letter-spacing:0;color:var(--tx-3);opacity:0.85;font-weight:400;text-transform:none;font-feature-settings:"liga" 1, "dlig" 1, "ss01" 1, "salt" 1, "swsh" 1;-webkit-font-feature-settings:"liga" 1, "dlig" 1, "ss01" 1, "salt" 1, "swsh" 1;font-variant-ligatures:common-ligatures discretionary-ligatures}
+.hs-glyph.signature{font-family:'Pirata One',serif;font-size:clamp(46px,7vw,92px);letter-spacing:0.02em;color:var(--tx-3);opacity:0.85;font-weight:400;text-transform:none;line-height:1}
 .hs-tile.t5:hover .hs-glyph.signature{color:var(--ink);opacity:1}
 
 /* Tattoo sketch SVGs uvnitř hero showcase */
@@ -409,25 +400,54 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
     </div>
   </div>
   <div class="hero-showcase" id="heroShowcase" aria-hidden="true">
-    <!-- t1: Snake — coiled, ornate, fineline -->
+    <!-- t1: Saint figure with halo + sunburst rays + open arms (chicano religious) -->
     <div class="hs-tile t1">
       <svg class="hs-sketch" viewBox="0 0 100 100">
-        <!-- Body: 3-curve sinuous serpent -->
-        <path d="M18 82 C22 70, 38 72, 42 60 C46 48, 30 42, 32 30 C34 18, 56 14, 66 22 C76 30, 70 42, 62 46 C56 50, 56 58, 64 60"/>
-        <!-- Doubled belly line for thickness -->
-        <path d="M22 82 C26 73, 40 75, 44 62 C48 50, 34 44, 36 32 C38 22, 56 18, 64 24" opacity="0.55"/>
-        <!-- Scales row 1 -->
-        <path d="M44 70 q3 -2 6 0 m1 -7 q3 -2 6 0 m-3 -13 q3 -2 6 0"/>
-        <!-- Scales row 2 -->
-        <path d="M40 58 q-2 -3 0 -6 m6 -7 q-2 -3 0 -6"/>
-        <!-- Head: triangular -->
-        <path d="M66 22 L74 18 L72 26 Z"/>
-        <!-- Forked tongue -->
-        <path d="M74 18 L82 14 M74 18 L82 12 M74 18 L80 16"/>
-        <!-- Eye -->
-        <circle cx="69" cy="22" r="0.9" fill="currentColor"/>
-        <!-- Tail tip -->
-        <path d="M18 82 L14 86 M18 82 L20 87"/>
+        <!-- Sunburst rays around halo -->
+        <g stroke-width="1.2">
+          <line x1="50" y1="3" x2="50" y2="10"/>
+          <line x1="38" y1="6" x2="40" y2="12"/>
+          <line x1="62" y1="6" x2="60" y2="12"/>
+          <line x1="28" y1="12" x2="32" y2="16"/>
+          <line x1="72" y1="12" x2="68" y2="16"/>
+          <line x1="22" y1="20" x2="28" y2="22"/>
+          <line x1="78" y1="20" x2="72" y2="22"/>
+          <line x1="19" y1="28" x2="26" y2="28"/>
+          <line x1="81" y1="28" x2="74" y2="28"/>
+        </g>
+        <!-- Outer halo ring -->
+        <circle cx="50" cy="22" r="11" opacity="0.5"/>
+        <!-- Inner halo -->
+        <circle cx="50" cy="22" r="7"/>
+        <!-- Face: simple oval + small features -->
+        <ellipse cx="50" cy="22" rx="3.5" ry="4.2"/>
+        <circle cx="48.5" cy="21" r="0.5" fill="currentColor"/>
+        <circle cx="51.5" cy="21" r="0.5" fill="currentColor"/>
+        <path d="M48 24 q2 1 4 0" opacity="0.6"/>
+        <!-- Neck -->
+        <line x1="50" y1="26.5" x2="50" y2="32"/>
+        <!-- Robe — open arms outstretched (benediction pose) -->
+        <!-- Shoulders + outward arms -->
+        <path d="M50 32 L36 36 L24 46 L22 52"/>
+        <path d="M50 32 L64 36 L76 46 L78 52"/>
+        <!-- Hands at end of arms (stigmata) -->
+        <circle cx="22" cy="52" r="2.2"/>
+        <circle cx="78" cy="52" r="2.2"/>
+        <circle cx="22" cy="52" r="0.7" fill="currentColor"/>
+        <circle cx="78" cy="52" r="0.7" fill="currentColor"/>
+        <!-- Inner robe (chest, V-cut) -->
+        <path d="M44 36 L50 48 L56 36"/>
+        <!-- Robe body / hem -->
+        <path d="M40 38 L36 64 L34 88"/>
+        <path d="M60 38 L64 64 L66 88"/>
+        <!-- Robe pleats -->
+        <line x1="46" y1="56" x2="46" y2="86" opacity="0.55"/>
+        <line x1="50" y1="56" x2="50" y2="86" opacity="0.55"/>
+        <line x1="54" y1="56" x2="54" y2="86" opacity="0.55"/>
+        <!-- Hem bottom curve -->
+        <path d="M34 88 q16 4 32 0"/>
+        <!-- Sash/belt -->
+        <path d="M40 54 q10 -2 20 0" opacity="0.7"/>
       </svg>
     </div>
     <!-- t2: Crescent moon + face + stars + sparkle -->
