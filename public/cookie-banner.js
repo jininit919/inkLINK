@@ -15,12 +15,12 @@
   const KEY = 'inklink_cookie_ack_v1';
 
   const CSS = `
-  .il-cb{position:fixed;bottom:14px;left:14px;right:14px;max-width:520px;margin:0 auto;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border:1px solid #1a1a1a;border-left:3px solid #e8e8e8;padding:14px 16px;z-index:120;font-family:'DM Mono',monospace;font-size:12px;color:#bbb;line-height:1.5;letter-spacing:0.02em;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.6)}
+  .il-cb{position:fixed;bottom:14px;left:14px;right:14px;max-width:520px;margin:0 auto;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);border:1px solid #1a1a1a;border-left:3px solid #e8e8e8;padding:14px 16px;z-index:120;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;color:#bbb;line-height:1.5;letter-spacing:0.02em;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.6)}
   .il-cb.show{display:block}
-  .il-cb .il-cb-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.18em;color:#e8e8e8;margin-bottom:6px}
+  .il-cb .il-cb-title{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;letter-spacing:0.18em;color:#e8e8e8;margin-bottom:6px}
   .il-cb a{color:#e8e8e8;text-decoration:underline}
   .il-cb-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
-  .il-cb-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:7px 14px;background:#e8e8e8;color:#000;border:none;cursor:pointer;text-transform:uppercase}
+  .il-cb-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:7px 14px;background:#e8e8e8;color:#000;border:none;cursor:pointer;text-transform:uppercase}
   .il-cb-btn:hover{background:#fff}
   .il-cb-link{font-size:11px;color:#777;letter-spacing:0.04em}
   .il-cb-link:hover{color:#bbb}

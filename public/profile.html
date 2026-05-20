@@ -35,7 +35,7 @@
   --txt:#f5f5f7;--txt2:#a8a8ac;--txt3:#6e6e73;
   --border:#1c1c1f;--border2:#2a2a2e;
 }
-body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
@@ -46,10 +46,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .wrap{max-width:960px;margin:0 auto;padding:100px 24px 80px}
 
 .head{display:flex;gap:24px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:24px}
-.avatar{width:120px;height:120px;border-radius:50%;background:var(--bg4);border:2px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.avatar{width:120px;height:120px;border-radius:50%;background:var(--bg4);border:2px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:42px;color:var(--red2);overflow:hidden;flex-shrink:0}
 .avatar img{width:100%;height:100%;object-fit:cover}
 .head-info{flex:1;min-width:0}
-.dname{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.05em;line-height:1.1}
+.dname{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:36px;letter-spacing:0.05em;line-height:1.1}
 .uname{color:var(--txt3);font-size:13px;letter-spacing:0.06em;margin-top:4px}
 .meta{display:flex;flex-wrap:wrap;gap:14px 22px;margin-top:14px;font-size:12px;color:var(--txt2);letter-spacing:0.04em}
 .meta b{color:var(--txt);font-weight:400}
@@ -64,15 +64,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 @media(max-width:720px){.similar-grid{grid-template-columns:repeat(2,1fr)}}
 .similar-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 12px;background:var(--bg2);border:1px solid var(--border);text-align:center;text-decoration:none;color:inherit;transition:border-color 0.15s}
 .similar-card:hover{border-color:var(--red2)}
-.similar-avatar{width:64px;height:64px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--red2);overflow:hidden}
+.similar-avatar{width:64px;height:64px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:20px;color:var(--red2);overflow:hidden}
 .similar-avatar img{width:100%;height:100%;object-fit:cover}
-.similar-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.08em;color:var(--red2);line-height:1.2}
+.similar-name{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.08em;color:var(--red2);line-height:1.2}
 .similar-meta{font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.4}
 .similar-rating{font-size:11px;color:#e8c87f;letter-spacing:0.04em}
 .styles{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .style-chip{font-size:11px;padding:3px 10px;border:1px solid var(--border2);color:var(--txt2);letter-spacing:0.05em}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
-.btn{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;padding:8px 16px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
+.btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.08em;padding:8px 16px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
 .btn:hover{background:var(--red2);color:var(--bg)}
 .btn.muted{border-color:var(--border2);color:var(--txt3)}
 .btn.muted:hover{background:transparent;color:var(--txt2);border-color:var(--txt3)}
@@ -88,7 +88,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 .review-list{display:flex;flex-direction:column;gap:14px}
 .review-item{padding:16px;background:var(--bg3);border:1px solid var(--border2);position:relative}
-.review-report-btn{position:absolute;bottom:8px;right:10px;background:none;border:none;color:var(--txt3);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;cursor:pointer;padding:4px 6px;text-transform:uppercase;opacity:0.5;transition:opacity 0.15s,color 0.15s}
+.review-report-btn{position:absolute;bottom:8px;right:10px;background:none;border:none;color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:9px;letter-spacing:0.06em;cursor:pointer;padding:4px 6px;text-transform:uppercase;opacity:0.5;transition:opacity 0.15s,color 0.15s}
 .review-report-btn:hover{opacity:1;color:#e58787}
 .review-report-btn:disabled{cursor:default;opacity:0.6}
 .review-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -103,7 +103,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 20px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
+.tab{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 20px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
 .tab.active{color:var(--red2);border-bottom-color:var(--red2)}
 .tab:hover{color:var(--txt)}
 @media(max-width:560px){
@@ -124,14 +124,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .tile:hover .tile-overlay{opacity:1}
 .tile-meta{font-size:11px;color:#fff;letter-spacing:0.04em}
 .tile-kind{position:absolute;top:6px;left:6px;font-size:9px;letter-spacing:0.15em;padding:2px 6px;background:rgba(0,0,0,0.7);color:#fff}
-.tile-price{position:absolute;top:6px;right:6px;font-size:10px;letter-spacing:0.06em;padding:3px 8px;background:var(--red2);color:var(--bg);font-family:'Bebas Neue',sans-serif;font-size:13px;line-height:1}
-.tile-bookbtn{position:absolute;bottom:6px;left:6px;right:6px;padding:6px 10px;background:var(--red2);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;opacity:0;transition:opacity 0.15s}
+.tile-price{position:absolute;top:6px;right:6px;font-size:10px;letter-spacing:0.06em;padding:3px 8px;background:var(--red2);color:var(--bg);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;line-height:1}
+.tile-bookbtn{position:absolute;bottom:6px;left:6px;right:6px;padding:6px 10px;background:var(--red2);color:var(--bg);border:none;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;opacity:0;transition:opacity 0.15s}
 .tile:hover .tile-bookbtn{opacity:0.95}
 .tile-bookbtn:hover{opacity:1!important}
 
 .slots-list{display:flex;flex-direction:column;gap:8px}
 .slot-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border2)}
-.slot-date{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;min-width:140px}
+.slot-date{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.06em;min-width:140px}
 .slot-meta{flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--txt2)}
 .slot-price{color:var(--txt);font-weight:400}
 .slot-deposit{color:var(--txt3);font-size:11px}
@@ -148,7 +148,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .lb-arrow.show{display:flex}
 .lb-arrow:hover{background:rgba(20,16,8,0.55);border-color:var(--red2)}
 #lb-prev{left:16px}#lb-next{right:16px}
-#lb-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#fff;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;padding:6px 12px;background:rgba(0,0,0,0.7);display:none}
+#lb-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#fff;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.1em;padding:6px 12px;background:rgba(0,0,0,0.7);display:none}
 #lb-counter.show{display:block}
 @media(max-width:560px){.lb-arrow{width:40px;height:40px;font-size:16px}#lb-prev{left:8px}#lb-next{right:8px}}
 
@@ -156,12 +156,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 #bookModal.show{display:flex}
 .book-card{max-width:560px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:28px;max-height:90vh;overflow-y:auto}
 @media(max-width:560px){#bookModal{padding:0}.book-card{max-height:100vh;height:100vh;padding:18px;border:none}}
-.book-card h3{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.12em;margin-bottom:8px}
+.book-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:24px;letter-spacing:0.12em;margin-bottom:8px}
 .book-card .when{color:var(--txt2);font-size:13px;margin-bottom:6px}
 .book-card .price{color:var(--txt3);font-size:12px;letter-spacing:0.05em;margin-bottom:18px}
 .book-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-bottom:6px;text-transform:uppercase;margin-top:14px}
 .book-card label:first-of-type{margin-top:0}
-.book-card textarea, .book-card select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:10px 12px;outline:none}
+.book-card textarea, .book-card select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:10px 12px;outline:none}
 .book-card textarea{min-height:100px;resize:vertical}
 .book-card textarea:focus, .book-card select:focus{border-color:var(--red2)}
 
@@ -170,7 +170,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .size-pill{padding:10px 6px;border:1px solid var(--border2);text-align:center;cursor:pointer;background:var(--bg3);transition:all 0.15s}
 .size-pill:hover{border-color:var(--txt3)}
 .size-pill.on{border-color:var(--red2);background:var(--bg4)}
-.size-pill .h{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.1em;color:var(--red2);line-height:1}
+.size-pill .h{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.1em;color:var(--red2);line-height:1}
 .size-pill .lbl{font-size:9px;color:var(--txt3);letter-spacing:0.04em;margin-top:4px;line-height:1.3}
 .size-pill.on .lbl{color:var(--txt2)}
 
@@ -222,9 +222,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="portfolio">Portfolio <span id="portfolioCount" style="color:var(--txt3);font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
-      <div class="tab" data-tab="slots" id="slotsTab">Kalendář <span id="slotsCount" style="color:var(--txt3);font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
-      <div class="tab" data-tab="reviews" id="reviewsTab">Recenze <span id="reviewsCount" style="color:var(--txt3);font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab active" data-tab="portfolio">Portfolio <span id="portfolioCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="slots" id="slotsTab">Kalendář <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="reviews" id="reviewsTab">Recenze <span id="reviewsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
     </div>
 
     <div id="tab-portfolio">
@@ -244,7 +244,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
 
     <div id="similarBlock" style="display:none;margin-top:60px;border-top:1px solid var(--border);padding-top:32px">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:18px">Podobní tatéři</div>
+      <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:18px">Podobní tatéři</div>
       <div id="similarList" class="similar-grid"></div>
     </div>
   </div>
@@ -369,10 +369,10 @@ function showBookFallback(messageHTML, item) {
   // Plain overlay modal — vysvětlí proč to nešlo a nabídne "Napsat zprávu"
   const itemBlurb = item ? `<div style="margin:14px 0;padding:10px 12px;border:1px solid var(--border2);background:var(--bg3);font-size:11px;letter-spacing:0.04em;color:var(--txt2)"><b>${escapeHtml(item.caption || 'Skica')}</b>${item.price_kc?` · ${(+item.price_kc).toLocaleString('cs-CZ')} Kč`:''}${item.estimated_hours?` · ${item.estimated_hours} h`:''}</div>` : '';
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,16,8,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'DM Mono\',monospace';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,16,8,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'Helvetica Neue\',\'Helvetica\',\'Arial\',sans-serif';
   overlay.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border2);max-width:440px;width:100%;padding:28px">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;color:var(--txt);margin-bottom:12px">REZERVACE NELZE OTEVŘÍT</div>
+      <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;color:var(--txt);margin-bottom:12px">REZERVACE NELZE OTEVŘÍT</div>
       <div style="font-size:13px;color:var(--txt2);line-height:1.6">${messageHTML}</div>
       ${itemBlurb}
       <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
@@ -586,7 +586,7 @@ async function loadReviews() {
   document.getElementById('reviewsCount').textContent = d.count;
   const head = document.getElementById('reviewsHead');
   if (d.count > 0) {
-    head.innerHTML = `<b style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.04em;color:var(--red2)">${d.avg.toFixed(1)}</b>
+    head.innerHTML = `<b style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:32px;letter-spacing:0.04em;color:var(--red2)">${d.avg.toFixed(1)}</b>
       <span style="margin-left:8px">${renderStarsStatic(d.avg)}</span>
       <span style="margin-left:6px;color:var(--txt3);font-size:12px">z ${d.count} recenz${d.count===1?'e':d.count<5?'í':'í'}</span>`;
   } else {
@@ -760,7 +760,7 @@ async function bookSlot(id, portfolioItem = null) {
     pendingSize = {key: 'fixed', hours: lockedH};
     sizesEl.innerHTML = `
       <div style="grid-column:1/-1;padding:14px;border:1px solid var(--red2);background:var(--bg3);font-size:12px;color:var(--txt);letter-spacing:0.04em;line-height:1.5">
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.15em;color:var(--red2);margin-bottom:6px">📌 REZERVUJEŠ KONKRÉTNÍ NÁVRH</div>
+        <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.15em;color:var(--red2);margin-bottom:6px">📌 REZERVUJEŠ KONKRÉTNÍ NÁVRH</div>
         <b>${escapeHtml(portfolioItem.caption || 'Návrh')}</b><br>
         Délka: <b>${lockedH} h</b> · Cena: <b>${(+portfolioItem.price_kc).toLocaleString('cs-CZ')} Kč fixně</b> (přepíše hodinovou sazbu)
       </div>`;

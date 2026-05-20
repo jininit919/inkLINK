@@ -28,14 +28,14 @@
   --txt:#f5f5f7;--txt2:#aaaaaa;--txt3:#777777;
   --border:#1c1c1f;--border2:#2a2a2e;
 }
-html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--red)}
 
 /* NAV */
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:0}
 .nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;letter-spacing:0;color:var(--ink);line-height:0.9;font-weight:400;margin-right:32px;cursor:pointer;text-decoration:none}
-.nav-logo span{color:var(--txt3);font-size:15px;font-family:'DM Mono',monospace;letter-spacing:0.08em;margin-left:6px;vertical-align:middle}
+.nav-logo span{color:var(--txt3);font-size:15px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;letter-spacing:0.08em;margin-left:6px;vertical-align:middle}
 .nav-links{display:flex;gap:4px}
 .nav-link{font-size:14px;letter-spacing:0.1em;color:var(--txt3);text-decoration:none;padding:6px 12px;transition:color 0.15s;border-radius:2px}
 .nav-link:hover{color:var(--txt)}
@@ -52,11 +52,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 
 /* CALENDAR HEADER */
 .cal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px 14px;border-bottom:1px solid var(--border)}
-.cal-month{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:0.12em;color:var(--txt)}
+.cal-month{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:28px;letter-spacing:0.12em;color:var(--txt)}
 .cal-nav{display:flex;gap:8px;align-items:center}
-.cal-nav-btn{background:none;border:1px solid var(--border2);color:var(--txt3);width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.15s;font-family:'DM Mono',monospace}
+.cal-nav-btn{background:none;border:1px solid var(--border2);color:var(--txt3);width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.15s;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
 .cal-nav-btn:hover{border-color:var(--red);color:var(--red2)}
-.cal-today-btn{font-family:'DM Mono',monospace;font-size:15px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border:1px solid var(--border2);color:var(--txt3);background:none;cursor:pointer;transition:all 0.15s}
+.cal-today-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border:1px solid var(--border2);color:var(--txt3);background:none;cursor:pointer;transition:all 0.15s}
 .cal-today-btn:hover{border-color:var(--red);color:var(--red2)}
 
 /* CALENDAR GRID */
@@ -77,25 +77,25 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 
 /* ADD BUTTON */
 .add-bar{position:fixed;bottom:24px;right:24px;z-index:50}
-.add-btn{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.12em;padding:12px 22px;background:var(--red);color:white;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 20px rgba(139,0,0,0.4)}
+.add-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.12em;padding:12px 22px;background:var(--red);color:white;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 20px rgba(139,0,0,0.4)}
 .add-btn:hover{background:var(--red2);transform:translateY(-2px)}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(20,16,8,0.55);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
 .modal-overlay.open{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border2);width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:28px}
-.modal-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between}
 .modal-close{background:none;border:none;color:var(--txt3);font-size:18px;cursor:pointer;transition:color 0.15s}
 .modal-close:hover{color:var(--txt)}
 
 /* FORM */
 .mfield{margin-bottom:16px}
 .mfield label{display:block;font-size:15px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px}
-.mfield input,.mfield textarea,.mfield select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:14px;padding:9px 12px;letter-spacing:0.04em;outline:none;transition:border-color 0.2s}
+.mfield input,.mfield textarea,.mfield select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;padding:9px 12px;letter-spacing:0.04em;outline:none;transition:border-color 0.2s}
 .mfield input:focus,.mfield textarea:focus,.mfield select:focus{border-color:var(--red)}
 .mfield textarea{resize:vertical;min-height:70px}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.msave{width:100%;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.15em;padding:12px;background:var(--red);color:white;border:none;cursor:pointer;margin-top:8px;transition:background 0.2s}
+.msave{width:100%;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.15em;padding:12px;background:var(--red);color:white;border:none;cursor:pointer;margin-top:8px;transition:background 0.2s}
 .msave:hover{background:var(--red2)}
 .msave:disabled{opacity:0.5;cursor:default}
 .merror{color:#e57373;font-size:14px;letter-spacing:0.06em;margin-bottom:12px;display:none}
@@ -105,16 +105,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 .detail-genre-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0}
 .detail-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;font-size:15px;color:var(--txt2);letter-spacing:0.04em}
 .detail-row .icon{color:var(--txt3);flex-shrink:0;width:14px;text-align:center}
-.detail-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.1em;margin-bottom:16px;line-height:1.1}
-.detail-delete{font-family:'DM Mono',monospace;font-size:15px;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;border:1px solid #c62828;color:#c62828;background:transparent;cursor:pointer;transition:all 0.15s;margin-top:16px}
+.detail-title{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:24px;letter-spacing:0.1em;margin-bottom:16px;line-height:1.1}
+.detail-delete{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;border:1px solid #c62828;color:#c62828;background:transparent;cursor:pointer;transition:all 0.15s;margin-top:16px}
 .detail-delete:hover{background:#c62828;color:white}
-.detail-save-btn{display:block;width:100%;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.12em;padding:12px;border:1px solid var(--border2);color:var(--txt2);background:transparent;cursor:pointer;transition:all 0.15s;margin-top:16px;text-align:center}
+.detail-save-btn{display:block;width:100%;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;letter-spacing:0.12em;padding:12px;border:1px solid var(--border2);color:var(--txt2);background:transparent;cursor:pointer;transition:all 0.15s;margin-top:16px;text-align:center}
 .detail-save-btn:hover{border-color:var(--red2);color:var(--red2)}
 .detail-save-btn.saved{border-color:var(--red2);color:var(--red2);background:rgba(139,0,0,0.08)}
 .detail-link{color:var(--red2);text-decoration:none;font-size:15px;letter-spacing:0.04em;word-break:break-all}
 .detail-link:hover{text-decoration:underline}
 .detail-user{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border);margin-top:14px}
-.detail-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--red2);flex-shrink:0}
+.detail-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;color:var(--red2);flex-shrink:0}
 .detail-user-name{font-size:15px;letter-spacing:0.05em}
 .detail-user-sub{font-size:15px;color:var(--txt3);margin-top:2px;letter-spacing:0.06em}
 
@@ -137,18 +137,18 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 .ticket-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
 .ticket-row:last-child{border-bottom:none}
 .ticket-name{flex:1;font-size:14px;letter-spacing:0.04em;color:var(--txt)}
-.ticket-price{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.06em;color:var(--txt2);white-space:nowrap}
+.ticket-price{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.06em;color:var(--txt2);white-space:nowrap}
 .ticket-cap{font-size:12px;color:var(--txt3);letter-spacing:0.04em;white-space:nowrap}
-.ticket-buy-btn{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.1em;padding:5px 12px;background:var(--red);color:white;border:none;cursor:pointer;transition:background 0.15s;white-space:nowrap}
+.ticket-buy-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;letter-spacing:0.1em;padding:5px 12px;background:var(--red);color:white;border:none;cursor:pointer;transition:background 0.15s;white-space:nowrap}
 .ticket-buy-btn:hover{background:var(--red2)}
 .ticket-buy-btn:disabled{background:var(--bg3);color:var(--txt3);cursor:default}
 .ticket-del-btn{background:none;border:none;color:var(--txt3);font-size:14px;cursor:pointer;padding:2px 4px;transition:color 0.15s}
 .ticket-del-btn:hover{color:#c62828}
 .ticket-add-form{display:flex;flex-direction:column;gap:8px;margin-top:12px;padding:12px;background:var(--bg3);border:1px solid var(--border2)}
-.ticket-add-form input{background:var(--bg);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;letter-spacing:0.04em;outline:none;transition:border-color 0.2s;width:100%}
+.ticket-add-form input{background:var(--bg);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:7px 10px;letter-spacing:0.04em;outline:none;transition:border-color 0.2s;width:100%}
 .ticket-add-form input:focus{border-color:var(--red)}
 .ticket-add-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.ticket-add-submit{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.12em;padding:7px 16px;background:var(--red);color:white;border:none;cursor:pointer;align-self:flex-end;transition:background 0.15s}
+.ticket-add-submit{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;letter-spacing:0.12em;padding:7px 16px;background:var(--red);color:white;border:none;cursor:pointer;align-self:flex-end;transition:background 0.15s}
 .ticket-add-submit:hover{background:var(--red2)}
 .ticket-toggle{font-size:12px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;background:none;border:none;cursor:pointer;padding:0;margin-top:8px;transition:color 0.15s}
 .ticket-toggle:hover{color:var(--red2)}
@@ -159,19 +159,19 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 
 /* FILTER */
 .filter-topbar{display:flex;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid var(--border);background:var(--bg)}
-.filter-toggle-btn{font-family:'DM Mono',monospace;font-size:15px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border:1px solid var(--border2);color:var(--txt3);background:none;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px}
+.filter-toggle-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border:1px solid var(--border2);color:var(--txt3);background:none;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px}
 .filter-toggle-btn:hover,.filter-toggle-btn.open{border-color:var(--red2);color:var(--red2)}
 .filter-toggle-btn .arrow{font-size:14px;transition:transform 0.2s}
 .filter-toggle-btn.open .arrow{transform:rotate(180deg)}
 .filter-active-badge{font-size:15px;color:var(--red2);letter-spacing:0.06em;padding:3px 8px;border:1px solid var(--red);background:var(--redglow)}
-.filter-clear-btn{font-size:15px;letter-spacing:0.08em;color:var(--txt3);cursor:pointer;margin-left:auto;transition:color 0.15s;background:none;border:none;font-family:'DM Mono',monospace;padding:0}
+.filter-clear-btn{font-size:15px;letter-spacing:0.08em;color:var(--txt3);cursor:pointer;margin-left:auto;transition:color 0.15s;background:none;border:none;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;padding:0}
 .filter-clear-btn:hover{color:var(--red2)}
 .filter-panel{border-bottom:1px solid var(--border);background:var(--bg2);overflow:hidden;max-height:0;transition:max-height 0.25s ease,opacity 0.2s;opacity:0;pointer-events:none}
 .filter-panel.open{max-height:500px;opacity:1;pointer-events:auto}
 .filter-section{padding:12px 20px 10px;border-bottom:1px solid var(--border)}
 .filter-section:last-child{border-bottom:none}
 .filter-section-label{font-size:15px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3);margin-bottom:8px}
-.filter-chip{font-size:15px;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--border2);color:var(--txt3);cursor:pointer;transition:all 0.15s;background:none;font-family:'DM Mono',monospace;white-space:nowrap}
+.filter-chip{font-size:15px;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--border2);color:var(--txt3);cursor:pointer;transition:all 0.15s;background:none;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;white-space:nowrap}
 .filter-chip:hover{border-color:var(--txt3);color:var(--txt2)}
 .filter-chip.active{border-color:transparent;color:#fff}
 .filter-chip.city-chip.active{border-color:var(--red2);color:var(--red2);background:var(--redglow)}
@@ -181,7 +181,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 
 /* VIEW TABS */
 .view-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg)}
-.view-tab{font-family:'DM Mono',monospace;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;padding:10px 20px;cursor:pointer;color:var(--txt3);border:none;background:none;border-bottom:2px solid transparent;transition:all 0.15s;margin-bottom:-1px}
+.view-tab{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;padding:10px 20px;cursor:pointer;color:var(--txt3);border:none;background:none;border-bottom:2px solid transparent;transition:all 0.15s;margin-bottom:-1px}
 .view-tab:hover{color:var(--txt2)}
 .view-tab.active{color:var(--red2);border-bottom-color:var(--red2)}
 
@@ -193,10 +193,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 .leaflet-tile-pane{filter:grayscale(1) contrast(1.05)}
 .map-pin-popup .leaflet-popup-content-wrapper{background:var(--bg2);border:1px solid var(--border2);border-radius:2px;box-shadow:0 4px 20px rgba(20,16,8,0.14)}
 .map-pin-popup .leaflet-popup-tip{background:var(--bg2)}
-.map-pin-popup .leaflet-popup-content{margin:10px 14px;font-family:'DM Mono',monospace}
+.map-pin-popup .leaflet-popup-content{margin:10px 14px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
 .popup-title{font-size:14px;letter-spacing:0.04em;color:#e8e8e8;margin-bottom:4px}
 .popup-meta{font-size:14px;color:#666;letter-spacing:0.04em;margin-bottom:8px}
-.popup-open{font-size:15px;letter-spacing:0.1em;text-transform:uppercase;color:var(--red2);cursor:pointer;border:none;background:none;font-family:'DM Mono',monospace;padding:0}
+.popup-open{font-size:15px;letter-spacing:0.1em;text-transform:uppercase;color:var(--red2);cursor:pointer;border:none;background:none;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;padding:0}
 .popup-open:hover{text-decoration:underline}
 .no-map-events{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#444;font-size:15px;letter-spacing:0.08em;pointer-events:none}
 
@@ -393,7 +393,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 <div class="modal-overlay" id="detailModal">
   <div class="modal">
     <div class="modal-title">
-      <span id="dGenreTag" style="font-size:15px;letter-spacing:0.08em;font-family:'DM Mono',monospace;font-weight:normal"></span>
+      <span id="dGenreTag" style="font-size:15px;letter-spacing:0.08em;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-weight:normal"></span>
       <button class="modal-close" onclick="closeDetail()">✕</button>
     </div>
     <div id="dContent"></div>

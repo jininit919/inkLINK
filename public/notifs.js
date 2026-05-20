@@ -23,14 +23,14 @@
   .il-notif-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3,#777);background:none;border:none;font-family:inherit;position:relative;border-radius:2px}
   .il-notif-btn:hover{color:var(--red2,#e8e8e8);background:var(--bg3,#101010)}
   .il-notif-btn.has-unread{color:var(--red2,#e8e8e8)}
-  .il-notif-badge{position:absolute;top:4px;right:4px;min-width:14px;height:14px;border-radius:7px;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);font-size:10px;color:var(--bg,#000);display:none;align-items:center;justify-content:center;padding:0 3px;font-family:'DM Mono',monospace;font-weight:700;line-height:1}
+  .il-notif-badge{position:absolute;top:4px;right:4px;min-width:14px;height:14px;border-radius:7px;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);font-size:10px;color:var(--bg,#000);display:none;align-items:center;justify-content:center;padding:0 3px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-weight:700;line-height:1}
   .il-notif-badge.show{display:flex}
 
-  .il-notif-panel{position:fixed;top:54px;right:14px;width:360px;max-width:calc(100vw - 28px);max-height:70vh;background:var(--bg2,#080808);border:1px solid var(--border,#1a1a1a);box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:1000;display:none;flex-direction:column;overflow:hidden;font-family:'DM Mono',monospace}
+  .il-notif-panel{position:fixed;top:54px;right:14px;width:360px;max-width:calc(100vw - 28px);max-height:70vh;background:var(--bg2,#080808);border:1px solid var(--border,#1a1a1a);box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:1000;display:none;flex-direction:column;overflow:hidden;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
   .il-notif-panel.open{display:flex}
   .il-notif-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border,#1a1a1a)}
-  .il-notif-head h3{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.18em;color:var(--red2,#e8e8e8);margin:0;font-weight:normal}
-  .il-notif-mark{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;color:var(--txt3,#777);background:none;border:none;cursor:pointer;text-transform:uppercase;padding:4px 8px}
+  .il-notif-head h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.18em;color:var(--red2,#e8e8e8);margin:0;font-weight:normal}
+  .il-notif-mark{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;letter-spacing:0.08em;color:var(--txt3,#777);background:none;border:none;cursor:pointer;text-transform:uppercase;padding:4px 8px}
   .il-notif-mark:hover{color:var(--red2,#e8e8e8)}
   .il-notif-mark:disabled{opacity:0.4;cursor:not-allowed}
 
@@ -48,12 +48,12 @@
   .il-notif-item.unread .il-notif-dot{opacity:1}
 
   .il-notif-empty{padding:40px 24px;text-align:center;font-size:12px;color:var(--txt3,#777);letter-spacing:0.04em;line-height:1.7}
-  .il-notif-empty .b{display:block;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2,#e8e8e8);margin-bottom:8px}
+  .il-notif-empty .b{display:block;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2,#e8e8e8);margin-bottom:8px}
 
   .il-notif-push{border-top:1px solid var(--border,#1a1a1a);padding:12px 16px;display:none;flex-direction:column;gap:8px}
   .il-notif-push.show{display:flex}
   .il-notif-push-text{font-size:11px;color:var(--txt3,#777);letter-spacing:0.04em;line-height:1.5}
-  .il-notif-push-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 14px;background:var(--red2,#e8e8e8);color:var(--bg,#000);border:none;cursor:pointer;text-transform:uppercase;text-align:center}
+  .il-notif-push-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:8px 14px;background:var(--red2,#e8e8e8);color:var(--bg,#000);border:none;cursor:pointer;text-transform:uppercase;text-align:center}
   .il-notif-push-btn:hover{background:var(--red3,#fff)}
   .il-notif-push-btn.muted{background:transparent;color:var(--txt3,#777);border:1px solid var(--border2,#222)}
   .il-notif-push-btn.muted:hover{color:var(--red2,#e8e8e8);border-color:var(--red2,#e8e8e8)}

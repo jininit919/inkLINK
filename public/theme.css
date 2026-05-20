@@ -351,7 +351,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--red2); }
   background: transparent;
   border: 1px solid currentColor;
   color: inherit;
-  font-family: 'DM Mono', monospace;
+  font-family: 'Helvetica Neue','Helvetica','Arial',sans-serif;
   font-size: 11px;
   padding: 5px 12px;
   cursor: pointer;

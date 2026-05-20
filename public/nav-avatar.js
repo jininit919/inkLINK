@@ -7,7 +7,7 @@
     .nav-avatar-wrap{position:relative;display:inline-flex;align-items:center}
     .avatar-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;min-width:220px;padding:8px;display:none;flex-direction:column;gap:1px;box-shadow:0 16px 40px rgba(0,0,0,0.7);z-index:1000;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
     .avatar-menu.open{display:flex}
-    .avatar-menu a,.avatar-menu button{padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.04em;color:var(--txt2);border-radius:6px;display:flex;align-items:center;gap:10px;cursor:pointer;background:none;border:none;text-align:left;width:100%;transition:background 0.12s,color 0.12s;text-decoration:none}
+    .avatar-menu a,.avatar-menu button{padding:9px 12px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.04em;color:var(--txt2);border-radius:6px;display:flex;align-items:center;gap:10px;cursor:pointer;background:none;border:none;text-align:left;width:100%;transition:background 0.12s,color 0.12s;text-decoration:none}
     .avatar-menu a:hover,.avatar-menu button:hover{background:var(--bg3);color:var(--txt)}
     .avatar-menu .icon{width:15px;height:15px;color:var(--txt3)}
     .avatar-menu a:hover .icon,.avatar-menu button:hover .icon{color:var(--txt)}

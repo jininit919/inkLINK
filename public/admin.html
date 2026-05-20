@@ -21,7 +21,7 @@
   --border:#1c1c1f;--border2:#2a2a2e;
   --good:#7fc97f;--warn:#e8c87f;--bad:#e58787;
 }
-body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
@@ -31,7 +31,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 .wrap{max-width:1200px;margin:0 auto;padding:78px 20px 60px}
 .head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px}
-.title{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.18em;color:var(--red2)}
+.title{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:36px;letter-spacing:0.18em;color:var(--red2)}
 .sub{font-size:11px;letter-spacing:0.1em;color:var(--txt3)}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:32px}
@@ -39,18 +39,18 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 @media(max-width:480px){.kpi-grid{grid-template-columns:1fr}}
 .kpi{padding:18px 20px;background:var(--bg2);border:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
 .kpi-label{font-size:10px;letter-spacing:0.12em;color:var(--txt3);text-transform:uppercase}
-.kpi-value{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:0.04em;color:var(--red2);line-height:1.1}
+.kpi-value{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:28px;letter-spacing:0.04em;color:var(--red2);line-height:1.1}
 .kpi-sub{font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:2px}
 .kpi.alert .kpi-value{color:var(--warn)}
 .kpi.alert{border-color:var(--warn)}
 
 .section{margin-bottom:36px}
-.section-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.section-title{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
 
 .tbl{display:flex;flex-direction:column;gap:4px}
 .tbl-row{display:grid;grid-template-columns:80px 1fr 1fr 1fr auto;gap:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);align-items:center;font-size:12px}
 .tbl-row.h{background:transparent;border:none;padding:6px 14px;color:var(--txt3);font-size:10px;letter-spacing:0.1em;text-transform:uppercase}
-.tbl-row .mono{font-family:'DM Mono',monospace}
+.tbl-row .mono{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
 .tbl-row a{color:var(--red2)}
 .tbl-row a:hover{text-decoration:underline}
 .status-tag{display:inline-block;font-size:9px;letter-spacing:0.08em;padding:2px 6px;text-transform:uppercase}
@@ -65,7 +65,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .report-body{font-size:12px;color:var(--txt);line-height:1.5;margin-bottom:8px}
 .report-review{padding:10px 12px;background:var(--bg3);border-left:2px solid var(--border2);font-size:11px;color:var(--txt2);line-height:1.5;margin:8px 0}
 .report-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.btn-mini{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;padding:5px 10px;border:1px solid var(--border2);background:transparent;color:var(--txt2);cursor:pointer;text-transform:uppercase}
+.btn-mini{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;letter-spacing:0.08em;padding:5px 10px;border:1px solid var(--border2);background:transparent;color:var(--txt2);cursor:pointer;text-transform:uppercase}
 .btn-mini:hover{border-color:var(--red2);color:var(--red2)}
 .btn-mini.danger:hover{border-color:var(--bad);color:var(--bad)}
 
@@ -114,7 +114,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
   <div id="needAdmin" style="display:none">
     <div class="empty">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.16em;color:var(--bad);margin-bottom:10px">PŘÍSTUP ZAMÍTNUT</div>
+      <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:24px;letter-spacing:0.16em;color:var(--bad);margin-bottom:10px">PŘÍSTUP ZAMÍTNUT</div>
       Tato stránka je jen pro adminy.<br>
       <a href="/" style="color:var(--red2);text-decoration:underline">Zpět na feed</a>
     </div>

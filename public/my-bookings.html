@@ -21,7 +21,7 @@
   --border:#1c1c1f;--border2:#2a2a2e;
   --ok:#7fd391;--warn:#e8c87f;--err:#e58787;
 }
-body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
@@ -30,7 +30,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .nav-icon:hover{color:var(--red2);background:var(--bg3)}
 
 .wrap{max-width:880px;margin:0 auto;padding:100px 24px 80px}
-h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:24px}
+h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:24px}
 .cal-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
 .cal-tools .btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .btn.muted{border-color:var(--border2);color:var(--txt2)}
@@ -38,21 +38,21 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 
 .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
+.tab{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
 .tab.active{color:var(--red2);border-bottom-color:var(--red2)}
-.tab .count{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;color:var(--txt3);margin-left:6px}
+.tab .count{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;color:var(--txt3);margin-left:6px}
 @media(max-width:560px){
   .wrap{padding:92px 14px 80px !important}
   h1{font-size:28px !important}
 }
 
 .empty{text-align:center;padding:80px 20px;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.6}
-.empty .b{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.18em;color:var(--red2);margin-bottom:12px}
+.empty .b{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.18em;color:var(--red2);margin-bottom:12px}
 
 .list{display:flex;flex-direction:column;gap:10px}
 .b-row{display:grid;grid-template-columns:140px 1fr auto;gap:14px;padding:16px;background:var(--bg2);border:1px solid var(--border)}
 @media(max-width:560px){.b-row{grid-template-columns:1fr}}
-.b-when{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em}
+.b-when{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.06em}
 .b-mid{display:flex;flex-direction:column;gap:5px;min-width:0}
 .b-who{display:flex;align-items:center;gap:8px;font-size:13px}
 .b-avatar{width:28px;height:28px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
@@ -68,7 +68,7 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 .b-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;justify-content:center}
 @media(max-width:560px){.b-actions{align-items:flex-start;flex-direction:row;flex-wrap:wrap}}
 
-.btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
+.btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
 .btn:hover{background:var(--red2);color:var(--bg)}
 .btn.danger{border-color:var(--err);color:var(--err)}
 .btn.danger:hover{background:var(--err);color:#fff}
@@ -80,11 +80,11 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 #completeModal,#reviewModal,#respondModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
 #completeModal.show,#reviewModal.show,#respondModal.show{display:flex}
 .cm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
-.cm-card h3{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
+.cm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
 .cm-card p{color:var(--txt2);font-size:12px;line-height:1.5;margin-bottom:14px;letter-spacing:0.04em}
 .cm-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-bottom:6px;text-transform:uppercase;margin-top:14px}
 .cm-card label:first-of-type{margin-top:0}
-.cm-card input,.cm-card textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none}
+.cm-card input,.cm-card textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:9px 12px;outline:none}
 .cm-card textarea{min-height:90px;resize:vertical}
 .cm-card input:focus,.cm-card textarea:focus{border-color:var(--red2)}
 .cm-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
@@ -133,7 +133,7 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
     </div>
     <div id="calSubBox" style="display:none;margin:14px 0;padding:14px;background:var(--bg2);border:1px solid var(--border2);font-size:11px;letter-spacing:0.04em;color:var(--txt2);line-height:1.7">
       <div style="margin-bottom:8px;color:var(--txt)">Continuous sync URL — vlož do Apple/Google Calendar (Subscribe to calendar):</div>
-      <input id="calSubUrl" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;letter-spacing:0.02em" onclick="this.select()">
+      <input id="calSubUrl" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:8px 10px;letter-spacing:0.02em" onclick="this.select()">
       <div style="margin-top:10px;display:flex;gap:8px">
         <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px">Kopírovat</button>
         <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)">Regenerovat (zneplatní starou URL)</button>

@@ -23,7 +23,7 @@
   --border:#1c1c1f;--border2:#2a2a2e;
   --err:#cc4444;--ok:#4caf50;
 }
-body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
@@ -32,18 +32,18 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .nav-icon:hover{color:var(--red2);background:var(--bg3)}
 
 .wrap{max-width:880px;margin:0 auto;padding:100px 24px 80px}
-h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
+h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
 .sub{color:var(--txt3);font-size:13px;letter-spacing:0.05em;margin-bottom:32px}
 
 .card{background:var(--bg2);border:1px solid var(--border);padding:24px;margin-bottom:24px}
-.card h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
+.card h2{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
 .card p.hint{color:var(--txt3);font-size:12px;letter-spacing:0.04em;margin-bottom:18px;line-height:1.5}
 
 .field{margin-bottom:14px}
 .field label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-bottom:6px;text-transform:uppercase}
-.field input, .field textarea, .field select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none}
+.field input, .field textarea, .field select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:9px 12px;outline:none}
 .field input:focus, .field textarea:focus, .field select:focus{border-color:var(--red2)}
-.field textarea{resize:vertical;min-height:80px;font-family:'DM Mono',monospace}
+.field textarea{resize:vertical;min-height:80px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:560px){.row{grid-template-columns:1fr}}
 
@@ -51,7 +51,7 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 .style-pill{font-size:11px;padding:5px 12px;border:1px solid var(--border2);color:var(--txt2);letter-spacing:0.05em;cursor:pointer;user-select:none}
 .style-pill.on{border-color:var(--red2);color:var(--red2);background:var(--bg3)}
 
-.btn{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;padding:9px 18px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
+.btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.08em;padding:9px 18px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
 .btn:hover{background:var(--red2);color:var(--bg)}
 .btn.muted{border-color:var(--border2);color:var(--txt3)}
 .btn.muted:hover{background:transparent;color:var(--txt2);border-color:var(--txt3)}
@@ -72,24 +72,24 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 .gtile .del{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:2}
 .gtile .del:hover{background:var(--err)}
 .gtile .kindbadge{position:absolute;top:6px;left:6px;font-size:9px;letter-spacing:0.15em;padding:2px 6px;background:rgba(0,0,0,0.7);color:#fff}
-.gtile .edit-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.18em;opacity:0;transition:opacity 0.15s;pointer-events:none}
+.gtile .edit-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);color:#fff;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.18em;opacity:0;transition:opacity 0.15s;pointer-events:none}
 .gtile:hover .edit-hint{opacity:1}
 
 #editPortModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
 #editPortModal.show{display:flex}
 .epm-card{max-width:460px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
-.epm-card h3{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:16px}
+.epm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:16px}
 .epm-card .preview{width:100%;aspect-ratio:1;background:var(--bg3);overflow:hidden;margin-bottom:14px;border:1px solid var(--border2)}
 .epm-card .preview img{width:100%;height:100%;object-fit:cover}
 .epm-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-top:14px;margin-bottom:6px;text-transform:uppercase}
 .epm-card label:first-of-type{margin-top:0}
-.epm-card input,.epm-card select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;outline:none}
+.epm-card input,.epm-card select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:9px 12px;outline:none}
 .epm-card input:focus,.epm-card select:focus{border-color:var(--red2)}
 .epm-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 
 .slot-list{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .slot-item{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);font-size:12px}
-.slot-item-date{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.06em;min-width:140px}
+.slot-item-date{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.06em;min-width:140px}
 .slot-item-price{flex:1;color:var(--txt2)}
 .slot-item-status{padding:2px 8px;border:1px solid var(--border2);font-size:10px;letter-spacing:0.1em;color:var(--txt3)}
 .slot-item-status.free{color:var(--ok);border-color:rgba(76,175,80,0.4)}
@@ -98,28 +98,28 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 
 /* ── Calendar week view ─────────────────────────────────────────────── */
 .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.cal-nav h3{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.12em;color:var(--txt);margin:0;flex:1;min-width:200px}
-.cal-nav button{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase}
+.cal-nav h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.12em;color:var(--txt);margin:0;flex:1;min-width:200px}
+.cal-nav button{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase}
 .cal-nav button:hover{border-color:var(--red2);color:var(--red2)}
 
 .cal-grid{display:grid;grid-template-columns:50px repeat(7,1fr);background:var(--bg2);border:1px solid var(--border);overflow-x:auto}
 .cal-head{display:contents}
-.cal-head .h-cell{padding:10px 6px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.12em;color:var(--txt3);background:var(--bg3);border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.cal-head .h-cell{padding:10px 6px;text-align:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.12em;color:var(--txt3);background:var(--bg3);border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
 .cal-head .h-cell.today{color:var(--red2)}
 .cal-head .h-cell.today .num{background:var(--red2);color:var(--bg);border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
-.cal-head .h-cell .num{font-family:'DM Mono',monospace;font-size:13px;color:var(--txt);display:block;margin-top:2px}
+.cal-head .h-cell .num{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;color:var(--txt);display:block;margin-top:2px}
 
 .cal-body{display:contents}
-.cal-hour{padding:0 6px;text-align:right;font-size:10px;color:var(--txt3);font-family:'DM Mono',monospace;letter-spacing:0.05em;border-right:1px solid var(--border);border-bottom:1px solid var(--border2);height:48px;display:flex;align-items:flex-start;justify-content:flex-end;padding-top:2px}
+.cal-hour{padding:0 6px;text-align:right;font-size:10px;color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;letter-spacing:0.05em;border-right:1px solid var(--border);border-bottom:1px solid var(--border2);height:48px;display:flex;align-items:flex-start;justify-content:flex-end;padding-top:2px}
 .cal-day-col{position:relative;border-right:1px solid var(--border)}
 .cal-day-col:last-child{border-right:none}
 .cal-cell{height:48px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background 0.1s}
 .cal-cell:hover{background:rgba(232,232,232,0.04)}
 .cal-cell.is-today{background:rgba(232,232,232,0.02)}
 
-.cal-slot{position:absolute;left:2px;right:2px;background:var(--bg4);border-left:3px solid var(--red2);padding:5px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--txt);cursor:pointer;overflow:hidden;line-height:1.3;letter-spacing:0.02em;z-index:2}
+.cal-slot{position:absolute;left:2px;right:2px;background:var(--bg4);border-left:3px solid var(--red2);padding:5px 6px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;color:var(--txt);cursor:pointer;overflow:hidden;line-height:1.3;letter-spacing:0.02em;z-index:2}
 .cal-slot:hover{background:var(--bg3);border-left-color:#fff}
-.cal-slot .s-time{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:0.1em;color:var(--txt2)}
+.cal-slot .s-time{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.1em;color:var(--txt2)}
 .cal-slot .s-rate{color:var(--txt3);font-size:9px;letter-spacing:0.04em}
 
 .cal-booking{position:absolute;left:6px;right:2px;background:var(--red);border-left:3px solid #e8c87f;padding:3px 5px;font-size:9px;color:var(--txt);overflow:hidden;line-height:1.2;cursor:pointer;z-index:3;letter-spacing:0.02em}
@@ -131,11 +131,11 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 #slotDetailModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
 #slotDetailModal.show{display:flex}
 .sdm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
-.sdm-card h3{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
+.sdm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
 .sdm-card .sdm-when{color:var(--txt2);font-size:13px;margin-bottom:14px;letter-spacing:0.05em}
 .sdm-card .sdm-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--txt3);letter-spacing:0.04em;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)}
 .sdm-card .sdm-meta b{color:var(--txt);font-weight:400}
-.sdm-card h4{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.15em;color:var(--txt3);margin-bottom:8px}
+.sdm-card h4{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.15em;color:var(--txt3);margin-bottom:8px}
 .sdm-bookings{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .sdm-booking{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-left:2px solid var(--red);font-size:11px;color:var(--txt2);letter-spacing:0.04em}
 .sdm-booking.completed{border-left-color:var(--ok)}
@@ -155,7 +155,7 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 
 .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
+.tab{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
 .tab.active{color:var(--red2);border-bottom-color:var(--red2)}
 @media(max-width:560px){
   .tab{font-size:14px;padding:10px 14px;letter-spacing:0.12em}
@@ -171,8 +171,8 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
 .cl-card{background:linear-gradient(135deg, rgba(232,200,127,0.08), rgba(232,200,127,0.02));border:1px solid rgba(232,200,127,0.3);padding:18px;margin-bottom:20px;position:relative}
 .cl-card.done{background:linear-gradient(135deg, rgba(127,211,145,0.06), rgba(127,211,145,0.02));border-color:rgba(127,211,145,0.3)}
 .cl-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
-.cl-head h3{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.12em;margin:0;flex:1}
-.cl-pct{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.04em;color:var(--warn)}
+.cl-head h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.12em;margin:0;flex:1}
+.cl-pct{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:24px;letter-spacing:0.04em;color:var(--warn)}
 .cl-card.done .cl-pct{color:var(--ok)}
 .cl-bar{height:4px;background:var(--bg3);margin-bottom:14px;overflow:hidden}
 .cl-bar-fill{height:100%;background:var(--warn);transition:width 0.3s ease}
@@ -1044,7 +1044,7 @@ function openSlotDetail(slotId) {
       const bs = new Date(b.start_at);
       const cls = b.status === 'completed' ? 'completed' : '';
       return `<div class="sdm-booking ${cls}">
-        <span style="min-width:90px;font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--txt)">${bs.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</span>
+        <span style="min-width:90px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;color:var(--txt)">${bs.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</span>
         <span style="flex:1"><b style="color:var(--txt)">${escapeHtml(b.client.display_name||b.client.username||'?')}</b> · ${b.duration_h}h${b.size_label?' · '+escapeHtml(b.size_label):''}</span>
         <span style="font-size:9px;letter-spacing:0.1em;padding:2px 6px;border:1px solid var(--border2);color:${b.status==='completed'?'#7fd391':'#e8c87f'}">${b.status.replace('_',' ').toUpperCase()}</span>
       </div>`;

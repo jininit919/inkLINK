@@ -33,7 +33,7 @@
   --txt:#f5f5f7;--txt2:#a8a8ac;--txt3:#6e6e73;
   --border:#1c1c1f;--border2:#2a2a2e;
 }
-body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh;overflow-x:hidden}
 a{color:inherit;text-decoration:none}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg)}
@@ -51,7 +51,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .hero{background:var(--bg2);border:1px solid var(--border);position:relative;overflow:hidden}
 .hero img{width:100%;max-height:80vh;object-fit:contain;display:block;background:#000}
 .hero-kind{position:absolute;top:12px;left:12px;font-size:10px;letter-spacing:0.18em;padding:4px 10px;background:rgba(0,0,0,0.78);color:#fff}
-.hero-price{position:absolute;top:12px;right:12px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;padding:6px 12px;background:var(--red2);color:var(--bg);line-height:1}
+.hero-price{position:absolute;top:12px;right:12px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.06em;padding:6px 12px;background:var(--red2);color:var(--bg);line-height:1}
 .hero-thumbs{display:none;gap:6px;margin-top:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
 .hero-thumbs::-webkit-scrollbar{display:none}
 .hero-thumb{flex:0 0 auto;width:80px;height:80px;background:var(--bg3);cursor:pointer;border:2px solid var(--border);padding:0;transition:border-color 0.15s;overflow:hidden}
@@ -67,31 +67,31 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 .artist-card{display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg2);border:1px solid var(--border);transition:border-color 0.15s}
 .artist-card:hover{border-color:var(--border2)}
-.artist-avatar{width:54px;height:54px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0;font-family:'Bebas Neue',sans-serif;letter-spacing:0.08em}
+.artist-avatar{width:54px;height:54px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;letter-spacing:0.08em}
 .artist-avatar img{width:100%;height:100%;object-fit:cover}
 .artist-info{flex:1;min-width:0}
-.artist-info .name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.12em;color:var(--red2)}
+.artist-info .name{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:20px;letter-spacing:0.12em;color:var(--red2)}
 .artist-info .meta{font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px}
-.rating-inline{display:inline-flex;align-items:center;gap:3px;font-family:'DM Mono',monospace;font-size:12px;color:#e8c87f;letter-spacing:0.04em;margin-left:8px;vertical-align:middle}
+.rating-inline{display:inline-flex;align-items:center;gap:3px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;color:#e8c87f;letter-spacing:0.04em;margin-left:8px;vertical-align:middle}
 .rating-inline .rating-cnt{color:var(--txt3);font-size:10px}
 
 /* Price block — výrazný, pod caption */
 .price-block{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:18px 20px;background:var(--bg2);border:1px solid var(--border2);flex-wrap:wrap}
-.price-main{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.06em;color:var(--red2);line-height:1}
+.price-main{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:36px;letter-spacing:0.06em;color:var(--red2);line-height:1}
 .price-meta{font-size:11px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;line-height:1.5}
 .price-meta b{color:var(--txt);font-weight:400}
 
 /* Artist actions — message btn next to profile link */
 .artist-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0}
-.artist-actions .btn-msg{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:7px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;white-space:nowrap}
+.artist-actions .btn-msg{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:7px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;white-space:nowrap}
 .artist-actions .btn-msg:hover{border-color:var(--red2);color:var(--red2)}
 .artist-actions .profile-link{font-size:10px;letter-spacing:0.1em;color:var(--txt3);text-transform:uppercase}
 .artist-cta{font-size:11px;letter-spacing:0.08em;color:var(--txt3)}
 
 .actions{display:flex;gap:10px;flex-wrap:wrap}
-.actions .btn-primary{flex:1;min-width:200px;font-family:'DM Mono',monospace;font-size:13px;letter-spacing:0.1em;padding:14px 22px;background:var(--red2);color:var(--bg);border:none;cursor:pointer;text-transform:uppercase;text-decoration:none;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.actions .btn-primary{flex:1;min-width:200px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;letter-spacing:0.1em;padding:14px 22px;background:var(--red2);color:var(--bg);border:none;cursor:pointer;text-transform:uppercase;text-decoration:none;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .actions .btn-primary:hover{background:var(--red3)}
-.actions .btn-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border2);background:transparent;color:var(--txt2);cursor:pointer;font-size:16px;font-family:'DM Mono',monospace;transition:all 0.15s}
+.actions .btn-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border2);background:transparent;color:var(--txt2);cursor:pointer;font-size:16px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;transition:all 0.15s}
 .actions .btn-icon:hover{border-color:var(--red2);color:var(--red2)}
 .actions .btn-icon.liked{color:#e58787;border-color:#e58787}
 .actions .btn-icon .cnt{font-size:11px;margin-left:4px;letter-spacing:0.04em}
@@ -103,12 +103,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 .slots-block{display:flex;flex-direction:column;gap:10px}
 .slots-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
-.slots-head .label{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.16em;color:var(--red2)}
+.slots-head .label{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.16em;color:var(--red2)}
 .slots-head .cnt{font-size:11px;letter-spacing:0.06em;color:var(--txt3)}
 .slot-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);text-decoration:none;color:inherit;transition:border-color 0.15s,background 0.15s}
 .slot-row:hover:not(.disabled){border-color:var(--red2);background:var(--bg3)}
 .slot-row.disabled{opacity:0.5;cursor:not-allowed}
-.slot-date{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;min-width:150px;color:var(--txt)}
+.slot-date{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.06em;min-width:150px;color:var(--txt)}
 .slot-meta{flex:1;display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--txt2);min-width:0}
 .slot-meta .price{color:var(--txt)}
 .slot-meta .dep{color:var(--txt3);font-size:11px;letter-spacing:0.04em}
