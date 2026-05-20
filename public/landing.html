@@ -5,131 +5,353 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#faf8f3">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
 <title>InkLink — Tattoo Booking Network</title>
-<meta name="description" content="Tetování v ČR. Vyber si konkrétní skicu nebo objev tatéra podle stylu. Rezervuj bezpečně přes Stripe — peníze chráněné do dokončení.">
+<meta name="description" content="Tetování v ČR. Najdi svou skicu, potkej svého tatéra, rezervuj v klidu. Peníze chráněné přes Stripe do dokončení.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.inklink.club/">
 <meta property="og:title" content="InkLink — Tattoo Marketplace">
-<meta property="og:description" content="Prohlédni skicy. Najdi tatéra. Rezervuj bezpečně — peníze chráněné do dokončení tetování.">
-<meta property="og:image" content="https://www.inklink.club/icons/icon-512.png">
+<meta property="og:description" content="Najdi svou skicu. Potkej svého tatéra. Rezervuj v klidu.">
+<meta property="og:image" content="https://www.inklink.club/img/inklink-logo.jpg">
 <meta name="twitter:card" content="summary_large_image">
 
+<!-- Bristol font (zaregistrován v theme.css), Cormorant Garamond pro body -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,300;1,400&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,400&family=Metal+Mania&family=Pirata+One&family=Playfair+Display:ital,wght@0,500;1,500;1,700&family=Rye&family=Yuji+Mai&display=swap" rel="stylesheet">
-<!-- Force paper theme na landing — ignoruj uložené dark v localStorage -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,300;1,400;1,500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<!-- Force paper theme — ignoruj uložené dark v localStorage -->
 <script>document.documentElement.dataset.theme='paper';</script>
 <link rel="stylesheet" href="/theme.css">
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 
-/* ============================================================
-   DESIGN TOKENS — PAPER MODE (off-white papír + jemný inkoust)
-   Re-designovaná paleta: papírové pozadí, hluboký ink text,
-   žádné barevné akcenty — místo nich ink textury (skvrny, brush, paper grain).
-   ============================================================ */
 :root{
-  --bg-0:#f5f1e8;            /* nejhlubší papír / void section */
-  --bg-1:#faf8f3;            /* base background (off-white papír) */
-  --bg-2:#f5f1e8;            /* surface */
-  --bg-3:#ede8db;            /* elevated / hover */
-  --bg-4:#e3ddca;            /* interactive */
-  --tx-1:#0a0a0a;            /* primary ink */
-  --tx-2:#2a2a2a;            /* secondary */
-  --tx-3:#5a5a5a;            /* tertiary */
-  --tx-4:#9a9a9a;            /* disabled */
-  --bd-1:#e0dcc8;            /* subtle */
-  --bd-2:#c8c2ac;            /* default */
-  --bd-3:#9c9785;            /* emphasized */
-  --ac-w:#0a0a0a;            /* primary brand → ink black (invertováno) */
-  --ac-r:#9c2a2a;            /* tlumený ink red pro errors */
-  --ink:#0a0a0a;             /* INK BLACK — neutralizováno (žádný barevný akcent) */
-  --ink-glow:rgba(10,10,10,0.10);
-
-  --r-sm:4px;
-  --r-md:6px;
-  --r-lg:10px;
-  --r-pill:999px;
-
-  --sh-1:0 1px 2px rgba(20,16,8,0.06);
-  --sh-2:0 8px 24px rgba(20,16,8,0.10);
-  --sh-3:0 20px 56px rgba(20,16,8,0.14);
-
-  --ease:cubic-bezier(0.32,0.72,0,1);
-  --t-fast:120ms;
-  --t-med:300ms;
-  --t-slow:600ms;
-
-  /* Paper grain noise — overlay přes celou stránku pro vintage feel */
+  --paper:#faf8f3;
+  --paper-2:#f3eee1;
+  --ink:#0a0a0a;
+  --ink-soft:#2a2a2a;
+  --ink-muted:#5a5a5a;
+  --ink-faint:#9a9a9a;
+  --rule:#d4cfbf;
   --paper-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0 0.04 0 0 0 0.06 0'/></filter><rect width='240' height='240' filter='url(%23g)'/></svg>");
+  --ease:cubic-bezier(0.32,0.72,0,1);
 }
 
-/* Force paper theme na landing — ignoruj uložené dark v localStorage */
-html { background: var(--bg-1); }
-
-html,body{background:var(--bg-1);background-image:var(--paper-grain);background-size:240px 240px;color:var(--tx-1);font-family:'DM Mono',monospace;font-size:13px;-webkit-font-smoothing:antialiased;line-height:1.55;letter-spacing:0.02em;overflow-x:hidden}
-/* Tattoo cursor je definovaný globálně v theme.css → platí na všech stránkách */
+html,body{
+  background:var(--paper);
+  background-image:var(--paper-grain);
+  background-size:240px 240px;
+  color:var(--ink);
+  font-family:'Cormorant Garamond','Iowan Old Style','Charter','Georgia',serif;
+  font-size:18px;
+  font-weight:400;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--bg-1)}
-::-webkit-scrollbar-thumb{background:var(--bd-3);border-radius:3px}
+::selection{background:var(--ink);color:var(--paper)}
 
-/* ============================================================
-   NAV
-   ============================================================ */
-nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.85);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--bd-1);display:flex;align-items:center;padding:0 32px;height:66px;gap:24px}
-.lp-logo{display:flex;align-items:center;gap:9px;color:var(--tx-1);cursor:pointer}
-.lp-logo img{height:36px;width:auto;display:block;mix-blend-mode:multiply}
-.lp-nav-spacer{flex:1}
-.lp-nav-links{display:flex;gap:28px;align-items:center}
-.lp-nav-link{font-size:11px;letter-spacing:0.16em;color:var(--tx-3);text-transform:uppercase;cursor:pointer;transition:color var(--t-fast)}
-.lp-nav-link:hover{color:var(--tx-1)}
-.lp-nav-cta{display:flex;gap:22px;align-items:center}
-.lp-nav-cta .lp-btn{font-size:22px;padding:4px 2px}
-.lp-nav-cta .lp-btn-primary{font-size:24px}
-/* ── CTA tlačítka — Bristol script font, BEZ ohraničení (klik přímo na slovo) ── */
-.lp-btn{font-family:'Bristol','Caveat',cursive;font-size:24px;letter-spacing:0.01em;text-transform:none;padding:6px 4px;border:none;background:transparent;color:var(--tx-1);cursor:pointer;transition:transform var(--t-fast) var(--ease),opacity var(--t-fast);display:inline-flex;align-items:center;gap:8px;border-radius:0;font-weight:400;line-height:1;position:relative}
-.lp-btn:hover{transform:translateY(-1px)}
-.lp-btn:active{transform:scale(0.96)}
-/* Hover: ruční podtržení inkoustem */
-.lp-btn::after{content:'';position:absolute;left:6%;right:6%;bottom:-4px;height:6px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M2 3 Q 50 1 100 3 T 198 3' fill='none' stroke='%230a0a0a' stroke-width='1.6' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-size:100% 100%;opacity:0;transform:scaleX(0.6);transform-origin:left;transition:opacity 0.25s var(--ease),transform 0.35s var(--ease)}
-.lp-btn:hover::after{opacity:1;transform:scaleX(1)}
-/* Primary CTA = stejné jako default Bristol, jen větší + tlustší */
-.lp-btn-primary{font-size:30px;font-weight:400;color:var(--tx-1);background:transparent;border:none;text-shadow:0 0 0 var(--tx-1)}
-.lp-btn-primary .icon{width:16px;height:16px}
-.lp-btn .icon{width:14px;height:14px;stroke-width:1.5}
-.lp-btn .icon{width:13px;height:13px}
+/* ────────────────────────────────────────────────────────────────
+   TYPOGRAFIE — Bristol pro Bristolovské emocions, Cormorant italic pro klid
+   ──────────────────────────────────────────────────────────────── */
+.bristol{font-family:'Bristol','Caveat','Brush Script MT',cursive;font-weight:400;letter-spacing:0.01em;line-height:1}
+.italic{font-style:italic;font-weight:400}
+.eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-muted);font-weight:400}
+.lede{font-style:italic;font-size:22px;line-height:1.55;color:var(--ink-soft);max-width:560px;font-weight:400}
+@media(max-width:680px){.lede{font-size:18px}}
 
-/* Language switcher — CS / EN pill */
-.lang-switch{display:inline-flex;background:var(--bg-3);border:1px solid var(--bd-2);border-radius:var(--r-md);padding:3px;gap:2px}
-.lang-btn{background:transparent;border:none;color:var(--tx-3);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;padding:6px 10px;border-radius:4px;cursor:pointer;transition:all var(--t-fast) var(--ease);text-transform:uppercase;font-weight:500}
-.lang-btn:hover{color:var(--tx-1)}
-.lang-btn.active{background:var(--bg-1);color:var(--tx-1);box-shadow:0 1px 3px rgba(20,16,8,0.10)}
-@media(max-width:760px){.lang-switch{padding:2px}.lang-btn{padding:5px 8px;font-size:10px}}
+/* ────────────────────────────────────────────────────────────────
+   INKOUSTOVÉ ORNAMENTY
+   ──────────────────────────────────────────────────────────────── */
+.ink-rule{
+  display:block;
+  width:100%;
+  max-width:160px;
+  height:14px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'><path d='M2 7 Q 30 3 60 7 T 120 7 T 198 7' fill='none' stroke='%230a0a0a' stroke-width='1.6' stroke-linecap='round'/><circle cx='100' cy='7' r='2.4' fill='%230a0a0a'/></svg>");
+  background-repeat:no-repeat;
+  background-size:100% 100%;
+  margin:0 auto;
+  opacity:0.65;
+}
+.ink-rule.left{margin:0;max-width:100px}
+.ink-blot{
+  position:absolute;
+  pointer-events:none;
+  z-index:0;
+  opacity:0.06;
+}
+.ink-blot svg{width:100%;height:100%;display:block;fill:var(--ink)}
 
-@media(max-width:760px){
-  nav.lp-nav{padding:0 20px;gap:12px;height:60px}
-  .lp-nav-links{display:none}
-  .lp-logo{font-size:18px;letter-spacing:0.2em}
-  .lp-btn{padding:4px 2px;font-size:20px;letter-spacing:0}
-  .hero-cta .lp-btn{font-size:28px}
-  .hero-cta .lp-btn-primary{font-size:34px}
+/* ────────────────────────────────────────────────────────────────
+   NAV — minimální, jen logo a CTA, žádné nav links (manifest landing)
+   ──────────────────────────────────────────────────────────────── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  background:rgba(250,248,243,0.82);
+  backdrop-filter:saturate(180%) blur(14px);
+  -webkit-backdrop-filter:saturate(180%) blur(14px);
+  border-bottom:1px solid var(--rule);
+  display:flex;align-items:center;
+  padding:0 36px;height:72px;gap:24px;
+}
+.nav-logo{display:flex;align-items:center;cursor:pointer}
+.nav-logo img{height:42px;width:auto;mix-blend-mode:multiply;display:block}
+.nav-spacer{flex:1}
+.nav-right{display:flex;align-items:center;gap:24px}
+
+/* Language switch — minimal */
+.lang{display:inline-flex;gap:10px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--ink-muted)}
+.lang button{background:none;border:none;color:inherit;font:inherit;letter-spacing:inherit;cursor:pointer;padding:4px 2px;transition:color 0.2s var(--ease)}
+.lang button:hover{color:var(--ink)}
+.lang button.active{color:var(--ink);position:relative}
+.lang button.active::after{content:'';position:absolute;left:0;right:0;bottom:-3px;height:1px;background:var(--ink)}
+
+/* CTA tlačítka — Bristol, bez krabičky, klik přímo na slovo */
+.cta{
+  font-family:'Bristol','Caveat',cursive;
+  font-size:26px;
+  color:var(--ink);
+  background:none;border:none;
+  padding:6px 4px;
+  cursor:pointer;
+  position:relative;
+  display:inline-block;
+  line-height:1;
+  font-weight:400;
+  transition:transform 0.15s var(--ease);
+}
+.cta::after{
+  content:'';
+  position:absolute;
+  left:6%;right:6%;bottom:-6px;
+  height:7px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 7' preserveAspectRatio='none'><path d='M2 4 Q 50 1 100 3.5 T 198 3.5' fill='none' stroke='%230a0a0a' stroke-width='1.8' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-size:100% 100%;
+  opacity:0;transform:scaleX(0.5);transform-origin:left;
+  transition:opacity 0.25s var(--ease),transform 0.4s var(--ease);
+}
+.cta:hover::after{opacity:1;transform:scaleX(1)}
+.cta:hover{transform:translateY(-1px)}
+.cta:active{transform:scale(0.96)}
+.cta.large{font-size:42px}
+.cta.huge{font-size:64px}
+@media(max-width:680px){
+  .cta{font-size:22px}
+  .cta.large{font-size:32px}
+  .cta.huge{font-size:48px}
 }
 
-/* ============================================================
-   ANIMATIONS — keyframes
-   ============================================================ */
-@keyframes letter-in{
-  0%{opacity:0;transform:translateY(28px) rotateX(-30deg);filter:blur(8px)}
-  100%{opacity:1;transform:translateY(0) rotateX(0);filter:blur(0)}
+/* ────────────────────────────────────────────────────────────────
+   HERO — editorial manifest, Bristol claim left, ink blot right
+   ──────────────────────────────────────────────────────────────── */
+.hero{
+  position:relative;
+  padding:160px 36px 100px;
+  max-width:1240px;
+  margin:0 auto;
+  min-height:88vh;
+  display:grid;
+  grid-template-columns:1.3fr 0.7fr;
+  gap:64px;
+  align-items:center;
 }
+@media(max-width:880px){
+  .hero{grid-template-columns:1fr;gap:40px;padding:130px 24px 80px;min-height:auto}
+}
+
+.hero-eyebrow{margin-bottom:32px;opacity:0;animation:fade-up 0.7s var(--ease) 0.1s forwards}
+.hero-claim{
+  font-family:'Bristol','Caveat',cursive;
+  font-size:clamp(56px,9vw,140px);
+  line-height:0.95;
+  letter-spacing:0;
+  color:var(--ink);
+  margin-bottom:36px;
+  font-weight:400;
+}
+.hero-claim .line{display:block;opacity:0;transform:translateY(20px);animation:fade-up 0.8s var(--ease) forwards}
+.hero-claim .line:nth-child(1){animation-delay:0.25s}
+.hero-claim .line:nth-child(2){animation-delay:0.45s;margin-left:0.4em}
+.hero-claim .line:nth-child(3){animation-delay:0.65s;margin-left:0.9em}
+.hero-claim .line.tilt{transform:translateY(20px) rotate(-1.5deg)}
+
+.hero-lede{margin-bottom:40px;opacity:0;animation:fade-up 0.7s var(--ease) 0.9s forwards}
+.hero-cta{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:32px;
+  opacity:0;animation:fade-up 0.7s var(--ease) 1.05s forwards;
+}
+
+/* Hero ornament — velká inkoustová skvrna vpravo */
+.hero-ornament{
+  position:relative;
+  width:100%;
+  aspect-ratio:1/1.1;
+  max-width:420px;
+  margin-left:auto;
+  opacity:0;animation:fade-in 1.2s var(--ease) 0.6s forwards;
+}
+.hero-ornament svg{width:100%;height:100%;display:block}
+@media(max-width:880px){.hero-ornament{max-width:280px;margin:0 auto}}
+
+/* ────────────────────────────────────────────────────────────────
+   MANIFESTO — poetic stanzas, oddělené ručně taženými dividery
+   ──────────────────────────────────────────────────────────────── */
+.manifesto{
+  position:relative;
+  padding:120px 36px 80px;
+  max-width:760px;
+  margin:0 auto;
+  text-align:center;
+}
+@media(max-width:680px){.manifesto{padding:80px 24px 60px}}
+
+.manifesto-eyebrow{margin-bottom:18px}
+.manifesto-title{
+  font-family:'Bristol','Caveat',cursive;
+  font-size:clamp(40px,5.5vw,72px);
+  line-height:1;
+  color:var(--ink);
+  margin-bottom:48px;
+  font-weight:400;
+}
+.stanzas{display:flex;flex-direction:column;gap:36px;align-items:center}
+.stanza{
+  font-style:italic;
+  font-size:clamp(20px,2.4vw,28px);
+  line-height:1.45;
+  color:var(--ink-soft);
+  max-width:540px;
+  font-weight:400;
+}
+.stanza b{font-style:normal;font-weight:500;color:var(--ink);font-family:'Bristol','Caveat',cursive;font-size:1.25em}
+.stanza-divider{margin:8px 0}
+
+/* ────────────────────────────────────────────────────────────────
+   HOW IT WORKS — 3 kroky, ručně držené číslování, organic titles
+   ──────────────────────────────────────────────────────────────── */
+.how{
+  padding:100px 36px 120px;
+  max-width:1160px;
+  margin:0 auto;
+  position:relative;
+}
+.how-head{text-align:center;margin-bottom:72px}
+.how-head .eyebrow{display:block;margin-bottom:14px}
+.how-head h2{
+  font-family:'Bristol','Caveat',cursive;
+  font-size:clamp(40px,5.5vw,72px);
+  color:var(--ink);
+  font-weight:400;
+  line-height:1;
+}
+
+.how-steps{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:64px;
+}
+@media(max-width:880px){.how-steps{grid-template-columns:1fr;gap:48px}}
+
+.step{position:relative;text-align:left}
+.step-num{
+  font-family:'Bristol','Caveat',cursive;
+  font-size:96px;
+  color:var(--ink);
+  line-height:0.8;
+  margin-bottom:18px;
+  font-weight:400;
+  display:block;
+  opacity:0.92;
+}
+.step h3{
+  font-family:'Bristol','Caveat',cursive;
+  font-size:32px;
+  line-height:1;
+  color:var(--ink);
+  margin-bottom:14px;
+  font-weight:400;
+  letter-spacing:0;
+}
+.step p{
+  font-style:italic;
+  font-size:17px;
+  line-height:1.6;
+  color:var(--ink-soft);
+  max-width:280px;
+  font-weight:400;
+}
+
+/* Hand-drawn vertical separator mezi kroky (desktop) */
+.step + .step::before{
+  content:'';
+  position:absolute;
+  left:-32px;top:8px;bottom:8px;width:1px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 200' preserveAspectRatio='none'><path d='M1 2 Q 0.5 50 1 100 T 1 198' fill='none' stroke='%230a0a0a' stroke-width='1.4' stroke-linecap='round' opacity='0.5'/></svg>");
+  background-repeat:no-repeat;
+  background-size:100% 100%;
+}
+@media(max-width:880px){.step+.step::before{display:none}}
+
+/* ────────────────────────────────────────────────────────────────
+   FINAL — closing manifest + huge Bristol CTA
+   ──────────────────────────────────────────────────────────────── */
+.final{
+  position:relative;
+  padding:140px 36px 160px;
+  text-align:center;
+  overflow:hidden;
+}
+.final-eyebrow{margin-bottom:18px}
+.final-claim{
+  font-family:'Bristol','Caveat',cursive;
+  font-size:clamp(80px,14vw,200px);
+  line-height:0.9;
+  color:var(--ink);
+  margin-bottom:32px;
+  font-weight:400;
+}
+.final-lede{
+  font-style:italic;
+  font-size:clamp(20px,2.4vw,26px);
+  color:var(--ink-soft);
+  max-width:540px;
+  margin:0 auto 56px;
+  line-height:1.5;
+  font-weight:400;
+}
+.final-cta{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:36px}
+
+/* ────────────────────────────────────────────────────────────────
+   FOOTER — minimal, ručně tažený divider
+   ──────────────────────────────────────────────────────────────── */
+footer{
+  padding:60px 36px 80px;
+  max-width:1240px;margin:0 auto;
+  border-top:1px solid var(--rule);
+  display:flex;
+  justify-content:space-between;align-items:center;
+  font-family:'DM Mono',monospace;
+  font-size:11px;letter-spacing:0.14em;
+  color:var(--ink-muted);
+  flex-wrap:wrap;gap:24px;
+}
+footer .foot-logo img{height:24px;mix-blend-mode:multiply}
+footer .foot-links{display:flex;gap:24px;flex-wrap:wrap}
+footer .foot-links a:hover{color:var(--ink)}
+footer .foot-tag{opacity:0.6}
+
+/* ────────────────────────────────────────────────────────────────
+   ANIMATIONS
+   ──────────────────────────────────────────────────────────────── */
 @keyframes fade-up{
   0%{opacity:0;transform:translateY(20px)}
   100%{opacity:1;transform:translateY(0)}
@@ -138,839 +360,199 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,2
   0%{opacity:0}
   100%{opacity:1}
 }
-@keyframes pulse-dot{
-  0%,100%{opacity:0.5}
-  50%{opacity:1}
-}
-@keyframes marquee{
-  from{transform:translateX(0)}
-  to{transform:translateX(-50%)}
-}
-@keyframes shimmer{
-  0%{background-position:200% 0}
-  100%{background-position:-200% 0}
+@keyframes ink-drip{
+  0%{transform:scaleY(0);transform-origin:top}
+  100%{transform:scaleY(1);transform-origin:top}
 }
 
-/* Scroll-triggered reveal — added by IO */
-[data-reveal]{opacity:0;transform:translateY(24px);transition:opacity 0.7s var(--ease),transform 0.7s var(--ease)}
+[data-reveal]{opacity:0;transform:translateY(24px);transition:opacity 0.8s var(--ease),transform 0.8s var(--ease)}
 [data-reveal].in{opacity:1;transform:translateY(0)}
-[data-reveal-delay="1"].in{transition-delay:80ms}
-[data-reveal-delay="2"].in{transition-delay:160ms}
-[data-reveal-delay="3"].in{transition-delay:240ms}
-[data-reveal-delay="4"].in{transition-delay:320ms}
-[data-reveal-delay="5"].in{transition-delay:400ms}
-
-/* ============================================================
-   INK DECORATIONS — organické inkoustové skvrny jako accent
-   ============================================================ */
-.ink-blot{position:absolute;pointer-events:none;opacity:0.06;z-index:0}
-.ink-blot svg{width:100%;height:100%;display:block;fill:var(--tx-1)}
-
-.section-divider{display:block;width:100%;max-width:600px;height:18px;margin:0 auto 40px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 18' preserveAspectRatio='none'><path d='M2 9 Q 60 5 120 9 T 240 9 T 360 9 T 480 9 T 598 9' fill='none' stroke='%230a0a0a' stroke-width='1.8' stroke-linecap='round' opacity='0.7'/><circle cx='4' cy='9' r='2' fill='%230a0a0a' opacity='0.6'/><circle cx='596' cy='9' r='2' fill='%230a0a0a' opacity='0.6'/></svg>");background-repeat:no-repeat;background-size:100% 100%;opacity:0.85}
-
-/* ============================================================
-   TYPOGRAPHY VARIANT B — Organic serif (Fraunces + Cormorant)
-   Aplikuje se přes <body class="typo-b">. Default = varianta A (Bebas).
-   Logo zůstává image v obou variantách.
-   ============================================================ */
-body.typo-b .hero h1,
-body.typo-b .section-title,
-body.typo-b .price-title,
-body.typo-b .final-title,
-body.typo-b .stat-num{
-  font-family:'Fraunces','Playfair Display',serif;
-  font-weight:600;
-  letter-spacing:-0.01em;
-  font-style:normal;
-}
-body.typo-b .hero h1{font-weight:500;letter-spacing:-0.015em}
-body.typo-b .section-eyebrow,
-body.typo-b .hero-tag,
-body.typo-b .stat-lbl{
-  font-family:'Cormorant Garamond',serif;
-  font-style:italic;
-  font-weight:400;
-  letter-spacing:0.12em;
-  text-transform:lowercase;
-}
-body.typo-b .lp-btn{
-  font-family:'Cormorant Garamond',serif;
-  font-weight:500;
-  letter-spacing:0.06em;
-  text-transform:none;
-  font-size:14px;
-}
-body.typo-b .lp-nav-link{
-  font-family:'Cormorant Garamond',serif;
-  font-style:italic;
-  text-transform:lowercase;
-  font-size:14px;
-  letter-spacing:0.04em;
-}
-body.typo-b .hero-sub,
-body.typo-b .section-lead{
-  font-family:'Cormorant Garamond',serif;
-  font-style:italic;
-  font-size:18px;
-  letter-spacing:0;
-  line-height:1.6;
-  font-weight:400;
-}
-body.typo-b .feat-title,
-body.typo-b .how-title{
-  font-family:'Fraunces',serif;
-  font-weight:500;
-  letter-spacing:-0.005em;
-  text-transform:none;
-}
-/* "Caveat" handwritten accent — použito pro malé hand-drawn detaily */
-body.typo-b .hero-meta{font-family:'Caveat',cursive;font-size:16px;letter-spacing:0.02em;text-transform:none}
-
-/* ============================================================
-   HERO
-   ============================================================ */
-.hero{padding:140px 32px 90px;max-width:1320px;margin:0 auto;position:relative;display:grid;grid-template-columns:1.1fr 0.9fr;gap:80px;align-items:center;perspective:1200px}
-@media(max-width:980px){.hero{grid-template-columns:1fr;gap:60px;padding:110px 24px 70px}}
-
-.hero-tag{font-size:11px;letter-spacing:0.22em;color:var(--tx-3);text-transform:uppercase;margin-bottom:24px;display:inline-flex;align-items:center;gap:10px;font-weight:500;opacity:0;animation:fade-in 0.6s var(--ease) 0.1s forwards}
-.hero-tag::before{content:'';width:24px;height:1px;background:var(--ink)}
-.hero-tag .live{width:6px;height:6px;border-radius:50%;background:var(--ink);box-shadow:0 0 8px var(--ink-glow);animation:pulse-dot 2s ease infinite;margin-right:2px}
-
-.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px, 6.2vw, 104px);line-height:0.9;letter-spacing:0.005em;color:var(--tx-1);margin-bottom:30px;font-weight:400;perspective:800px}
-.hero h1 .row{display:block;white-space:nowrap}
-.hero h1 .accent{color:var(--tx-3)}
-.hero h1 .ltr{display:inline-block;opacity:0;animation:letter-in 0.7s var(--ease) forwards;will-change:transform,opacity,filter}
-
-.hero-sub{font-size:16px;color:var(--tx-2);max-width:520px;margin-bottom:38px;letter-spacing:0.01em;line-height:1.7;font-weight:300;opacity:0;animation:fade-up 0.6s var(--ease) 0.9s forwards}
-.hero-cta{display:flex;gap:28px;flex-wrap:wrap;align-items:baseline;margin-bottom:38px;opacity:0;animation:fade-up 0.6s var(--ease) 1.05s forwards}
-.hero-cta .lp-btn{padding:6px 4px;font-size:34px}
-.hero-cta .lp-btn-primary{font-size:42px}
-.hero-cta .lp-btn .icon{width:18px;height:18px;stroke-width:1.5}
-.hero-cta .lp-btn-primary .icon{width:22px;height:22px}
-.hero-meta{font-size:11px;letter-spacing:0.14em;color:var(--tx-4);text-transform:uppercase;display:flex;gap:18px;flex-wrap:wrap;align-items:center;opacity:0;animation:fade-up 0.6s var(--ease) 1.2s forwards}
-.hero-meta .dot{width:3px;height:3px;border-radius:50%;background:var(--tx-4)}
-
-/* Hero showcase — 3D parallax mosaic */
-.hero-showcase{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:8px;height:560px;position:relative;transform-style:preserve-3d;will-change:transform;opacity:0;animation:fade-in 1s var(--ease) 0.4s forwards}
-@media(max-width:980px){.hero-showcase{height:380px}}
-@media(max-width:560px){.hero-showcase{display:none}}
-/* Paper-mode tile: paper bg s ručně tažený tlustý ink rámeček + paper grain texture */
-.hs-tile{background:var(--bg-1);border:1.5px solid var(--tx-1);border-radius:var(--r-lg);overflow:hidden;position:relative;transition:transform 0.5s var(--ease),box-shadow 0.5s;transform-style:preserve-3d;box-shadow:0 2px 0 0 var(--tx-1),0 4px 14px rgba(20,16,8,0.06)}
-.hs-tile::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(10,10,10,0.04) 100%);pointer-events:none}
-.hs-tile::before{content:'';position:absolute;inset:0;background-image:var(--paper-grain);background-size:240px 240px;pointer-events:none;z-index:1;opacity:0.7;mix-blend-mode:multiply}
-.hs-tile:hover{transform:translateZ(20px) translateY(-3px);box-shadow:0 4px 0 0 var(--tx-1),0 12px 28px rgba(20,16,8,0.14)}
-.hs-tile.t1{grid-column:1/3;grid-row:1/3;background:var(--bg-1)}
-.hs-tile.t2{grid-column:3/4;grid-row:1/2;background:var(--bg-2)}
-.hs-tile.t3{grid-column:3/4;grid-row:2/4;background:var(--bg-1)}
-.hs-tile.t4{grid-column:1/2;grid-row:3/5;background:var(--bg-2)}
-.hs-tile.t5{grid-column:2/4;grid-row:4/5;background:var(--bg-1)}
-.hs-tile.t6{grid-column:2/3;grid-row:3/4;background:var(--bg-2)}
-.hs-glyph{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,82px);color:var(--tx-4);letter-spacing:0.1em;opacity:0.55;line-height:1;text-align:center;z-index:2}
-.hs-glyph.signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(48px,7.5vw,98px);letter-spacing:0.02em;color:var(--tx-3);opacity:0.9;font-weight:400;text-transform:none;line-height:1}
-.hs-tile.t5:hover .hs-glyph.signature{color:var(--ink);opacity:1}
-
-/* Tile style labels — each tile a tattoo style name in style-appropriate font */
-.hs-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:88%;text-align:center;color:var(--tx-1);line-height:1;letter-spacing:0.01em;z-index:2;transition:transform 0.5s var(--ease);user-select:none;pointer-events:none;display:block;white-space:nowrap}
-.hs-tile:hover .hs-label{transform:translate(-50%,-50%) scale(1.04)}
-
-/* Per-tile font + sizing — calibrated tak aby se text vždy vešel do tile */
-.hs-label.s-traditional{font-family:'Rye',serif;font-size:clamp(15px,2.9vw,40px);letter-spacing:0.01em;font-weight:400}
-.hs-label.s-fineline{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:clamp(18px,2.6vw,34px);letter-spacing:0.01em;text-transform:lowercase}
-.hs-label.s-japanese{font-family:'Yuji Mai',serif;font-size:clamp(16px,2.4vw,32px);letter-spacing:0.04em;text-transform:uppercase}
-.hs-label.s-blackwork{font-family:'Anton',sans-serif;font-size:clamp(20px,3.6vw,48px);letter-spacing:0.03em;font-weight:400;text-transform:uppercase}
-.hs-label.s-realism{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:clamp(16px,2.4vw,30px);letter-spacing:0.01em;text-transform:lowercase}
-.hs-label.s-signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(36px,5.5vw,76px);letter-spacing:0.02em;color:var(--tx-1);opacity:0.95;text-transform:none}
-
-/* Subtle grid noise / dot pattern for hero bg */
-.hero-bg{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle at 1px 1px,rgba(10,10,10,0.05) 1px,transparent 0);background-size:32px 32px;mask:radial-gradient(ellipse 80% 60% at 50% 40%, #000, transparent);z-index:-1}
-
-/* ============================================================
-   STATS
-   ============================================================ */
-.stats-strip{padding:54px 32px;border-top:1px solid var(--bd-1);border-bottom:1px solid var(--bd-1);background:var(--bg-2)}
-.stats-grid{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:0}
-@media(max-width:780px){.stats-grid{grid-template-columns:repeat(2,1fr);gap:32px 0}}
-.stat{text-align:left;padding:0 24px;border-left:1px solid var(--bd-1)}
-.stat:first-child{border-left:none;padding-left:0}
-@media(max-width:780px){.stat{padding:0 18px}.stat:nth-child(3){border-left:none}}
-.stat-num{font-family:'Bebas Neue',sans-serif;font-size:clamp(46px,5.5vw,68px);color:var(--tx-1);letter-spacing:0.01em;line-height:1;font-weight:400}
-.stat-num .suffix{color:var(--tx-3);font-size:0.55em;margin-left:2px}
-.stat-lbl{font-size:10px;letter-spacing:0.18em;color:var(--tx-3);text-transform:uppercase;margin-top:8px;font-weight:500}
-.stat-sub{font-size:11px;color:var(--tx-4);margin-top:4px;letter-spacing:0.04em}
-
-/* ============================================================
-   MARQUEE
-   ============================================================ */
-.marquee{padding:0;border-bottom:1px solid var(--bd-1);overflow:hidden;background:var(--bg-1);position:relative}
-.marquee::before,.marquee::after{content:'';position:absolute;top:0;bottom:0;width:120px;z-index:2;pointer-events:none}
-.marquee::before{left:0;background:linear-gradient(90deg,var(--bg-1),transparent)}
-.marquee::after{right:0;background:linear-gradient(-90deg,var(--bg-1),transparent)}
-.marquee-row{display:flex;gap:0;padding:22px 0;animation:marquee 80s linear infinite;width:max-content}
-.marquee-item{flex-shrink:0;padding:0 38px;font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--tx-3);letter-spacing:0.16em;line-height:1;border-right:1px solid var(--bd-2);transition:color var(--t-fast)}
-.marquee-item:hover{color:var(--tx-1)}
-
-/* ============================================================
-   SECTION SHELL
-   ============================================================ */
-section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
-@media(max-width:760px){section{padding:80px 22px}}
-.section-inner{max-width:1240px;margin:0 auto}
-.section-eyebrow{font-size:11px;letter-spacing:0.22em;color:var(--tx-3);text-transform:uppercase;margin-bottom:18px;display:inline-flex;align-items:center;gap:10px;font-weight:500}
-.section-eyebrow::before{content:'';width:24px;height:1px;background:var(--ink)}
-.section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(40px, 6.2vw, 76px);line-height:0.94;letter-spacing:0.005em;color:var(--tx-1);margin-bottom:24px;max-width:920px;font-weight:400}
-.section-lead{font-size:15px;color:var(--tx-2);max-width:620px;line-height:1.7;margin-bottom:64px;letter-spacing:0.01em;font-weight:300}
-
-/* ============================================================
-   HOW IT WORKS
-   ============================================================ */
-.how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:880px){.how-grid{grid-template-columns:1fr}}
-.how-card{background:var(--bg-2);border:1px solid var(--bd-1);border-radius:var(--r-lg);padding:36px 32px;display:flex;flex-direction:column;gap:14px;transition:all 0.4s var(--ease);position:relative;overflow:hidden}
-.how-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at var(--mx,50%) var(--my,0%),rgba(10,10,10,0.04),transparent 50%);opacity:0;transition:opacity 0.4s;pointer-events:none}
-.how-card:hover{border-color:var(--bd-3);transform:translateY(-4px);box-shadow:var(--sh-2)}
-.how-card:hover::before{opacity:1}
-.how-num{font-family:'Bebas Neue',sans-serif;font-size:46px;color:var(--tx-3);letter-spacing:0.04em;line-height:0.9;font-weight:400}
-.how-card h3{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.05em;color:var(--tx-1);font-weight:400}
-.how-card p{font-size:13px;color:var(--tx-2);line-height:1.7}
-.how-card .ico-circle{width:46px;height:46px;border-radius:50%;background:var(--bg-3);border:1px solid var(--bd-2);display:flex;align-items:center;justify-content:center;color:var(--tx-1);margin-bottom:6px;transition:transform 0.3s var(--ease)}
-.how-card:hover .ico-circle{transform:rotate(-8deg) scale(1.05);border-color:var(--bd-3)}
-.how-card .ico-circle svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-
-/* ============================================================
-   FEATURES GRID
-   ============================================================ */
-/* 8 features = 4×2 grid (wide) / 2×4 (tablet) / 1×8 (mobile) — no empty slots */
-.feature-grid{display:grid;grid-template-columns:repeat(4, 1fr);gap:1px;background:var(--bd-1);border:1px solid var(--bd-1);border-radius:var(--r-lg);overflow:hidden}
-@media(max-width:880px){.feature-grid{grid-template-columns:repeat(2, 1fr)}}
-@media(max-width:480px){.feature-grid{grid-template-columns:1fr}}
-.feature{background:var(--bg-1);padding:34px 28px;display:flex;flex-direction:column;gap:12px;transition:background 0.25s}
-.feature:hover{background:var(--bg-2)}
-.feature .ic{display:flex;align-items:center;justify-content:space-between;color:var(--tx-1)}
-.feature .ic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.feature .ic-num{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--tx-4);letter-spacing:0.08em;line-height:1}
-.feature h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.06em;color:var(--tx-1);font-weight:400}
-.feature p{font-size:13px;color:var(--tx-2);line-height:1.65}
-
-/* ============================================================
-   SPLIT
-   ============================================================ */
-.split{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--bd-1);border-radius:var(--r-lg);overflow:hidden}
-@media(max-width:820px){.split{grid-template-columns:1fr}}
-.split-col{background:var(--bg-2);padding:54px 42px;border-right:1px solid var(--bd-1);transition:background 0.3s}
-.split-col:last-child{border-right:none;border-top:1px solid var(--bd-1);background:var(--bg-1)}
-@media(min-width:821px){.split-col:last-child{border-top:none}}
-.split-col h2{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:0.02em;color:var(--tx-1);margin-bottom:8px;font-weight:400}
-.split-col .sub{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;color:var(--tx-1);text-transform:uppercase;margin-bottom:18px;font-weight:400;line-height:1}
-.split-list{list-style:none;display:flex;flex-direction:column;gap:16px;margin-bottom:36px}
-.split-list li{padding-left:28px;position:relative;font-size:14px;color:var(--tx-2);line-height:1.6}
-.split-list li::before{content:'';position:absolute;left:0;top:10px;width:14px;height:1px;background:var(--tx-3)}
-.split-list li strong{color:var(--tx-1);font-weight:500}
-
-/* ============================================================
-   PRICING
-   ============================================================ */
-.pricing-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:820px){.pricing-grid{grid-template-columns:1fr}}
-.price-card{background:var(--bg-2);border:1px solid var(--bd-1);border-radius:var(--r-lg);padding:38px 36px;display:flex;flex-direction:column;gap:20px;position:relative;transition:all 0.3s var(--ease)}
-.price-card:hover{border-color:var(--bd-3);transform:translateY(-3px)}
-.price-card.featured{border-color:var(--ac-w);background:linear-gradient(180deg, rgba(10,10,10,0.04) 0%, var(--bg-2) 80%)}
-.price-card.featured .featured-ribbon{position:absolute;top:-1px;right:18px;background:var(--ac-w);color:var(--bg-0);font-size:9px;letter-spacing:0.14em;padding:5px 11px;border-radius:0 0 var(--r-sm) var(--r-sm);text-transform:uppercase;font-weight:600}
-.price-tag{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
-.price-tag .big{font-family:'Bebas Neue',sans-serif;font-size:56px;color:var(--tx-1);letter-spacing:0.01em;line-height:0.9;font-weight:400}
-.price-tag .unit{font-size:13px;color:var(--tx-3);letter-spacing:0.04em}
-.price-card h3{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.08em;color:var(--tx-1);font-weight:400}
-.price-card p.lead{font-size:13px;color:var(--tx-2);line-height:1.6}
-.price-card ul{list-style:none;display:flex;flex-direction:column;gap:10px}
-.price-card ul li{padding-left:24px;position:relative;font-size:13px;color:var(--tx-2);line-height:1.5}
-.price-card ul li::before{content:'';position:absolute;left:0;top:7px;width:11px;height:6px;border-left:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);transform:rotate(-45deg)}
-.price-card .lp-btn{align-self:flex-start;margin-top:auto;padding:6px 4px;font-size:26px}
-
-/* ============================================================
-   TESTIMONIALS
-   ============================================================ */
-.testimonial-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:880px){.testimonial-grid{grid-template-columns:1fr}}
-.testimonial{background:var(--bg-2);border:1px solid var(--bd-1);border-radius:var(--r-lg);padding:30px 28px;display:flex;flex-direction:column;gap:18px;position:relative;transition:all 0.4s var(--ease);overflow:hidden}
-.testimonial::after{content:'"';position:absolute;top:8px;right:22px;font-family:'Bebas Neue',sans-serif;font-size:80px;color:var(--tx-1);opacity:0.06;line-height:1;pointer-events:none}
-.testimonial:hover{border-color:var(--bd-3);transform:translateY(-3px);box-shadow:var(--sh-2)}
-.testimonial .quote{font-family:'DM Mono',monospace;font-size:14px;line-height:1.7;color:var(--tx-1);letter-spacing:0.01em;font-weight:300}
-.testimonial-foot{display:flex;align-items:center;gap:12px}
-.testimonial-avatar{width:42px;height:42px;border-radius:50%;background:var(--bg-4);border:1.5px solid var(--bd-3);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.04em;color:var(--tx-1);overflow:hidden;flex-shrink:0}
-.testimonial-name{font-size:13px;color:var(--tx-1);font-weight:500}
-.testimonial-role{font-size:11px;color:var(--tx-3);letter-spacing:0.04em;margin-top:2px}
-.testimonial-stars{color:var(--tx-1);font-size:10px;letter-spacing:0.16em;margin-top:5px;opacity:0.7}
-
-/* ============================================================
-   FAQ
-   ============================================================ */
-.faq{display:flex;flex-direction:column;gap:0;border:1px solid var(--bd-1);border-radius:var(--r-lg);overflow:hidden;background:var(--bg-2)}
-.faq-item{border-bottom:1px solid var(--bd-1);padding:22px 28px;cursor:pointer;transition:background var(--t-fast)}
-.faq-item:last-child{border-bottom:none}
-.faq-item:hover{background:var(--bg-3)}
-.faq-q{display:flex;justify-content:space-between;align-items:center;gap:20px}
-.faq-q-text{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:0.04em;color:var(--tx-1);font-weight:400}
-.faq-toggle{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--tx-3);transition:transform 0.3s var(--ease),color 0.2s;width:24px;text-align:center;line-height:1}
-.faq-item.open .faq-toggle{transform:rotate(45deg);color:var(--tx-1)}
-.faq-a{max-height:0;overflow:hidden;transition:max-height 0.4s ease, margin-top 0.4s ease;font-size:14px;color:var(--tx-2);line-height:1.7}
-.faq-item.open .faq-a{max-height:320px;margin-top:14px}
-
-/* ============================================================
-   FINAL CTA — animated gradient
-   ============================================================ */
-.final{text-align:center;padding:140px 32px;background:var(--bg-1);position:relative;overflow:hidden}
-.final::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 50% 0%, rgba(10,10,10,0.04), transparent 50%);pointer-events:none}
-.final h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px, 10vw, 150px);line-height:0.92;letter-spacing:0.01em;color:var(--tx-1);margin-bottom:24px;font-weight:400;position:relative;z-index:1}
-.final p{font-size:16px;color:var(--tx-2);max-width:580px;margin:0 auto 38px;line-height:1.7;letter-spacing:0.01em;position:relative;z-index:1}
-.final .lp-btn{padding:6px 4px;font-size:32px;position:relative;z-index:1}
-.final .lp-btn-primary{font-size:40px}
-
-/* ============================================================
-   FOOTER
-   ============================================================ */
-footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;color:var(--tx-3);letter-spacing:0.12em;text-transform:uppercase;background:var(--bg-2)}
-.footer-inner{max-width:1240px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
-.footer-logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.22em;color:var(--tx-1);margin-bottom:6px}
-.footer-tag{color:var(--tx-4);text-transform:none;letter-spacing:0.04em;font-size:11px;font-weight:300}
-.footer-links{display:flex;gap:22px;flex-wrap:wrap}
-.footer-links a{color:var(--tx-3);transition:color var(--t-fast)}
-.footer-links a:hover{color:var(--tx-1)}
-
-/* common icons */
-.icon{stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:middle}
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
-  [data-reveal]{opacity:1;transform:none}
-  .hero h1 .ltr{opacity:1;animation:none}
-  .marquee-row{animation:none}
-}
 </style>
 </head>
+
 <body>
 
-<!-- ===================================== NAV ===================================== -->
-<nav class="lp-nav">
-  <a class="lp-logo" href="/" aria-label="InkLink">
+<!-- ═══════════════════════════════════════════════════════════════
+     NAV
+     ═══════════════════════════════════════════════════════════════ -->
+<nav>
+  <a class="nav-logo" href="/" aria-label="InkLink">
     <img src="/img/inklink-logo.jpg" alt="InkLink">
   </a>
-  <div class="lp-nav-spacer"></div>
-  <div class="lp-nav-links">
-    <a class="lp-nav-link" href="#how" data-i18n="nav.howItWorks">Jak to funguje</a>
-    <a class="lp-nav-link" href="#features" data-i18n="nav.features">Funkce</a>
-    <a class="lp-nav-link" href="#pricing" data-i18n="nav.pricing">Ceník</a>
-    <a class="lp-nav-link" href="#faq" data-i18n="nav.faq">FAQ</a>
-  </div>
-  <div class="lang-switch" role="group" aria-label="Language">
-    <button type="button" class="lang-btn" data-i18n-switch="cs" onclick="InkLinkI18N.set('cs')">CS</button>
-    <button type="button" class="lang-btn" data-i18n-switch="en" onclick="InkLinkI18N.set('en')">EN</button>
-  </div>
-  <!-- TYPOGRAFIE toggle — TEMP: vybereš variantu, pak odstraním -->
-  <div class="lang-switch" role="group" aria-label="Typography" id="typoSwitch" title="Typografie (test)">
-    <button type="button" class="lang-btn" data-typo="a" onclick="setTypo('a')">A·Bebas</button>
-    <button type="button" class="lang-btn" data-typo="b" onclick="setTypo('b')">B·Serif</button>
-  </div>
-  <div class="lp-nav-cta">
-    <a class="lp-btn" href="/login" data-i18n="nav.signIn">Přihlásit</a>
-    <a class="lp-btn lp-btn-primary" href="/login"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="nav.start">Začít</span></a>
+  <div class="nav-spacer"></div>
+  <div class="nav-right">
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-i18n-switch="cs" onclick="InkLinkI18N.set('cs')">cs</button>
+      <button type="button" data-i18n-switch="en" onclick="InkLinkI18N.set('en')">en</button>
+    </div>
+    <a class="cta" href="/login" data-i18n="nav.signIn">přihlásit</a>
+    <a class="cta" href="/login" data-i18n="nav.start">začít</a>
   </div>
 </nav>
 
-<!-- ===================================== HERO ===================================== -->
+<!-- ═══════════════════════════════════════════════════════════════
+     HERO — editorial claim + inkoustový ornament
+     ═══════════════════════════════════════════════════════════════ -->
 <header class="hero">
-  <div class="hero-bg"></div>
-  <!-- Dekorativní inkoustové skvrny — paper mode accent -->
-  <div class="ink-blot" style="top:-40px;left:-60px;width:240px;height:240px;transform:rotate(-12deg)" aria-hidden="true">
-    <svg viewBox="0 0 200 200"><path d="M100 18 Q 145 22 168 60 Q 188 95 170 138 Q 148 178 102 180 Q 56 178 32 138 Q 14 95 36 60 Q 56 22 100 18Z M65 95 Q 70 130 100 138 Q 132 130 135 100 M85 65 Q 100 60 115 70" fill="currentColor"/></svg>
+  <div class="ink-blot" style="top:-30px;left:-80px;width:280px;height:280px;transform:rotate(-14deg);opacity:0.05" aria-hidden="true">
+    <svg viewBox="0 0 200 200"><path d="M100 18 Q 145 22 168 60 Q 188 95 170 138 Q 148 178 102 180 Q 56 178 32 138 Q 14 95 36 60 Q 56 22 100 18Z M70 90 Q 80 130 105 138" fill="currentColor"/></svg>
   </div>
-  <div class="ink-blot" style="bottom:60px;right:-40px;width:180px;height:180px;transform:rotate(28deg);opacity:0.05" aria-hidden="true">
-    <svg viewBox="0 0 200 200"><path d="M50 80 Q 80 40 130 50 Q 175 70 170 120 Q 155 165 105 165 Q 50 160 35 120 Q 30 95 50 80Z" fill="currentColor"/></svg>
-  </div>
+
   <div>
-    <div class="hero-tag"><span class="live"></span><span data-i18n="hero.tag">CZ · Tattoo Marketplace · Live</span></div>
-    <h1 id="heroHeadline">
-      <span class="row" data-i18n="hero.title1">PROHLÉDNI SKICY.</span>
-      <span class="row accent" data-i18n="hero.title2">NAJDI TATÉRA.</span>
+    <div class="hero-eyebrow eyebrow" data-i18n="hero.eyebrow">tetování · rezervace · inkoust co drží</div>
+    <h1 class="hero-claim">
+      <span class="line" data-i18n="hero.line1">najdi svou skicu.</span>
+      <span class="line tilt" data-i18n="hero.line2">potkej svého tatéra.</span>
+      <span class="line" data-i18n="hero.line3">rezervuj v&nbsp;klidu.</span>
     </h1>
-    <p class="hero-sub" data-i18n="hero.sub">
-      Vyber si skicu nebo objev tatéra podle stylu a města.
-      Rezervuj zálohou nebo celou částku předem.
+    <p class="hero-lede lede" data-i18n="hero.lede">
+      Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu —
+      a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.
     </p>
     <div class="hero-cta">
-      <a class="lp-btn lp-btn-primary" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="hero.ctaPrimary">Prohlížet skicy</span></a>
-      <a class="lp-btn" href="/map" data-i18n="hero.ctaMap">Mapa tatérů</a>
+      <a class="cta large" href="/feed" data-i18n="hero.ctaFeed">prohlédnout skicy</a>
+      <a class="cta" href="/map" data-i18n="hero.ctaMap">mapa tatérů</a>
     </div>
   </div>
-  <div class="hero-showcase" id="heroShowcase" aria-hidden="true">
 
-    <!-- t1: BIG — TRADITIONAL v Rye fontu (American Western feel) -->
-    <div class="hs-tile t1">
-      <span class="hs-label s-traditional">TRADITIONAL</span>
-    </div>
-
-    <!-- t2: SMALL — FINELINE v Cormorant italic (delicate) -->
-    <div class="hs-tile t2">
-      <span class="hs-label s-fineline">fineline</span>
-    </div>
-
-    <!-- t3: TALL RIGHT — IREZUMI v Yuji Mai (Japanese traditional brush style) -->
-    <div class="hs-tile t3">
-      <span class="hs-label s-japanese">IREZUMI</span>
-    </div>
-
-    <!-- t4: TALL LEFT — TRIBAL v Anton (heavy bold blackwork-adjacent) -->
-    <div class="hs-tile t4">
-      <span class="hs-label s-blackwork">TRIBAL</span>
-    </div>
-
-    <!-- t5: WIDE BOTTOM — InkLink signature v Metal Mania -->
-    <div class="hs-tile t5">
-      <span class="hs-label s-signature">InkLink</span>
-    </div>
-
-    <!-- t6: SMALL CENTER — REALISM v Playfair italic (elegant) -->
-    <div class="hs-tile t6">
-      <span class="hs-label s-realism">realism</span>
-    </div>
+  <!-- Hero ornament — velká organická inkoustová skvrna -->
+  <div class="hero-ornament" aria-hidden="true">
+    <svg viewBox="0 0 420 462" xmlns="http://www.w3.org/2000/svg">
+      <!-- Hlavní organická tear-drop forma — připomíná kapku inkoustu/jehlu -->
+      <path d="M 210 30
+               Q 290 60 320 140
+               Q 345 210 320 280
+               Q 290 360 230 400
+               Q 195 425 175 420
+               Q 130 410 100 360
+               Q 70 300 85 230
+               Q 105 150 145 90
+               Q 175 50 210 30 Z"
+            fill="#0a0a0a" opacity="0.92"/>
+      <!-- Druhá vrstva — drobné odlepené kapky kolem -->
+      <circle cx="80" cy="120" r="6" fill="#0a0a0a" opacity="0.8"/>
+      <circle cx="340" cy="180" r="4" fill="#0a0a0a" opacity="0.7"/>
+      <circle cx="125" cy="430" r="5" fill="#0a0a0a" opacity="0.75"/>
+      <circle cx="365" cy="320" r="3" fill="#0a0a0a" opacity="0.6"/>
+      <circle cx="55" cy="280" r="3.5" fill="#0a0a0a" opacity="0.65"/>
+      <!-- Highlight uvnitř -->
+      <path d="M 195 80 Q 220 75 235 100 Q 245 130 230 155 Q 215 175 195 165 Q 175 150 175 120 Q 175 90 195 80 Z"
+            fill="#faf8f3" opacity="0.10"/>
+    </svg>
   </div>
 </header>
 
-<!-- ===================================== STATS ===================================== -->
-<section class="stats-strip" data-reveal>
-  <div class="stats-grid">
-    <div class="stat">
-      <div class="stat-num" id="stat-artists" data-count-to="12" data-suffix="+">0</div>
-      <div class="stat-lbl" data-i18n="stats.artists">Tatérů</div>
-      <div class="stat-sub" data-i18n="stats.artistsSub">aktivních v ČR</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num" id="stat-sketches" data-count-to="80" data-suffix="+">0</div>
-      <div class="stat-lbl" data-i18n="stats.sketches">Skic</div>
-      <div class="stat-sub" data-i18n="stats.sketchesSub">k rezervaci</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num" data-count-to="8" data-suffix="%">0</div>
-      <div class="stat-lbl" data-i18n="stats.commission">Provize</div>
-      <div class="stat-sub" data-i18n="stats.commissionSub">jen z bookingu</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num" data-count-to="24" data-suffix="h">0</div>
-      <div class="stat-lbl" data-i18n="stats.reminder">Připomínka</div>
-      <div class="stat-sub" data-i18n="stats.reminderSub">před termínem</div>
-    </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     MANIFESTO — proč to děláme
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="manifesto">
+  <div class="ink-blot" style="bottom:-40px;right:-60px;width:180px;height:180px;transform:rotate(22deg);opacity:0.04" aria-hidden="true">
+    <svg viewBox="0 0 200 200"><path d="M50 80 Q 80 40 130 50 Q 175 70 170 120 Q 155 165 105 165 Q 50 160 35 120 Q 30 95 50 80Z" fill="currentColor"/></svg>
   </div>
-</section>
+  <div class="manifesto-eyebrow eyebrow" data-i18n="manifesto.eyebrow">manifest</div>
+  <h2 class="manifesto-title" data-i18n="manifesto.title">proč InkLink</h2>
+  <div class="ink-rule"></div>
 
-<!-- ===================================== MARQUEE ===================================== -->
-<div class="marquee">
-  <div class="marquee-row">
-    <div class="marquee-item">FINELINE</div>
-    <div class="marquee-item">BLACKWORK</div>
-    <div class="marquee-item">TRADITIONAL</div>
-    <div class="marquee-item">REALISM</div>
-    <div class="marquee-item">LETTERING</div>
-    <div class="marquee-item">DOTWORK</div>
-    <div class="marquee-item">JAPANESE</div>
-    <div class="marquee-item">GEOMETRIC</div>
-    <div class="marquee-item">ABSTRACT</div>
-    <div class="marquee-item">NEO-TRAD</div>
-    <div class="marquee-item">SCRIPT</div>
-    <div class="marquee-item">MICRO</div>
-    <!-- duplicate -->
-    <div class="marquee-item">FINELINE</div>
-    <div class="marquee-item">BLACKWORK</div>
-    <div class="marquee-item">TRADITIONAL</div>
-    <div class="marquee-item">REALISM</div>
-    <div class="marquee-item">LETTERING</div>
-    <div class="marquee-item">DOTWORK</div>
-    <div class="marquee-item">JAPANESE</div>
-    <div class="marquee-item">GEOMETRIC</div>
-    <div class="marquee-item">ABSTRACT</div>
-    <div class="marquee-item">NEO-TRAD</div>
-    <div class="marquee-item">SCRIPT</div>
-    <div class="marquee-item">MICRO</div>
-  </div>
-</div>
-
-<!-- ===================================== HOW IT WORKS ===================================== -->
-<section id="how">
-  <div class="section-inner">
-    <div class="section-eyebrow" data-reveal data-i18n="how.eyebrow">Jak to funguje</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="how.title">Tři kroky od skicy k tetování.</h2>
-    <p class="section-lead" data-reveal data-reveal-delay="2" data-i18n="how.lead">
-      Žádné scrollování přes Instagramy. Žádné nečitelné DM zprávy.
-      Tetování si rezervuješ stejně snadno jako lístek do kina.
+  <div class="stanzas" data-reveal>
+    <p class="stanza" data-i18n-html="manifesto.s1">
+      Inkoust drží <b>navždy</b>.<br>Důvěra by měla taky.
     </p>
-
-    <div class="how-grid">
-      <div class="how-card" data-reveal data-reveal-delay="1">
-        <div class="how-num">01</div>
-        <div class="ico-circle"><svg><use href="#i-search"/></svg></div>
-        <h3 data-i18n="how.s1Title">Najdi co se ti líbí</h3>
-        <p data-i18n="how.s1Desc">Prohlížej feed skic, mapu nebo profily tatérů. Filtruj podle stylu, města, ceny. Lajkuj si oblíbené skicy nebo sleduj tatéry pro pozdější rezervaci.</p>
-      </div>
-      <div class="how-card" data-reveal data-reveal-delay="2">
-        <div class="how-num">02</div>
-        <div class="ico-circle"><svg><use href="#i-calendar"/></svg></div>
-        <h3 data-i18n="how.s2Title">Vyber termín</h3>
-        <p data-i18n="how.s2Desc">Otevři tatérův kalendář, vyber volný blok a velikost (Mini 1 h · Velké 5 h · Celý den 8 h). Cena se počítá automaticky.</p>
-      </div>
-      <div class="how-card" data-reveal data-reveal-delay="3">
-        <div class="how-num">03</div>
-        <div class="ico-circle"><svg><use href="#i-shield-check"/></svg></div>
-        <h3 data-i18n="how.s3Title">Plať bezpečně</h3>
-        <p data-i18n="how.s3Desc">Záloha nebo celá částka předem přes Stripe. Peníze jsou chráněné a tatérovi se uvolní až poté, co oba potvrdíte dokončení tetování.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================================== FEATURES GRID ===================================== -->
-<section id="features">
-  <div class="section-inner">
-    <div class="section-eyebrow" data-reveal data-i18n="feat.eyebrow">Co dostaneš</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="feat.title">Vše pro jednu objednávku tetování na jednom místě.</h2>
-    <p class="section-lead" data-reveal data-reveal-delay="2" data-i18n="feat.lead">
-      Od prvního prolistování skic až po push notifikaci 24 hodin před termínem.
-      Vše navržené tak, ať klient i tatér ušetří půlhodinu DM korespondence.
+    <span class="ink-rule stanza-divider"></span>
+    <p class="stanza" data-i18n-html="manifesto.s2">
+      Tetování je rozhodnutí na celý život.<br>
+      Rezervace by neměla být <b>loterie</b>.
     </p>
-    <div class="feature-grid" data-reveal data-reveal-delay="2">
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-home"/></svg><span class="ic-num">01</span></div><h3 data-i18n="feat.f1Title">Feed skic</h3><p data-i18n="feat.f1Desc">Curated feed dostupných skic. Filtruj podle stylu, města, ceny. Najdi to, co tě chytne.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-map-pin"/></svg><span class="ic-num">02</span></div><h3 data-i18n="feat.f2Title">Mapa tatérů</h3><p data-i18n="feat.f2Desc">Černobílá mapa s pinkami tatérů. Klikni a uvidíš jejich portfolio a hodnocení.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-shield-check"/></svg><span class="ic-num">03</span></div><h3 data-i18n="feat.f3Title">Chráněná platba</h3><p data-i18n="feat.f3Desc">Plať zálohu nebo celou částku předem přes Stripe. Peníze se tatérovi uvolní až po vzájemném potvrzení dokončení.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-star"/></svg><span class="ic-num">04</span></div><h3 data-i18n="feat.f4Title">Recenze a hodnocení</h3><p data-i18n="feat.f4Desc">Recenze od reálných klientů po skutečném tetování. Žádné falešné hvězdičky.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-bell"/></svg><span class="ic-num">05</span></div><h3 data-i18n="feat.f5Title">Připomínka 24 h před</h3><p data-i18n="feat.f5Desc">E-mail i push notifikace den před termínem. Nezapomeneš.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-arrow-right"/></svg><span class="ic-num">06</span></div><h3 data-i18n="feat.f6Title">Kalendář export</h3><p data-i18n="feat.f6Desc">Stáhni si .ics nebo si přidej InkLink kalendář do Apple / Google jako odběr.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-heart"/></svg><span class="ic-num">07</span></div><h3 data-i18n="feat.f7Title">Lajky &amp; uložené</h3><p data-i18n="feat.f7Desc">Lajkuj skicy a vracej se k nim. Tvůj wishlist pro příští kus.</p></div>
-      <div class="feature"><div class="ic"><svg class="icon"><use href="#i-share"/></svg><span class="ic-num">08</span></div><h3 data-i18n="feat.f8Title">Sdílení na Stories</h3><p data-i18n="feat.f8Desc">Jedním klikem hotový obrázek pro Instagram Story s odkazem na skicu.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================================== SPLIT ===================================== -->
-<section id="for">
-  <div class="section-inner">
-    <div class="section-eyebrow" data-reveal data-i18n="split.eyebrow">Pro koho</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="split.title">Dvě strany, jedna síť.</h2>
-
-    <div class="split" data-reveal data-reveal-delay="2">
-      <div class="split-col">
-        <div class="sub" data-i18n="split.clientSub">Klient</div>
-        <h2 data-i18n="split.clientTitle">Najdi si svého tatéra.</h2>
-        <ul class="split-list">
-          <li data-i18n-html="split.clientL1"><strong>Browse zdarma</strong> — feed, mapa i profily otevřené i bez účtu.</li>
-          <li data-i18n-html="split.clientL2"><strong>Filtruj podle stylu</strong> — fineline, blackwork, traditional, realism…</li>
-          <li data-i18n-html="split.clientL3"><strong>Rezervuj v 60 vteřinách</strong> — záloha přes Stripe, potvrzení e-mailem.</li>
-          <li data-i18n-html="split.clientL4"><strong>Měj přehled</strong> — všechny rezervace, kalendář, recenze v jednom dashboardu.</li>
-        </ul>
-        <a class="lp-btn" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="split.clientCta">Prohlížet feed</span></a>
-      </div>
-
-      <div class="split-col">
-        <div class="sub" data-i18n="split.artistSub">Tatér</div>
-        <h2 data-i18n="split.artistTitle">Dostaň bookingy, ne DMs.</h2>
-        <ul class="split-list">
-          <li data-i18n-html="split.artistL1"><strong>Portfolio zdarma</strong> — nahraj skicy 1–4 foto, nastav cenu a styl.</li>
-          <li data-i18n-html="split.artistL2"><strong>Stripe Connect</strong> — peníze chodí přímo na tvůj účet po dokončení.</li>
-          <li data-i18n-html="split.artistL3"><strong>Earnings dashboard</strong> — co kolik vyneslo, co je v procesu, výplaty.</li>
-          <li data-i18n-html="split.artistL4"><strong>Žádné měsíční poplatky</strong> — platíš jen procento z toho, co skutečně vyděláš.</li>
-        </ul>
-        <a class="lp-btn lp-btn-primary" href="/artist-setup"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="split.artistCta">Stát se tatérem</span></a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================================== PRICING ===================================== -->
-<section id="pricing">
-  <div class="section-inner">
-    <div class="section-eyebrow" data-reveal data-i18n="pricing.eyebrow">Ceník</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="pricing.title">Transparentně. Žádné překvapení.</h2>
-    <p class="section-lead" data-reveal data-reveal-delay="2" data-i18n="pricing.lead">
-      Klienti za používání InkLinku neplatí nic. Tatéři platí jen procento z bookingu —
-      žádné setup fees, žádné měsíční předplatné.
+    <span class="ink-rule stanza-divider"></span>
+    <p class="stanza" data-i18n-html="manifesto.s3">
+      Tatér si vydělá. Klient zaplatí jen jednou.<br>
+      Peníze čekají, dokud není <b>hotovo</b>.
     </p>
+    <span class="ink-rule stanza-divider"></span>
+    <p class="stanza" data-i18n-html="manifesto.s4">
+      Žádné DM. Žádné zálohy v hotovosti.<br>
+      Žádný <b>stres</b>.
+    </p>
+  </div>
+</section>
 
-    <div class="pricing-grid">
-      <div class="price-card" data-reveal data-reveal-delay="1">
-        <h3 data-i18n="pricing.clientTitle">Klient</h3>
-        <div class="price-tag"><span class="big">0 Kč</span></div>
-        <p class="lead" data-i18n="pricing.clientLead">Browse, filtruj, lajkuj a rezervuj — vše bez poplatku za InkLink.</p>
-        <ul>
-          <li data-i18n="pricing.clientL1">Neomezené procházení skic a profilů</li>
-          <li data-i18n="pricing.clientL2">Rezervace zálohou nebo celou částkou předem</li>
-          <li data-i18n="pricing.clientL3">Peníze chráněné Stripem do dokončení tetování</li>
-          <li data-i18n="pricing.clientL4">Připomínka 24 h před termínem</li>
-          <li data-i18n="pricing.clientL5">Recenze a kalendář export</li>
-        </ul>
-        <a class="lp-btn" href="/feed"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="pricing.clientCta">Procházet</span></a>
-      </div>
-
-      <div class="price-card featured" data-reveal data-reveal-delay="2">
-        <span class="featured-ribbon" data-i18n="pricing.featured">Doporučujeme</span>
-        <h3 data-i18n="pricing.artistTitle">Tatér</h3>
-        <div class="price-tag"><span class="big">8%</span><span class="unit" data-i18n="pricing.artistUnit">z bookingu</span></div>
-        <p class="lead" data-i18n="pricing.artistLead">Žádné měsíční poplatky. Platíš jen z toho, co skutečně vyděláš.</p>
-        <ul>
-          <li data-i18n="pricing.artistL1">Neomezené portfolio (skicy + hotové práce)</li>
-          <li data-i18n="pricing.artistL2">Stripe Connect — peníze přímo na tvůj účet</li>
-          <li data-i18n="pricing.artistL3">Kalendář s opakováním a slot managementem</li>
-          <li data-i18n="pricing.artistL4">Earnings dashboard a měsíční PDF reporty</li>
-          <li data-i18n="pricing.artistL5">E-mail + push notifikace o bookingech</li>
-          <li data-i18n="pricing.artistL6">Profil s mapou, rating, sdílení na Stories</li>
-        </ul>
-        <a class="lp-btn lp-btn-primary" href="/artist-setup"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="pricing.artistCta">Začít jako tatér</span></a>
-      </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     HOW IT WORKS — 3 kroky
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="how">
+  <div class="how-head">
+    <span class="eyebrow" data-i18n="how.eyebrow">jak to funguje</span>
+    <h2 data-i18n="how.title">tři kroky</h2>
+  </div>
+  <div class="how-steps">
+    <div class="step" data-reveal>
+      <span class="step-num">1.</span>
+      <h3 data-i18n="how.s1Title">vybereš si skicu</h3>
+      <p data-i18n="how.s1Body">Z feedu, z mapy, z profilu tatéra. Filtruj podle stylu, města, ceny. Lajkuj si oblíbené.</p>
+    </div>
+    <div class="step" data-reveal>
+      <span class="step-num">2.</span>
+      <h3 data-i18n="how.s2Title">rezervuješ termín</h3>
+      <p data-i18n="how.s2Body">Záloha nebo plná částka přes Stripe. Otevři kalendář tatéra, vyber volný blok, zaplať.</p>
+    </div>
+    <div class="step" data-reveal>
+      <span class="step-num">3.</span>
+      <h3 data-i18n="how.s3Title">tetuješ se</h3>
+      <p data-i18n="how.s3Body">Peníze tatéra čekají na Stripe — uvolní se, až oba potvrdíte dokončení. Jistota pro obě strany.</p>
     </div>
   </div>
 </section>
 
-<!-- ===================================== TESTIMONIALS ===================================== -->
-<section id="testimonials">
-  <div class="section-inner">
-    <div class="section-eyebrow" data-reveal data-i18n="test.eyebrow">Z první ruky</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="test.title">Co o InkLinku říkají.</h2>
-
-    <div class="testimonial-grid">
-      <div class="testimonial" data-reveal data-reveal-delay="1">
-        <div class="quote" data-i18n="test.t1Quote">Konečně mi rezervace nezabere týden DM ping-pongu. Vyber, zaplať, hotovo.</div>
-        <div class="testimonial-foot">
-          <div class="testimonial-avatar">VS</div>
-          <div>
-            <div class="testimonial-name">Veronika S.</div>
-            <div class="testimonial-role" data-i18n="test.t1Role">Klient · Praha</div>
-            <div class="testimonial-stars">★ ★ ★ ★ ★</div>
-          </div>
-        </div>
-      </div>
-      <div class="testimonial" data-reveal data-reveal-delay="2">
-        <div class="quote" data-i18n="test.t2Quote">Klient platí dopředu, peníze čekají na Stripe a uvolní se až po dokončení. Žádné no-showy, jistota pro obě strany.</div>
-        <div class="testimonial-foot">
-          <div class="testimonial-avatar">MK</div>
-          <div>
-            <div class="testimonial-name">Martin K.</div>
-            <div class="testimonial-role" data-i18n="test.t2Role">Tatér · Brno</div>
-            <div class="testimonial-stars">★ ★ ★ ★ ★</div>
-          </div>
-        </div>
-      </div>
-      <div class="testimonial" data-reveal data-reveal-delay="3">
-        <div class="quote" data-i18n="test.t3Quote">Mapa a filtrace mi pomohly najít tatérku s blackwork stylem v Olomouci za 10 minut.</div>
-        <div class="testimonial-foot">
-          <div class="testimonial-avatar">DL</div>
-          <div>
-            <div class="testimonial-name">David L.</div>
-            <div class="testimonial-role" data-i18n="test.t3Role">Klient · Olomouc</div>
-            <div class="testimonial-stars">★ ★ ★ ★ ★</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================================== FAQ ===================================== -->
-<section id="faq">
-  <div class="section-inner" style="max-width:920px">
-    <div class="section-eyebrow" data-reveal data-i18n="faq.eyebrow">FAQ</div>
-    <h2 class="section-title" data-reveal data-reveal-delay="1" data-i18n="faq.title">Často se ptáte.</h2>
-
-    <div class="faq" data-reveal data-reveal-delay="2">
-      <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q1">Kolik si InkLink bere z bookingu?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a" data-i18n="faq.a1">8 % z každé úspěšné rezervace, žádné měsíční poplatky. Peníze nikdy nedržíme — chodí přímo na účet tatéra přes Stripe Connect.</div>
-      </div>
-      <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q2">Můžu prohlížet bez účtu?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a" data-i18n="faq.a2">Ano. Feed, mapa, profily tatérů i jednotlivé skicy jsou veřejně dostupné. Účet potřebuješ až ve chvíli, kdy chceš rezervovat termín nebo psát zprávu.</div>
-      </div>
-      <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q3">Co když termín nestihnu nebo chci zrušit?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a" data-i18n="faq.a3">Zrušení 48+ hodin před termínem je bez sankce — záloha se ti vrátí. Při zrušení do 48 hodin pravidla určuje konkrétní tatér ve svém profilu.</div>
-      </div>
-      <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q4">Jak fungují platby a kdy dostane tatér peníze?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a" data-i18n="faq.a4">Klient platí přes Stripe — buď zálohu (typicky 30 %, zbytek po dokončení) nebo celou částku předem. Peníze jsou chráněné a tatérovi se uvolní až ve chvíli, kdy obě strany potvrdí, že je tetování dokončené. Po uvolnění Stripe peníze obvykle převede na bankovní účet do 2 pracovních dnů.</div>
-      </div>
-      <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q5">Co když nastane spor mezi klientem a tatérem?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a" data-i18n="faq.a5">Pokud jedna ze stran nepotvrdí dokončení, peníze zůstanou pozdrženy a my pomůžeme situaci vyřešit. Stripe poskytuje dispute resolution pro problémy s kartou, my zase prostředkování mezi klientem a tatérem podle pravidel platformy.</div>
-      </div>
-      <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q6">Funguje to na mobilu?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a" data-i18n="faq.a6">Ano, InkLink je PWA — můžeš si ho přidat na home screen a chovat se jako nativní apka, včetně push notifikací. Žádné stahování z App Store.</div>
-      </div>
-      <div class="faq-item" onclick="this.classList.toggle('open')">
-        <div class="faq-q"><div class="faq-q-text" data-i18n="faq.q7">Komu napsat, když něco nefunguje?</div><div class="faq-toggle">+</div></div>
-        <div class="faq-a" data-i18n-html="faq.a7">Napiš nám na <a href="mailto:contact@inklink.club" style="color:var(--tx-1);border-bottom:1px solid var(--tx-3)">contact@inklink.club</a>. Reagujeme do 24 hodin v pracovní dny.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================================== FINAL CTA ===================================== -->
+<!-- ═══════════════════════════════════════════════════════════════
+     FINAL CTA
+     ═══════════════════════════════════════════════════════════════ -->
 <section class="final">
-  <h2 data-reveal data-i18n="final.title">READY TO INK?</h2>
-  <p data-reveal data-reveal-delay="1" data-i18n="final.lead">Vytvoř si účet a najdi tatéra ještě dnes. Nebo se zaregistruj jako tatér a začni přijímat bookingy během odpoledne.</p>
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1" data-reveal data-reveal-delay="2">
-    <a class="lp-btn lp-btn-primary" href="/login"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="final.ctaPrimary">Vytvořit účet</span></a>
-    <a class="lp-btn" href="/feed" data-i18n="final.ctaSecondary">Jen se podívat</a>
+  <div class="ink-blot" style="top:20px;left:50%;margin-left:-200px;width:400px;height:400px;opacity:0.04" aria-hidden="true">
+    <svg viewBox="0 0 200 200"><path d="M100 18 Q 145 22 168 60 Q 188 95 170 138 Q 148 178 102 180 Q 56 178 32 138 Q 14 95 36 60 Q 56 22 100 18Z" fill="currentColor"/></svg>
+  </div>
+  <div class="final-eyebrow eyebrow" data-i18n="final.eyebrow">připraven?</div>
+  <h2 class="final-claim" data-i18n="final.claim">začni.</h2>
+  <p class="final-lede" data-i18n="final.lede">
+    Bez registrace si můžeš prohlédnout feed. Účet potřebuješ až pro rezervaci.
+  </p>
+  <div class="final-cta">
+    <a class="cta huge" href="/feed" data-i18n="final.ctaFeed">prohlédnout feed</a>
+    <a class="cta large" href="/artist-setup" data-i18n="final.ctaArtist">stát se tatérem</a>
   </div>
 </section>
 
-<!-- ===================================== FOOTER ===================================== -->
+<!-- ═══════════════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════════════ -->
 <footer>
-  <div class="footer-inner">
-    <div>
-      <div class="footer-logo">INKLINK</div>
-      <div class="footer-tag" data-i18n="footer.tag">Tattoo Booking Network · Praha, CZ</div>
-    </div>
-    <div class="footer-links">
-      <a href="/feed" data-i18n="footer.feed">Feed</a>
-      <a href="/map" data-i18n="footer.map">Mapa</a>
-      <a href="/login" data-i18n="footer.signIn">Přihlásit</a>
-      <a href="/privacy" data-i18n="footer.privacy">Ochrana údajů</a>
-      <a href="/terms" data-i18n="footer.terms">Podmínky</a>
-      <a href="mailto:contact@inklink.club" data-i18n="footer.contact">Kontakt</a>
-    </div>
+  <a class="foot-logo" href="/" aria-label="InkLink"><img src="/img/inklink-logo.jpg" alt="InkLink"></a>
+  <div class="foot-links">
+    <a href="/privacy" data-i18n="footer.privacy">privacy</a>
+    <a href="/terms" data-i18n="footer.terms">terms</a>
+    <a href="mailto:hello@inklink.club" data-i18n="footer.contact">kontakt</a>
   </div>
+  <div class="foot-tag" data-i18n="footer.tag">tattoo booking · praha · 2026</div>
 </footer>
 
-<!-- i18n must load BEFORE hero letter-reveal so translated text exists -->
 <script src="/i18n.js?v=1"></script>
-
 <script>
 // JSON-LD
 const ld = {
   "@context":"https://schema.org","@type":"WebSite","name":"InkLink",
   "url":"https://www.inklink.club/",
-  "description":"Tattoo Booking Network — najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.",
+  "description":"Tetování v Česku. Najdi svou skicu, potkej svého tatéra, rezervuj v klidu.",
   "potentialAction":{"@type":"SearchAction","target":"https://www.inklink.club/feed?q={search_term_string}","query-input":"required name=search_term_string"}
 };
-const s = document.createElement('script'); s.type = 'application/ld+json';
-s.textContent = JSON.stringify(ld); document.head.appendChild(s);
+const ldScript = document.createElement('script');
+ldScript.type = 'application/ld+json';
+ldScript.textContent = JSON.stringify(ld);
+document.head.appendChild(ldScript);
 
-// ── Typography variant toggle (TEMP — vybereš A/B, pak odstraním) ────────
-function setTypo(v){
-  document.body.classList.toggle('typo-b', v === 'b');
-  try { localStorage.setItem('il_typo', v); } catch(e) {}
-  document.querySelectorAll('#typoSwitch .lang-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.typo === v);
-  });
-}
-(function initTypo(){
-  let saved = 'a';
-  try { saved = localStorage.getItem('il_typo') || 'a'; } catch(e) {}
-  // wait for body to be ready
-  if (document.body) setTypo(saved);
-  else document.addEventListener('DOMContentLoaded', () => setTypo(saved));
-})();
-
-// ── Letter-by-letter hero reveal ─────────────────────────────────────────────
-// i18n-aware: splits translated textContent on each apply
-let __heroAnimated = false;
-function splitHeroLetters(animate) {
-  const rows = document.querySelectorAll('#heroHeadline .row');
-  let letterIdx = 0;
-  rows.forEach(row => {
-    const text = (row.textContent && row.textContent.trim()) || '';
-    row.innerHTML = '';
-    [...text].forEach(ch => {
-      const span = document.createElement('span');
-      span.className = 'ltr';
-      // U inline-block spanu s pouhým ' ' collapse → použij NBSP
-      span.textContent = ch === ' ' ? ' ' : ch;
-      if (animate) {
-        span.style.animationDelay = (0.04 * letterIdx + 0.15) + 's';
-      } else {
-        span.style.opacity = '1';
-        span.style.transform = 'none';
-        span.style.filter = 'none';
-        span.style.animation = 'none';
-      }
-      row.appendChild(span);
-      letterIdx++;
-    });
-  });
-}
-document.addEventListener('il-i18n-applied', () => {
-  splitHeroLetters(!__heroAnimated);
-  __heroAnimated = true;
-});
-setTimeout(() => { if (!__heroAnimated) { splitHeroLetters(true); __heroAnimated = true; } }, 250);
-
-// ── Scroll reveal via IntersectionObserver ───────────────────────────────────
+// Scroll-triggered reveals
 const io = new IntersectionObserver((entries) => {
-  entries.forEach(e => {
-    if (e.isIntersecting) {
-      e.target.classList.add('in');
-      io.unobserve(e.target);
-    }
-  });
-}, { rootMargin: '0px 0px -80px 0px', threshold: 0.05 });
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+}, { threshold: 0.15 });
 document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el));
-
-// ── Stats count-up animation ─────────────────────────────────────────────────
-const countIO = new IntersectionObserver((entries) => {
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
-    countIO.unobserve(e.target);
-    const target = parseFloat(e.target.dataset.countTo);
-    const suffix = e.target.dataset.suffix || '';
-    const duration = 1200;
-    const start = performance.now();
-    const easeOut = t => 1 - Math.pow(1 - t, 3);
-    function tick(now) {
-      const t = Math.min(1, (now - start) / duration);
-      const val = Math.round(target * easeOut(t));
-      e.target.innerHTML = val + (suffix ? `<span class="suffix">${suffix}</span>` : '');
-      if (t < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  });
-}, { threshold: 0.4 });
-document.querySelectorAll('[data-count-to]').forEach(el => countIO.observe(el));
-
-// ── Hero showcase mouse parallax (3D tilt) ───────────────────────────────────
-const showcase = document.getElementById('heroShowcase');
-if (showcase && window.matchMedia('(min-width: 981px)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  const tiles = showcase.querySelectorAll('.hs-tile');
-  let rafId = null;
-  let targetX = 0, targetY = 0, curX = 0, curY = 0;
-  function loop() {
-    curX += (targetX - curX) * 0.08;
-    curY += (targetY - curY) * 0.08;
-    showcase.style.transform = `rotateY(${curX}deg) rotateX(${-curY}deg)`;
-    tiles.forEach((t, i) => {
-      const depth = (i % 3) * 6 + 4;
-      t.style.transform = `translateZ(${depth + Math.abs(curX) * 0.5}px)`;
-    });
-    if (Math.abs(targetX - curX) > 0.02 || Math.abs(targetY - curY) > 0.02) {
-      rafId = requestAnimationFrame(loop);
-    } else { rafId = null; }
-  }
-  document.addEventListener('mousemove', e => {
-    const r = showcase.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    targetX = ((e.clientX - cx) / r.width) * 4;   // max ±4°
-    targetY = ((e.clientY - cy) / r.height) * 4;
-    if (!rafId) rafId = requestAnimationFrame(loop);
-  });
-  document.addEventListener('mouseleave', () => { targetX = 0; targetY = 0; if (!rafId) rafId = requestAnimationFrame(loop); });
-}
-
-// ── How-card radial spotlight follows mouse ──────────────────────────────────
-document.querySelectorAll('.how-card').forEach(card => {
-  card.addEventListener('mousemove', e => {
-    const r = card.getBoundingClientRect();
-    card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
-    card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
-  });
-});
 </script>
-
-<script src="/icons.js?v=2"></script>
 
 </body>
 </html>

@@ -16,16 +16,36 @@
       'nav.features':   'Funkce',
       'nav.pricing':    'Ceník',
       'nav.faq':        'FAQ',
-      'nav.signIn':     'Přihlásit',
-      'nav.start':      'Začít',
+      'nav.signIn':     'přihlásit',
+      'nav.start':      'začít',
 
-      // HERO
+      // HERO — editorial manifesto landing
+      'hero.eyebrow':   'tetování · rezervace · inkoust co drží',
+      'hero.line1':     'najdi svou skicu.',
+      'hero.line2':     'potkej svého tatéra.',
+      'hero.line3':     'rezervuj v klidu.',
+      'hero.lede':      'Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.',
+      'hero.ctaFeed':   'prohlédnout skicy',
+      'hero.ctaMap':    'mapa tatérů',
+      // (legacy keys pro případnou kompatibilitu)
       'hero.tag':       'CZ · Tattoo Marketplace · Live',
       'hero.title1':    'PROHLÉDNI SKICY.',
       'hero.title2':    'NAJDI TATÉRA.',
       'hero.sub':       'Vyber si skicu nebo objev tatéra podle stylu a města. Rezervuj zálohou nebo celou částku předem.',
       'hero.ctaPrimary':'Prohlížet skicy',
-      'hero.ctaMap':    'Mapa tatérů',
+
+      // MANIFESTO — poetic stanzas (data-i18n-html podporuje inline tagy)
+      'manifesto.eyebrow': 'manifest',
+      'manifesto.title':   'proč InkLink',
+      'manifesto.s1':      'Inkoust drží <b>navždy</b>.<br>Důvěra by měla taky.',
+      'manifesto.s2':      'Tetování je rozhodnutí na celý život.<br>Rezervace by neměla být <b>loterie</b>.',
+      'manifesto.s3':      'Tatér si vydělá. Klient zaplatí jen jednou.<br>Peníze čekají, dokud není <b>hotovo</b>.',
+      'manifesto.s4':      'Žádné DM. Žádné zálohy v hotovosti.<br>Žádný <b>stres</b>.',
+
+      // FINAL — closing CTA (nový landing)
+      'final.claim':       'začni.',
+      'final.ctaFeed':     'prohlédnout feed',
+      'final.ctaArtist':   'stát se tatérem',
 
       // STATS
       'stats.artists':       'Tatérů',
@@ -38,14 +58,17 @@
       'stats.reminderSub':   'před termínem',
 
       // HOW IT WORKS
-      'how.eyebrow':   'Jak to funguje',
-      'how.title':     'Tři kroky od skicy k tetování.',
+      'how.eyebrow':   'jak to funguje',
+      'how.title':     'tři kroky',
       'how.lead':      'Žádné scrollování přes Instagramy. Žádné nečitelné DM zprávy. Tetování si rezervuješ stejně snadno jako lístek do kina.',
-      'how.s1Title':   'Najdi co se ti líbí',
+      'how.s1Title':   'vybereš si skicu',
+      'how.s1Body':    'Z feedu, z mapy, z profilu tatéra. Filtruj podle stylu, města, ceny. Lajkuj si oblíbené.',
       'how.s1Desc':    'Prohlížej feed skic, mapu nebo profily tatérů. Filtruj podle stylu, města, ceny. Lajkuj si oblíbené skicy nebo sleduj tatéry pro pozdější rezervaci.',
-      'how.s2Title':   'Vyber termín',
+      'how.s2Title':   'rezervuješ termín',
+      'how.s2Body':    'Záloha nebo plná částka přes Stripe. Otevři kalendář tatéra, vyber volný blok, zaplať.',
       'how.s2Desc':    'Otevři tatérův kalendář, vyber volný blok a velikost (Mini 1 h · Velké 5 h · Celý den 8 h). Cena se počítá automaticky.',
-      'how.s3Title':   'Plať bezpečně',
+      'how.s3Title':   'tetuješ se',
+      'how.s3Body':    'Peníze tatéra čekají na Stripe — uvolní se, až oba potvrdíte dokončení. Jistota pro obě strany.',
       'how.s3Desc':    'Záloha nebo celá částka předem přes Stripe. Peníze jsou chráněné a tatérovi se uvolní až poté, co oba potvrdíte dokončení tetování.',
 
       // FEATURES
@@ -144,15 +167,17 @@
       'final.lead':        'Vytvoř si účet a najdi tatéra ještě dnes. Nebo se zaregistruj jako tatér a začni přijímat bookingy během odpoledne.',
       'final.ctaPrimary':  'Vytvořit účet',
       'final.ctaSecondary':'Jen se podívat',
+      'final.eyebrow':     'připraven?',
+      'final.lede':        'Bez registrace si můžeš prohlédnout feed. Účet potřebuješ až pro rezervaci.',
 
       // FOOTER
-      'footer.tag':       'Tattoo Booking Network · Praha, CZ',
-      'footer.feed':      'Feed',
-      'footer.map':       'Mapa',
-      'footer.signIn':    'Přihlásit',
-      'footer.privacy':   'Ochrana údajů',
-      'footer.terms':     'Podmínky',
-      'footer.contact':   'Kontakt',
+      'footer.tag':       'tattoo booking · praha · 2026',
+      'footer.feed':      'feed',
+      'footer.map':       'mapa',
+      'footer.signIn':    'přihlásit',
+      'footer.privacy':   'privacy',
+      'footer.terms':     'terms',
+      'footer.contact':   'kontakt',
 
       // STUDIOS — veřejná stránka studia
       'studio.pageTitle':   'Studio — InkLink',
@@ -241,16 +266,31 @@
       'nav.features':   'Features',
       'nav.pricing':    'Pricing',
       'nav.faq':        'FAQ',
-      'nav.signIn':     'Sign in',
-      'nav.start':      'Get started',
+      'nav.signIn':     'sign in',
+      'nav.start':      'get started',
 
-      // HERO
+      // HERO — editorial manifesto
+      'hero.eyebrow':   'tattoo · booking · ink that lasts',
+      'hero.line1':     'find your sketch.',
+      'hero.line2':     'meet your artist.',
+      'hero.line3':     'book in peace.',
+      'hero.lede':      "Tattoo marketplace for Czechia. Browse sketches or discover an artist by style — and book safely via Stripe. No DM ping-pong, no guesswork.",
+      'hero.ctaFeed':   'browse sketches',
+      'hero.ctaMap':    'artist map',
+      // (legacy)
       'hero.tag':       'CZ · Tattoo Marketplace · Live',
       'hero.title1':    'BROWSE SKETCHES.',
       'hero.title2':    'FIND YOUR ARTIST.',
       'hero.sub':       'Pick a sketch you love or discover an artist by style and city. Book with a deposit or pay the full amount upfront.',
       'hero.ctaPrimary':'Browse sketches',
-      'hero.ctaMap':    'Artist map',
+
+      // MANIFESTO
+      'manifesto.eyebrow': 'manifesto',
+      'manifesto.title':   'why InkLink',
+      'manifesto.s1':      'Ink lasts <b>forever</b>.<br>Trust should too.',
+      'manifesto.s2':      'A tattoo is a lifelong decision.<br>Booking should not be a <b>lottery</b>.',
+      'manifesto.s3':      'The artist gets paid. The client pays just once.<br>Funds wait until it is <b>done</b>.',
+      'manifesto.s4':      'No DMs. No cash deposits.<br>No <b>stress</b>.',
 
       // STATS
       'stats.artists':       'Artists',
@@ -262,15 +302,18 @@
       'stats.reminder':      'Reminder',
       'stats.reminderSub':   'before appointment',
 
-      // HOW IT WORKS
-      'how.eyebrow':   'How it works',
-      'how.title':     'Three steps from sketch to tattoo.',
+      // HOW IT WORKS — 3 kroky (new landing)
+      'how.eyebrow':   'how it works',
+      'how.title':     'three steps',
       'how.lead':      'No scrolling through Instagrams. No confusing DM threads. Booking a tattoo as easy as buying a movie ticket.',
-      'how.s1Title':   'Find what you love',
+      'how.s1Title':   'pick a sketch',
+      'how.s1Body':    'From the feed, the map, or an artist profile. Filter by style, city, price. Like your favorites.',
       'how.s1Desc':    'Browse the sketches feed, the map, or artist profiles. Filter by style, city, price. Like favorites or follow artists for later.',
-      'how.s2Title':   'Pick a time slot',
+      'how.s2Title':   'book a slot',
+      'how.s2Body':    'Deposit or full payment via Stripe. Open the artist calendar, pick a free block, pay.',
       'how.s2Desc':    "Open the artist's calendar, choose a free block and a size (Mini 1 h · Large 5 h · Full day 8 h). Price is calculated automatically.",
-      'how.s3Title':   'Pay safely',
+      'how.s3Title':   'get inked',
+      'how.s3Body':    "The artist's money waits at Stripe — released once you both confirm completion. Safety for both sides.",
       'how.s3Desc':    'Deposit or full upfront via Stripe. Money is protected and only released to the artist once both of you confirm the tattoo is done.',
 
       // FEATURES
@@ -369,15 +412,20 @@
       'final.lead':        'Create an account and find your artist today. Or sign up as an artist and start receiving bookings this afternoon.',
       'final.ctaPrimary':  'Create account',
       'final.ctaSecondary':'Just have a look',
+      'final.eyebrow':     'ready?',
+      'final.claim':       'begin.',
+      'final.lede':        'You can browse the feed without an account. An account is only required to book.',
+      'final.ctaFeed':     'browse feed',
+      'final.ctaArtist':   'become an artist',
 
       // FOOTER
-      'footer.tag':       'Tattoo Booking Network · Prague, CZ',
-      'footer.feed':      'Feed',
-      'footer.map':       'Map',
-      'footer.signIn':    'Sign in',
-      'footer.privacy':   'Privacy',
-      'footer.terms':     'Terms',
-      'footer.contact':   'Contact',
+      'footer.tag':       'tattoo booking · prague · 2026',
+      'footer.feed':      'feed',
+      'footer.map':       'map',
+      'footer.signIn':    'sign in',
+      'footer.privacy':   'privacy',
+      'footer.terms':     'terms',
+      'footer.contact':   'contact',
 
       // STUDIOS — public studio page
       'studio.pageTitle':   'Studio — InkLink',
