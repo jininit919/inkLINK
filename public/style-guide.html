@@ -7,10 +7,8 @@
 <title>InkLink — Style Guide</title>
 <meta name="robots" content="noindex">
 
-<!-- Všechny font kandidáti najednou — pro porovnání -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500;1,700&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<!-- Žádné Google Fonty — Bristol z theme.css + nativní Helvetica/Arial -->
+
 
 <script>document.documentElement.dataset.theme='paper';</script>
 <link rel="stylesheet" href="/theme.css">
@@ -35,7 +33,7 @@ html,body{
   background-image:var(--paper-grain);
   background-size:240px 240px;
   color:var(--ink);
-  font-family:'DM Mono',monospace;
+  font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;
   font-size:13px;
   line-height:1.55;
   letter-spacing:0.02em;
@@ -58,7 +56,7 @@ nav{
 .nav-logo{display:flex;align-items:center;cursor:pointer}
 .nav-logo img{height:42px;width:auto;mix-blend-mode:multiply;display:block}
 .nav-spacer{flex:1}
-.nav-link{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--ink-muted);text-transform:uppercase;cursor:pointer}
+.nav-link{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.18em;color:var(--ink-muted);text-transform:uppercase;cursor:pointer}
 .nav-link:hover{color:var(--ink)}
 
 /* ── PAGE LAYOUT ────────────────────────────────────────────── */
@@ -66,29 +64,29 @@ nav{
 @media(max-width:680px){.wrap{padding:100px 22px 80px}}
 
 .hero{margin-bottom:80px;text-align:center}
-.hero .label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.24em;color:var(--ink-muted);text-transform:uppercase;margin-bottom:18px}
+.hero .label{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.24em;color:var(--ink-muted);text-transform:uppercase;margin-bottom:18px}
 .hero h1{font-family:'Bristol','Caveat',cursive;font-size:clamp(64px,11vw,150px);line-height:0.95;color:var(--ink);margin-bottom:18px;font-weight:400}
-.hero p{font-style:italic;font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--ink-soft);max-width:520px;margin:0 auto;line-height:1.5}
+.hero p{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;color:var(--ink-soft);max-width:520px;margin:0 auto;line-height:1.55;font-weight:300;letter-spacing:-0.005em}
 
 /* ── SECTION ────────────────────────────────────────────────── */
 section{margin-bottom:96px}
 .section-head{display:flex;align-items:baseline;gap:18px;margin-bottom:32px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
 .section-head .num{font-family:'Bristol','Caveat',cursive;font-size:64px;color:var(--ink);line-height:0.8}
-.section-head .title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.24em;color:var(--ink);text-transform:uppercase;font-weight:500}
-.section-head .meta{margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;color:var(--ink-faint);text-transform:lowercase}
+.section-head .title{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.24em;color:var(--ink);text-transform:uppercase;font-weight:500}
+.section-head .meta{margin-left:auto;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;color:var(--ink-faint);text-transform:lowercase}
 
 /* ── COLOR PALETTE ──────────────────────────────────────────── */
 .palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px}
 .swatch{border:1px solid var(--rule);border-radius:6px;overflow:hidden;background:var(--paper-2)}
 .swatch .chip{height:90px}
-.swatch .info{padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;line-height:1.5}
+.swatch .info{padding:10px 12px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;line-height:1.5}
 .swatch .info .name{color:var(--ink);letter-spacing:0.06em}
 .swatch .info .hex{color:var(--ink-muted);letter-spacing:0.04em}
 
 /* ── LOGO SHOWCASE ──────────────────────────────────────────── */
 .logo-row{display:flex;align-items:center;gap:32px;flex-wrap:wrap;background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:36px}
 .logo-row img{height:64px;mix-blend-mode:multiply}
-.logo-row .specs{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink-muted);line-height:1.8}
+.logo-row .specs{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;color:var(--ink-muted);line-height:1.8}
 .logo-row .specs b{color:var(--ink);font-weight:500}
 
 /* ── BRISTOL SHOWCASE ───────────────────────────────────────── */
@@ -109,52 +107,25 @@ section{margin-bottom:96px}
 .font-card{background:var(--paper-2);border:1.5px solid var(--rule);border-radius:12px;padding:40px 36px;position:relative;transition:border-color 0.25s var(--ease),box-shadow 0.25s var(--ease)}
 .font-card:hover{border-color:var(--ink);box-shadow:0 6px 24px rgba(20,16,8,0.08)}
 .font-card.selected{border-color:var(--ink);box-shadow:0 4px 0 0 var(--ink),0 8px 24px rgba(20,16,8,0.10)}
-.font-card .badge{position:absolute;top:14px;right:14px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.16em;color:var(--ink-muted);text-transform:uppercase;padding:4px 10px;background:var(--paper);border:1px solid var(--rule);border-radius:999px}
+.font-card .badge{position:absolute;top:14px;right:14px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;letter-spacing:0.16em;color:var(--ink-muted);text-transform:uppercase;padding:4px 10px;background:var(--paper);border:1px solid var(--rule);border-radius:999px}
 .font-card.selected .badge{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-.font-card .name{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.18em;color:var(--ink-muted);text-transform:uppercase;margin-bottom:6px}
-.font-card .desc{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.04em;color:var(--ink-muted);margin-bottom:28px;line-height:1.6}
+.font-card .name{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.18em;color:var(--ink-muted);text-transform:uppercase;margin-bottom:6px}
+.font-card .desc{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.04em;color:var(--ink-muted);margin-bottom:28px;line-height:1.6}
 .font-card .heading{font-size:56px;line-height:1;color:var(--ink);margin-bottom:14px;font-weight:500;letter-spacing:-0.005em}
 .font-card .subheading{font-size:24px;line-height:1.2;color:var(--ink);margin-bottom:18px;font-weight:500}
 .font-card .lede{font-size:20px;line-height:1.55;color:var(--ink-soft);font-style:italic;font-weight:400;margin-bottom:14px;max-width:580px}
 .font-card .body{font-size:15px;line-height:1.7;color:var(--ink-soft);font-weight:400;max-width:580px}
 .font-card .pick{margin-top:28px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .font-card .pick .cta{font-size:30px}
-.font-card .pick .preview-link{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;color:var(--ink-muted);text-transform:uppercase;cursor:pointer}
+.font-card .pick .preview-link{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;color:var(--ink-muted);text-transform:uppercase;cursor:pointer}
 .font-card .pick .preview-link:hover{color:var(--ink)}
 
-/* Each font card — assigned font family */
-.font-card.f-cormorant .heading,
-.font-card.f-cormorant .subheading,
-.font-card.f-cormorant .lede,
-.font-card.f-cormorant .body{font-family:'Cormorant Garamond',serif}
-.font-card.f-fraunces  .heading,
-.font-card.f-fraunces  .subheading,
-.font-card.f-fraunces  .lede,
-.font-card.f-fraunces  .body{font-family:'Fraunces',serif}
-.font-card.f-playfair  .heading,
-.font-card.f-playfair  .subheading,
-.font-card.f-playfair  .lede,
-.font-card.f-playfair  .body{font-family:'Playfair Display',serif}
-.font-card.f-garamond  .heading,
-.font-card.f-garamond  .subheading,
-.font-card.f-garamond  .lede,
-.font-card.f-garamond  .body{font-family:'EB Garamond',serif}
-.font-card.f-inter     .heading,
-.font-card.f-inter     .subheading,
-.font-card.f-inter     .lede,
-.font-card.f-inter     .body{font-family:'Inter',system-ui,sans-serif}
-.font-card.f-inter     .lede{font-style:italic;font-weight:300}
-
-/* Special — různé váhy podle fontu */
-.font-card.f-fraunces .heading{font-weight:600;letter-spacing:-0.02em}
-.font-card.f-playfair .heading{font-weight:700;letter-spacing:-0.015em}
-.font-card.f-garamond .heading{font-weight:500}
-.font-card.f-inter    .heading{font-weight:600;letter-spacing:-0.015em}
+/* Helvetica showcase — inline styly v card markup */
 
 /* ── INK ORNAMENTS GALLERY ──────────────────────────────────── */
 .ornaments{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}
 .orn-card{background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:24px;text-align:center}
-.orn-card .label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.16em;color:var(--ink-muted);text-transform:uppercase;margin-top:16px}
+.orn-card .label{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;letter-spacing:0.16em;color:var(--ink-muted);text-transform:uppercase;margin-top:16px}
 .orn-card .visual{height:120px;display:flex;align-items:center;justify-content:center}
 .orn-card svg{max-width:100%;max-height:100%}
 .orn-card .ink-rule-demo{width:100%;height:14px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'><path d='M2 7 Q 30 3 60 7 T 120 7 T 198 7' fill='none' stroke='%230a0a0a' stroke-width='1.6' stroke-linecap='round'/><circle cx='100' cy='7' r='2.4' fill='%230a0a0a'/></svg>");background-repeat:no-repeat;background-size:100% 100%;opacity:0.7}
@@ -164,11 +135,11 @@ section{margin-bottom:96px}
 /* ── CURSOR SHOWCASE ───────────────────────────────────────── */
 .cursor-row{display:flex;gap:32px;flex-wrap:wrap;align-items:center;background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:32px}
 .cursor-row img{width:48px;height:48px}
-.cursor-row .specs{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink-muted);line-height:1.7}
+.cursor-row .specs{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;color:var(--ink-muted);line-height:1.7}
 .cursor-row .specs b{color:var(--ink)}
 
 /* ── TOAST ─────────────────────────────────────────────────── */
-.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:14px 22px;border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.06em;opacity:0;transition:opacity 0.3s var(--ease),transform 0.3s var(--ease);z-index:1000;box-shadow:0 12px 32px rgba(20,16,8,0.18)}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:14px 22px;border-radius:8px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.06em;opacity:0;transition:opacity 0.3s var(--ease),transform 0.3s var(--ease);z-index:1000;box-shadow:0 12px 32px rgba(20,16,8,0.18)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
@@ -240,90 +211,31 @@ section{margin-bottom:96px}
     </div>
   </section>
 
-  <!-- ─────────────────────────────────── FONT CANDIDATES ──── -->
+  <!-- ─────────────────────────────────── HELVETICA ────────── -->
   <section id="fonts">
     <div class="section-head">
-      <span class="num">04.</span><span class="title">druhý font — vyber</span>
-      <span class="meta">klikni pro náhled na landingu</span>
+      <span class="num">04.</span><span class="title">helvetica — druhý font</span>
+      <span class="meta">body · lede · labels</span>
     </div>
 
-    <div class="font-grid">
+    <div class="font-card f-helvetica selected" data-font="helvetica" style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif">
+      <span class="badge">finální</span>
+      <div class="name" style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif">Helvetica Neue</div>
+      <div class="desc" style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif">Klasický modern sans-serif. Maximální kontrast s organickým Bristol logem — logo dominuje, text je tichý nástroj. Žádný Google Font overhead, žádné stahování — nativní na Macu/iOS, fallback Arial → system-ui.</div>
+      <div style="font-size:64px;line-height:1;color:var(--ink);margin-bottom:14px;font-weight:500;letter-spacing:-0.015em">najdi svou skicu.</div>
+      <div style="font-size:28px;line-height:1.2;color:var(--ink);margin-bottom:18px;font-weight:500;letter-spacing:-0.005em">proč InkLink</div>
+      <div style="font-size:22px;line-height:1.5;color:var(--ink-soft);font-weight:300;margin-bottom:14px;max-width:580px;letter-spacing:-0.005em">Tetování je rozhodnutí na celý život. Rezervace by neměla být loterie.</div>
+      <div style="font-size:15px;line-height:1.7;color:var(--ink-soft);font-weight:400;max-width:580px;letter-spacing:-0.003em">Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.</div>
 
-      <!-- Cormorant (current) -->
-      <div class="font-card f-cormorant" data-font="cormorant">
-        <span class="badge">aktuální</span>
-        <div class="name">Cormorant Garamond</div>
-        <div class="desc">Klasický editorial serif s elegantními italics. Univerzální, klid, knihovní feel.</div>
-        <div class="heading">najdi svou skicu.</div>
-        <div class="subheading">proč InkLink</div>
-        <div class="lede">Tetování je rozhodnutí na celý život. Rezervace by neměla být loterie.</div>
-        <div class="body">Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.</div>
-        <div class="pick">
-          <button class="cta" onclick="pickFont('cormorant')">použít tento font</button>
-          <a class="preview-link" href="/landing">→ otevřít landing</a>
-        </div>
+      <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--rule);display:flex;gap:32px;flex-wrap:wrap;font-size:12px;color:var(--ink-muted)">
+        <div><b style="color:var(--ink);font-weight:500">Stack:</b> 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif</div>
+        <div><b style="color:var(--ink);font-weight:500">Weights:</b> 300 (lede) · 400 (body) · 500 (eyebrow/labels)</div>
+        <div><b style="color:var(--ink);font-weight:500">Letter-spacing:</b> -0.005em (tight modern)</div>
       </div>
+    </div>
 
-      <!-- Fraunces -->
-      <div class="font-card f-fraunces" data-font="fraunces">
-        <span class="badge">moderní</span>
-        <div class="name">Fraunces</div>
-        <div class="desc">Modern character serif. Variable font — váhy 300–600, optical sizes, soft italics. Hodně charakteru, editorial feel.</div>
-        <div class="heading">najdi svou skicu.</div>
-        <div class="subheading">proč InkLink</div>
-        <div class="lede">Tetování je rozhodnutí na celý život. Rezervace by neměla být loterie.</div>
-        <div class="body">Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.</div>
-        <div class="pick">
-          <button class="cta" onclick="pickFont('fraunces')">použít tento font</button>
-          <a class="preview-link" href="/landing">→ otevřít landing</a>
-        </div>
-      </div>
-
-      <!-- Playfair Display -->
-      <div class="font-card f-playfair" data-font="playfair">
-        <span class="badge">dramatický</span>
-        <div class="name">Playfair Display</div>
-        <div class="desc">High-contrast thin/thick serif. Fashion magazine, vintage drama. Funguje silně v nadpisech, méně v dlouhém textu.</div>
-        <div class="heading">najdi svou skicu.</div>
-        <div class="subheading">proč InkLink</div>
-        <div class="lede">Tetování je rozhodnutí na celý život. Rezervace by neměla být loterie.</div>
-        <div class="body">Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.</div>
-        <div class="pick">
-          <button class="cta" onclick="pickFont('playfair')">použít tento font</button>
-          <a class="preview-link" href="/landing">→ otevřít landing</a>
-        </div>
-      </div>
-
-      <!-- EB Garamond -->
-      <div class="font-card f-garamond" data-font="garamond">
-        <span class="badge">klasický</span>
-        <div class="name">EB Garamond</div>
-        <div class="desc">Klasický book serif. Low-key, čitelný, žádná dramata. Nechá Bristol logo dělat veškerou expresi.</div>
-        <div class="heading">najdi svou skicu.</div>
-        <div class="subheading">proč InkLink</div>
-        <div class="lede">Tetování je rozhodnutí na celý život. Rezervace by neměla být loterie.</div>
-        <div class="body">Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.</div>
-        <div class="pick">
-          <button class="cta" onclick="pickFont('garamond')">použít tento font</button>
-          <a class="preview-link" href="/landing">→ otevřít landing</a>
-        </div>
-      </div>
-
-      <!-- Inter (system sans) -->
-      <div class="font-card f-inter" data-font="inter">
-        <span class="badge">minimal</span>
-        <div class="name">Inter</div>
-        <div class="desc">Modern sans bez serifů. Maximální kontrast s organickým Bristol logem. Logo dominuje, text je jen nástroj.</div>
-        <div class="heading">najdi svou skicu.</div>
-        <div class="subheading">proč InkLink</div>
-        <div class="lede">Tetování je rozhodnutí na celý život. Rezervace by neměla být loterie.</div>
-        <div class="body">Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.</div>
-        <div class="pick">
-          <button class="cta" onclick="pickFont('inter')">použít tento font</button>
-          <a class="preview-link" href="/landing">→ otevřít landing</a>
-        </div>
-      </div>
-
+    <div style="margin-top:32px;text-align:center">
+      <a class="cta" href="/landing">→ otevřít landing</a>
     </div>
   </section>
 
@@ -379,24 +291,8 @@ section{margin-bottom:96px}
 <div id="toast" class="toast"></div>
 
 <script>
-function pickFont(name){
-  try { localStorage.setItem('il_landing_font', name); } catch(e) {}
-  document.querySelectorAll('.font-card').forEach(c => {
-    c.classList.toggle('selected', c.dataset.font === name);
-  });
-  const toast = document.getElementById('toast');
-  toast.textContent = `✓ uloženo · "${name}" — otevři landing pro náhled`;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2800);
-}
-
-// Načti uloženou volbu při startu
-try {
-  const saved = localStorage.getItem('il_landing_font') || 'cormorant';
-  document.querySelectorAll('.font-card').forEach(c => {
-    c.classList.toggle('selected', c.dataset.font === saved);
-  });
-} catch(e) {}
+// Žádný picker — Helvetica je fixní volba. Cleanup localStorage z předchozí iterace.
+try { localStorage.removeItem('il_landing_font'); } catch(e) {}
 </script>
 </body>
 </html>

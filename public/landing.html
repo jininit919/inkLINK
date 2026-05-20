@@ -19,34 +19,8 @@
 <meta property="og:image" content="https://www.inklink.club/img/inklink-logo.jpg">
 <meta name="twitter:card" content="summary_large_image">
 
-<!-- Bristol font (zaregistrován v theme.css) + všichni kandidáti pro instant switch ze style-guide -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,400;1,500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
-
-<!-- Force paper theme — ignoruj uložené dark v localStorage -->
-<script>
-  document.documentElement.dataset.theme='paper';
-  // Font preference (vybráno na /style-guide) — aplikuje se přes CSS proměnnou
-  (function(){
-    const FONTS = {
-      cormorant: { stack: "'Cormorant Garamond','Iowan Old Style','Charter','Georgia',serif", weight: 400, ledeWeight: 400, ledeItalic: 1, headWeight: 500 },
-      fraunces:  { stack: "'Fraunces','Iowan Old Style','Charter','Georgia',serif",            weight: 400, ledeWeight: 400, ledeItalic: 1, headWeight: 600 },
-      playfair:  { stack: "'Playfair Display','Iowan Old Style','Charter','Georgia',serif",    weight: 500, ledeWeight: 400, ledeItalic: 1, headWeight: 700 },
-      garamond:  { stack: "'EB Garamond','Iowan Old Style','Charter','Georgia',serif",         weight: 400, ledeWeight: 400, ledeItalic: 1, headWeight: 500 },
-      inter:     { stack: "'Inter',system-ui,sans-serif",                                       weight: 400, ledeWeight: 300, ledeItalic: 1, headWeight: 600 },
-    };
-    let pick = 'cormorant';
-    try { pick = localStorage.getItem('il_landing_font') || 'cormorant'; } catch(e) {}
-    const f = FONTS[pick] || FONTS.cormorant;
-    document.documentElement.style.setProperty('--font-body', f.stack);
-    document.documentElement.style.setProperty('--body-weight', f.weight);
-    document.documentElement.style.setProperty('--lede-weight', f.ledeWeight);
-    document.documentElement.style.setProperty('--lede-italic', f.ledeItalic ? 'italic' : 'normal');
-    document.documentElement.style.setProperty('--head-weight', f.headWeight);
-    document.documentElement.dataset.font = pick;
-  })();
-</script>
+<!-- Bristol (logo + headings + CTA) je v theme.css. Body = Helvetica/system sans (žádný Google Font). -->
+<script>document.documentElement.dataset.theme='paper';</script>
 <link rel="stylesheet" href="/theme.css">
 
 <style>
@@ -69,16 +43,14 @@ html,body{
   background-image:var(--paper-grain);
   background-size:240px 240px;
   color:var(--ink);
-  font-family:var(--font-body,'Cormorant Garamond','Iowan Old Style','Charter','Georgia',serif);
-  font-size:18px;
-  font-weight:var(--body-weight,400);
+  font-family:'Helvetica Neue','Helvetica','Arial',system-ui,-apple-system,sans-serif;
+  font-size:16px;
+  font-weight:400;
   line-height:1.55;
+  letter-spacing:-0.005em;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
 }
-/* Sans variant (Inter) potřebuje menší letterspacing a vyšší legibility */
-html[data-font="inter"] body{letter-spacing:-0.005em;font-size:17px}
-html[data-font="playfair"] body{font-size:17px}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
 ::selection{background:var(--ink);color:var(--paper)}
@@ -88,13 +60,9 @@ img{max-width:100%;display:block}
    ──────────────────────────────────────────────────────────────── */
 .bristol{font-family:'Bristol','Caveat','Brush Script MT',cursive;font-weight:400;letter-spacing:0.01em;line-height:1}
 .italic{font-style:italic;font-weight:400}
-.eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-muted);font-weight:400}
-.lede{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-size:22px;line-height:1.55;color:var(--ink-soft);max-width:560px;font-weight:var(--lede-weight,400)}
-@media(max-width:680px){.lede{font-size:18px}}
-/* Stanza + step body používají body font + lede styling */
-.stanza{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-weight:var(--lede-weight,400)}
-.step p{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-weight:var(--lede-weight,400)}
-.final-lede{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-weight:var(--lede-weight,400)}
+.eyebrow{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-muted);font-weight:500}
+.lede{font-size:19px;line-height:1.55;color:var(--ink-soft);max-width:560px;font-weight:300;letter-spacing:-0.005em}
+@media(max-width:680px){.lede{font-size:17px}}
 
 /* ────────────────────────────────────────────────────────────────
    INKOUSTOVÉ ORNAMENTY
@@ -137,7 +105,7 @@ nav{
 .nav-right{display:flex;align-items:center;gap:24px}
 
 /* Language switch — minimal */
-.lang{display:inline-flex;gap:10px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--ink-muted)}
+.lang{display:inline-flex;gap:10px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.18em;color:var(--ink-muted)}
 .lang button{background:none;border:none;color:inherit;font:inherit;letter-spacing:inherit;cursor:pointer;padding:4px 2px;transition:color 0.2s var(--ease)}
 .lang button:hover{color:var(--ink)}
 .lang button.active{color:var(--ink);position:relative}
@@ -253,12 +221,12 @@ nav{
 }
 .stanzas{display:flex;flex-direction:column;gap:36px;align-items:center}
 .stanza{
-  font-style:italic;
-  font-size:clamp(20px,2.4vw,28px);
-  line-height:1.45;
+  font-size:clamp(19px,2.2vw,26px);
+  line-height:1.5;
   color:var(--ink-soft);
   max-width:540px;
-  font-weight:400;
+  font-weight:300;
+  letter-spacing:-0.005em;
 }
 .stanza b{font-style:normal;font-weight:500;color:var(--ink);font-family:'Bristol','Caveat',cursive;font-size:1.25em}
 .stanza-divider{margin:8px 0}
@@ -310,12 +278,12 @@ nav{
   letter-spacing:0;
 }
 .step p{
-  font-style:italic;
-  font-size:17px;
-  line-height:1.6;
+  font-size:15px;
+  line-height:1.65;
   color:var(--ink-soft);
   max-width:280px;
   font-weight:400;
+  letter-spacing:-0.003em;
 }
 
 /* Hand-drawn vertical separator mezi kroky (desktop) */
@@ -348,13 +316,13 @@ nav{
   font-weight:400;
 }
 .final-lede{
-  font-style:italic;
-  font-size:clamp(20px,2.4vw,26px);
+  font-size:clamp(18px,2.2vw,24px);
   color:var(--ink-soft);
   max-width:540px;
   margin:0 auto 56px;
   line-height:1.5;
-  font-weight:400;
+  font-weight:300;
+  letter-spacing:-0.005em;
 }
 .final-cta{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:36px}
 
@@ -367,7 +335,7 @@ footer{
   border-top:1px solid var(--rule);
   display:flex;
   justify-content:space-between;align-items:center;
-  font-family:'DM Mono',monospace;
+  font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;
   font-size:11px;letter-spacing:0.14em;
   color:var(--ink-muted);
   flex-wrap:wrap;gap:24px;
