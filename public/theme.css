@@ -7,28 +7,68 @@
   font-display: swap;
 }
 
-/* ── Paper theme (off-white + ink) — NOVÝ DEFAULT pro redesign ───────────── */
+/* ── Paper theme (off-white + ink) — NOVÝ DEFAULT pro redesign ─────────────
+   Override všech tokenů, které stránky používají:
+   · Apple-Dark Lite sada: --bg-0..bg-4, --tx-1..tx-4, --bd-1..bd-3, --ac-w, --ac-r, --ink, --ink-glow
+   · Legacy hear-me-out sada: --bg, --bg2, --bg3, --bg4, --txt, --txt2, --txt3, --border*, --red*
+   Specificita html[data-theme=…] (0,1,1) > inline :root (0,1,0), takže přebijeme.
+   ──────────────────────────────────────────────────────────────────────── */
 html[data-theme="paper"] {
-  /* Pozadí: off-white papír s mírně teplým tónem */
+  /* === Apple-Dark Lite / landing tokens — paper varianta === */
+  --bg-0:    #f3eee1;
+  --bg-1:    #faf8f3;
+  --bg-2:    #f5f1e8;
+  --bg-3:    #ede8db;
+  --bg-4:    #e3ddca;
+  --tx-1:    #0a0a0a;
+  --tx-2:    #2a2a2a;
+  --tx-3:    #5a5a5a;
+  --tx-4:    #9a9a9a;
+  --bd-1:    #e0dcc8;
+  --bd-2:    #d4cfbf;
+  --bd-3:    #a8a399;
+  --ac-w:    #0a0a0a;
+  --ac-r:    #9c2a2a;
+  --ink:     #0a0a0a;
+  --ink-glow:rgba(10,10,10,0.10);
+
+  /* === Legacy hear-me-out tokens (bez dashů) === */
   --bg:      #faf8f3;
   --bg2:     #f5f1e8;
   --bg3:     #ede8db;
   --bg4:     #e3ddca;
-  /* Inkoust: deep ink — ne čistá černá, jemně teplá */
   --txt:     #0a0a0a;
   --txt2:    #2a2a2a;
-  --txt3:    #6b6b6b;
+  --txt3:    #5a5a5a;
   --txt4:    #9a9a9a;
   --border:  #d4cfbf;
   --border2: #a8a399;
-  /* "red" tokens převedené na inkoust (kompat s dark stránkami) */
+  /* "red" tokens převedené na inkoust */
   --red:     #1a1a1a;
   --red2:    #0a0a0a;
   --red3:    #000000;
   --redglow: rgba(10,10,10,0.06);
-  /* Subtle paper grain via SVG noise — multiply blend pro vizuální texturu */
+
+  /* === Shadows — měkčí pro paper === */
+  --sh-1: 0 1px 2px rgba(20,16,8,0.06);
+  --sh-2: 0 8px 24px rgba(20,16,8,0.10);
+  --sh-3: 0 20px 56px rgba(20,16,8,0.14);
+
+  /* === Paper grain noise === */
   --paper-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0 0.04 0 0 0 0.05 0'/></filter><rect width='240' height='240' filter='url(%23g)'/></svg>");
 }
+
+/* Body styling pro paper mode — Helvetica font stack a paper grain overlay */
+html[data-theme="paper"] body {
+  font-family: 'Helvetica Neue','Helvetica','Arial',system-ui,-apple-system,sans-serif !important;
+  letter-spacing: -0.003em;
+  color: var(--tx-1);
+}
+
+/* Bebas Neue (legacy industrial) — na paper se moc nehodí, zachováme ji ale jen pokud
+   stránka explicitně chce. Display nadpisy v paper mode by měly přepnout na Helvetica
+   medium/bold weight (nebudeme řešit jednou nadpisem, řeší to per page CSS).
+*/
 
 html[data-theme="paper"] body {
   background: var(--bg);
