@@ -6260,6 +6260,19 @@ def studio_invite_page(token):
 def not_found(e):
     return send_from_directory('public', '404.html'), 404
 
+@app.route('/__health')
+def __health():
+    """Health/version endpoint — pro ověření že Railway nasadil čerstvou verzi.
+    curl https://www.inklink.club/__health"""
+    return jsonify({
+        'ok': True,
+        'commit': os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown'),
+        'commit_short': (os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown') or 'unknown')[:7],
+        'branch': os.environ.get('RAILWAY_GIT_BRANCH', 'unknown'),
+        'build_marker': 'paper-mode-wave-3',
+    })
+
+
 @app.errorhandler(429)
 def rate_limited(e):
     return jsonify({'error': 'Too many requests — please try again later'}), 429
