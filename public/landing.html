@@ -19,7 +19,7 @@
 <meta property="og:image" content="https://www.inklink.club/img/inklink-logo.jpg">
 <meta name="twitter:card" content="summary_large_image">
 
-<!-- Bristol (logo + headings + CTA) je v theme.css. Body = Helvetica/system sans (žádný Google Font). -->
+<!-- Logo = obrázek (Bristol vykresleno do JPG). Veškerý text = Helvetica/system sans. -->
 <script>document.documentElement.dataset.theme='paper';</script>
 <link rel="stylesheet" href="/theme.css">
 
@@ -56,11 +56,10 @@ img{max-width:100%;display:block}
 ::selection{background:var(--ink);color:var(--paper)}
 
 /* ────────────────────────────────────────────────────────────────
-   TYPOGRAFIE — Bristol pro Bristolovské emocions, Cormorant italic pro klid
+   TYPOGRAFIE — Helvetica napříč, Bristol POUZE na logo (image)
    ──────────────────────────────────────────────────────────────── */
-.bristol{font-family:'Bristol','Caveat','Brush Script MT',cursive;font-weight:400;letter-spacing:0.01em;line-height:1}
 .italic{font-style:italic;font-weight:400}
-.eyebrow{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-muted);font-weight:500}
+.eyebrow{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-muted);font-weight:500}
 .lede{font-size:19px;line-height:1.55;color:var(--ink-soft);max-width:560px;font-weight:300;letter-spacing:-0.005em}
 @media(max-width:680px){.lede{font-size:17px}}
 
@@ -97,10 +96,14 @@ nav{
   -webkit-backdrop-filter:saturate(180%) blur(14px);
   border-bottom:1px solid var(--rule);
   display:flex;align-items:center;
-  padding:0 36px;height:72px;gap:24px;
+  padding:0 36px;height:112px;gap:24px;
 }
 .nav-logo{display:flex;align-items:center;cursor:pointer}
-.nav-logo img{height:42px;width:auto;mix-blend-mode:multiply;display:block}
+.nav-logo img{height:84px;width:auto;mix-blend-mode:multiply;display:block}
+@media(max-width:680px){
+  nav{height:88px;padding:0 22px}
+  .nav-logo img{height:64px}
+}
 .nav-spacer{flex:1}
 .nav-right{display:flex;align-items:center;gap:24px}
 
@@ -111,26 +114,28 @@ nav{
 .lang button.active{color:var(--ink);position:relative}
 .lang button.active::after{content:'';position:absolute;left:0;right:0;bottom:-3px;height:1px;background:var(--ink)}
 
-/* CTA tlačítka — Bristol, bez krabičky, klik přímo na slovo */
+/* CTA tlačítka — Helvetica medium, bez krabičky, klik přímo na slovo
+   (Bristol je vyhrazený pouze pro logo) */
 .cta{
-  font-family:'Bristol','Caveat',cursive;
-  font-size:26px;
+  font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;
+  font-size:17px;
   color:var(--ink);
   background:none;border:none;
-  padding:6px 4px;
+  padding:8px 4px;
   cursor:pointer;
   position:relative;
   display:inline-block;
   line-height:1;
-  font-weight:400;
+  font-weight:500;
+  letter-spacing:-0.005em;
   transition:transform 0.15s var(--ease);
 }
 .cta::after{
   content:'';
   position:absolute;
-  left:6%;right:6%;bottom:-6px;
-  height:7px;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 7' preserveAspectRatio='none'><path d='M2 4 Q 50 1 100 3.5 T 198 3.5' fill='none' stroke='%230a0a0a' stroke-width='1.8' stroke-linecap='round'/></svg>");
+  left:6%;right:6%;bottom:0;
+  height:6px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M2 3 Q 50 1 100 3 T 198 3' fill='none' stroke='%230a0a0a' stroke-width='1.8' stroke-linecap='round'/></svg>");
   background-repeat:no-repeat;background-size:100% 100%;
   opacity:0;transform:scaleX(0.5);transform-origin:left;
   transition:opacity 0.25s var(--ease),transform 0.4s var(--ease);
@@ -138,12 +143,12 @@ nav{
 .cta:hover::after{opacity:1;transform:scaleX(1)}
 .cta:hover{transform:translateY(-1px)}
 .cta:active{transform:scale(0.96)}
-.cta.large{font-size:42px}
-.cta.huge{font-size:64px}
+.cta.large{font-size:22px;font-weight:500}
+.cta.huge{font-size:32px;font-weight:500;letter-spacing:-0.01em}
 @media(max-width:680px){
-  .cta{font-size:22px}
-  .cta.large{font-size:32px}
-  .cta.huge{font-size:48px}
+  .cta{font-size:15px}
+  .cta.large{font-size:18px}
+  .cta.huge{font-size:24px}
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -151,7 +156,7 @@ nav{
    ──────────────────────────────────────────────────────────────── */
 .hero{
   position:relative;
-  padding:160px 36px 100px;
+  padding:180px 36px 100px;
   max-width:1240px;
   margin:0 auto;
   min-height:88vh;
@@ -161,24 +166,23 @@ nav{
   align-items:center;
 }
 @media(max-width:880px){
-  .hero{grid-template-columns:1fr;gap:40px;padding:130px 24px 80px;min-height:auto}
+  .hero{grid-template-columns:1fr;gap:40px;padding:140px 24px 80px;min-height:auto}
 }
 
 .hero-eyebrow{margin-bottom:32px;opacity:0;animation:fade-up 0.7s var(--ease) 0.1s forwards}
 .hero-claim{
-  font-family:'Bristol','Caveat',cursive;
-  font-size:clamp(56px,9vw,140px);
-  line-height:0.95;
-  letter-spacing:0;
+  font-size:clamp(44px,7.5vw,108px);
+  line-height:1;
+  letter-spacing:-0.025em;
   color:var(--ink);
-  margin-bottom:36px;
-  font-weight:400;
+  margin-bottom:40px;
+  font-weight:500;
 }
 .hero-claim .line{display:block;opacity:0;transform:translateY(20px);animation:fade-up 0.8s var(--ease) forwards}
 .hero-claim .line:nth-child(1){animation-delay:0.25s}
-.hero-claim .line:nth-child(2){animation-delay:0.45s;margin-left:0.4em}
-.hero-claim .line:nth-child(3){animation-delay:0.65s;margin-left:0.9em}
-.hero-claim .line.tilt{transform:translateY(20px) rotate(-1.5deg)}
+.hero-claim .line:nth-child(2){animation-delay:0.45s}
+.hero-claim .line:nth-child(3){animation-delay:0.65s;font-weight:300}
+.hero-claim .line.tilt{transform:translateY(20px)}
 
 .hero-lede{margin-bottom:40px;opacity:0;animation:fade-up 0.7s var(--ease) 0.9s forwards}
 .hero-cta{
@@ -212,12 +216,12 @@ nav{
 
 .manifesto-eyebrow{margin-bottom:18px}
 .manifesto-title{
-  font-family:'Bristol','Caveat',cursive;
-  font-size:clamp(40px,5.5vw,72px);
+  font-size:clamp(32px,4.2vw,52px);
   line-height:1;
   color:var(--ink);
   margin-bottom:48px;
-  font-weight:400;
+  font-weight:500;
+  letter-spacing:-0.02em;
 }
 .stanzas{display:flex;flex-direction:column;gap:36px;align-items:center}
 .stanza{
@@ -228,7 +232,7 @@ nav{
   font-weight:300;
   letter-spacing:-0.005em;
 }
-.stanza b{font-style:normal;font-weight:500;color:var(--ink);font-family:'Bristol','Caveat',cursive;font-size:1.25em}
+.stanza b{font-weight:600;color:var(--ink)}
 .stanza-divider{margin:8px 0}
 
 /* ────────────────────────────────────────────────────────────────
@@ -243,11 +247,11 @@ nav{
 .how-head{text-align:center;margin-bottom:72px}
 .how-head .eyebrow{display:block;margin-bottom:14px}
 .how-head h2{
-  font-family:'Bristol','Caveat',cursive;
-  font-size:clamp(40px,5.5vw,72px);
+  font-size:clamp(32px,4.2vw,52px);
   color:var(--ink);
-  font-weight:400;
+  font-weight:500;
   line-height:1;
+  letter-spacing:-0.02em;
 }
 
 .how-steps{
@@ -259,23 +263,21 @@ nav{
 
 .step{position:relative;text-align:left}
 .step-num{
-  font-family:'Bristol','Caveat',cursive;
-  font-size:96px;
+  font-size:64px;
   color:var(--ink);
-  line-height:0.8;
+  line-height:0.85;
   margin-bottom:18px;
-  font-weight:400;
+  font-weight:200;
   display:block;
-  opacity:0.92;
+  letter-spacing:-0.04em;
 }
 .step h3{
-  font-family:'Bristol','Caveat',cursive;
-  font-size:32px;
-  line-height:1;
+  font-size:22px;
+  line-height:1.15;
   color:var(--ink);
   margin-bottom:14px;
-  font-weight:400;
-  letter-spacing:0;
+  font-weight:500;
+  letter-spacing:-0.01em;
 }
 .step p{
   font-size:15px;
@@ -308,12 +310,12 @@ nav{
 }
 .final-eyebrow{margin-bottom:18px}
 .final-claim{
-  font-family:'Bristol','Caveat',cursive;
-  font-size:clamp(80px,14vw,200px);
-  line-height:0.9;
+  font-size:clamp(64px,11vw,160px);
+  line-height:0.95;
   color:var(--ink);
   margin-bottom:32px;
-  font-weight:400;
+  font-weight:500;
+  letter-spacing:-0.035em;
 }
 .final-lede{
   font-size:clamp(18px,2.2vw,24px);
@@ -340,7 +342,7 @@ footer{
   color:var(--ink-muted);
   flex-wrap:wrap;gap:24px;
 }
-footer .foot-logo img{height:24px;mix-blend-mode:multiply}
+footer .foot-logo img{height:36px;mix-blend-mode:multiply}
 footer .foot-links{display:flex;gap:24px;flex-wrap:wrap}
 footer .foot-links a:hover{color:var(--ink)}
 footer .foot-tag{opacity:0.6}
