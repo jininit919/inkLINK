@@ -32,8 +32,8 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;displ
 ::-webkit-scrollbar-thumb{background:var(--red)}
 
 /* NAV */
-nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:12px}
-.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.15em;color:var(--red2);text-decoration:none}
+nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
+.nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;letter-spacing:0;color:var(--ink);line-height:0.9;font-weight:400;text-decoration:none}
 .nav-logo span{color:var(--txt3);font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.08em;margin-left:6px;vertical-align:middle}
 .nav-back{margin-left:auto;font-size:10px;letter-spacing:0.1em;color:var(--txt3);text-decoration:none;transition:color 0.15s}
 .nav-back:hover{color:var(--red2)}
@@ -124,7 +124,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 .msg-image:hover{opacity:0.9}
 
 /* NEW MESSAGE MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
+.modal-overlay{position:fixed;inset:0;background:rgba(20,16,8,0.50);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
 .modal-overlay.open{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border2);width:100%;max-width:400px;padding:24px}
 .modal-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.12em;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
@@ -159,7 +159,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 <body>
 
 <nav>
-  <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK <span>Network</span></a>
+  <a class="nav-logo" href="/">inklink</a>
   <a href="/messages" title="Messages" style="position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--red2);font-size:17px;text-decoration:none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><div id="msgBadge" style="display:none;position:absolute;top:4px;right:4px;min-width:14px;height:14px;border-radius:7px;background:var(--red2);border:1.5px solid var(--bg);font-size:9px;color:white;align-items:center;justify-content:center;padding:0 3px"></div></a>
   <a class="nav-back" href="/"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:5px"><use href="#i-arrow-left"/></svg>Back</a>
 </nav>

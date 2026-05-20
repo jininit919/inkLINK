@@ -38,12 +38,12 @@
 body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:12px}
-.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);flex:1}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
+.nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;letter-spacing:0;color:var(--ink);line-height:0.9;font-weight:400;flex:1}
 .nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);border-radius:2px;font-size:14px}
 .nav-icon:hover{color:var(--red2);background:var(--bg3)}
 
-.wrap{max-width:960px;margin:0 auto;padding:84px 24px 80px}
+.wrap{max-width:960px;margin:0 auto;padding:100px 24px 80px}
 
 .head{display:flex;gap:24px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:24px}
 .avatar{width:120px;height:120px;border-radius:50%;background:var(--bg4);border:2px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--red2);overflow:hidden;flex-shrink:0}
@@ -107,7 +107,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 .tab.active{color:var(--red2);border-bottom-color:var(--red2)}
 .tab:hover{color:var(--txt)}
 @media(max-width:560px){
-  .wrap{padding:74px 14px 80px !important}
+  .wrap{padding:92px 14px 80px !important}
   .head{flex-direction:column;gap:14px}
   .avatar{width:88px;height:88px;font-size:32px}
   .dname{font-size:28px !important}
@@ -146,13 +146,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 #lightbox-close:hover{color:var(--red2)}
 .lb-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);width:46px;height:46px;font-size:18px;cursor:pointer;display:none;align-items:center;justify-content:center;transition:background 0.15s;z-index:2}
 .lb-arrow.show{display:flex}
-.lb-arrow:hover{background:rgba(0,0,0,0.85);border-color:var(--red2)}
+.lb-arrow:hover{background:rgba(20,16,8,0.55);border-color:var(--red2)}
 #lb-prev{left:16px}#lb-next{right:16px}
 #lb-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#fff;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;padding:6px 12px;background:rgba(0,0,0,0.7);display:none}
 #lb-counter.show{display:block}
 @media(max-width:560px){.lb-arrow{width:40px;height:40px;font-size:16px}#lb-prev{left:8px}#lb-next{right:8px}}
 
-#bookModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#bookModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
 #bookModal.show{display:flex}
 .book-card{max-width:560px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:28px;max-height:90vh;overflow-y:auto}
 @media(max-width:560px){#bookModal{padding:0}.book-card{max-height:100vh;height:100vh;padding:18px;border:none}}
@@ -191,7 +191,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);
 <body data-theme="dark">
 
 <nav>
-  <a class="nav-logo" href="/"><svg viewBox="0 0 240 180" style="height:22px;width:auto;vertical-align:middle;margin-right:9px;display:inline-block" fill="currentColor" aria-hidden="true"><rect x="44" y="4" width="12" height="8" rx="2"/><rect x="30" y="12" width="40" height="110" rx="8"/><polygon points="38,122 62,122 54,148 46,148"/><rect x="49" y="148" width="2" height="18" rx="1"/><path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/><rect x="196" y="143" width="22" height="2" rx="1"/></svg>INKLINK</a>
+  <a class="nav-logo" href="/">inklink</a>
   <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-calendar"/></svg></a>
   <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
   <a class="nav-icon" id="setupLink" href="/artist-setup" title="Editovat profil" style="display:none">⚙</a>
@@ -369,7 +369,7 @@ function showBookFallback(messageHTML, item) {
   // Plain overlay modal — vysvětlí proč to nešlo a nabídne "Napsat zprávu"
   const itemBlurb = item ? `<div style="margin:14px 0;padding:10px 12px;border:1px solid var(--border2);background:var(--bg3);font-size:11px;letter-spacing:0.04em;color:var(--txt2)"><b>${escapeHtml(item.caption || 'Skica')}</b>${item.price_kc?` · ${(+item.price_kc).toLocaleString('cs-CZ')} Kč`:''}${item.estimated_hours?` · ${item.estimated_hours} h`:''}</div>` : '';
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'DM Mono\',monospace';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,16,8,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'DM Mono\',monospace';
   overlay.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border2);max-width:440px;width:100%;padding:28px">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;color:var(--txt);margin-bottom:12px">REZERVACE NELZE OTEVŘÍT</div>
