@@ -135,6 +135,29 @@ html[data-theme="paper"] .lp-nav-link {
   background-size: 100% 100%;
 }
 
+/* ── Inkoustová stopa za kurzorem (ink-trail.js) ─────────────────────────── */
+.il-ink-trail{
+  position:absolute;
+  pointer-events:none;
+  z-index:9998;
+  border-radius:50%;
+  background:#0a0a0a;
+  opacity:0;
+  will-change:transform,opacity;
+  animation:il-ink-drop 1.4s cubic-bezier(0.22,1,0.36,1) forwards;
+  mix-blend-mode:multiply;
+}
+@keyframes il-ink-drop{
+  0%   { opacity:0;   transform:scale(0.4) }
+  18%  { opacity:0.55; transform:scale(1)   }
+  60%  { opacity:0.42; transform:scale(1.02)}
+  100% { opacity:0;   transform:scale(0.7) }
+}
+/* Touch / coarse pointer — žádný ink trail */
+@media (hover: none), (pointer: coarse) {
+  .il-ink-trail{display:none}
+}
+
 /* Inkoustová skvrna — dekorativní organický splotch */
 .ink-blot {
   position: absolute;
