@@ -12,12 +12,11 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ochrana osobních údajů — InkLink</title>
-<script>document.documentElement.dataset.theme='paper';</script>
+<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
-<script src="/theme.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#000;color:#ccc;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;line-height:1.8;min-height:100vh}
+body{background:var(--bg,#faf8f3);color:#ccc;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;line-height:1.8;min-height:100vh}
 a{color:#c62828;text-decoration:none}
 a:hover{text-decoration:underline}
 .page{max-width:760px;margin:0 auto;padding:48px 24px}

@@ -12,15 +12,14 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Payment successful — InkLink</title>
-<script>document.documentElement.dataset.theme='paper';</script>
+<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
-<script src="/theme.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#000;color:#ccc;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+body{background:var(--bg,#faf8f3);color:#ccc;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .card{max-width:480px;width:100%;background:#080808;border:1px solid #1a1a1a;padding:40px 32px;text-align:center}
 .icon{font-size:48px;margin-bottom:20px}
-h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:32px;letter-spacing:0.12em;color:#e8e8e8;margin-bottom:8px}
+h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:32px;letter-spacing:0.12em;color:var(--txt,#0a0a0a);margin-bottom:8px}
 .sub{font-size:14px;color:#666;letter-spacing:0.08em;margin-bottom:28px}
 .code-box{background:#0e0e0e;border:1px solid #222;border-left:3px solid #8b0000;padding:14px 18px;margin:20px 0;text-align:left}
 .code-label{font-size:12px;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}

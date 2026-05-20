@@ -12,17 +12,16 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InkLink — Messages</title>
-<script>document.documentElement.dataset.theme='paper';</script>
+<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
-<script src="/theme.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0e0e10;--bg2:#141416;--bg3:#1c1c1f;--bg4:#26262a;
+  --bg: #faf8f3;--bg2: #f5f1e8;--bg3: #ede8db;--bg4: #e3ddca;
   --red:#8b0000;--red2:#b20000;--red3:#cc0000;
   --redglow:rgba(139,0,0,0.12);
-  --txt:#f5f5f7;--txt2:#888;--txt3:#444;
-  --border:#1c1c1f;--border2:#2a2a2e;
+  --txt: #0a0a0a;--txt2:#888;--txt3:#444;
+  --border: #d4cfbf;--border2: #a8a399;
 }
 html,body{height:100%}
 body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;display:flex;flex-direction:column}

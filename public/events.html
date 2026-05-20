@@ -12,19 +12,18 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InkLink — Events</title>
-<script>document.documentElement.dataset.theme='paper';</script>
+<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
-<script src="/theme.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0e0e10;--bg2:#141416;--bg3:#1c1c1f;--bg4:#26262a;
+  --bg: #faf8f3;--bg2: #f5f1e8;--bg3: #ede8db;--bg4: #e3ddca;
   --red:#8b0000;--red2:#b20000;--red3:#cc0000;
   --redglow:rgba(139,0,0,0.12);
-  --txt:#f5f5f7;--txt2:#aaaaaa;--txt3:#777777;
-  --border:#1c1c1f;--border2:#2a2a2e;
+  --txt: #0a0a0a;--txt2:#aaaaaa;--txt3:#777777;
+  --border: #d4cfbf;--border2: #a8a399;
 }
 html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
 ::-webkit-scrollbar{width:4px}
@@ -192,7 +191,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 .map-pin-popup .leaflet-popup-content-wrapper{background:var(--bg2);border:1px solid var(--border2);border-radius:2px;box-shadow:0 4px 20px rgba(20,16,8,0.14)}
 .map-pin-popup .leaflet-popup-tip{background:var(--bg2)}
 .map-pin-popup .leaflet-popup-content{margin:10px 14px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
-.popup-title{font-size:14px;letter-spacing:0.04em;color:#e8e8e8;margin-bottom:4px}
+.popup-title{font-size:14px;letter-spacing:0.04em;color:var(--txt,#0a0a0a);margin-bottom:4px}
 .popup-meta{font-size:14px;color:#666;letter-spacing:0.04em;margin-bottom:8px}
 .popup-open{font-size:15px;letter-spacing:0.1em;text-transform:uppercase;color:var(--red2);cursor:pointer;border:none;background:none;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;padding:0}
 .popup-open:hover{text-decoration:underline}
