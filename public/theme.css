@@ -1,4 +1,142 @@
-/* ── Dark theme (black / white) — default ───────────────────────────────────── */
+/* ── Paper theme (off-white + ink) — NOVÝ DEFAULT pro redesign ───────────── */
+html[data-theme="paper"] {
+  /* Pozadí: off-white papír s mírně teplým tónem */
+  --bg:      #faf8f3;
+  --bg2:     #f5f1e8;
+  --bg3:     #ede8db;
+  --bg4:     #e3ddca;
+  /* Inkoust: deep ink — ne čistá černá, jemně teplá */
+  --txt:     #0a0a0a;
+  --txt2:    #2a2a2a;
+  --txt3:    #6b6b6b;
+  --txt4:    #9a9a9a;
+  --border:  #d4cfbf;
+  --border2: #a8a399;
+  /* "red" tokens převedené na inkoust (kompat s dark stránkami) */
+  --red:     #1a1a1a;
+  --red2:    #0a0a0a;
+  --red3:    #000000;
+  --redglow: rgba(10,10,10,0.06);
+  /* Subtle paper grain via SVG noise — multiply blend pro vizuální texturu */
+  --paper-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0 0.04 0 0 0 0.05 0'/></filter><rect width='240' height='240' filter='url(%23g)'/></svg>");
+}
+
+html[data-theme="paper"] body {
+  background: var(--bg);
+  background-image: var(--paper-grain);
+  background-size: 240px 240px;
+  color: var(--txt);
+}
+
+html[data-theme="paper"] nav {
+  background: rgba(250,248,243,0.92);
+  border-bottom-color: var(--border);
+  backdrop-filter: blur(10px);
+}
+
+html[data-theme="paper"] .playing-bar,
+html[data-theme="paper"] #mobileBottomNav {
+  background: rgba(250,248,243,0.96);
+  border-top-color: var(--border);
+}
+
+html[data-theme="paper"] .modal-overlay {
+  background: rgba(20,18,15,0.55);
+}
+
+html[data-theme="paper"] .modal,
+html[data-theme="paper"] .detail-modal {
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+html[data-theme="paper"] input,
+html[data-theme="paper"] select,
+html[data-theme="paper"] textarea {
+  color-scheme: light;
+}
+
+html[data-theme="paper"] ::-webkit-scrollbar-track { background: var(--bg2); }
+html[data-theme="paper"] ::-webkit-scrollbar-thumb { background: var(--txt2); }
+
+/* Paper-mode tattoo cursor — invertovaný (černý strojek na světlém pozadí) */
+html[data-theme="paper"] body {
+  cursor: url('/img/cursor-tattoo-ink.svg?v=1') 3 3, auto;
+}
+html[data-theme="paper"] a,
+html[data-theme="paper"] button,
+html[data-theme="paper"] [role="button"],
+html[data-theme="paper"] [onclick],
+html[data-theme="paper"] label[for],
+html[data-theme="paper"] .nav-icon,
+html[data-theme="paper"] .nav-avatar,
+html[data-theme="paper"] .lp-btn,
+html[data-theme="paper"] .btn,
+html[data-theme="paper"] .filter-btn,
+html[data-theme="paper"] .filter-chip,
+html[data-theme="paper"] .filter-chip-btn,
+html[data-theme="paper"] .faq-item,
+html[data-theme="paper"] .card,
+html[data-theme="paper"] .lang-btn,
+html[data-theme="paper"] .hs-tile,
+html[data-theme="paper"] .lp-nav-link {
+  cursor: url('/img/cursor-tattoo-ink.svg?v=1') 3 3, pointer;
+}
+
+/* ── Ink texture utilities — pro paper-mode komponenty ───────────────────── */
+.ink-noise {
+  position: relative;
+}
+.ink-noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--paper-grain, none);
+  background-size: 200px 200px;
+  pointer-events: none;
+  opacity: 0.6;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+/* Brush stroke divider — ručně tažená vodorovná čára */
+.ink-divider {
+  display: block;
+  width: 100%;
+  height: 12px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 12' preserveAspectRatio='none'><path d='M2 6 Q 80 3 160 6 T 320 6 T 480 6 T 640 6 T 798 6' fill='none' stroke='%230a0a0a' stroke-width='1.6' stroke-linecap='round' opacity='0.7'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+/* Ručně tažené podtržení pod nadpisem */
+.ink-underline {
+  display: inline-block;
+  position: relative;
+}
+.ink-underline::after {
+  content: '';
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  bottom: -10px;
+  height: 8px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'><path d='M2 5 Q 50 1 100 4 T 198 4' fill='none' stroke='%230a0a0a' stroke-width='1.8' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+/* Inkoustová skvrna — dekorativní organický splotch */
+.ink-blot {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><path d='M100 20 Q 140 25 160 60 Q 180 90 165 130 Q 145 170 100 175 Q 55 170 35 130 Q 20 90 40 60 Q 60 25 100 20Z M70 100 Q 75 130 100 135 Q 130 130 130 100' fill='%230a0a0a'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+/* ── Dark theme (black / white) — legacy ─────────────────────────────────── */
 html[data-theme="dark"] {
   --red:     #333333;
   --red2:    #e8e8e8;

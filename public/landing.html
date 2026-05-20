@@ -21,49 +21,59 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Metal+Mania&family=Pirata+One&family=Playfair+Display:ital,wght@1,500;1,700&family=Rye&family=Yuji+Mai&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,300;1,400&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,400&family=Metal+Mania&family=Pirata+One&family=Playfair+Display:ital,wght@0,500;1,500;1,700&family=Rye&family=Yuji+Mai&display=swap" rel="stylesheet">
+<!-- Force paper theme na landing — ignoruj uložené dark v localStorage -->
+<script>document.documentElement.dataset.theme='paper';</script>
 <link rel="stylesheet" href="/theme.css">
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 
 /* ============================================================
-   DESIGN TOKENS — match style guide (Apple-Dark Lite × Tattoo Edge)
+   DESIGN TOKENS — PAPER MODE (off-white papír + jemný inkoust)
+   Re-designovaná paleta: papírové pozadí, hluboký ink text,
+   žádné barevné akcenty — místo nich ink textury (skvrny, brush, paper grain).
    ============================================================ */
 :root{
-  --bg-0:#08080a;            /* deepest / void */
-  --bg-1:#0e0e10;            /* base background */
-  --bg-2:#141416;            /* surface */
-  --bg-3:#1c1c1f;            /* elevated / hover */
-  --bg-4:#26262a;            /* interactive */
-  --tx-1:#f5f5f7;            /* primary */
-  --tx-2:#a8a8ac;            /* secondary */
-  --tx-3:#6e6e73;            /* tertiary */
-  --tx-4:#48484c;            /* disabled */
-  --bd-1:#1c1c1f;            /* subtle */
-  --bd-2:#2a2a2e;            /* default */
-  --bd-3:#3a3a3e;            /* emphasized */
-  --ac-w:#ffffff;            /* primary brand white */
-  --ac-r:#ff453a;            /* system red (errors) */
-  --ink:#9f1239;             /* INK CRIMSON — tattoo brand accent */
-  --ink-glow:rgba(159,18,57,0.18);
+  --bg-0:#f5f1e8;            /* nejhlubší papír / void section */
+  --bg-1:#faf8f3;            /* base background (off-white papír) */
+  --bg-2:#f5f1e8;            /* surface */
+  --bg-3:#ede8db;            /* elevated / hover */
+  --bg-4:#e3ddca;            /* interactive */
+  --tx-1:#0a0a0a;            /* primary ink */
+  --tx-2:#2a2a2a;            /* secondary */
+  --tx-3:#5a5a5a;            /* tertiary */
+  --tx-4:#9a9a9a;            /* disabled */
+  --bd-1:#e0dcc8;            /* subtle */
+  --bd-2:#c8c2ac;            /* default */
+  --bd-3:#9c9785;            /* emphasized */
+  --ac-w:#0a0a0a;            /* primary brand → ink black (invertováno) */
+  --ac-r:#9c2a2a;            /* tlumený ink red pro errors */
+  --ink:#0a0a0a;             /* INK BLACK — neutralizováno (žádný barevný akcent) */
+  --ink-glow:rgba(10,10,10,0.10);
 
   --r-sm:4px;
   --r-md:6px;
   --r-lg:10px;
   --r-pill:999px;
 
-  --sh-1:0 1px 2px rgba(0,0,0,0.4);
-  --sh-2:0 8px 24px rgba(0,0,0,0.5);
-  --sh-3:0 20px 56px rgba(0,0,0,0.7);
+  --sh-1:0 1px 2px rgba(20,16,8,0.06);
+  --sh-2:0 8px 24px rgba(20,16,8,0.10);
+  --sh-3:0 20px 56px rgba(20,16,8,0.14);
 
   --ease:cubic-bezier(0.32,0.72,0,1);
   --t-fast:120ms;
   --t-med:300ms;
   --t-slow:600ms;
+
+  /* Paper grain noise — overlay přes celou stránku pro vintage feel */
+  --paper-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.05 0 0 0 0 0.04 0 0 0 0.06 0'/></filter><rect width='240' height='240' filter='url(%23g)'/></svg>");
 }
 
-html,body{background:var(--bg-1);color:var(--tx-1);font-family:'DM Mono',monospace;font-size:13px;-webkit-font-smoothing:antialiased;line-height:1.55;letter-spacing:0.02em;overflow-x:hidden}
+/* Force paper theme na landing — ignoruj uložené dark v localStorage */
+html { background: var(--bg-1); }
+
+html,body{background:var(--bg-1);background-image:var(--paper-grain);background-size:240px 240px;color:var(--tx-1);font-family:'DM Mono',monospace;font-size:13px;-webkit-font-smoothing:antialiased;line-height:1.55;letter-spacing:0.02em;overflow-x:hidden}
 /* Tattoo cursor je definovaný globálně v theme.css → platí na všech stránkách */
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
@@ -74,26 +84,26 @@ img{max-width:100%;display:block}
 /* ============================================================
    NAV
    ============================================================ */
-nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.78);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--bd-1);display:flex;align-items:center;padding:0 32px;height:66px;gap:24px}
-.lp-logo{display:flex;align-items:center;gap:9px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.22em;color:var(--tx-1);cursor:pointer}
-.lp-logo svg{height:21px;width:auto}
+nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.85);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--bd-1);display:flex;align-items:center;padding:0 32px;height:66px;gap:24px}
+.lp-logo{display:flex;align-items:center;gap:9px;color:var(--tx-1);cursor:pointer}
+.lp-logo img{height:36px;width:auto;display:block;mix-blend-mode:multiply}
 .lp-nav-spacer{flex:1}
 .lp-nav-links{display:flex;gap:28px;align-items:center}
 .lp-nav-link{font-size:11px;letter-spacing:0.16em;color:var(--tx-3);text-transform:uppercase;cursor:pointer;transition:color var(--t-fast)}
 .lp-nav-link:hover{color:var(--tx-1)}
 .lp-nav-cta{display:flex;gap:10px;align-items:center}
-.lp-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;padding:11px 18px;border:1px solid var(--bd-3);background:transparent;color:var(--tx-1);cursor:pointer;transition:all var(--t-fast) var(--ease);display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-md);font-weight:500}
-.lp-btn:hover{border-color:var(--tx-1);background:var(--bg-3)}
+.lp-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;padding:11px 18px;border:1px solid var(--tx-1);background:transparent;color:var(--tx-1);cursor:pointer;transition:all var(--t-fast) var(--ease);display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-md);font-weight:500}
+.lp-btn:hover{background:var(--tx-1);color:var(--bg-1)}
 .lp-btn:active{transform:scale(0.97)}
-.lp-btn-primary{background:var(--ac-w);color:var(--bg-0);border-color:var(--ac-w)}
-.lp-btn-primary:hover{background:#f5f5f5;border-color:#f5f5f5;color:var(--bg-0)}
+.lp-btn-primary{background:var(--tx-1);color:var(--bg-1);border-color:var(--tx-1)}
+.lp-btn-primary:hover{background:transparent;color:var(--tx-1)}
 .lp-btn .icon{width:13px;height:13px}
 
 /* Language switcher — CS / EN pill */
 .lang-switch{display:inline-flex;background:var(--bg-3);border:1px solid var(--bd-2);border-radius:var(--r-md);padding:3px;gap:2px}
 .lang-btn{background:transparent;border:none;color:var(--tx-3);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;padding:6px 10px;border-radius:4px;cursor:pointer;transition:all var(--t-fast) var(--ease);text-transform:uppercase;font-weight:500}
 .lang-btn:hover{color:var(--tx-1)}
-.lang-btn.active{background:var(--bg-1);color:var(--tx-1);box-shadow:0 1px 3px rgba(0,0,0,0.5)}
+.lang-btn.active{background:var(--bg-1);color:var(--tx-1);box-shadow:0 1px 3px rgba(20,16,8,0.10)}
 @media(max-width:760px){.lang-switch{padding:2px}.lang-btn{padding:5px 8px;font-size:10px}}
 
 @media(max-width:760px){
@@ -141,6 +151,72 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 [data-reveal-delay="5"].in{transition-delay:400ms}
 
 /* ============================================================
+   INK DECORATIONS — organické inkoustové skvrny jako accent
+   ============================================================ */
+.ink-blot{position:absolute;pointer-events:none;opacity:0.06;z-index:0}
+.ink-blot svg{width:100%;height:100%;display:block;fill:var(--tx-1)}
+
+.section-divider{display:block;width:100%;max-width:600px;height:18px;margin:0 auto 40px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 18' preserveAspectRatio='none'><path d='M2 9 Q 60 5 120 9 T 240 9 T 360 9 T 480 9 T 598 9' fill='none' stroke='%230a0a0a' stroke-width='1.8' stroke-linecap='round' opacity='0.7'/><circle cx='4' cy='9' r='2' fill='%230a0a0a' opacity='0.6'/><circle cx='596' cy='9' r='2' fill='%230a0a0a' opacity='0.6'/></svg>");background-repeat:no-repeat;background-size:100% 100%;opacity:0.85}
+
+/* ============================================================
+   TYPOGRAPHY VARIANT B — Organic serif (Fraunces + Cormorant)
+   Aplikuje se přes <body class="typo-b">. Default = varianta A (Bebas).
+   Logo zůstává image v obou variantách.
+   ============================================================ */
+body.typo-b .hero h1,
+body.typo-b .section-title,
+body.typo-b .price-title,
+body.typo-b .final-title,
+body.typo-b .stat-num{
+  font-family:'Fraunces','Playfair Display',serif;
+  font-weight:600;
+  letter-spacing:-0.01em;
+  font-style:normal;
+}
+body.typo-b .hero h1{font-weight:500;letter-spacing:-0.015em}
+body.typo-b .section-eyebrow,
+body.typo-b .hero-tag,
+body.typo-b .stat-lbl{
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic;
+  font-weight:400;
+  letter-spacing:0.12em;
+  text-transform:lowercase;
+}
+body.typo-b .lp-btn{
+  font-family:'Cormorant Garamond',serif;
+  font-weight:500;
+  letter-spacing:0.06em;
+  text-transform:none;
+  font-size:14px;
+}
+body.typo-b .lp-nav-link{
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic;
+  text-transform:lowercase;
+  font-size:14px;
+  letter-spacing:0.04em;
+}
+body.typo-b .hero-sub,
+body.typo-b .section-lead{
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic;
+  font-size:18px;
+  letter-spacing:0;
+  line-height:1.6;
+  font-weight:400;
+}
+body.typo-b .feat-title,
+body.typo-b .how-title{
+  font-family:'Fraunces',serif;
+  font-weight:500;
+  letter-spacing:-0.005em;
+  text-transform:none;
+}
+/* "Caveat" handwritten accent — použito pro malé hand-drawn detaily */
+body.typo-b .hero-meta{font-family:'Caveat',cursive;font-size:16px;letter-spacing:0.02em;text-transform:none}
+
+/* ============================================================
    HERO
    ============================================================ */
 .hero{padding:140px 32px 90px;max-width:1320px;margin:0 auto;position:relative;display:grid;grid-template-columns:1.1fr 0.9fr;gap:80px;align-items:center;perspective:1200px}
@@ -165,24 +241,24 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hero-showcase{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:8px;height:560px;position:relative;transform-style:preserve-3d;will-change:transform;opacity:0;animation:fade-in 1s var(--ease) 0.4s forwards}
 @media(max-width:980px){.hero-showcase{height:380px}}
 @media(max-width:560px){.hero-showcase{display:none}}
-.hs-tile{background:var(--bg-3);border:1px solid var(--bd-2);border-radius:var(--r-lg);overflow:hidden;position:relative;transition:transform 0.5s var(--ease),border-color 0.3s,box-shadow 0.5s;transform-style:preserve-3d}
-.hs-tile::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 30%,rgba(255,255,255,0.06) 100%);pointer-events:none}
-.hs-tile::before{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.035 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");background-size:200px 200px;pointer-events:none;z-index:1;opacity:0.85;mix-blend-mode:overlay}
-.hs-tile:hover{border-color:var(--ink);transform:translateZ(20px);box-shadow:var(--sh-2),0 0 0 1px var(--ink-glow)}
-.hs-tile:hover .hs-sketch{stroke:var(--ink);opacity:0.85}
-.hs-tile.t1{grid-column:1/3;grid-row:1/3;background:linear-gradient(135deg,#0a0a0c,#26262a)}
-.hs-tile.t2{grid-column:3/4;grid-row:1/2;background:linear-gradient(180deg,#16161a,#2a2a2e)}
-.hs-tile.t3{grid-column:3/4;grid-row:2/4;background:linear-gradient(225deg,#101012,#1f1f24)}
-.hs-tile.t4{grid-column:1/2;grid-row:3/5;background:linear-gradient(45deg,#0a0a0c,#1a1a1d)}
-.hs-tile.t5{grid-column:2/4;grid-row:4/5;background:linear-gradient(90deg,#16161a,#26262a)}
-.hs-tile.t6{grid-column:2/3;grid-row:3/4;background:linear-gradient(135deg,#1f1f24,#0a0a0c)}
+/* Paper-mode tile: paper bg s ručně tažený tlustý ink rámeček + paper grain texture */
+.hs-tile{background:var(--bg-1);border:1.5px solid var(--tx-1);border-radius:var(--r-lg);overflow:hidden;position:relative;transition:transform 0.5s var(--ease),box-shadow 0.5s;transform-style:preserve-3d;box-shadow:0 2px 0 0 var(--tx-1),0 4px 14px rgba(20,16,8,0.06)}
+.hs-tile::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(10,10,10,0.04) 100%);pointer-events:none}
+.hs-tile::before{content:'';position:absolute;inset:0;background-image:var(--paper-grain);background-size:240px 240px;pointer-events:none;z-index:1;opacity:0.7;mix-blend-mode:multiply}
+.hs-tile:hover{transform:translateZ(20px) translateY(-3px);box-shadow:0 4px 0 0 var(--tx-1),0 12px 28px rgba(20,16,8,0.14)}
+.hs-tile.t1{grid-column:1/3;grid-row:1/3;background:var(--bg-1)}
+.hs-tile.t2{grid-column:3/4;grid-row:1/2;background:var(--bg-2)}
+.hs-tile.t3{grid-column:3/4;grid-row:2/4;background:var(--bg-1)}
+.hs-tile.t4{grid-column:1/2;grid-row:3/5;background:var(--bg-2)}
+.hs-tile.t5{grid-column:2/4;grid-row:4/5;background:var(--bg-1)}
+.hs-tile.t6{grid-column:2/3;grid-row:3/4;background:var(--bg-2)}
 .hs-glyph{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,82px);color:var(--tx-4);letter-spacing:0.1em;opacity:0.55;line-height:1;text-align:center;z-index:2}
 .hs-glyph.signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(48px,7.5vw,98px);letter-spacing:0.02em;color:var(--tx-3);opacity:0.9;font-weight:400;text-transform:none;line-height:1}
 .hs-tile.t5:hover .hs-glyph.signature{color:var(--ink);opacity:1}
 
 /* Tile style labels — each tile a tattoo style name in style-appropriate font */
-.hs-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:88%;text-align:center;color:var(--tx-2);line-height:1;letter-spacing:0.01em;z-index:2;transition:color 0.4s var(--ease),transform 0.5s var(--ease);user-select:none;pointer-events:none;display:block;white-space:nowrap}
-.hs-tile:hover .hs-label{color:var(--ink);transform:translate(-50%,-50%) scale(1.04)}
+.hs-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:88%;text-align:center;color:var(--tx-1);line-height:1;letter-spacing:0.01em;z-index:2;transition:transform 0.5s var(--ease);user-select:none;pointer-events:none;display:block;white-space:nowrap}
+.hs-tile:hover .hs-label{transform:translate(-50%,-50%) scale(1.04)}
 
 /* Per-tile font + sizing — calibrated tak aby se text vždy vešel do tile */
 .hs-label.s-traditional{font-family:'Rye',serif;font-size:clamp(15px,2.9vw,40px);letter-spacing:0.01em;font-weight:400}
@@ -190,10 +266,10 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14
 .hs-label.s-japanese{font-family:'Yuji Mai',serif;font-size:clamp(16px,2.4vw,32px);letter-spacing:0.04em;text-transform:uppercase}
 .hs-label.s-blackwork{font-family:'Anton',sans-serif;font-size:clamp(20px,3.6vw,48px);letter-spacing:0.03em;font-weight:400;text-transform:uppercase}
 .hs-label.s-realism{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:clamp(16px,2.4vw,30px);letter-spacing:0.01em;text-transform:lowercase}
-.hs-label.s-signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(36px,5.5vw,76px);letter-spacing:0.02em;color:var(--tx-2);opacity:0.95;text-transform:none}
+.hs-label.s-signature{font-family:'Metal Mania','Pirata One',serif;font-size:clamp(36px,5.5vw,76px);letter-spacing:0.02em;color:var(--tx-1);opacity:0.95;text-transform:none}
 
 /* Subtle grid noise / dot pattern for hero bg */
-.hero-bg{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.025) 1px,transparent 0);background-size:32px 32px;mask:radial-gradient(ellipse 80% 60% at 50% 40%, #000, transparent);z-index:-1}
+.hero-bg{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle at 1px 1px,rgba(10,10,10,0.05) 1px,transparent 0);background-size:32px 32px;mask:radial-gradient(ellipse 80% 60% at 50% 40%, #000, transparent);z-index:-1}
 
 /* ============================================================
    STATS
@@ -237,7 +313,7 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 .how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media(max-width:880px){.how-grid{grid-template-columns:1fr}}
 .how-card{background:var(--bg-2);border:1px solid var(--bd-1);border-radius:var(--r-lg);padding:36px 32px;display:flex;flex-direction:column;gap:14px;transition:all 0.4s var(--ease);position:relative;overflow:hidden}
-.how-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,0.04),transparent 50%);opacity:0;transition:opacity 0.4s;pointer-events:none}
+.how-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at var(--mx,50%) var(--my,0%),rgba(10,10,10,0.04),transparent 50%);opacity:0;transition:opacity 0.4s;pointer-events:none}
 .how-card:hover{border-color:var(--bd-3);transform:translateY(-4px);box-shadow:var(--sh-2)}
 .how-card:hover::before{opacity:1}
 .how-num{font-family:'Bebas Neue',sans-serif;font-size:46px;color:var(--tx-3);letter-spacing:0.04em;line-height:0.9;font-weight:400}
@@ -284,7 +360,7 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 @media(max-width:820px){.pricing-grid{grid-template-columns:1fr}}
 .price-card{background:var(--bg-2);border:1px solid var(--bd-1);border-radius:var(--r-lg);padding:38px 36px;display:flex;flex-direction:column;gap:20px;position:relative;transition:all 0.3s var(--ease)}
 .price-card:hover{border-color:var(--bd-3);transform:translateY(-3px)}
-.price-card.featured{border-color:var(--ac-w);background:linear-gradient(180deg, rgba(255,255,255,0.025) 0%, var(--bg-2) 80%)}
+.price-card.featured{border-color:var(--ac-w);background:linear-gradient(180deg, rgba(10,10,10,0.04) 0%, var(--bg-2) 80%)}
 .price-card.featured .featured-ribbon{position:absolute;top:-1px;right:18px;background:var(--ac-w);color:var(--bg-0);font-size:9px;letter-spacing:0.14em;padding:5px 11px;border-radius:0 0 var(--r-sm) var(--r-sm);text-transform:uppercase;font-weight:600}
 .price-tag{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .price-tag .big{font-family:'Bebas Neue',sans-serif;font-size:56px;color:var(--tx-1);letter-spacing:0.01em;line-height:0.9;font-weight:400}
@@ -329,7 +405,7 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
    FINAL CTA — animated gradient
    ============================================================ */
 .final{text-align:center;padding:140px 32px;background:linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);position:relative;overflow:hidden}
-.final::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03), transparent 50%);pointer-events:none}
+.final::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 50% 0%, rgba(10,10,10,0.04), transparent 50%);pointer-events:none}
 .final h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px, 10vw, 150px);line-height:0.92;letter-spacing:0.01em;color:var(--tx-1);margin-bottom:24px;font-weight:400;background:linear-gradient(180deg,var(--tx-1) 30%,var(--tx-3) 110%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;position:relative;z-index:1}
 .final p{font-size:16px;color:var(--tx-2);max-width:580px;margin:0 auto 38px;line-height:1.7;letter-spacing:0.01em;position:relative;z-index:1}
 .final .lp-btn{padding:16px 28px;font-size:12px;position:relative;z-index:1}
@@ -361,16 +437,8 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 
 <!-- ===================================== NAV ===================================== -->
 <nav class="lp-nav">
-  <a class="lp-logo" href="/">
-    <svg viewBox="0 0 240 180" fill="currentColor" aria-hidden="true">
-      <rect x="44" y="4" width="12" height="8" rx="2"/>
-      <rect x="30" y="12" width="40" height="110" rx="8"/>
-      <polygon points="38,122 62,122 54,148 46,148"/>
-      <rect x="49" y="148" width="2" height="18" rx="1"/>
-      <path fill-rule="evenodd" d="M86 10L134 10L134 130L196 130L196 158L86 158ZM93 20h14v100h-14zM113 20h14v100h-14z"/>
-      <rect x="196" y="143" width="22" height="2" rx="1"/>
-    </svg>
-    INKLINK
+  <a class="lp-logo" href="/" aria-label="InkLink">
+    <img src="/img/inklink-logo.jpg" alt="InkLink">
   </a>
   <div class="lp-nav-spacer"></div>
   <div class="lp-nav-links">
@@ -383,6 +451,11 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
     <button type="button" class="lang-btn" data-i18n-switch="cs" onclick="InkLinkI18N.set('cs')">CS</button>
     <button type="button" class="lang-btn" data-i18n-switch="en" onclick="InkLinkI18N.set('en')">EN</button>
   </div>
+  <!-- TYPOGRAFIE toggle — TEMP: vybereš variantu, pak odstraním -->
+  <div class="lang-switch" role="group" aria-label="Typography" id="typoSwitch" title="Typografie (test)">
+    <button type="button" class="lang-btn" data-typo="a" onclick="setTypo('a')">A·Bebas</button>
+    <button type="button" class="lang-btn" data-typo="b" onclick="setTypo('b')">B·Serif</button>
+  </div>
   <div class="lp-nav-cta">
     <a class="lp-btn" href="/login" data-i18n="nav.signIn">Přihlásit</a>
     <a class="lp-btn lp-btn-primary" href="/login"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="nav.start">Začít</span></a>
@@ -392,6 +465,13 @@ footer{padding:48px 32px 60px;border-top:1px solid var(--bd-1);font-size:11px;co
 <!-- ===================================== HERO ===================================== -->
 <header class="hero">
   <div class="hero-bg"></div>
+  <!-- Dekorativní inkoustové skvrny — paper mode accent -->
+  <div class="ink-blot" style="top:-40px;left:-60px;width:240px;height:240px;transform:rotate(-12deg)" aria-hidden="true">
+    <svg viewBox="0 0 200 200"><path d="M100 18 Q 145 22 168 60 Q 188 95 170 138 Q 148 178 102 180 Q 56 178 32 138 Q 14 95 36 60 Q 56 22 100 18Z M65 95 Q 70 130 100 138 Q 132 130 135 100 M85 65 Q 100 60 115 70" fill="currentColor"/></svg>
+  </div>
+  <div class="ink-blot" style="bottom:60px;right:-40px;width:180px;height:180px;transform:rotate(28deg);opacity:0.05" aria-hidden="true">
+    <svg viewBox="0 0 200 200"><path d="M50 80 Q 80 40 130 50 Q 175 70 170 120 Q 155 165 105 165 Q 50 160 35 120 Q 30 95 50 80Z" fill="currentColor"/></svg>
+  </div>
   <div>
     <div class="hero-tag"><span class="live"></span><span data-i18n="hero.tag">CZ · Tattoo Marketplace · Live</span></div>
     <h1 id="heroHeadline">
@@ -755,6 +835,22 @@ const ld = {
 };
 const s = document.createElement('script'); s.type = 'application/ld+json';
 s.textContent = JSON.stringify(ld); document.head.appendChild(s);
+
+// ── Typography variant toggle (TEMP — vybereš A/B, pak odstraním) ────────
+function setTypo(v){
+  document.body.classList.toggle('typo-b', v === 'b');
+  try { localStorage.setItem('il_typo', v); } catch(e) {}
+  document.querySelectorAll('#typoSwitch .lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.typo === v);
+  });
+}
+(function initTypo(){
+  let saved = 'a';
+  try { saved = localStorage.getItem('il_typo') || 'a'; } catch(e) {}
+  // wait for body to be ready
+  if (document.body) setTypo(saved);
+  else document.addEventListener('DOMContentLoaded', () => setTypo(saved));
+})();
 
 // ── Letter-by-letter hero reveal ─────────────────────────────────────────────
 // i18n-aware: splits translated textContent on each apply
