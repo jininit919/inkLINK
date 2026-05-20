@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="invite.pageTitle">Pozvánka do studia — InkLink</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e10;--bg2:#141416;--bg3:#1c1c1f;--bg4:#26262a;
+  --red:#3a3a3e;--red2:#e8e8e8;--red3:#fff;--ink:#9f1239;
+  --txt:#f5f5f7;--txt2:#a8a8ac;--txt3:#6e6e73;
+  --border:#1c1c1f;--border2:#2a2a2e;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh;display:flex;flex-direction:column}
+a{color:inherit;text-decoration:none}
+nav{background:rgba(0,0,0,0.95);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2)}
+
+.center{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:36px 32px;text-align:center}
+.label{font-size:11px;letter-spacing:0.16em;color:var(--txt3);margin-bottom:12px;text-transform:uppercase}
+.logo{width:90px;height:90px;border-radius:14px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--red2);overflow:hidden;margin:0 auto 18px}
+.logo img{width:100%;height:100%;object-fit:cover}
+.studio-name{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.04em;line-height:1.1;margin-bottom:6px}
+.studio-city{color:var(--txt3);font-size:12px;letter-spacing:0.08em;margin-bottom:18px}
+.inviter{color:var(--txt2);font-size:13px;line-height:1.6;margin-bottom:22px;padding:12px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
+.inviter b{color:var(--txt);font-weight:400}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--red2);color:#000;border:none;font-family:inherit;font-size:12px;letter-spacing:0.08em;padding:13px 26px;border-radius:6px;cursor:pointer;text-transform:uppercase;font-weight:500}
+.btn:hover{background:var(--red3)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--txt2);border:1px solid var(--border2)}
+.btn.ghost:hover{color:var(--txt);border-color:var(--red2)}
+.note{color:var(--txt3);font-size:11px;line-height:1.5;margin-top:16px;letter-spacing:0.02em}
+.err{color:#e58787;font-size:14px;line-height:1.6;letter-spacing:0.02em}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">INKLINK</a>
+</nav>
+
+<div class="center" id="root">
+  <div style="color:var(--txt3)" data-i18n="invite.loading">Načítám pozvánku…</div>
+</div>
+
+<script src="/i18n.js?v=1"></script>
+<script>
+const token = location.pathname.replace(/^\/invite\//, '').replace(/\/$/, '');
+const root = document.getElementById('root');
+
+function esc(s){return (s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+
+async function load(){
+  if(!token){
+    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.notFound">Pozvánka nenalezena.</div></div>`;
+    window.applyI18n && window.applyI18n();
+    return;
+  }
+  try {
+    const r = await fetch(`/api/studios/invites/${encodeURIComponent(token)}`);
+    if(!r.ok){
+      const d = await r.json();
+      const msg = d.status==='accepted' ? 'Pozvánka už byla přijata.' :
+                  d.status==='declined' ? 'Pozvánka byla odmítnuta.' :
+                  d.status==='expired'  ? 'Pozvánka vypršela.' :
+                  'Pozvánka nenalezena.';
+      root.innerHTML = `<div class="card"><div class="err">${esc(msg)}</div></div>`;
+      return;
+    }
+    const data = await r.json();
+    render(data);
+  } catch(e){
+    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.loadError">Nepodařilo se načíst pozvánku.</div></div>`;
+    window.applyI18n && window.applyI18n();
+  }
+}
+
+function render(data){
+  const s = data.studio;
+  const initials = (s.name||'?').split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+  const logo = s.logo ? `<img src="${esc(s.logo)}" alt="">` : esc(initials);
+  const city = s.city || '';
+  root.innerHTML = `
+    <div class="card">
+      <div class="label" data-i18n="invite.heading">Pozvánka do studia</div>
+      <div class="logo">${logo}</div>
+      <div class="studio-name">${esc(s.name)}</div>
+      ${city ? `<div class="studio-city">${esc(city)}</div>`:''}
+      <div class="inviter">
+        <b>${esc(data.inviter_name||'Admin')}</b> <span data-i18n="invite.invitesYou">tě zve, ať se přidáš do týmu.</span><br>
+        <span style="font-size:11px;color:var(--txt3);letter-spacing:0.06em" data-i18n="invite.emailTarget">Adresát:</span>
+        <span style="font-size:11px;color:var(--txt2);letter-spacing:0.06em">${esc(data.email)}</span>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="accept()" data-i18n="invite.accept">Přijmout</button>
+        <button class="btn ghost" onclick="decline()" data-i18n="invite.decline">Odmítnout</button>
+      </div>
+      <div class="note" data-i18n="invite.note">Tvůj Stripe účet, payouts a rezervace zůstávají tvé. Studio jen seskupuje portfolio a má veřejnou stránku.</div>
+    </div>
+  `;
+  window.applyI18n && window.applyI18n();
+}
+
+async function accept(){
+  // Check login first
+  const me = await fetch('/api/me').then(r=>r.json());
+  if(!me){
+    location.href = `/login?return=/invite/${encodeURIComponent(token)}`;
+    return;
+  }
+  if(!me.is_artist){
+    alert('Pozvánku může přijmout jen tatér. Nejdřív si vytvoř tatérský profil.');
+    location.href = '/artist-setup';
+    return;
+  }
+  const r = await fetch(`/api/studios/invites/${encodeURIComponent(token)}/accept`, {method:'POST'});
+  const d = await r.json();
+  if(r.ok){
+    location.href = `/studio/${d.slug}`;
+  } else {
+    alert(d.error || 'Chyba při přijímání pozvánky.');
+  }
+}
+
+async function decline(){
+  if(!confirm('Opravdu odmítnout pozvánku?')) return;
+  await fetch(`/api/studios/invites/${encodeURIComponent(token)}/decline`, {method:'POST'});
+  root.innerHTML = `<div class="card"><div class="label" data-i18n="invite.declined">Pozvánka odmítnuta.</div><a class="btn ghost" href="/" data-i18n="invite.goHome">Domů</a></div>`;
+  window.applyI18n && window.applyI18n();
+}
+
+load();
+</script>
+</body>
+</html>

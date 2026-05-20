@@ -689,6 +689,59 @@ def init_db():
         FOREIGN KEY (reporter_id) REFERENCES users(id)
     )''')
 
+    # ── studios / studio_members / studio_invites ───────────────────────────
+    # Studio je organizační + brand entita. Tatéři jsou členové; jeden je
+    # admin. Stripe/payouts/rezervace zůstávají per-artist — studio jen
+    # seskupuje portfolio a má veřejnou stránku /studio/<slug>.
+    c.execute('''CREATE TABLE IF NOT EXISTS studios (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug         TEXT UNIQUE NOT NULL,
+        name         TEXT NOT NULL,
+        description  TEXT DEFAULT '',
+        address      TEXT DEFAULT '',
+        city         TEXT DEFAULT '',
+        country      TEXT DEFAULT '',
+        lat          REAL DEFAULT NULL,
+        lng          REAL DEFAULT NULL,
+        logo         TEXT DEFAULT '',
+        photos       TEXT DEFAULT '[]',
+        instagram    TEXT DEFAULT '',
+        website      TEXT DEFAULT '',
+        phone        TEXT DEFAULT '',
+        email        TEXT DEFAULT '',
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_studios_city ON studios(city)')
+
+    # studio_members: vazba tatér ↔ studio. UNIQUE artist_id znamená,
+    # že tatér může být jen v jednom studiu zároveň (MVP).
+    c.execute('''CREATE TABLE IF NOT EXISTS studio_members (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        studio_id   INTEGER NOT NULL,
+        artist_id   INTEGER NOT NULL UNIQUE,
+        role        TEXT NOT NULL DEFAULT 'member',
+        joined_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (studio_id) REFERENCES studios(id) ON DELETE CASCADE,
+        FOREIGN KEY (artist_id) REFERENCES users(id) ON DELETE CASCADE
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_studio_members_studio ON studio_members(studio_id)')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS studio_invites (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        studio_id    INTEGER NOT NULL,
+        email        TEXT NOT NULL,
+        token        TEXT UNIQUE NOT NULL,
+        invited_by   INTEGER NOT NULL,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at   TIMESTAMP NOT NULL,
+        accepted_at  TIMESTAMP DEFAULT NULL,
+        declined_at  TIMESTAMP DEFAULT NULL,
+        FOREIGN KEY (studio_id)  REFERENCES studios(id) ON DELETE CASCADE,
+        FOREIGN KEY (invited_by) REFERENCES users(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_studio_invites_studio ON studio_invites(studio_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_studio_invites_email ON studio_invites(email)')
+
     conn.commit()
     conn.close()
 
@@ -2273,6 +2326,17 @@ def get_profile(username):
     completed_count = conn.execute(
         "SELECT COUNT(*) FROM bookings WHERE artist_id=? AND status='completed'",
         (u['id'],)).fetchone()[0]
+
+    # Studio membership (structured) — pokud je tatér členem registrovaného studia
+    studio_link = None
+    sm = conn.execute('''
+        SELECT s.slug, s.name, sm.role
+        FROM studio_members sm
+        JOIN studios s ON s.id = sm.studio_id
+        WHERE sm.artist_id = ?
+    ''', (u['id'],)).fetchone()
+    if sm:
+        studio_link = {'slug': sm['slug'], 'name': sm['name'], 'role': sm['role']}
     conn.close()
 
     return jsonify({
@@ -2290,6 +2354,7 @@ def get_profile(username):
         'is_artist':       bool(u['is_artist']),
         'artist_slug':     u['artist_slug'],
         'studio':          u['studio'] or '',
+        'studio_link':     studio_link,
         'instagram':       u['instagram'] or '',
         'styles':          u['styles'] or '',
         'deposit_pct':     u['deposit_pct_default'] or 30,
@@ -5639,6 +5704,556 @@ def payment_success():
 
 
 # ── Tickets (QR) ──────────────────────────────────────────────────────────────
+
+
+# ── InkLink: Studios (team / crew) ───────────────────────────────────────────
+# Studio je brand + org slupka pro tatéry. Stripe, payouts a rezervace zůstávají
+# per-artist; studio jen seskupuje portfolia a má veřejnou stránku.
+# Jeden tatér = jeden studio (MVP). Admin invituje přes e-mail s tokenem.
+
+STUDIO_INVITE_TTL_DAYS = 7
+STUDIO_MAX_MEMBERS = 50  # soft cap
+
+
+def _studio_row_dict(row):
+    """sqlite3.Row → dict s parsovaným photos JSON."""
+    import json as _json
+    if not row:
+        return None
+    d = dict(row)
+    try:
+        d['photos'] = _json.loads(d.get('photos') or '[]')
+    except Exception:
+        d['photos'] = []
+    return d
+
+
+def _get_my_studio_membership(conn, user_id):
+    """Vrátí (studio_row_dict, role) nebo (None, None)."""
+    m = conn.execute(
+        'SELECT studio_id, role FROM studio_members WHERE artist_id=?',
+        (user_id,)
+    ).fetchone()
+    if not m:
+        return (None, None)
+    s = conn.execute('SELECT * FROM studios WHERE id=?', (m['studio_id'],)).fetchone()
+    return (_studio_row_dict(s), m['role'])
+
+
+def _studio_admin_check(conn, user_id, studio_id):
+    """True pokud user je admin daného studia."""
+    m = conn.execute(
+        "SELECT 1 FROM studio_members WHERE artist_id=? AND studio_id=? AND role='admin'",
+        (user_id, studio_id)
+    ).fetchone()
+    return bool(m)
+
+
+def _studio_members_list(conn, studio_id):
+    """Seznam členů studia s detaily pro public profile."""
+    rows = conn.execute('''
+        SELECT u.id, u.username, u.display_name, u.avatar, u.artist_slug,
+               u.city, u.styles, u.instagram, sm.role, sm.joined_at,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id=u.id) AS rating_avg,
+               (SELECT COUNT(*)    FROM reviews WHERE artist_id=u.id) AS rating_count
+        FROM studio_members sm
+        JOIN users u ON u.id = sm.artist_id
+        WHERE sm.studio_id = ?
+        ORDER BY (sm.role='admin') DESC, sm.joined_at ASC
+    ''', (studio_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.route('/api/studios', methods=['POST'])
+@limiter.limit('5 per hour')
+def create_studio():
+    """Vytvoří studio; current logged-in artist se stane adminem.
+    Body: name, slug? (jinak generujeme), city, description, address, instagram, website."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name or len(name) < 2:
+        return jsonify({'error': 'Name is required'}), 400
+
+    conn = get_db()
+    user_id = session['user_id']
+
+    # Tatér už nemůže být ve dvou studiích zároveň
+    existing = conn.execute(
+        'SELECT studio_id FROM studio_members WHERE artist_id=?', (user_id,)
+    ).fetchone()
+    if existing:
+        conn.close()
+        return jsonify({'error': 'You are already in a studio. Leave it first.'}), 409
+
+    # Auto-promote na artista, pokud ještě není
+    u = conn.execute('SELECT is_artist, artist_slug FROM users WHERE id=?', (user_id,)).fetchone()
+    if not u['is_artist']:
+        # Studio může založit jen tatér — jemně vyzveme uživatele
+        conn.close()
+        return jsonify({'error': 'Only artists can create a studio. Become an artist first.'}), 403
+
+    # Slug
+    base = _slugify(data.get('slug') or name)
+    slug = base
+    n = 1
+    while conn.execute('SELECT 1 FROM studios WHERE slug=?', (slug,)).fetchone():
+        n += 1
+        slug = f'{base}-{n}'
+
+    cur = conn.execute('''
+        INSERT INTO studios (slug, name, description, address, city, country,
+                             instagram, website, logo, photos, phone, email)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
+    ''', (
+        slug, name,
+        (data.get('description') or '').strip()[:2000],
+        (data.get('address') or '').strip()[:200],
+        (data.get('city') or '').strip()[:80],
+        (data.get('country') or '').strip()[:80],
+        (data.get('instagram') or '').strip()[:80],
+        (data.get('website') or '').strip()[:200],
+        (data.get('logo') or '').strip()[:300],
+        (data.get('phone') or '').strip()[:40],
+        (data.get('email') or '').strip()[:120],
+    ))
+    studio_id = cur.lastrowid
+
+    conn.execute(
+        "INSERT INTO studio_members (studio_id, artist_id, role) VALUES (?, ?, 'admin')",
+        (studio_id, user_id)
+    )
+    conn.commit()
+    s = conn.execute('SELECT * FROM studios WHERE id=?', (studio_id,)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'studio': _studio_row_dict(s)})
+
+
+@app.route('/api/studios/<slug>', methods=['GET'])
+def get_studio(slug):
+    """Veřejné info o studiu + seznam členů."""
+    conn = get_db()
+    s = conn.execute('SELECT * FROM studios WHERE slug=?', (slug,)).fetchone()
+    if not s:
+        conn.close()
+        return jsonify({'error': 'Studio not found'}), 404
+    members = _studio_members_list(conn, s['id'])
+    conn.close()
+    out = _studio_row_dict(s)
+    out['members'] = members
+    return jsonify(out)
+
+
+@app.route('/api/studios/<slug>', methods=['PATCH'])
+@limiter.limit('30 per hour')
+def update_studio(slug):
+    """Admin edituje studio profil."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    s = conn.execute('SELECT * FROM studios WHERE slug=?', (slug,)).fetchone()
+    if not s:
+        conn.close()
+        return jsonify({'error': 'Studio not found'}), 404
+    if not _studio_admin_check(conn, session['user_id'], s['id']):
+        conn.close()
+        return jsonify({'error': 'Admin only'}), 403
+
+    data = request.get_json(silent=True) or {}
+    fields = {
+        'name':        (data.get('name'),        80),
+        'description': (data.get('description'), 2000),
+        'address':     (data.get('address'),     200),
+        'city':        (data.get('city'),        80),
+        'country':     (data.get('country'),     80),
+        'instagram':   (data.get('instagram'),   80),
+        'website':     (data.get('website'),     200),
+        'logo':        (data.get('logo'),        300),
+        'phone':       (data.get('phone'),       40),
+        'email':       (data.get('email'),       120),
+    }
+    sets = []
+    vals = []
+    for col, (val, maxlen) in fields.items():
+        if val is None:
+            continue
+        sets.append(f'{col}=?')
+        vals.append(str(val).strip()[:maxlen])
+
+    # photos: list of URLs
+    if isinstance(data.get('photos'), list):
+        import json as _json
+        photos = [str(p).strip()[:300] for p in data['photos'] if p][:12]
+        sets.append('photos=?')
+        vals.append(_json.dumps(photos))
+
+    if sets:
+        vals.append(s['id'])
+        conn.execute(f'UPDATE studios SET {", ".join(sets)} WHERE id=?', vals)
+        conn.commit()
+    s = conn.execute('SELECT * FROM studios WHERE id=?', (s['id'],)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'studio': _studio_row_dict(s)})
+
+
+@app.route('/api/studios/<slug>/invite', methods=['POST'])
+@limiter.limit('20 per hour')
+def invite_to_studio(slug):
+    """Admin pošle e-mailovou pozvánku."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    if not email or '@' not in email or len(email) > 200:
+        return jsonify({'error': 'Valid email required'}), 400
+
+    conn = get_db()
+    s = conn.execute('SELECT * FROM studios WHERE slug=?', (slug,)).fetchone()
+    if not s:
+        conn.close()
+        return jsonify({'error': 'Studio not found'}), 404
+    if not _studio_admin_check(conn, session['user_id'], s['id']):
+        conn.close()
+        return jsonify({'error': 'Admin only'}), 403
+
+    # Soft cap
+    count = conn.execute('SELECT COUNT(*) AS c FROM studio_members WHERE studio_id=?', (s['id'],)).fetchone()['c']
+    if count >= STUDIO_MAX_MEMBERS:
+        conn.close()
+        return jsonify({'error': f'Member limit reached ({STUDIO_MAX_MEMBERS})'}), 409
+
+    # Pokud má účet a už je členem
+    existing_user = conn.execute('SELECT id FROM users WHERE LOWER(email)=?', (email,)).fetchone()
+    if existing_user:
+        already = conn.execute(
+            'SELECT studio_id FROM studio_members WHERE artist_id=?',
+            (existing_user['id'],)
+        ).fetchone()
+        if already and already['studio_id'] == s['id']:
+            conn.close()
+            return jsonify({'error': 'Already a member'}), 409
+        if already:
+            conn.close()
+            return jsonify({'error': 'User is already in another studio'}), 409
+
+    # Smaž starou pending invite pro stejný email + studio
+    conn.execute('''
+        DELETE FROM studio_invites
+        WHERE studio_id=? AND LOWER(email)=? AND accepted_at IS NULL AND declined_at IS NULL
+    ''', (s['id'], email))
+
+    import secrets as _secrets
+    token = _secrets.token_urlsafe(24)
+    expires_at = (datetime.utcnow() + timedelta(days=STUDIO_INVITE_TTL_DAYS)).isoformat(timespec='seconds')
+
+    conn.execute('''
+        INSERT INTO studio_invites (studio_id, email, token, invited_by, expires_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (s['id'], email, token, session['user_id'], expires_at))
+    conn.commit()
+
+    # Pošli email
+    site_url = request.host_url.rstrip('/')
+    invite_url = f'{site_url}/invite/{token}'
+    inviter = conn.execute(
+        'SELECT display_name, username FROM users WHERE id=?', (session['user_id'],)
+    ).fetchone()
+    inviter_name = html_escape((inviter['display_name'] if inviter else '') or (inviter['username'] if inviter else ''))
+    studio_name = html_escape(s['name'])
+
+    html_body = f'''
+    <div style="background:#0a0a0a;padding:48px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e8e8e8;">
+      <div style="max-width:480px;margin:0 auto;background:#111;border:1px solid #222;border-radius:14px;padding:36px;">
+        <div style="font-size:11px;letter-spacing:0.2em;color:#888;margin-bottom:24px;">INKLINK</div>
+        <h1 style="font-size:24px;font-weight:600;line-height:1.3;margin:0 0 16px;color:#fff;">
+          Pozvánka do studia {studio_name}
+        </h1>
+        <p style="font-size:15px;line-height:1.6;color:#bbb;margin:0 0 28px;">
+          {inviter_name} tě zve, ať se přidáš do tetovacího studia
+          <strong style="color:#fff;">{studio_name}</strong> na InkLinku.
+        </p>
+        <p style="font-size:14px;line-height:1.6;color:#999;margin:0 0 28px;">
+          Pokud pozvánku přijmeš, budeš v profilu studia uveden jako člen
+          a tvé portfolio se zobrazí na jeho veřejné stránce. Tvé platby
+          a Stripe účet zůstávají tvé — nic se nesdílí.
+        </p>
+        <a href="{invite_url}" style="display:inline-block;background:#fff;color:#000;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:14px;letter-spacing:0.04em;">
+          Přijmout pozvánku
+        </a>
+        <p style="font-size:12px;color:#666;margin:28px 0 0;line-height:1.5;">
+          Odkaz vyprší za {STUDIO_INVITE_TTL_DAYS} dní. Pokud jsi tuhle pozvánku
+          nečekal(a), prostě ji ignoruj.
+        </p>
+      </div>
+    </div>
+    '''
+    try:
+        send_email(email, f'Pozvánka do studia {s["name"]} — InkLink', html_body)
+    except Exception as e:
+        print(f'[STUDIO INVITE] email send failed: {e}')
+
+    conn.close()
+    return jsonify({'ok': True, 'invite_url': invite_url})
+
+
+@app.route('/api/studios/invites/<token>', methods=['GET'])
+def view_studio_invite(token):
+    """Veřejný preview pozvánky — pro /invite/<token> landing."""
+    conn = get_db()
+    inv = conn.execute('SELECT * FROM studio_invites WHERE token=?', (token,)).fetchone()
+    if not inv:
+        conn.close()
+        return jsonify({'error': 'Invite not found'}), 404
+    if inv['accepted_at']:
+        conn.close()
+        return jsonify({'error': 'Invite already accepted', 'status': 'accepted'}), 410
+    if inv['declined_at']:
+        conn.close()
+        return jsonify({'error': 'Invite was declined', 'status': 'declined'}), 410
+    try:
+        if datetime.fromisoformat(inv['expires_at']) < datetime.utcnow():
+            conn.close()
+            return jsonify({'error': 'Invite expired', 'status': 'expired'}), 410
+    except Exception:
+        pass
+    s = conn.execute('SELECT * FROM studios WHERE id=?', (inv['studio_id'],)).fetchone()
+    inviter = conn.execute(
+        'SELECT display_name, username FROM users WHERE id=?', (inv['invited_by'],)
+    ).fetchone()
+    conn.close()
+    return jsonify({
+        'studio':       _studio_row_dict(s),
+        'email':        inv['email'],
+        'inviter_name': (inviter['display_name'] if inviter else '') or (inviter['username'] if inviter else ''),
+        'expires_at':   inv['expires_at'],
+    })
+
+
+@app.route('/api/studios/invites/<token>/accept', methods=['POST'])
+@limiter.limit('10 per hour')
+def accept_studio_invite(token):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    inv = conn.execute('SELECT * FROM studio_invites WHERE token=?', (token,)).fetchone()
+    if not inv:
+        conn.close()
+        return jsonify({'error': 'Invite not found'}), 404
+    if inv['accepted_at'] or inv['declined_at']:
+        conn.close()
+        return jsonify({'error': 'Invite no longer active'}), 410
+    try:
+        if datetime.fromisoformat(inv['expires_at']) < datetime.utcnow():
+            conn.close()
+            return jsonify({'error': 'Invite expired'}), 410
+    except Exception:
+        pass
+
+    user_id = session['user_id']
+    u = conn.execute('SELECT is_artist, email FROM users WHERE id=?', (user_id,)).fetchone()
+    if not u or not u['is_artist']:
+        conn.close()
+        return jsonify({'error': 'Only artists can join a studio'}), 403
+
+    # Existing membership?
+    existing = conn.execute('SELECT studio_id FROM studio_members WHERE artist_id=?', (user_id,)).fetchone()
+    if existing:
+        conn.close()
+        return jsonify({'error': 'You are already in a studio. Leave it first.'}), 409
+
+    # Cap
+    count = conn.execute(
+        'SELECT COUNT(*) AS c FROM studio_members WHERE studio_id=?', (inv['studio_id'],)
+    ).fetchone()['c']
+    if count >= STUDIO_MAX_MEMBERS:
+        conn.close()
+        return jsonify({'error': 'Studio is full'}), 409
+
+    conn.execute(
+        "INSERT INTO studio_members (studio_id, artist_id, role) VALUES (?, ?, 'member')",
+        (inv['studio_id'], user_id)
+    )
+    conn.execute(
+        'UPDATE studio_invites SET accepted_at=? WHERE id=?',
+        (datetime.utcnow().isoformat(timespec='seconds'), inv['id'])
+    )
+    conn.commit()
+    s = conn.execute('SELECT slug FROM studios WHERE id=?', (inv['studio_id'],)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'slug': s['slug']})
+
+
+@app.route('/api/studios/invites/<token>/decline', methods=['POST'])
+def decline_studio_invite(token):
+    conn = get_db()
+    inv = conn.execute('SELECT * FROM studio_invites WHERE token=?', (token,)).fetchone()
+    if not inv:
+        conn.close()
+        return jsonify({'error': 'Invite not found'}), 404
+    if inv['accepted_at'] or inv['declined_at']:
+        conn.close()
+        return jsonify({'ok': True})  # idempotent
+    conn.execute(
+        'UPDATE studio_invites SET declined_at=? WHERE id=?',
+        (datetime.utcnow().isoformat(timespec='seconds'), inv['id'])
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/studios/<slug>/members/<int:artist_id>', methods=['DELETE'])
+def remove_studio_member(slug, artist_id):
+    """Admin odebere člena, nebo člen sám sebe (self-leave).
+    Admin nemůže odebrat sám sebe, dokud převede admin práva."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    s = conn.execute('SELECT * FROM studios WHERE slug=?', (slug,)).fetchone()
+    if not s:
+        conn.close()
+        return jsonify({'error': 'Studio not found'}), 404
+
+    user_id = session['user_id']
+    is_admin = _studio_admin_check(conn, user_id, s['id'])
+    is_self = (artist_id == user_id)
+    if not is_admin and not is_self:
+        conn.close()
+        return jsonify({'error': 'Not allowed'}), 403
+
+    target = conn.execute(
+        'SELECT role FROM studio_members WHERE studio_id=? AND artist_id=?',
+        (s['id'], artist_id)
+    ).fetchone()
+    if not target:
+        conn.close()
+        return jsonify({'error': 'Not a member'}), 404
+
+    # Admin si nemůže odejít, pokud je jediný admin a studio má ostatní členy
+    if target['role'] == 'admin':
+        other_admins = conn.execute(
+            "SELECT COUNT(*) AS c FROM studio_members WHERE studio_id=? AND role='admin' AND artist_id!=?",
+            (s['id'], artist_id)
+        ).fetchone()['c']
+        total = conn.execute(
+            'SELECT COUNT(*) AS c FROM studio_members WHERE studio_id=?',
+            (s['id'],)
+        ).fetchone()['c']
+        if other_admins == 0 and total > 1:
+            conn.close()
+            return jsonify({'error': 'Transfer admin role first'}), 409
+
+    conn.execute(
+        'DELETE FROM studio_members WHERE studio_id=? AND artist_id=?',
+        (s['id'], artist_id)
+    )
+    # Pokud byl poslední, smaž celé studio
+    rest = conn.execute(
+        'SELECT COUNT(*) AS c FROM studio_members WHERE studio_id=?', (s['id'],)
+    ).fetchone()['c']
+    if rest == 0:
+        conn.execute('DELETE FROM studios WHERE id=?', (s['id'],))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'deleted_studio': rest == 0})
+
+
+@app.route('/api/studios/<slug>/transfer-admin', methods=['POST'])
+def transfer_studio_admin(slug):
+    """Current admin předá admin práva jinému členovi."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    target_id = data.get('artist_id')
+    if not target_id:
+        return jsonify({'error': 'artist_id required'}), 400
+
+    conn = get_db()
+    s = conn.execute('SELECT * FROM studios WHERE slug=?', (slug,)).fetchone()
+    if not s:
+        conn.close()
+        return jsonify({'error': 'Studio not found'}), 404
+    if not _studio_admin_check(conn, session['user_id'], s['id']):
+        conn.close()
+        return jsonify({'error': 'Admin only'}), 403
+    target = conn.execute(
+        'SELECT 1 FROM studio_members WHERE studio_id=? AND artist_id=?',
+        (s['id'], target_id)
+    ).fetchone()
+    if not target:
+        conn.close()
+        return jsonify({'error': 'Target is not a member'}), 404
+
+    conn.execute("UPDATE studio_members SET role='member' WHERE studio_id=? AND artist_id=?",
+                 (s['id'], session['user_id']))
+    conn.execute("UPDATE studio_members SET role='admin' WHERE studio_id=? AND artist_id=?",
+                 (s['id'], target_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/me/studio', methods=['GET'])
+def me_studio():
+    """Context pro logged-in tatéra: jeho studio (pokud má) + role."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    studio, role = _get_my_studio_membership(conn, session['user_id'])
+    if studio:
+        studio['members'] = _studio_members_list(conn, studio['id'])
+        # Pending invites pro adminy
+        if role == 'admin':
+            invites = conn.execute('''
+                SELECT id, email, created_at, expires_at, token
+                FROM studio_invites
+                WHERE studio_id=? AND accepted_at IS NULL AND declined_at IS NULL
+                ORDER BY created_at DESC
+            ''', (studio['id'],)).fetchall()
+            studio['pending_invites'] = [dict(i) for i in invites]
+    conn.close()
+    return jsonify({'studio': studio, 'role': role})
+
+
+@app.route('/api/studios/<slug>/invites/<int:invite_id>', methods=['DELETE'])
+def cancel_studio_invite(slug, invite_id):
+    """Admin zruší pending pozvánku."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    s = conn.execute('SELECT * FROM studios WHERE slug=?', (slug,)).fetchone()
+    if not s:
+        conn.close()
+        return jsonify({'error': 'Studio not found'}), 404
+    if not _studio_admin_check(conn, session['user_id'], s['id']):
+        conn.close()
+        return jsonify({'error': 'Admin only'}), 403
+    conn.execute(
+        'DELETE FROM studio_invites WHERE id=? AND studio_id=? AND accepted_at IS NULL',
+        (invite_id, s['id'])
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+# Static page routes
+@app.route('/studio-create')
+def studio_create_page():
+    return send_from_directory('public', 'studio-create.html')
+
+@app.route('/studio-admin')
+def studio_admin_page():
+    return send_from_directory('public', 'studio-admin.html')
+
+@app.route('/studio/<slug>')
+def studio_public_page(slug):
+    return send_from_directory('public', 'studio.html')
+
+@app.route('/invite/<token>')
+def studio_invite_page(token):
+    return send_from_directory('public', 'invite.html')
 
 
 @app.errorhandler(404)

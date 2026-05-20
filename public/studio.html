@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="studio.pageTitle">Studio — InkLink</title>
+<meta name="description" data-i18n-attr="content" data-i18n="studio.metaDesc" content="Tetovací studio na InkLinku">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e10;--bg2:#141416;--bg3:#1c1c1f;--bg4:#26262a;
+  --red:#3a3a3e;--red2:#e8e8e8;--red3:#fff;--ink:#9f1239;
+  --txt:#f5f5f7;--txt2:#a8a8ac;--txt3:#6e6e73;
+  --border:#1c1c1f;--border2:#2a2a2e;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:12px}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);flex:1}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);border-radius:2px;font-size:14px}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+
+.wrap{max-width:1080px;margin:0 auto;padding:84px 24px 80px}
+
+.hero{display:flex;gap:28px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:28px;margin-bottom:32px}
+.logo{width:140px;height:140px;border-radius:14px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:54px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.logo img{width:100%;height:100%;object-fit:cover}
+.hero-info{flex:1;min-width:0}
+.studio-name{font-family:'Bebas Neue',sans-serif;font-size:54px;letter-spacing:0.04em;line-height:1.05}
+.studio-slug{color:var(--txt3);font-size:12px;letter-spacing:0.08em;margin-top:6px;text-transform:uppercase}
+.meta{display:flex;flex-wrap:wrap;gap:14px 24px;margin-top:18px;font-size:12px;color:var(--txt2);letter-spacing:0.04em}
+.meta b{color:var(--txt);font-weight:400}
+.meta a{color:var(--red2);text-decoration:underline;text-underline-offset:3px}
+.meta a:hover{color:var(--red3)}
+.desc{margin-top:18px;font-size:14px;color:var(--txt2);line-height:1.6;max-width:680px;white-space:pre-wrap}
+
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.16em;color:var(--txt);margin:40px 0 16px;text-transform:uppercase}
+
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.photos img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;border:1px solid var(--border2);background:var(--bg3)}
+
+.members{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.member{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color 0.2s,transform 0.2s}
+.member:hover{border-color:var(--red2);transform:translateY(-2px)}
+.member-top{display:flex;gap:12px;align-items:center}
+.m-avatar{width:54px;height:54px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.m-avatar img{width:100%;height:100%;object-fit:cover}
+.m-info{flex:1;min-width:0}
+.m-name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.04em;line-height:1.1}
+.m-uname{color:var(--txt3);font-size:11px;letter-spacing:0.06em;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.role-badge{display:inline-block;font-size:9px;letter-spacing:0.12em;padding:3px 7px;background:var(--ink);color:#fff;border-radius:3px;text-transform:uppercase;margin-left:6px;vertical-align:middle}
+.m-styles{font-size:11px;color:var(--txt2);letter-spacing:0.04em;line-height:1.5}
+.m-foot{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--txt3);margin-top:auto;padding-top:8px;border-top:1px solid var(--border)}
+.m-rating{display:flex;align-items:center;gap:4px;color:var(--txt2)}
+.m-link{color:var(--red2);font-size:11px;letter-spacing:0.06em}
+
+.empty{padding:60px 20px;text-align:center;color:var(--txt3);font-size:13px;letter-spacing:0.04em}
+.error{padding:60px 20px;text-align:center;color:#e58787;font-size:13px}
+
+@media (max-width:640px){
+  .hero{flex-direction:column;gap:18px}
+  .logo{width:96px;height:96px;font-size:36px;border-radius:10px}
+  .studio-name{font-size:38px}
+  .wrap{padding:74px 16px 60px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">INKLINK</a>
+  <a href="/feed" class="nav-icon" title="Zpět"><i data-lucide="arrow-left"></i></a>
+</nav>
+
+<div class="wrap" id="root">
+  <div class="empty" data-i18n="studio.loading">Načítám studio…</div>
+</div>
+
+<script src="/i18n.js?v=1"></script>
+<script>
+const slug = location.pathname.replace(/^\/studio\//, '').replace(/\/$/, '');
+const root = document.getElementById('root');
+
+function esc(s){return (s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+
+function renderMember(m){
+  const initials = (m.display_name||m.username||'?').split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+  const avatar = m.avatar ? `<img src="${esc(m.avatar)}" alt="">` : esc(initials);
+  const styles = (m.styles||'').split(',').map(s=>s.trim()).filter(Boolean).slice(0,3).join(' · ');
+  const rating = m.rating_count ? `<span class="m-rating"><i data-lucide="star" style="width:11px;height:11px"></i> ${(m.rating_avg||0).toFixed(1)} (${m.rating_count})</span>` : '<span></span>';
+  const roleBadge = m.role==='admin' ? `<span class="role-badge" data-i18n="studio.adminBadge">Admin</span>` : '';
+  const link = `/profile/${esc(m.username)}`;
+  return `
+    <a class="member" href="${link}">
+      <div class="member-top">
+        <div class="m-avatar">${avatar}</div>
+        <div class="m-info">
+          <div class="m-name">${esc(m.display_name||m.username)}${roleBadge}</div>
+          <div class="m-uname">@${esc(m.username)}</div>
+        </div>
+      </div>
+      ${styles ? `<div class="m-styles">${esc(styles)}</div>`:''}
+      <div class="m-foot">
+        ${rating}
+        <span class="m-link" data-i18n="studio.viewProfile">Profil →</span>
+      </div>
+    </a>
+  `;
+}
+
+async function load(){
+  if(!slug){ root.innerHTML = `<div class="error" data-i18n="studio.notFound">Studio nenalezeno.</div>`; return; }
+  try {
+    const r = await fetch(`/api/studios/${encodeURIComponent(slug)}`);
+    if(!r.ok){
+      root.innerHTML = `<div class="error" data-i18n="studio.notFound">Studio nenalezeno.</div>`;
+      window.applyI18n && window.applyI18n();
+      return;
+    }
+    const s = await r.json();
+    document.title = `${s.name} — InkLink`;
+    const initials = (s.name||'?').split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+    const logo = s.logo ? `<img src="${esc(s.logo)}" alt="">` : esc(initials);
+    const locParts = [s.city, s.country].filter(Boolean).join(', ');
+    const igUrl = s.instagram ? `https://instagram.com/${esc(s.instagram.replace(/^@/, ''))}` : null;
+
+    let metaHtml = '';
+    if(s.address) metaHtml += `<span><b data-i18n="studio.address">Adresa:</b> ${esc(s.address)}</span>`;
+    if(locParts) metaHtml += `<span><b data-i18n="studio.city">Město:</b> ${esc(locParts)}</span>`;
+    if(igUrl) metaHtml += `<span><b>Instagram:</b> <a href="${igUrl}" target="_blank" rel="noopener">@${esc(s.instagram.replace(/^@/, ''))}</a></span>`;
+    if(s.website) metaHtml += `<span><b data-i18n="studio.website">Web:</b> <a href="${esc(s.website)}" target="_blank" rel="noopener">${esc(s.website.replace(/^https?:\/\//,''))}</a></span>`;
+    if(s.phone) metaHtml += `<span><b data-i18n="studio.phone">Tel:</b> ${esc(s.phone)}</span>`;
+    if(s.email) metaHtml += `<span><b>Email:</b> <a href="mailto:${esc(s.email)}">${esc(s.email)}</a></span>`;
+
+    const photosHtml = (s.photos||[]).length ? `
+      <h2 class="section-title" data-i18n="studio.photos">Galerie</h2>
+      <div class="photos">${s.photos.map(p=>`<img src="${esc(p)}" alt="" loading="lazy">`).join('')}</div>
+    ` : '';
+
+    const members = s.members||[];
+    const membersHtml = members.length ? `
+      <h2 class="section-title"><span data-i18n="studio.team">Tým</span> <span style="color:var(--txt3);font-size:14px;letter-spacing:0.08em;">· ${members.length}</span></h2>
+      <div class="members">${members.map(renderMember).join('')}</div>
+    ` : `<div class="empty" data-i18n="studio.noMembers">Studio nemá zatím žádné členy.</div>`;
+
+    root.innerHTML = `
+      <div class="hero">
+        <div class="logo">${logo}</div>
+        <div class="hero-info">
+          <div class="studio-name">${esc(s.name)}</div>
+          <div class="studio-slug">/studio/${esc(s.slug)}</div>
+          ${metaHtml ? `<div class="meta">${metaHtml}</div>`:''}
+          ${s.description ? `<div class="desc">${esc(s.description)}</div>`:''}
+        </div>
+      </div>
+      ${photosHtml}
+      ${membersHtml}
+    `;
+    window.applyI18n && window.applyI18n();
+    if(window.lucide) window.lucide.createIcons();
+  } catch(e){
+    console.error(e);
+    root.innerHTML = `<div class="error" data-i18n="studio.loadError">Nepodařilo se načíst studio.</div>`;
+    window.applyI18n && window.applyI18n();
+  }
+}
+load();
+</script>
+<script src="/icons.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="studioAdmin.pageTitle">Moje studio — InkLink</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<script src="/theme.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e10;--bg2:#141416;--bg3:#1c1c1f;--bg4:#26262a;
+  --red:#3a3a3e;--red2:#e8e8e8;--red3:#fff;--ink:#9f1239;
+  --txt:#f5f5f7;--txt2:#a8a8ac;--txt3:#6e6e73;
+  --border:#1c1c1f;--border2:#2a2a2e;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-height:100vh}
+a{color:inherit;text-decoration:none}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:12px}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;color:var(--red2);flex:1}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);border-radius:2px;font-size:14px}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+
+.wrap{max-width:880px;margin:0 auto;padding:84px 24px 80px}
+
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:0.06em;margin-bottom:6px}
+.page-sub{color:var(--txt3);font-size:12px;letter-spacing:0.06em;margin-bottom:28px}
+.public-link{display:inline-flex;align-items:center;gap:6px;color:var(--red2);font-size:12px;letter-spacing:0.04em;text-decoration:underline;text-underline-offset:3px;margin-bottom:24px}
+
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:24px;margin-bottom:18px}
+.card h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.12em;color:var(--txt);margin-bottom:14px;text-transform:uppercase}
+
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field.full{grid-column:1/-1}
+.field label{font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase}
+.field input,.field textarea{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:10px 12px;border-radius:6px;outline:none}
+.field input:focus,.field textarea:focus{border-color:var(--red2)}
+.field textarea{min-height:90px;resize:vertical}
+
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--red2);color:#000;border:none;font-family:inherit;font-size:12px;letter-spacing:0.08em;padding:11px 22px;border-radius:6px;cursor:pointer;text-transform:uppercase;font-weight:500}
+.btn:hover{background:var(--red3)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--txt2);border:1px solid var(--border2)}
+.btn.ghost:hover{color:var(--txt);border-color:var(--red2)}
+.btn.danger{background:transparent;color:#e58787;border:1px solid #e58787}
+.btn.danger:hover{background:rgba(229,135,135,0.1)}
+.btn.sm{padding:7px 14px;font-size:10px}
+
+.members-list,.invites-list{display:flex;flex-direction:column;gap:8px}
+.member-row{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px}
+.m-av{width:38px;height:38px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.m-av img{width:100%;height:100%;object-fit:cover}
+.m-meta{flex:1;min-width:0}
+.m-nn{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.04em}
+.m-uu{color:var(--txt3);font-size:10px;letter-spacing:0.06em;margin-top:2px}
+.role-pill{display:inline-block;font-size:9px;letter-spacing:0.12em;padding:2px 7px;background:var(--ink);color:#fff;border-radius:3px;text-transform:uppercase;margin-left:6px;vertical-align:middle}
+.role-pill.gray{background:var(--bg4);color:var(--txt3)}
+
+.invite-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:12px}
+.invite-email{flex:1;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.invite-exp{color:var(--txt3);font-size:10px;letter-spacing:0.06em}
+
+.invite-form{display:flex;gap:10px;align-items:flex-end}
+.invite-form .field{flex:1;margin-bottom:0}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--red2);color:var(--txt);padding:12px 20px;border-radius:8px;font-size:13px;opacity:0;transition:opacity 0.3s;z-index:1000;letter-spacing:0.04em}
+.toast.show{opacity:1}
+.toast.error{border-color:#e58787;color:#e58787}
+
+.empty-state{padding:60px 20px;text-align:center;color:var(--txt3);font-size:13px;letter-spacing:0.04em}
+
+.danger-zone{margin-top:32px;border:1px solid #4a1a1a;border-radius:10px;padding:20px;background:rgba(74,26,26,0.15)}
+.danger-zone h4{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.1em;color:#e58787;margin-bottom:8px;text-transform:uppercase}
+.danger-zone p{font-size:12px;color:var(--txt2);line-height:1.5;margin-bottom:14px}
+
+@media (max-width:640px){
+  .row{grid-template-columns:1fr}
+  .invite-form{flex-direction:column;align-items:stretch}
+  .wrap{padding:74px 16px 60px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">INKLINK</a>
+  <a href="/feed" class="nav-icon" title="Zpět"><i data-lucide="arrow-left"></i></a>
+</nav>
+
+<div class="wrap" id="root">
+  <div class="empty-state" data-i18n="studioAdmin.loading">Načítám…</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="/i18n.js?v=1"></script>
+<script>
+const root = document.getElementById('root');
+const toast = document.getElementById('toast');
+let state = null;
+
+function esc(s){return (s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+function showToast(msg, isErr){
+  toast.textContent = msg;
+  toast.className = 'toast show' + (isErr?' error':'');
+  setTimeout(()=>toast.className='toast', 2600);
+}
+
+async function loadStudio(){
+  try {
+    const r = await fetch('/api/me/studio');
+    if(r.status === 401){
+      location.href = '/login?return=/studio-admin';
+      return;
+    }
+    const data = await r.json();
+    if(!data.studio){
+      location.href = '/studio-create';
+      return;
+    }
+    state = data;
+    render();
+  } catch(e){
+    console.error(e);
+    root.innerHTML = `<div class="empty-state" data-i18n="studioAdmin.loadError">Nepodařilo se načíst studio.</div>`;
+    window.applyI18n && window.applyI18n();
+  }
+}
+
+function renderMember(m){
+  const initials = (m.display_name||m.username||'?').split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+  const av = m.avatar ? `<img src="${esc(m.avatar)}" alt="">` : esc(initials);
+  const isAdmin = state.role === 'admin';
+  const isMe = false; // we don't know own id here, but admin can remove anyone except themselves (handled server-side)
+  const rolePill = m.role==='admin'
+    ? `<span class="role-pill" data-i18n="studio.adminBadge">Admin</span>`
+    : `<span class="role-pill gray" data-i18n="studio.memberBadge">Člen</span>`;
+  let actions = '';
+  if(isAdmin){
+    if(m.role !== 'admin'){
+      actions += `<button class="btn ghost sm" onclick="transferAdmin(${m.id})" data-i18n="studioAdmin.makeAdmin">Předat admin</button>`;
+      actions += `<button class="btn danger sm" onclick="removeMember(${m.id}, '${esc(m.display_name||m.username)}')" data-i18n="studioAdmin.remove">Odebrat</button>`;
+    }
+  }
+  return `
+    <div class="member-row">
+      <div class="m-av">${av}</div>
+      <div class="m-meta">
+        <div class="m-nn">${esc(m.display_name||m.username)}${rolePill}</div>
+        <div class="m-uu">@${esc(m.username)}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">${actions}</div>
+    </div>
+  `;
+}
+
+function renderInvite(inv){
+  const expDate = inv.expires_at ? new Date(inv.expires_at) : null;
+  const exp = expDate ? expDate.toLocaleDateString() : '';
+  return `
+    <div class="invite-row">
+      <i data-lucide="mail" style="width:14px;height:14px;color:var(--txt3);flex-shrink:0"></i>
+      <span class="invite-email">${esc(inv.email)}</span>
+      <span class="invite-exp" data-i18n="studioAdmin.expires" data-i18n-args="${exp}">Vyprší ${exp}</span>
+      <button class="btn ghost sm" onclick="cancelInvite(${inv.id})" data-i18n="studioAdmin.cancel">Zrušit</button>
+    </div>
+  `;
+}
+
+function render(){
+  const s = state.studio;
+  const isAdmin = state.role === 'admin';
+  const members = s.members || [];
+  const invites = s.pending_invites || [];
+
+  let html = `
+    <div class="page-title">${esc(s.name)}</div>
+    <div class="page-sub" data-i18n="studioAdmin.subtitle">Správa studia — členové, pozvánky a profil</div>
+    <a class="public-link" href="/studio/${esc(s.slug)}" target="_blank">
+      <i data-lucide="external-link" style="width:13px;height:13px"></i>
+      <span data-i18n="studioAdmin.viewPublic">Zobrazit veřejnou stránku</span>
+    </a>
+  `;
+
+  // Members
+  html += `
+    <div class="card">
+      <h3><span data-i18n="studioAdmin.team">Tým</span> · ${members.length}</h3>
+      <div class="members-list">${members.map(renderMember).join('')}</div>
+    </div>
+  `;
+
+  if(isAdmin){
+    // Pending invites
+    html += `
+      <div class="card">
+        <h3 data-i18n="studioAdmin.pendingInvites">Čekající pozvánky</h3>
+        ${invites.length ? `<div class="invites-list">${invites.map(renderInvite).join('')}</div>` : `<div style="color:var(--txt3);font-size:12px;letter-spacing:0.04em" data-i18n="studioAdmin.noPending">Žádné čekající pozvánky.</div>`}
+
+        <h3 style="margin-top:24px" data-i18n="studioAdmin.inviteHeading">Pozvat nového tatéra</h3>
+        <form class="invite-form" onsubmit="sendInvite(event)">
+          <div class="field">
+            <label data-i18n="studioAdmin.inviteEmail">E-mail tatéra</label>
+            <input type="email" id="inviteEmail" required placeholder="jana@example.com">
+          </div>
+          <button class="btn" type="submit" data-i18n="studioAdmin.sendInvite">Odeslat</button>
+        </form>
+      </div>
+    `;
+
+    // Edit profile
+    html += `
+      <div class="card">
+        <h3 data-i18n="studioAdmin.profile">Profil studia</h3>
+        <form onsubmit="saveProfile(event)">
+          <div class="row">
+            <div class="field full">
+              <label data-i18n="studioAdmin.name">Název</label>
+              <input id="f_name" value="${esc(s.name)}" maxlength="80" required>
+            </div>
+            <div class="field full">
+              <label data-i18n="studioAdmin.description">Popis</label>
+              <textarea id="f_description" maxlength="2000">${esc(s.description||'')}</textarea>
+            </div>
+            <div class="field full">
+              <label data-i18n="studioAdmin.address">Adresa</label>
+              <input id="f_address" value="${esc(s.address||'')}" maxlength="200">
+            </div>
+            <div class="field">
+              <label data-i18n="studioAdmin.city">Město</label>
+              <input id="f_city" value="${esc(s.city||'')}" maxlength="80">
+            </div>
+            <div class="field">
+              <label data-i18n="studioAdmin.country">Země</label>
+              <input id="f_country" value="${esc(s.country||'')}" maxlength="80">
+            </div>
+            <div class="field">
+              <label>Instagram</label>
+              <input id="f_instagram" value="${esc(s.instagram||'')}" maxlength="80" placeholder="username">
+            </div>
+            <div class="field">
+              <label data-i18n="studioAdmin.website">Web</label>
+              <input id="f_website" value="${esc(s.website||'')}" maxlength="200" placeholder="https://">
+            </div>
+            <div class="field">
+              <label data-i18n="studioAdmin.phone">Telefon</label>
+              <input id="f_phone" value="${esc(s.phone||'')}" maxlength="40">
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input id="f_email" value="${esc(s.email||'')}" maxlength="120" type="email">
+            </div>
+            <div class="field full">
+              <label data-i18n="studioAdmin.logo">Logo URL</label>
+              <input id="f_logo" value="${esc(s.logo||'')}" maxlength="300" placeholder="https://...">
+            </div>
+          </div>
+          <button class="btn" type="submit" data-i18n="studioAdmin.save">Uložit změny</button>
+        </form>
+      </div>
+    `;
+  }
+
+  // Leave
+  html += `
+    <div class="danger-zone">
+      <h4 data-i18n="studioAdmin.dangerZone">Nebezpečná zóna</h4>
+      <p data-i18n="studioAdmin.leaveDesc">Odejít ze studia. Pokud jsi jediný admin a ve studiu jsou další členové, nejdřív předej admin práva.</p>
+      <button class="btn danger" onclick="leaveStudio()" data-i18n="studioAdmin.leaveStudio">Opustit studio</button>
+    </div>
+  `;
+
+  root.innerHTML = html;
+  window.applyI18n && window.applyI18n();
+  if(window.lucide) window.lucide.createIcons();
+}
+
+async function saveProfile(e){
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('f_name').value,
+    description: document.getElementById('f_description').value,
+    address: document.getElementById('f_address').value,
+    city: document.getElementById('f_city').value,
+    country: document.getElementById('f_country').value,
+    instagram: document.getElementById('f_instagram').value,
+    website: document.getElementById('f_website').value,
+    phone: document.getElementById('f_phone').value,
+    email: document.getElementById('f_email').value,
+    logo: document.getElementById('f_logo').value,
+  };
+  const r = await fetch(`/api/studios/${encodeURIComponent(state.studio.slug)}`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if(r.ok){ showToast('✓ Uloženo'); state.studio = {...state.studio, ...data.studio}; }
+  else { showToast(data.error||'Chyba', true); }
+}
+
+async function sendInvite(e){
+  e.preventDefault();
+  const email = document.getElementById('inviteEmail').value.trim();
+  if(!email) return;
+  const r = await fetch(`/api/studios/${encodeURIComponent(state.studio.slug)}/invite`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email})
+  });
+  const data = await r.json();
+  if(r.ok){
+    showToast('✓ Pozvánka odeslána');
+    document.getElementById('inviteEmail').value = '';
+    loadStudio();
+  } else {
+    showToast(data.error||'Chyba', true);
+  }
+}
+
+async function cancelInvite(invId){
+  const r = await fetch(`/api/studios/${encodeURIComponent(state.studio.slug)}/invites/${invId}`, {method:'DELETE'});
+  if(r.ok){ showToast('✓ Zrušeno'); loadStudio(); }
+  else { showToast('Chyba', true); }
+}
+
+async function removeMember(artistId, name){
+  if(!confirm(`Opravdu odebrat ${name}?`)) return;
+  const r = await fetch(`/api/studios/${encodeURIComponent(state.studio.slug)}/members/${artistId}`, {method:'DELETE'});
+  if(r.ok){ showToast('✓ Odebrán'); loadStudio(); }
+  else { const d = await r.json(); showToast(d.error||'Chyba', true); }
+}
+
+async function transferAdmin(artistId){
+  if(!confirm('Předat admin práva tomuto členovi? Ztratíš správcovský přístup.')) return;
+  const r = await fetch(`/api/studios/${encodeURIComponent(state.studio.slug)}/transfer-admin`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({artist_id: artistId})
+  });
+  if(r.ok){ showToast('✓ Předáno'); loadStudio(); }
+  else { const d = await r.json(); showToast(d.error||'Chyba', true); }
+}
+
+async function leaveStudio(){
+  if(!confirm('Opravdu opustit studio?')) return;
+  // We need our own user id — fetch /api/me
+  try {
+    const me = await fetch('/api/me').then(r=>r.json());
+    const r = await fetch(`/api/studios/${encodeURIComponent(state.studio.slug)}/members/${me.id}`, {method:'DELETE'});
+    const d = await r.json();
+    if(r.ok){
+      showToast('✓ Opustil(a) jsi studio');
+      setTimeout(()=>location.href='/', 1500);
+    } else {
+      showToast(d.error||'Chyba', true);
+    }
+  } catch(e){ showToast('Chyba', true); }
+}
+
+loadStudio();
+</script>
+<script src="/icons.js?v=2"></script>
+</body>
+</html>

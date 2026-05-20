@@ -413,7 +413,15 @@ function render() {
   else document.getElementById('avatar').textContent = profile.initials || '?';
 
   if (profile.city) { document.getElementById('city').textContent = profile.city; document.getElementById('cityRow').style.display = 'inline'; }
-  if (profile.studio) { document.getElementById('studio').textContent = profile.studio; document.getElementById('studioRow').style.display = 'inline'; }
+  if (profile.studio_link) {
+    // Structured studio — render jako link na /studio/<slug>
+    const el = document.getElementById('studio');
+    el.innerHTML = `<a href="/studio/${encodeURIComponent(profile.studio_link.slug)}" style="color:var(--txt);text-decoration:underline;text-underline-offset:3px">${escapeHtml(profile.studio_link.name)}</a>`;
+    document.getElementById('studioRow').style.display = 'inline';
+  } else if (profile.studio) {
+    document.getElementById('studio').textContent = profile.studio;
+    document.getElementById('studioRow').style.display = 'inline';
+  }
   if (profile.instagram) {
     const a = document.getElementById('insta');
     a.textContent = profile.instagram;

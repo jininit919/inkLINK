@@ -215,8 +215,15 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:0.1em;margi
   <p style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin:8px 0 0">
     Portfolio přidáš z <a href="/" style="color:var(--red2);border-bottom:1px solid currentColor">feedu (+)</a>,
     termíny v <a href="/calendar" style="color:var(--red2);border-bottom:1px solid currentColor">kalendáři</a>,
-    výdělky a měsíční reporty ve <a href="/earnings" style="color:var(--red2);border-bottom:1px solid currentColor">výdělcích</a>.
+    výdělky a měsíční reporty ve <a href="/earnings" style="color:var(--red2);border-bottom:1px solid currentColor">výdělcích</a>,
+    týmovou stránku ve <a id="studioLink" href="/studio-create" style="color:var(--red2);border-bottom:1px solid currentColor">studiu</a>.
   </p>
+  <script>
+    // Pokud už tatér ve studiu je, link vede na admin dashboard
+    fetch('/api/me/studio').then(r=>r.ok?r.json():null).then(d=>{
+      if(d && d.studio){ document.getElementById('studioLink').href = '/studio-admin'; }
+    }).catch(()=>{});
+  </script>
 
   <!-- ── PROFILE TAB ── -->
   <div id="tab-profile">
