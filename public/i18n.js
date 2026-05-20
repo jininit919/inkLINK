@@ -21,9 +21,9 @@
 
       // HERO — editorial manifesto landing
       'hero.eyebrow':   'tetování · rezervace · inkoust co drží',
-      'hero.line1':     'najdi svou skicu.',
-      'hero.line2':     'potkej svého tatéra.',
-      'hero.line3':     'rezervuj v klidu.',
+      'hero.line1':     'Prohlížej skicy,',
+      'hero.line2':     'najdi tatéra.',
+      'hero.line3':     '',
       'hero.lede':      'Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu — a rezervuj bezpečně přes Stripe. Žádné DM ping-pongy, žádné nejistoty.',
       'hero.ctaFeed':   'prohlédnout skicy',
       'hero.ctaMap':    'mapa tatérů',
@@ -271,9 +271,9 @@
 
       // HERO — editorial manifesto
       'hero.eyebrow':   'tattoo · booking · ink that lasts',
-      'hero.line1':     'find your sketch.',
-      'hero.line2':     'meet your artist.',
-      'hero.line3':     'book in peace.',
+      'hero.line1':     'Browse sketches,',
+      'hero.line2':     'find your artist.',
+      'hero.line3':     '',
       'hero.lede':      "Tattoo marketplace for Czechia. Browse sketches or discover an artist by style — and book safely via Stripe. No DM ping-pong, no guesswork.",
       'hero.ctaFeed':   'browse sketches',
       'hero.ctaMap':    'artist map',

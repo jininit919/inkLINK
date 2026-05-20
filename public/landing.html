@@ -60,8 +60,8 @@ img{max-width:100%;display:block}
    ──────────────────────────────────────────────────────────────── */
 .italic{font-style:italic;font-weight:400}
 .eyebrow{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-muted);font-weight:500}
-.lede{font-size:19px;line-height:1.55;color:var(--ink-soft);max-width:560px;font-weight:300;letter-spacing:-0.005em}
-@media(max-width:680px){.lede{font-size:17px}}
+.lede{font-size:16px;line-height:1.6;color:var(--ink-soft);max-width:520px;font-weight:300;letter-spacing:-0.003em}
+@media(max-width:680px){.lede{font-size:15px}}
 
 /* ────────────────────────────────────────────────────────────────
    INKOUSTOVÉ ORNAMENTY
@@ -180,9 +180,7 @@ nav{
 }
 .hero-claim .line{display:block;opacity:0;transform:translateY(20px);animation:fade-up 0.8s var(--ease) forwards}
 .hero-claim .line:nth-child(1){animation-delay:0.25s}
-.hero-claim .line:nth-child(2){animation-delay:0.45s}
-.hero-claim .line:nth-child(3){animation-delay:0.65s;font-weight:300}
-.hero-claim .line.tilt{transform:translateY(20px)}
+.hero-claim .line:nth-child(2){animation-delay:0.45s;font-weight:300}
 
 .hero-lede{margin-bottom:40px;opacity:0;animation:fade-up 0.7s var(--ease) 0.9s forwards}
 .hero-cta{
@@ -203,40 +201,7 @@ nav{
 @media(max-width:880px){.hero-ornament{max-width:280px;margin:0 auto}}
 
 /* ────────────────────────────────────────────────────────────────
-   MANIFESTO — poetic stanzas, oddělené ručně taženými dividery
-   ──────────────────────────────────────────────────────────────── */
-.manifesto{
-  position:relative;
-  padding:120px 36px 80px;
-  max-width:760px;
-  margin:0 auto;
-  text-align:center;
-}
-@media(max-width:680px){.manifesto{padding:80px 24px 60px}}
-
-.manifesto-eyebrow{margin-bottom:18px}
-.manifesto-title{
-  font-size:clamp(32px,4.2vw,52px);
-  line-height:1;
-  color:var(--ink);
-  margin-bottom:48px;
-  font-weight:500;
-  letter-spacing:-0.02em;
-}
-.stanzas{display:flex;flex-direction:column;gap:36px;align-items:center}
-.stanza{
-  font-size:clamp(19px,2.2vw,26px);
-  line-height:1.5;
-  color:var(--ink-soft);
-  max-width:540px;
-  font-weight:300;
-  letter-spacing:-0.005em;
-}
-.stanza b{font-weight:600;color:var(--ink)}
-.stanza-divider{margin:8px 0}
-
-/* ────────────────────────────────────────────────────────────────
-   HOW IT WORKS — 3 kroky, ručně držené číslování, organic titles
+   HOW IT WORKS — 3 kroky, číslování + popisky
    ──────────────────────────────────────────────────────────────── */
 .how{
   padding:100px 36px 120px;
@@ -399,9 +364,8 @@ footer .foot-tag{opacity:0.6}
   <div>
     <div class="hero-eyebrow eyebrow" data-i18n="hero.eyebrow">tetování · rezervace · inkoust co drží</div>
     <h1 class="hero-claim">
-      <span class="line" data-i18n="hero.line1">najdi svou skicu.</span>
-      <span class="line tilt" data-i18n="hero.line2">potkej svého tatéra.</span>
-      <span class="line" data-i18n="hero.line3">rezervuj v&nbsp;klidu.</span>
+      <span class="line" data-i18n="hero.line1">Prohlížej skicy,</span>
+      <span class="line" data-i18n="hero.line2">najdi tatéra.</span>
     </h1>
     <p class="hero-lede lede" data-i18n="hero.lede">
       Marketplace pro tetování v Česku. Vyber si skicu nebo objev tatéra podle stylu —
@@ -439,39 +403,6 @@ footer .foot-tag{opacity:0.6}
     </svg>
   </div>
 </header>
-
-<!-- ═══════════════════════════════════════════════════════════════
-     MANIFESTO — proč to děláme
-     ═══════════════════════════════════════════════════════════════ -->
-<section class="manifesto">
-  <div class="ink-blot" style="bottom:-40px;right:-60px;width:180px;height:180px;transform:rotate(22deg);opacity:0.04" aria-hidden="true">
-    <svg viewBox="0 0 200 200"><path d="M50 80 Q 80 40 130 50 Q 175 70 170 120 Q 155 165 105 165 Q 50 160 35 120 Q 30 95 50 80Z" fill="currentColor"/></svg>
-  </div>
-  <div class="manifesto-eyebrow eyebrow" data-i18n="manifesto.eyebrow">manifest</div>
-  <h2 class="manifesto-title" data-i18n="manifesto.title">proč InkLink</h2>
-  <div class="ink-rule"></div>
-
-  <div class="stanzas" data-reveal>
-    <p class="stanza" data-i18n-html="manifesto.s1">
-      Inkoust drží <b>navždy</b>.<br>Důvěra by měla taky.
-    </p>
-    <span class="ink-rule stanza-divider"></span>
-    <p class="stanza" data-i18n-html="manifesto.s2">
-      Tetování je rozhodnutí na celý život.<br>
-      Rezervace by neměla být <b>loterie</b>.
-    </p>
-    <span class="ink-rule stanza-divider"></span>
-    <p class="stanza" data-i18n-html="manifesto.s3">
-      Tatér si vydělá. Klient zaplatí jen jednou.<br>
-      Peníze čekají, dokud není <b>hotovo</b>.
-    </p>
-    <span class="ink-rule stanza-divider"></span>
-    <p class="stanza" data-i18n-html="manifesto.s4">
-      Žádné DM. Žádné zálohy v hotovosti.<br>
-      Žádný <b>stres</b>.
-    </p>
-  </div>
-</section>
 
 <!-- ═══════════════════════════════════════════════════════════════
      HOW IT WORKS — 3 kroky
