@@ -1,3 +1,12 @@
+/* ── Bristol — handwritten script font pro CTA tlačítka ──────────────────── */
+@font-face {
+  font-family: 'Bristol';
+  src: url('/fonts/Bristol.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ── Paper theme (off-white + ink) — NOVÝ DEFAULT pro redesign ───────────── */
 html[data-theme="paper"] {
   /* Pozadí: off-white papír s mírně teplým tónem */

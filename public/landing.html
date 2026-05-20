@@ -91,12 +91,20 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,2
 .lp-nav-links{display:flex;gap:28px;align-items:center}
 .lp-nav-link{font-size:11px;letter-spacing:0.16em;color:var(--tx-3);text-transform:uppercase;cursor:pointer;transition:color var(--t-fast)}
 .lp-nav-link:hover{color:var(--tx-1)}
-.lp-nav-cta{display:flex;gap:10px;align-items:center}
-.lp-btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;padding:11px 18px;border:1px solid var(--tx-1);background:transparent;color:var(--tx-1);cursor:pointer;transition:all var(--t-fast) var(--ease);display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-md);font-weight:500}
-.lp-btn:hover{background:var(--tx-1);color:var(--bg-1)}
-.lp-btn:active{transform:scale(0.97)}
-.lp-btn-primary{background:var(--tx-1);color:var(--bg-1);border-color:var(--tx-1)}
-.lp-btn-primary:hover{background:transparent;color:var(--tx-1)}
+.lp-nav-cta{display:flex;gap:22px;align-items:center}
+.lp-nav-cta .lp-btn{font-size:22px;padding:4px 2px}
+.lp-nav-cta .lp-btn-primary{font-size:24px}
+/* ── CTA tlačítka — Bristol script font, BEZ ohraničení (klik přímo na slovo) ── */
+.lp-btn{font-family:'Bristol','Caveat',cursive;font-size:24px;letter-spacing:0.01em;text-transform:none;padding:6px 4px;border:none;background:transparent;color:var(--tx-1);cursor:pointer;transition:transform var(--t-fast) var(--ease),opacity var(--t-fast);display:inline-flex;align-items:center;gap:8px;border-radius:0;font-weight:400;line-height:1;position:relative}
+.lp-btn:hover{transform:translateY(-1px)}
+.lp-btn:active{transform:scale(0.96)}
+/* Hover: ruční podtržení inkoustem */
+.lp-btn::after{content:'';position:absolute;left:6%;right:6%;bottom:-4px;height:6px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' preserveAspectRatio='none'><path d='M2 3 Q 50 1 100 3 T 198 3' fill='none' stroke='%230a0a0a' stroke-width='1.6' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-size:100% 100%;opacity:0;transform:scaleX(0.6);transform-origin:left;transition:opacity 0.25s var(--ease),transform 0.35s var(--ease)}
+.lp-btn:hover::after{opacity:1;transform:scaleX(1)}
+/* Primary CTA = stejné jako default Bristol, jen větší + tlustší */
+.lp-btn-primary{font-size:30px;font-weight:400;color:var(--tx-1);background:transparent;border:none;text-shadow:0 0 0 var(--tx-1)}
+.lp-btn-primary .icon{width:16px;height:16px}
+.lp-btn .icon{width:14px;height:14px;stroke-width:1.5}
 .lp-btn .icon{width:13px;height:13px}
 
 /* Language switcher — CS / EN pill */
@@ -110,7 +118,9 @@ nav.lp-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,2
   nav.lp-nav{padding:0 20px;gap:12px;height:60px}
   .lp-nav-links{display:none}
   .lp-logo{font-size:18px;letter-spacing:0.2em}
-  .lp-btn{padding:9px 14px;font-size:10px;letter-spacing:0.12em}
+  .lp-btn{padding:4px 2px;font-size:20px;letter-spacing:0}
+  .hero-cta .lp-btn{font-size:28px}
+  .hero-cta .lp-btn-primary{font-size:34px}
 }
 
 /* ============================================================
@@ -232,8 +242,11 @@ body.typo-b .hero-meta{font-family:'Caveat',cursive;font-size:16px;letter-spacin
 .hero h1 .ltr{display:inline-block;opacity:0;animation:letter-in 0.7s var(--ease) forwards;will-change:transform,opacity,filter}
 
 .hero-sub{font-size:16px;color:var(--tx-2);max-width:520px;margin-bottom:38px;letter-spacing:0.01em;line-height:1.7;font-weight:300;opacity:0;animation:fade-up 0.6s var(--ease) 0.9s forwards}
-.hero-cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:38px;opacity:0;animation:fade-up 0.6s var(--ease) 1.05s forwards}
-.hero-cta .lp-btn{padding:15px 24px;font-size:12px}
+.hero-cta{display:flex;gap:28px;flex-wrap:wrap;align-items:baseline;margin-bottom:38px;opacity:0;animation:fade-up 0.6s var(--ease) 1.05s forwards}
+.hero-cta .lp-btn{padding:6px 4px;font-size:34px}
+.hero-cta .lp-btn-primary{font-size:42px}
+.hero-cta .lp-btn .icon{width:18px;height:18px;stroke-width:1.5}
+.hero-cta .lp-btn-primary .icon{width:22px;height:22px}
 .hero-meta{font-size:11px;letter-spacing:0.14em;color:var(--tx-4);text-transform:uppercase;display:flex;gap:18px;flex-wrap:wrap;align-items:center;opacity:0;animation:fade-up 0.6s var(--ease) 1.2s forwards}
 .hero-meta .dot{width:3px;height:3px;border-radius:50%;background:var(--tx-4)}
 
@@ -370,7 +383,7 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 .price-card ul{list-style:none;display:flex;flex-direction:column;gap:10px}
 .price-card ul li{padding-left:24px;position:relative;font-size:13px;color:var(--tx-2);line-height:1.5}
 .price-card ul li::before{content:'';position:absolute;left:0;top:7px;width:11px;height:6px;border-left:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);transform:rotate(-45deg)}
-.price-card .lp-btn{align-self:flex-start;margin-top:auto;padding:12px 22px}
+.price-card .lp-btn{align-self:flex-start;margin-top:auto;padding:6px 4px;font-size:26px}
 
 /* ============================================================
    TESTIMONIALS
@@ -404,11 +417,12 @@ section{padding:120px 32px;border-top:1px solid var(--bd-1);position:relative}
 /* ============================================================
    FINAL CTA — animated gradient
    ============================================================ */
-.final{text-align:center;padding:140px 32px;background:linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);position:relative;overflow:hidden}
+.final{text-align:center;padding:140px 32px;background:var(--bg-1);position:relative;overflow:hidden}
 .final::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 50% 0%, rgba(10,10,10,0.04), transparent 50%);pointer-events:none}
-.final h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px, 10vw, 150px);line-height:0.92;letter-spacing:0.01em;color:var(--tx-1);margin-bottom:24px;font-weight:400;background:linear-gradient(180deg,var(--tx-1) 30%,var(--tx-3) 110%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;position:relative;z-index:1}
+.final h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px, 10vw, 150px);line-height:0.92;letter-spacing:0.01em;color:var(--tx-1);margin-bottom:24px;font-weight:400;position:relative;z-index:1}
 .final p{font-size:16px;color:var(--tx-2);max-width:580px;margin:0 auto 38px;line-height:1.7;letter-spacing:0.01em;position:relative;z-index:1}
-.final .lp-btn{padding:16px 28px;font-size:12px;position:relative;z-index:1}
+.final .lp-btn{padding:6px 4px;font-size:32px;position:relative;z-index:1}
+.final .lp-btn-primary{font-size:40px}
 
 /* ============================================================
    FOOTER
