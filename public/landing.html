@@ -19,13 +19,34 @@
 <meta property="og:image" content="https://www.inklink.club/img/inklink-logo.jpg">
 <meta name="twitter:card" content="summary_large_image">
 
-<!-- Bristol font (zaregistrován v theme.css), Cormorant Garamond pro body -->
+<!-- Bristol font (zaregistrován v theme.css) + všichni kandidáti pro instant switch ze style-guide -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,300;1,400;1,500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,400;1,500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 
 <!-- Force paper theme — ignoruj uložené dark v localStorage -->
-<script>document.documentElement.dataset.theme='paper';</script>
+<script>
+  document.documentElement.dataset.theme='paper';
+  // Font preference (vybráno na /style-guide) — aplikuje se přes CSS proměnnou
+  (function(){
+    const FONTS = {
+      cormorant: { stack: "'Cormorant Garamond','Iowan Old Style','Charter','Georgia',serif", weight: 400, ledeWeight: 400, ledeItalic: 1, headWeight: 500 },
+      fraunces:  { stack: "'Fraunces','Iowan Old Style','Charter','Georgia',serif",            weight: 400, ledeWeight: 400, ledeItalic: 1, headWeight: 600 },
+      playfair:  { stack: "'Playfair Display','Iowan Old Style','Charter','Georgia',serif",    weight: 500, ledeWeight: 400, ledeItalic: 1, headWeight: 700 },
+      garamond:  { stack: "'EB Garamond','Iowan Old Style','Charter','Georgia',serif",         weight: 400, ledeWeight: 400, ledeItalic: 1, headWeight: 500 },
+      inter:     { stack: "'Inter',system-ui,sans-serif",                                       weight: 400, ledeWeight: 300, ledeItalic: 1, headWeight: 600 },
+    };
+    let pick = 'cormorant';
+    try { pick = localStorage.getItem('il_landing_font') || 'cormorant'; } catch(e) {}
+    const f = FONTS[pick] || FONTS.cormorant;
+    document.documentElement.style.setProperty('--font-body', f.stack);
+    document.documentElement.style.setProperty('--body-weight', f.weight);
+    document.documentElement.style.setProperty('--lede-weight', f.ledeWeight);
+    document.documentElement.style.setProperty('--lede-italic', f.ledeItalic ? 'italic' : 'normal');
+    document.documentElement.style.setProperty('--head-weight', f.headWeight);
+    document.documentElement.dataset.font = pick;
+  })();
+</script>
 <link rel="stylesheet" href="/theme.css">
 
 <style>
@@ -48,13 +69,16 @@ html,body{
   background-image:var(--paper-grain);
   background-size:240px 240px;
   color:var(--ink);
-  font-family:'Cormorant Garamond','Iowan Old Style','Charter','Georgia',serif;
+  font-family:var(--font-body,'Cormorant Garamond','Iowan Old Style','Charter','Georgia',serif);
   font-size:18px;
-  font-weight:400;
+  font-weight:var(--body-weight,400);
   line-height:1.55;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
 }
+/* Sans variant (Inter) potřebuje menší letterspacing a vyšší legibility */
+html[data-font="inter"] body{letter-spacing:-0.005em;font-size:17px}
+html[data-font="playfair"] body{font-size:17px}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
 ::selection{background:var(--ink);color:var(--paper)}
@@ -65,8 +89,12 @@ img{max-width:100%;display:block}
 .bristol{font-family:'Bristol','Caveat','Brush Script MT',cursive;font-weight:400;letter-spacing:0.01em;line-height:1}
 .italic{font-style:italic;font-weight:400}
 .eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-muted);font-weight:400}
-.lede{font-style:italic;font-size:22px;line-height:1.55;color:var(--ink-soft);max-width:560px;font-weight:400}
+.lede{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-size:22px;line-height:1.55;color:var(--ink-soft);max-width:560px;font-weight:var(--lede-weight,400)}
 @media(max-width:680px){.lede{font-size:18px}}
+/* Stanza + step body používají body font + lede styling */
+.stanza{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-weight:var(--lede-weight,400)}
+.step p{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-weight:var(--lede-weight,400)}
+.final-lede{font-family:var(--font-body);font-style:var(--lede-italic,italic);font-weight:var(--lede-weight,400)}
 
 /* ────────────────────────────────────────────────────────────────
    INKOUSTOVÉ ORNAMENTY
