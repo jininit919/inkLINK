@@ -757,6 +757,100 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_native_push_user ON native_push_tokens(user_id)')
 
+    # ── Pricing module — founding flags + account credits ──────────────────
+    # See pricing/config.py for rate definitions. These columns store the
+    # PER-USER status that pricing.calculate_booking_economics() reads.
+    add_col('users', 'founding_artist INTEGER DEFAULT 0')
+    add_col('users', 'founding_client INTEGER DEFAULT 0')
+    add_col('users', 'founding_artist_started_at TEXT DEFAULT NULL')
+    # Account credit accumulated from referrals (haler). Spent on future
+    # bookings as if it were a discount. Refilled when referrer's referred
+    # client completes their first booking.
+    add_col('users', 'account_credit_cents INTEGER DEFAULT 0')
+
+    # ── economics_snapshots — immutable per-booking ledger entry ───────────
+    # Created at PaymentIntent creation. NEVER updated — refunds/disputes
+    # create NEW rows linked to the same booking. Critical for audit trail.
+    c.execute('''CREATE TABLE IF NOT EXISTS economics_snapshots (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id   INTEGER NOT NULL,
+        kind         TEXT NOT NULL,        -- 'initial' | 'refund' | 'adjust'
+        snapshot     TEXT NOT NULL,        -- JSON of Economics dict
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_econ_snap_booking ON economics_snapshots(booking_id)')
+
+    # ── Stripe webhook idempotency ─────────────────────────────────────────
+    # Stripe retries webhooks aggressively. Insert event_id BEFORE processing.
+    # If insert fails (duplicate PK), return 200 OK and skip. Without this,
+    # the same payment_intent.succeeded can credit the booking twice.
+    c.execute('''CREATE TABLE IF NOT EXISTS processed_stripe_events (
+        event_id     TEXT PRIMARY KEY,
+        event_type   TEXT NOT NULL,
+        processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # ── Referrals — referrer ↔ referred client mapping ─────────────────────
+    # The referrer's bonus credit is granted only when the referred client
+    # completes their first booking — not at signup.
+    c.execute('''CREATE TABLE IF NOT EXISTS referrals (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        referrer_user_id   INTEGER NOT NULL,
+        referred_user_id   INTEGER NOT NULL UNIQUE,
+        code               TEXT,
+        credit_granted_at  TIMESTAMP DEFAULT NULL,
+        created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (referrer_user_id) REFERENCES users(id),
+        FOREIGN KEY (referred_user_id) REFERENCES users(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_user_id)')
+
+    # ── Discount codes (general purpose, admin-issued MANUAL_PROMO + system) ──
+    # WELCOME / REFERRAL are NOT rows here — they're code paths in the
+    # engine. This table is for explicit one-off codes (e.g. SPRING25).
+    c.execute('''CREATE TABLE IF NOT EXISTS discount_codes (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        code           TEXT NOT NULL UNIQUE,
+        kind           TEXT NOT NULL,     -- 'MANUAL_PROMO'
+        amount_czk     INTEGER NOT NULL,
+        max_uses       INTEGER DEFAULT NULL,    -- NULL = unlimited
+        used_count     INTEGER DEFAULT 0,
+        expires_at     TEXT DEFAULT NULL,
+        active         INTEGER DEFAULT 1,
+        created_by     INTEGER,
+        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+    )''')
+
+    # ── Discount redemptions — per-user usage tracking ─────────────────────
+    # Stores "user X used code Y on booking Z" so we can enforce
+    # "WELCOME once per client" and audit promo cost.
+    c.execute('''CREATE TABLE IF NOT EXISTS discount_redemptions (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id         INTEGER NOT NULL,
+        booking_id      INTEGER NOT NULL,
+        discount_type   TEXT NOT NULL,        -- 'WELCOME' | 'REFERRAL' | 'MANUAL_PROMO'
+        discount_code   TEXT DEFAULT NULL,    -- FK-like, only for MANUAL_PROMO
+        amount_czk      INTEGER NOT NULL,
+        redeemed_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id)    REFERENCES users(id),
+        FOREIGN KEY (booking_id) REFERENCES bookings(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_disc_red_user ON discount_redemptions(user_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_disc_red_booking ON discount_redemptions(booking_id)')
+
+    # ── Telemetry events — business events with JSON payloads ──────────────
+    # Powers the net-take-rate dashboard. NOT for errors (we have logs).
+    c.execute('''CREATE TABLE IF NOT EXISTS telemetry_events (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_name   TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_telemetry_name ON telemetry_events(event_name)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_telemetry_time ON telemetry_events(created_at)')
+
     conn.commit()
     conn.close()
 
