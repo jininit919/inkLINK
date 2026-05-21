@@ -2513,6 +2513,30 @@ def update_profile():
     return jsonify({'ok': True})
 
 
+@app.route('/api/profile/avatar', methods=['POST'])
+@limiter.limit('20 per hour')
+def update_avatar_only():
+    """Upload pouze avatar — bez nutnosti vyplnit zbytek profilu.
+    Použito z profile.html (klik na vlastní avatar → file picker)."""
+    err = require_login()
+    if err: return err
+    f = request.files.get('avatar')
+    if not f or not f.filename:
+        return jsonify({'error': 'No file'}), 400
+    ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower()
+    if ext not in ('jpg', 'jpeg', 'png', 'webp'):
+        return jsonify({'error': 'Unsupported format'}), 400
+    if not allowed_image(f):
+        return jsonify({'error': 'Not a valid image'}), 400
+    name = f'avatar_{session["user_id"]}_{int(time.time())}.{ext}'
+    save_upload(f, name)
+    conn = get_db()
+    conn.execute('UPDATE users SET avatar=? WHERE id=?', (name, session['user_id']))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'avatar': name, 'avatar_url': f'/uploads/{name}'})
+
+
 # ── InkLink: artist setup, portfolio, slots ───────────────────────────────────
 
 def _slugify(s: str) -> str:

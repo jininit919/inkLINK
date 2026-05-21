@@ -43,8 +43,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .wrap{max-width:960px;margin:0 auto;padding:100px 24px 80px}
 
 .head{display:flex;gap:24px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:24px}
-.avatar{width:120px;height:120px;border-radius:50%;background:var(--bg4);border:2px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:42px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.avatar{width:120px;height:120px;border-radius:50%;background:var(--bg4);border:2px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:42px;color:var(--red2);overflow:hidden;flex-shrink:0;position:relative}
 .avatar img{width:100%;height:100%;object-fit:cover}
+/* Klikatelný avatar (vlastní profil) — hover overlay s kamerou */
+.avatar.avatar-editable{cursor:pointer;transition:border-color 0.2s,transform 0.2s}
+.avatar.avatar-editable:hover{border-color:var(--txt);transform:scale(1.02)}
+.avatar.avatar-editable::after{
+  content:'';
+  position:absolute;inset:0;
+  border-radius:50%;
+  background:rgba(20,16,8,0.45) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%23faf8f3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z'/><circle cx='12' cy='13' r='3.5'/></svg>") center/32px no-repeat;
+  opacity:0;transition:opacity 0.2s var(--ease);
+  pointer-events:none;
+}
+.avatar.avatar-editable:hover::after{opacity:1}
+.avatar.avatar-editable.uploading::after{opacity:1;background:rgba(20,16,8,0.6)}
 .head-info{flex:1;min-width:0}
 .dname{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:36px;letter-spacing:0.05em;line-height:1.1}
 .uname{color:var(--txt3);font-size:13px;letter-spacing:0.06em;margin-top:4px}
@@ -203,6 +216,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   <div id="profile" style="display:none">
     <div class="head">
       <div class="avatar" id="avatar">??</div>
+      <input type="file" id="avatarUploadInput" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadAvatar(event)">
       <div class="head-info">
         <div class="dname" id="dname"></div>
         <div class="uname"><span id="uname"></span><span class="badge" id="artistBadge" style="display:none">ARTIST</span></div>
@@ -407,8 +421,16 @@ function render() {
   // Recenze tab visibility — jen pro artisty (jinak nemají bookings)
   if (!profile.is_artist) document.getElementById('reviewsTab').style.display = 'none';
 
-  if (profile.avatar_url) document.getElementById('avatar').innerHTML = `<img src="${escapeHtml(profile.avatar_url)}" alt="">`;
-  else document.getElementById('avatar').textContent = profile.initials || '?';
+  const avatarEl = document.getElementById('avatar');
+  if (profile.avatar_url) avatarEl.innerHTML = `<img src="${escapeHtml(profile.avatar_url)}" alt="">`;
+  else avatarEl.textContent = profile.initials || '?';
+
+  // Vlastní avatar: klik → upload nové fotky bez nutnosti edit profilu
+  if (profile.is_own) {
+    avatarEl.classList.add('avatar-editable');
+    avatarEl.title = 'Změnit profilovku';
+    avatarEl.onclick = () => document.getElementById('avatarUploadInput').click();
+  }
 
   if (profile.city) { document.getElementById('city').textContent = profile.city; document.getElementById('cityRow').style.display = 'inline'; }
   if (profile.studio_link) {
@@ -657,6 +679,28 @@ async function reportReview(rid, btn) {
   } catch {
     btn.disabled = false;
     alert('Síťová chyba.');
+  }
+}
+
+async function uploadAvatar(ev) {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  if (f.size > 8 * 1024 * 1024) { alert('Soubor je moc velký (max 8 MB)'); return; }
+  const avatarEl = document.getElementById('avatar');
+  avatarEl.classList.add('uploading');
+  const fd = new FormData();
+  fd.append('avatar', f);
+  try {
+    const r = await fetch('/api/profile/avatar', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error || 'Nahrávání selhalo'); return; }
+    // Cache-bust pomocí query string
+    avatarEl.innerHTML = `<img src="${d.avatar_url}?t=${Date.now()}" alt="">`;
+  } catch (e) {
+    alert('Síťová chyba — zkus to znovu');
+  } finally {
+    avatarEl.classList.remove('uploading');
+    ev.target.value = ''; // reset, ať jde nahrát stejný soubor znovu
   }
 }
 
