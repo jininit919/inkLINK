@@ -3631,6 +3631,317 @@ def my_earnings():
 
 
 # ── Admin API ────────────────────────────────────────────────────────────────
+# ── Discount apply / preview API ──────────────────────────────────────────
+# Volá frontend při booking checkout: "co když applikuju kód WELCOME?".
+# Vrátí buď success s konečnou částkou, nebo error_code z pricing.discounts.
+# Žádná DB mutace — jen validation.
+
+@app.route('/api/discounts/preview', methods=['POST'])
+@limiter.limit('60 per hour')
+def discount_preview():
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip().upper()
+    try:
+        gross_czk = float(data.get('gross_price_czk') or 0)
+        artist_id = int(data.get('artist_id') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'gross_price_czk and artist_id required'}), 400
+    if gross_czk <= 0 or not artist_id:
+        return jsonify({'error': 'gross_price_czk and artist_id required'}), 400
+
+    try:
+        from pricing import (
+            BookingInput, DiscountInput, validate_discount,
+            WELCOME_DISCOUNT_CZK, REFERRAL_BONUS_CZK,
+        )
+        from decimal import Decimal as _Dec
+    except Exception as e:
+        return jsonify({'error': f'pricing load failed: {e}'}), 500
+
+    conn = get_db()
+    me = conn.execute('SELECT id, founding_client, created_at FROM users WHERE id = ?',
+                      (session['user_id'],)).fetchone()
+    artist = conn.execute('SELECT founding_artist, founding_artist_started_at FROM users WHERE id = ?',
+                          (artist_id,)).fetchone()
+    if not me or not artist:
+        conn.close()
+        return jsonify({'error': 'user/artist not found'}), 404
+
+    # Identify discount type from code
+    discount_type = None
+    discount_amount = _Dec('0')
+    discount_code_row = None
+    if code == 'WELCOME':
+        discount_type = 'WELCOME'
+        discount_amount = WELCOME_DISCOUNT_CZK
+    elif code == 'REFERRAL':
+        discount_type = 'REFERRAL'
+        discount_amount = REFERRAL_BONUS_CZK
+    else:
+        # MANUAL_PROMO — look up in discount_codes table
+        discount_code_row = conn.execute(
+            'SELECT * FROM discount_codes WHERE code = ? AND active = 1',
+            (code,)
+        ).fetchone()
+        if not discount_code_row:
+            conn.close()
+            return jsonify({'valid': False, 'error_code': 'UNKNOWN_CODE',
+                            'message': 'Discount code not found'}), 200
+        # Check expiration & max_uses
+        if discount_code_row['expires_at']:
+            try:
+                if datetime.fromisoformat(discount_code_row['expires_at']) < datetime.utcnow():
+                    conn.close()
+                    return jsonify({'valid': False, 'error_code': 'EXPIRED',
+                                    'message': 'Discount code expired'}), 200
+            except Exception:
+                pass
+        if discount_code_row['max_uses'] and discount_code_row['used_count'] >= discount_code_row['max_uses']:
+            conn.close()
+            return jsonify({'valid': False, 'error_code': 'EXHAUSTED',
+                            'message': 'Discount code limit reached'}), 200
+        discount_type = 'MANUAL_PROMO'
+        discount_amount = _Dec(str(discount_code_row['amount_czk']))
+
+    # Has user used this code before?
+    used_before_row = conn.execute(
+        'SELECT 1 FROM discount_redemptions WHERE user_id = ? AND discount_type = ? AND (discount_code = ? OR discount_code IS NULL)',
+        (session['user_id'], discount_type, code if discount_type == 'MANUAL_PROMO' else None)
+    ).fetchone()
+    has_used = bool(used_before_row)
+
+    # First booking check (for WELCOME eligibility)
+    is_new_client = True
+    if discount_type == 'WELCOME':
+        any_booking = conn.execute(
+            "SELECT 1 FROM bookings WHERE client_id = ? AND status IN ('confirmed','completed','paid')",
+            (session['user_id'],)
+        ).fetchone()
+        is_new_client = not bool(any_booking)
+
+    started_dt = None
+    if artist['founding_artist'] and artist['founding_artist_started_at']:
+        try:
+            started_dt = datetime.fromisoformat(artist['founding_artist_started_at'])
+        except Exception:
+            pass
+
+    booking_input = BookingInput(
+        gross_price_czk            = _Dec(str(gross_czk)),
+        artist_founding_started_at = started_dt,
+        client_founding            = bool(me['founding_client']),
+    )
+    d_input = DiscountInput(
+        discount_type        = discount_type,
+        discount_amount_czk  = discount_amount,
+        booking_input        = booking_input,
+        client_is_new        = is_new_client,
+        client_has_used_code = has_used,
+    )
+    result = validate_discount(d_input)
+    conn.close()
+
+    return jsonify({
+        'valid': result.valid,
+        'error_code': result.error_code,
+        'message': result.message,
+        'discount_type': discount_type,
+        'amount_czk': float(discount_amount),
+        'code': code,
+    })
+
+
+# ── Admin: MANUAL_PROMO discount codes ────────────────────────────────────
+
+@app.route('/api/admin/discount-codes', methods=['GET'])
+def admin_list_discount_codes():
+    err = require_admin()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT * FROM discount_codes ORDER BY created_at DESC LIMIT 200'
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/admin/discount-codes', methods=['POST'])
+def admin_create_discount_code():
+    err = require_admin()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip().upper()
+    try:
+        amount_czk = int(data.get('amount_czk') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'amount_czk required'}), 400
+    if not code or amount_czk <= 0:
+        return jsonify({'error': 'code + amount_czk required'}), 400
+    if code in ('WELCOME', 'REFERRAL'):
+        return jsonify({'error': 'WELCOME and REFERRAL are reserved'}), 400
+
+    max_uses   = data.get('max_uses')   # nullable
+    expires_at = data.get('expires_at') # nullable ISO
+
+    conn = get_db()
+    try:
+        conn.execute(
+            '''INSERT INTO discount_codes (code, kind, amount_czk, max_uses, expires_at, created_by)
+               VALUES (?, 'MANUAL_PROMO', ?, ?, ?, ?)''',
+            (code, amount_czk, max_uses, expires_at, session['user_id'])
+        )
+        conn.commit()
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f'Code already exists or DB error: {e}'}), 400
+    conn.close()
+    return jsonify({'ok': True, 'code': code, 'amount_czk': amount_czk})
+
+
+@app.route('/api/admin/discount-codes/<int:code_id>', methods=['PATCH'])
+def admin_update_discount_code(code_id):
+    err = require_admin()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    sets, vals = [], []
+    if 'active' in data:
+        sets.append('active = ?')
+        vals.append(1 if data['active'] else 0)
+    if 'max_uses' in data:
+        sets.append('max_uses = ?')
+        vals.append(data['max_uses'])
+    if 'expires_at' in data:
+        sets.append('expires_at = ?')
+        vals.append(data['expires_at'])
+    if not sets:
+        return jsonify({'error': 'nothing to update'}), 400
+    vals.append(code_id)
+    conn = get_db()
+    conn.execute(f'UPDATE discount_codes SET {", ".join(sets)} WHERE id = ?', vals)
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+# ── Reconciliation cron ───────────────────────────────────────────────────
+# Daily job: porovnává sum(client_pays_total) na completed bookings za včerejšek
+# s Stripe balance transactions. Diff > 10 CZK = warning v logu (admin
+# vidí v telemetry events).
+# Trigger from Railway cron: GET /api/cron/reconcile?token=<RECONCILE_TOKEN>
+RECONCILE_TOKEN = os.environ.get('RECONCILE_TOKEN', '')
+
+@app.route('/api/cron/reconcile', methods=['GET', 'POST'])
+@limiter.limit('30 per hour')
+def cron_reconcile():
+    token = request.args.get('token', '') or request.headers.get('X-Cron-Token', '')
+    if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
+        return jsonify({'error': 'forbidden'}), 403
+
+    # Yesterday's range (UTC)
+    end   = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    start = end - timedelta(days=1)
+
+    conn = get_db()
+    # Internal: sum of client_pays_total z economics_snapshots completed bookings
+    rows = conn.execute('''
+        SELECT es.snapshot FROM bookings b
+        JOIN economics_snapshots es ON es.booking_id = b.id
+        WHERE b.status = 'completed'
+          AND b.completed_at >= ? AND b.completed_at < ?
+          AND es.kind = 'initial'
+    ''', (start.isoformat(), end.isoformat())).fetchall()
+    import json as _j
+    internal_total_czk = 0.0
+    for r in rows:
+        try:
+            s = _j.loads(r['snapshot'])
+            internal_total_czk += float(s.get('client_pays_total', 0))
+        except Exception:
+            pass
+
+    # Stripe side: balance transactions for the same window
+    stripe_total_czk = None
+    if STRIPE_SECRET_KEY:
+        try:
+            txns = stripe.BalanceTransaction.list(
+                created={'gte': int(start.timestamp()), 'lt': int(end.timestamp())},
+                type='charge',
+                limit=100,
+            )
+            stripe_total_haler = sum(t.amount for t in txns.auto_paging_iter())
+            stripe_total_czk = stripe_total_haler / 100.0
+        except Exception as e:
+            print(f'[reconcile] Stripe API error: {e}')
+
+    diff = None
+    if stripe_total_czk is not None:
+        diff = abs(internal_total_czk - stripe_total_czk)
+
+    try:
+        from pricing import emit_event
+        emit_event('reconciliation.completed', {
+            'window_start': start.isoformat(),
+            'window_end': end.isoformat(),
+            'internal_total_czk': internal_total_czk,
+            'stripe_total_czk': stripe_total_czk,
+            'diff_czk': diff,
+            'warning': bool(diff is not None and diff > 10),
+        }, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+    conn.close()
+
+    return jsonify({
+        'window': {'start': start.isoformat(), 'end': end.isoformat()},
+        'internal_total_czk': internal_total_czk,
+        'stripe_total_czk': stripe_total_czk,
+        'diff_czk': diff,
+        'reconciled': diff is None or diff <= 10,
+    })
+
+
+# ── Admin telemetry events feed ───────────────────────────────────────────
+
+@app.route('/api/admin/telemetry')
+def admin_telemetry():
+    err = require_admin()
+    if err: return err
+    event_name = request.args.get('event_name') or None
+    try:
+        limit = min(int(request.args.get('limit') or 100), 500)
+    except (TypeError, ValueError):
+        limit = 100
+    conn = get_db()
+    if event_name:
+        rows = conn.execute(
+            'SELECT id, event_name, payload_json, created_at FROM telemetry_events WHERE event_name = ? ORDER BY id DESC LIMIT ?',
+            (event_name, limit)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            'SELECT id, event_name, payload_json, created_at FROM telemetry_events ORDER BY id DESC LIMIT ?',
+            (limit,)
+        ).fetchall()
+    conn.close()
+    import json as _j
+    out = []
+    for r in rows:
+        try:
+            payload = _j.loads(r['payload_json'])
+        except Exception:
+            payload = {}
+        out.append({
+            'id': r['id'],
+            'event_name': r['event_name'],
+            'payload': payload,
+            'created_at': r['created_at'],
+        })
+    return jsonify(out)
+
+
 @app.route('/api/admin/kpis')
 def admin_kpis_endpoint():
     """Net-take-rate dashboard KPI query. Filters: ?start=ISO&end=ISO&city=&tier=
@@ -4212,11 +4523,14 @@ def create_booking():
     # + founding programs + (validated) discount. Both compute platform_fee_cents
     # in haler so downstream Stripe code is identical.
     economics_snapshot = None
+    discount_applied = None  # {type, amount_czk, code} pokud success
     use_new_engine = os.environ.get('USE_NEW_PRICING_ENGINE', '0') == '1'
     if use_new_engine:
         try:
             from pricing import (
-                BookingInput, calculate_booking_economics, emit_event,
+                BookingInput, DiscountInput, calculate_booking_economics,
+                validate_discount, emit_event,
+                WELCOME_DISCOUNT_CZK, REFERRAL_BONUS_CZK,
             )
             from decimal import Decimal as _Dec
             # Load founding flags for both sides
@@ -4236,13 +4550,72 @@ def create_booking():
                     started_dt = datetime.fromisoformat(started_iso)
                 except Exception:
                     started_dt = None
+
+            # Discount handling — kód v request body, optional
+            discount_code = (data.get('discount_code') or '').strip().upper() if hasattr(data, 'get') else ''
+            d_type, d_amount = None, _Dec('0')
+            if discount_code == 'WELCOME':
+                d_type, d_amount = 'WELCOME', WELCOME_DISCOUNT_CZK
+            elif discount_code == 'REFERRAL':
+                d_type, d_amount = 'REFERRAL', REFERRAL_BONUS_CZK
+            elif discount_code:
+                dc = conn.execute(
+                    'SELECT * FROM discount_codes WHERE code = ? AND active = 1',
+                    (discount_code,)
+                ).fetchone()
+                if dc and (not dc['max_uses'] or dc['used_count'] < dc['max_uses']):
+                    d_type, d_amount = 'MANUAL_PROMO', _Dec(str(dc['amount_czk']))
+
+            econ_input_base = BookingInput(
+                gross_price_czk            = _Dec(str(total_price)),
+                artist_founding_started_at = started_dt,
+                client_founding            = bool(client_full and client_full['founding_client']),
+                discount_amount_czk        = _Dec('0'),
+                discount_source            = '',
+                stripe_card_type           = 'card_eea',  # re-snapshot post-payment with actual
+            )
+
+            # Validate discount if user requested one
+            if d_type:
+                is_new = not bool(conn.execute(
+                    "SELECT 1 FROM bookings WHERE client_id = ? AND status IN ('confirmed','completed','paid')",
+                    (session['user_id'],)
+                ).fetchone()) if d_type == 'WELCOME' else True
+                used_before = bool(conn.execute(
+                    'SELECT 1 FROM discount_redemptions WHERE user_id = ? AND discount_type = ? AND (discount_code = ? OR discount_code IS NULL)',
+                    (session['user_id'], d_type, discount_code if d_type == 'MANUAL_PROMO' else None)
+                ).fetchone())
+                d_validation = validate_discount(DiscountInput(
+                    discount_type        = d_type,
+                    discount_amount_czk  = d_amount,
+                    booking_input        = econ_input_base,
+                    client_is_new        = is_new,
+                    client_has_used_code = used_before,
+                ))
+                if d_validation.valid:
+                    discount_applied = {'type': d_type, 'amount_czk': float(d_amount), 'code': discount_code}
+                else:
+                    # Discount nepasuje — booking pokračuje BEZ discount, ale
+                    # emit event aby admin viděl.
+                    try:
+                        emit_event('discount.rejected', {
+                            'user_id': session['user_id'],
+                            'code': discount_code,
+                            'error_code': d_validation.error_code,
+                            'message': d_validation.message,
+                        }, conn=conn)
+                        conn.commit()
+                    except Exception:
+                        pass
+
+            # Final economics with (validated) discount
             econ_input = BookingInput(
                 gross_price_czk            = _Dec(str(total_price)),
                 artist_founding_started_at = started_dt,
                 client_founding            = bool(client_full and client_full['founding_client']),
-                discount_amount_czk        = _Dec('0'),  # discount UI/integration in Fáze C
-                discount_source            = '',
-                stripe_card_type           = 'card_eea',  # re-snapshot post-payment with actual
+                discount_amount_czk        = d_amount if discount_applied else _Dec('0'),
+                discount_source            = d_type if discount_applied else '',
+                stripe_card_type           = 'card_eea',
             )
             econ = calculate_booking_economics(econ_input)
             # platform_fee_cents = commission v haler (z deposit ratio,
@@ -4310,6 +4683,31 @@ def create_booking():
                 'booking_id': bid, 'snapshot': economics_snapshot,
             }, conn=conn)
             conn.commit()
+
+            # Record discount redemption (per-user audit trail + max_uses tracking)
+            if discount_applied:
+                try:
+                    conn.execute(
+                        '''INSERT INTO discount_redemptions
+                           (user_id, booking_id, discount_type, discount_code, amount_czk)
+                           VALUES (?, ?, ?, ?, ?)''',
+                        (session['user_id'], bid, discount_applied['type'],
+                         discount_applied['code'] if discount_applied['type'] == 'MANUAL_PROMO' else None,
+                         int(discount_applied['amount_czk']))
+                    )
+                    if discount_applied['type'] == 'MANUAL_PROMO':
+                        conn.execute(
+                            'UPDATE discount_codes SET used_count = used_count + 1 WHERE code = ?',
+                            (discount_applied['code'],)
+                        )
+                    conn.commit()
+                    _emit_econ('discount.applied', {
+                        'user_id': session['user_id'], 'booking_id': bid,
+                        **discount_applied,
+                    }, conn=conn)
+                    conn.commit()
+                except Exception as _de:
+                    print(f'[discount-redemption] {_de}')
         except Exception as e:
             print(f'[economics-snapshot] persist failed for booking {bid}: {e}')
 

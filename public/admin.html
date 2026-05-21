@@ -107,6 +107,46 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       </div>
       <div id="reportsList"></div>
     </div>
+
+    <!-- ── Pricing engine KPI dashboard ───────────────────────────────── -->
+    <div class="section" id="pricingSection">
+      <div class="section-title">
+        Pricing engine — KPIs
+        <span class="sub" id="kpiRangeLabel">posledních 30 dní</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
+        <label>Od <input type="date" id="kpiStart" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px"></label>
+        <label>Do <input type="date" id="kpiEnd" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px"></label>
+        <label>Tier
+          <select id="kpiTier" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px">
+            <option value="">vše</option>
+            <option value="founding">founding</option>
+            <option value="standard">standard</option>
+          </select>
+        </label>
+        <button onclick="loadKpis()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">Načíst</button>
+      </div>
+      <div class="kpi-grid" id="kpiPricingGrid"></div>
+    </div>
+
+    <!-- ── Discount codes (MANUAL_PROMO) ──────────────────────────────── -->
+    <div class="section">
+      <div class="section-title">Discount kódy (MANUAL_PROMO)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
+        <input type="text" id="newCode" placeholder="KÓD (např. SPRING25)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;text-transform:uppercase">
+        <input type="number" id="newAmount" placeholder="Kč" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:90px">
+        <input type="number" id="newMaxUses" placeholder="max použití" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:120px">
+        <input type="date" id="newExpires" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px">
+        <button onclick="createCode()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">+ Vytvořit</button>
+      </div>
+      <div class="tbl" id="discountCodesList"></div>
+    </div>
+
+    <!-- ── Telemetry events feed ──────────────────────────────────────── -->
+    <div class="section">
+      <div class="section-title">Telemetry events <span class="sub">posledních 50</span></div>
+      <div class="tbl" id="telemetryFeed"></div>
+    </div>
   </div>
 
   <div id="needAdmin" style="display:none">
@@ -219,8 +259,136 @@ async function init() {
     `).join('');
   }
 
-  // Reports
+  // Reports + Pricing
   loadReports();
+  loadKpis();
+  loadCodes();
+  loadTelemetry();
+}
+
+// ── Pricing KPIs ────────────────────────────────────────────────────────
+async function loadKpis(){
+  const tier  = document.getElementById('kpiTier').value;
+  const start = document.getElementById('kpiStart').value;
+  const end   = document.getElementById('kpiEnd').value;
+  let url = '/api/admin/kpis';
+  const params = new URLSearchParams();
+  if (tier)  params.set('tier', tier);
+  if (start) params.set('start', start + 'T00:00:00');
+  if (end)   params.set('end',   end   + 'T23:59:59');
+  if ([...params].length) url += '?' + params.toString();
+  let data;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (e) {
+    document.getElementById('kpiPricingGrid').innerHTML = `<div class="il-error-banner">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  const fmt = n => (n||0).toLocaleString('cs-CZ', {maximumFractionDigits:0});
+  const pct = n => ((n||0)*100).toFixed(2) + ' %';
+  document.getElementById('kpiPricingGrid').innerHTML = `
+    <div class="kpi"><div class="kpi-label">GMV (gross)</div><div class="kpi-value">${fmt(data.gross_gmv_czk)} Kč</div><div class="kpi-sub">${data.completed_count} bookings</div></div>
+    <div class="kpi"><div class="kpi-label">Net revenue</div><div class="kpi-value">${fmt(data.net_revenue_czk)} Kč</div><div class="kpi-sub">po refundech</div></div>
+    <div class="kpi"><div class="kpi-label">Take rate</div><div class="kpi-value">${pct(data.net_take_rate)}</div><div class="kpi-sub">net / GMV</div></div>
+    <div class="kpi"><div class="kpi-label">Discount cost</div><div class="kpi-value">${fmt(data.discount_cost_czk)} Kč</div><div class="kpi-sub">vyplaceno z naší komise</div></div>
+    <div class="kpi"><div class="kpi-label">Stripe cost</div><div class="kpi-value">${fmt(data.stripe_cost_czk)} Kč</div><div class="kpi-sub">poplatky Stripu</div></div>
+    <div class="kpi"><div class="kpi-label">Avg booking</div><div class="kpi-value">${fmt(data.avg_gross_price_czk)} Kč</div><div class="kpi-sub">průměrná cena</div></div>
+  `;
+}
+
+// ── Discount codes CRUD ────────────────────────────────────────────────
+async function loadCodes(){
+  let codes;
+  try {
+    const r = await fetch('/api/admin/discount-codes');
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    codes = await r.json();
+  } catch(e){
+    document.getElementById('discountCodesList').innerHTML = `<div class="il-error-banner">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  if (!codes.length) {
+    document.getElementById('discountCodesList').innerHTML = '<div style="padding:14px;color:var(--txt3);font-size:13px">Žádné kódy. Vytvoř první nahoře.</div>';
+    return;
+  }
+  document.getElementById('discountCodesList').innerHTML = `
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:8px">Kód</th><th>Kč</th><th>Použití</th><th>Vyprší</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>
+      ${codes.map(c => `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px;font-family:monospace"><b>${escapeHtml(c.code)}</b></td>
+          <td style="text-align:center">${c.amount_czk}</td>
+          <td style="text-align:center">${c.used_count}${c.max_uses ? '/'+c.max_uses : ''}</td>
+          <td style="text-align:center">${c.expires_at ? fmtDate(c.expires_at) : '—'}</td>
+          <td style="text-align:center">${c.active ? '<span style="color:#7fd391">aktivní</span>' : '<span style="color:var(--txt3)">deaktivován</span>'}</td>
+          <td style="text-align:right">${c.active ? `<button onclick="deactivateCode(${c.id})" style="background:none;border:1px solid var(--border2);color:var(--txt2);padding:4px 8px;cursor:pointer;font-size:11px;border-radius:5px">deaktivovat</button>` : ''}</td>
+        </tr>
+      `).join('')}
+      </tbody>
+    </table>`;
+}
+async function createCode(){
+  const code = document.getElementById('newCode').value.trim().toUpperCase();
+  const amount = parseInt(document.getElementById('newAmount').value || 0);
+  const maxUses = document.getElementById('newMaxUses').value || null;
+  const expires = document.getElementById('newExpires').value || null;
+  if (!code || !amount) { alert('Kód + amount required'); return; }
+  const r = await fetch('/api/admin/discount-codes', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({code, amount_czk:amount, max_uses:maxUses?parseInt(maxUses):null, expires_at:expires?expires+'T23:59:59':null})
+  });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || 'Chyba'); return; }
+  document.getElementById('newCode').value = '';
+  document.getElementById('newAmount').value = '';
+  document.getElementById('newMaxUses').value = '';
+  document.getElementById('newExpires').value = '';
+  loadCodes();
+}
+async function deactivateCode(id){
+  if (!confirm('Deaktivovat tento kód?')) return;
+  await fetch('/api/admin/discount-codes/' + id, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({active:false})
+  });
+  loadCodes();
+}
+
+// ── Telemetry events feed ──────────────────────────────────────────────
+async function loadTelemetry(){
+  let evs;
+  try {
+    const r = await fetch('/api/admin/telemetry?limit=50');
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    evs = await r.json();
+  } catch(e){
+    document.getElementById('telemetryFeed').innerHTML = `<div class="il-error-banner">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  if (!evs.length) {
+    document.getElementById('telemetryFeed').innerHTML = '<div style="padding:14px;color:var(--txt3);font-size:13px">Žádné události.</div>';
+    return;
+  }
+  document.getElementById('telemetryFeed').innerHTML = `
+    <table style="width:100%;font-size:11px;border-collapse:collapse;font-family:monospace">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:6px">Čas</th><th style="text-align:left">Event</th><th style="text-align:left">Payload</th>
+      </tr></thead>
+      <tbody>
+      ${evs.map(e => `
+        <tr style="border-bottom:1px solid var(--border);vertical-align:top">
+          <td style="padding:6px;color:var(--txt3);white-space:nowrap">${escapeHtml((e.created_at||'').slice(0,19).replace('T',' '))}</td>
+          <td style="padding:6px;color:var(--txt)"><b>${escapeHtml(e.event_name)}</b></td>
+          <td style="padding:6px;color:var(--txt2);max-width:600px;overflow:hidden;text-overflow:ellipsis"><pre style="margin:0;font-size:10px;white-space:pre-wrap">${escapeHtml(JSON.stringify(e.payload, null, 0)).slice(0,300)}</pre></td>
+        </tr>
+      `).join('')}
+      </tbody>
+    </table>`;
 }
 
 async function loadReports() {
