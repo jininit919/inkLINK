@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#faf8f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{OG_TITLE}}</title>
+<meta name="description" content="{{OG_DESC}}">
+<link rel="canonical" href="{{OG_URL}}">
+<meta property="og:type" content="profile">
+<meta property="og:url" content="{{OG_URL}}">
+<meta property="og:title" content="{{OG_TITLE}}">
+<meta property="og:description" content="{{OG_DESC}}">
+<meta property="og:image" content="{{OG_IMAGE}}">
+<meta property="og:site_name" content="InkLink">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{OG_TITLE}}">
+<meta name="twitter:description" content="{{OG_DESC}}">
+<meta name="twitter:image" content="{{OG_IMAGE}}">
+<script type="application/ld+json">{{JSON_LD}}</script>
+<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg: #faf8f3;--bg2: #f5f1e8;--bg3: #ede8db;--bg4: #e3ddca;
+  --red: #1a1a1a;--red2: #0a0a0a;--red3: #000;--ink: #0a0a0a;
+  --txt: #0a0a0a;--txt2: #2a2a2a;--txt3: #5a5a5a;--txt4: #9a9a9a;
+  --border: #d4cfbf;--border2: #a8a399;
+  --ease:cubic-bezier(0.32,0.72,0,1);
+}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh;letter-spacing:-0.003em}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+
+/* NAV — minimální, jen logo a back */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
+.nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;letter-spacing:0;color:var(--ink);line-height:0.9;font-weight:400;text-decoration:none;flex:1}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);border-radius:6px;transition:all 0.15s}
+.nav-icon:hover{color:var(--ink);background:var(--bg3)}
+
+/* LAYOUT */
+.wrap{max-width:680px;margin:0 auto;padding:96px 22px 120px}
+
+/* HERO */
+.hero{text-align:center;margin-bottom:36px}
+.avatar{width:128px;height:128px;border-radius:50%;background:var(--bg4);border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:48px;color:var(--ink);overflow:hidden;flex-shrink:0;margin:0 auto 18px;font-weight:500;letter-spacing:0.04em}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.name{font-size:clamp(28px,5vw,40px);font-weight:600;letter-spacing:-0.02em;line-height:1.1;margin-bottom:6px}
+.uname{color:var(--txt3);font-size:13px;letter-spacing:0.06em;margin-bottom:14px}
+.meta{display:inline-flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--txt2);letter-spacing:0;justify-content:center;margin-bottom:18px}
+.meta b{color:var(--txt);font-weight:500}
+.rating-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);background:var(--bg2);font-size:13px;color:var(--txt);border-radius:999px;font-weight:500}
+.bio{font-size:15px;color:var(--txt2);line-height:1.55;max-width:520px;margin:0 auto 16px;white-space:pre-wrap}
+.styles{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:14px 0 4px}
+.style-chip{font-size:11px;padding:4px 11px;border:1px solid var(--border2);color:var(--txt2);letter-spacing:0.05em;border-radius:999px;text-transform:uppercase}
+
+/* PRIMARY CTA */
+.primary-cta{position:sticky;top:84px;z-index:10;background:rgba(250,248,243,0.95);backdrop-filter:blur(10px);margin:24px -22px 0;padding:14px 22px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.primary-cta .btn{display:flex;align-items:center;justify-content:center;width:100%;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;letter-spacing:0.04em;font-weight:600;padding:15px 24px;background:var(--ink);color:var(--bg);border:none;border-radius:10px;cursor:pointer;text-transform:uppercase;transition:transform 0.15s;text-decoration:none;gap:10px}
+.primary-cta .btn:hover{transform:translateY(-1px)}
+.primary-cta .btn:active{transform:scale(0.98)}
+.primary-cta .btn .ico{width:18px;height:18px;stroke-width:2}
+.primary-cta .btn.unavailable{background:var(--bg3);color:var(--txt3);cursor:not-allowed}
+
+/* SECTION */
+section{margin-top:44px}
+.section-title{font-size:18px;letter-spacing:0.04em;font-weight:600;margin-bottom:18px;display:flex;align-items:baseline;gap:10px}
+.section-title .count{font-size:13px;color:var(--txt3);font-weight:400;letter-spacing:0.02em}
+
+/* PORTFOLIO carousel */
+.portfolio-scroll{display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:0 0 8px;scrollbar-width:none;margin:0 -22px;padding:0 22px 12px}
+.portfolio-scroll::-webkit-scrollbar{display:none}
+.port-tile{flex:0 0 240px;scroll-snap-align:start;background:var(--bg3);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.18s var(--ease),box-shadow 0.18s;text-decoration:none;color:inherit;display:block;position:relative}
+.port-tile:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(20,16,8,0.10)}
+.port-tile .img{aspect-ratio:1/1;background:var(--bg4);overflow:hidden}
+.port-tile .img img{width:100%;height:100%;object-fit:cover}
+.port-tile .info{padding:12px 14px}
+.port-tile .price{font-size:13px;font-weight:600;color:var(--txt);letter-spacing:-0.005em}
+.port-tile .cap{font-size:11px;color:var(--txt3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.port-tile .badge{position:absolute;top:10px;left:10px;font-size:9px;letter-spacing:0.14em;padding:3px 9px;background:rgba(20,16,8,0.78);backdrop-filter:blur(8px);color:#fff;border-radius:999px;text-transform:uppercase}
+
+/* SLOTS */
+.slots-list{display:flex;flex-direction:column;gap:8px}
+.slot-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;text-decoration:none;color:inherit;transition:border-color 0.15s,transform 0.15s}
+.slot-row:hover{border-color:var(--ink);transform:translateY(-1px)}
+.slot-date{flex:0 0 auto;text-align:center;min-width:54px}
+.slot-date .d{font-size:24px;font-weight:600;line-height:1;color:var(--txt);letter-spacing:-0.02em}
+.slot-date .m{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.12em;margin-top:3px}
+.slot-info{flex:1;min-width:0}
+.slot-info .time{font-size:14px;color:var(--txt);font-weight:500;letter-spacing:-0.005em}
+.slot-info .price{font-size:12px;color:var(--txt2);margin-top:2px}
+.slot-arr{flex:0 0 auto;color:var(--txt3);font-size:18px;line-height:1}
+
+.empty{padding:36px 16px;text-align:center;color:var(--txt3);font-size:13px;letter-spacing:0.04em;background:var(--bg2);border:1px dashed var(--border);border-radius:12px}
+
+/* FOOTER mini */
+.foot{margin-top:60px;padding:24px 0;text-align:center;color:var(--txt3);font-size:11px;letter-spacing:0.06em;border-top:1px solid var(--border)}
+.foot a{color:var(--txt2);text-decoration:underline;text-underline-offset:3px;letter-spacing:0.04em}
+.foot a:hover{color:var(--ink)}
+
+/* MOBILE */
+@media(max-width:560px){
+  nav{height:64px;padding:0 16px}
+  .nav-logo{font-size:36px}
+  .wrap{padding:80px 18px 100px}
+  .primary-cta{top:64px}
+  .port-tile{flex-basis:200px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">inklink</a>
+  <a class="nav-icon" href="/profile/{{USERNAME}}" title="Plný profil"><svg class="icon"><use href="#i-user"/></svg></a>
+</nav>
+
+<div class="wrap" id="root">
+  <div style="text-align:center;padding:60px 20px;color:var(--txt3)">Načítám…</div>
+</div>
+
+<script>
+const USERNAME = "{{USERNAME}}";
+
+function esc(s){return (s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+function fmtMonth(iso){
+  const m = new Date(iso).getMonth();
+  return ['LED','ÚNO','BŘE','DUB','KVĚ','ČVN','ČVC','SRP','ZÁŘ','ŘÍJ','LIS','PRO'][m] || '';
+}
+function fmtDay(iso){ return new Date(iso).getDate(); }
+function fmtTime(iso){
+  const d = new Date(iso);
+  return d.toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'});
+}
+function fmtPrice(min, max){
+  if (!min) return '';
+  if (max && max !== min) return `${min}–${max} Kč/h`;
+  return `${min} Kč/h`;
+}
+
+async function load() {
+  let p;
+  try {
+    const r = await fetch(`/api/profile/${encodeURIComponent(USERNAME)}`);
+    if (!r.ok) {
+      document.getElementById('root').innerHTML = '<div class="empty">Tatér nenalezen.</div>';
+      return;
+    }
+    p = await r.json();
+  } catch (e) {
+    document.getElementById('root').innerHTML = '<div class="empty">Chyba načítání.</div>';
+    return;
+  }
+
+  const initials = (p.display_name || p.username || '?').split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+  const av = p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(initials);
+  const meta = [];
+  if (p.city) meta.push(`<span><b>📍</b> ${esc(p.city)}</span>`);
+  if (p.studio_link) meta.push(`<span><b>◫</b> <a href="/studio/${esc(p.studio_link.slug)}" style="color:var(--ink);text-decoration:underline">${esc(p.studio_link.name)}</a></span>`);
+  else if (p.studio) meta.push(`<span><b>◫</b> ${esc(p.studio)}</span>`);
+  if (p.instagram) meta.push(`<span>@<a href="https://instagram.com/${esc(p.instagram.replace(/^@/,''))}" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:underline">${esc(p.instagram.replace(/^@/,''))}</a></span>`);
+  const stylesArr = (p.styles||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const styles = stylesArr.length ? `<div class="styles">${stylesArr.map(s=>`<span class="style-chip">${esc(s)}</span>`).join('')}</div>` : '';
+
+  // Rating
+  let ratingPill = '';
+  if (p.rating_count > 0) {
+    ratingPill = `<div class="rating-pill"><span style="color:#e8a648">★</span> ${(p.rating_avg||0).toFixed(1)} <span style="color:var(--txt3);font-weight:400">(${p.rating_count})</span></div>`;
+  }
+
+  // Hourly rate display in CTA
+  const rateTxt = fmtPrice(p.hourly_rate_min, p.hourly_rate_max);
+
+  // First available slot pro primary CTA
+  const slots = (p.slots || []).filter(s => s.status === 'free' && new Date(s.start_at) > new Date());
+  const firstSlot = slots[0];
+  let ctaHtml;
+  if (firstSlot) {
+    ctaHtml = `<a class="btn" href="/profile/${esc(p.username)}#slots"><svg class="ico"><use href="#i-calendar"/></svg>Rezervovat — od ${fmtDay(firstSlot.start_at)}. ${fmtMonth(firstSlot.start_at).toLowerCase()}${rateTxt ? ` · ${rateTxt}` : ''}</a>`;
+  } else {
+    ctaHtml = `<button class="btn unavailable" disabled>Žádné volné termíny${rateTxt ? ` · ${rateTxt}` : ''}</button>`;
+  }
+
+  // Portfolio carousel
+  const port = (p.portfolio || []).slice(0, 12);
+  const portHtml = port.length ? `
+    <section>
+      <h2 class="section-title">Portfolio <span class="count">${p.portfolio.length}</span></h2>
+      <div class="portfolio-scroll">
+        ${port.map(item => {
+          const badge = item.kind === 'sketch' ? '<span class="badge">Skica</span>' : '<span class="badge">Hotovo</span>';
+          const price = item.price_kc ? `${(+item.price_kc).toLocaleString('cs-CZ')} Kč` : '';
+          const cap = esc(item.caption || '');
+          return `<a class="port-tile" href="/sketch/${item.id}">
+            <div class="img"><img src="/uploads/${esc(item.image)}" alt="" loading="lazy"></div>
+            ${badge}
+            <div class="info">
+              ${price ? `<div class="price">${price}</div>` : ''}
+              ${cap ? `<div class="cap">${cap}</div>` : ''}
+            </div>
+          </a>`;
+        }).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  // Slots list (next 5)
+  const slotsHtml = slots.length ? `
+    <section>
+      <h2 class="section-title">Volné termíny <span class="count">${slots.length}</span></h2>
+      <div class="slots-list">
+        ${slots.slice(0, 5).map(s => {
+          const start = new Date(s.start_at);
+          const end = new Date(s.end_at);
+          const dur = Math.round((end - start) / 3600000);
+          const priceTxt = fmtPrice(s.price_min, s.price_max);
+          return `<a class="slot-row" href="/profile/${esc(p.username)}#slots">
+            <div class="slot-date"><div class="d">${start.getDate()}</div><div class="m">${fmtMonth(s.start_at)}</div></div>
+            <div class="slot-info">
+              <div class="time">${fmtTime(s.start_at)} – ${fmtTime(s.end_at)} · ${dur} h</div>
+              ${priceTxt ? `<div class="price">${priceTxt}</div>` : ''}
+            </div>
+            <div class="slot-arr">→</div>
+          </a>`;
+        }).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  document.getElementById('root').innerHTML = `
+    <div class="hero">
+      <div class="avatar">${av}</div>
+      <h1 class="name">${esc(p.display_name || p.username)}</h1>
+      <div class="uname">@${esc(p.username)}</div>
+      ${ratingPill ? `<div style="margin-bottom:14px">${ratingPill}</div>` : ''}
+      ${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}
+      ${p.bio ? `<div class="bio">${esc(p.bio)}</div>` : ''}
+      ${styles}
+    </div>
+
+    <div class="primary-cta">${ctaHtml}</div>
+
+    ${portHtml}
+    ${slotsHtml}
+
+    <div class="foot">
+      <a href="/profile/${esc(p.username)}">Zobrazit plný profil → recenze, kontakt, fotky</a>
+      <div style="margin-top:14px;opacity:0.6">tetování přes <a href="/" style="color:var(--ink)">inklink</a></div>
+    </div>
+  `;
+
+  // Update document title with name (browser tab)
+  document.title = `Tetování u ${p.display_name || p.username} — InkLink`;
+}
+
+load();
+</script>
+<script src="/icons.js?v=2"></script>
+<script src="/ink-trail.js?v=1"></script>
+<script src="/native.js?v=1"></script>
+</body>
+</html>

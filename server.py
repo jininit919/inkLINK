@@ -2265,6 +2265,97 @@ def profile_page(username):
     return page_html
 
 
+@app.route('/@<username>')
+def short_artist_alias(username):
+    """Krátký vanity URL — `inklink.club/@username` → 301 na /book/<username>.
+    Pro IG bio, vizitky, marketing share."""
+    return redirect(f'/book/{username}', code=301)
+
+
+@app.route('/book/<username>')
+def book_showcase_page(username):
+    """Booking showcase — landing pro klienta. Hero artist + portfolio
+    carousel + volné termíny + velký rezervovat CTA. Server-renderuje
+    OG meta tagy pro IG/Twitter preview."""
+    import json as _json
+    conn = get_db()
+    u = conn.execute('''SELECT id, display_name, username, city, studio, bio, avatar, styles,
+                               is_artist, instagram, hourly_rate_min, hourly_rate_max, created_at
+                        FROM users WHERE username = ?''', (username,)).fetchone()
+    if not u or not u['is_artist']:
+        conn.close()
+        # Fallback: client profil → redirect na regular /profile/
+        return redirect(f'/profile/{username}', code=302)
+
+    # Top sketch pro OG image
+    top = conn.execute(
+        "SELECT image FROM portfolio_items WHERE user_id=? AND kind='sketch' ORDER BY created_at DESC LIMIT 1",
+        (u['id'],)
+    ).fetchone()
+    review_agg = conn.execute(
+        'SELECT AVG(rating) AS avg, COUNT(*) AS cnt FROM reviews WHERE artist_id=?',
+        (u['id'],)
+    ).fetchone()
+    conn.close()
+
+    name = u['display_name'] or u['username']
+    loc  = u['city'] or u['studio'] or ''
+    styles_list = [s.strip() for s in (u['styles'] or '').split(',') if s.strip()]
+
+    page_url = APP_BASE_URL.rstrip('/') + f'/book/{username}'
+    og_title = f'Rezervuj tetování u {name}' + (f' · {loc}' if loc else '')
+    og_desc_parts = []
+    if styles_list:
+        og_desc_parts.append(' · '.join(styles_list[:3]))
+    if u['hourly_rate_min']:
+        rate = f'{int(u["hourly_rate_min"])}'
+        if u['hourly_rate_max'] and u['hourly_rate_max'] != u['hourly_rate_min']:
+            rate += f'–{int(u["hourly_rate_max"])}'
+        og_desc_parts.append(f'{rate} Kč/h')
+    og_desc_parts.append('Bezpečná rezervace přes Stripe.')
+    og_desc = ' · '.join(og_desc_parts)
+
+    if top and top['image']:
+        og_image = f'{APP_BASE_URL.rstrip("/")}/uploads/{top["image"]}'
+    elif u['avatar']:
+        og_image = f'{APP_BASE_URL.rstrip("/")}/uploads/{u["avatar"]}'
+    else:
+        og_image = APP_BASE_URL.rstrip('/') + '/icons/icon-512.png'
+
+    ldd = {
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        'name': name,
+        'url': page_url,
+        'jobTitle': 'Tattoo artist',
+    }
+    if u['avatar']:
+        ldd['image'] = f'{APP_BASE_URL.rstrip("/")}/uploads/{u["avatar"]}'
+    if loc:
+        ldd['address'] = {'@type': 'PostalAddress', 'addressLocality': loc}
+    if styles_list:
+        ldd['knowsAbout'] = styles_list
+    if review_agg and review_agg['cnt']:
+        ldd['aggregateRating'] = {
+            '@type': 'AggregateRating',
+            'ratingValue': round(review_agg['avg'], 1),
+            'ratingCount': review_agg['cnt'],
+            'bestRating': 5,
+            'worstRating': 1,
+        }
+    json_ld = _json.dumps(ldd, ensure_ascii=False)
+
+    with open(os.path.join('public', 'book.html'), 'r', encoding='utf-8') as f:
+        page_html = f.read()
+    return (page_html
+            .replace('{{OG_TITLE}}', html_escape(og_title))
+            .replace('{{OG_DESC}}',  html_escape(og_desc))
+            .replace('{{OG_IMAGE}}', html_escape(og_image))
+            .replace('{{OG_URL}}',   html_escape(page_url))
+            .replace('{{USERNAME}}', html_escape(username))
+            .replace('{{JSON_LD}}',  json_ld))
+
+
 @app.route('/events')
 def events_page():
     return send_from_directory('public', 'events.html')
