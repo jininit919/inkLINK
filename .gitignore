@@ -18,13 +18,9 @@ server.log
 # macOS
 .DS_Store
 
-# Node (Capacitor)
-node_modules/
-package-lock.json
-
-# Capacitor — iOS / Android native projects jsou auto-generated z `npx cap add`
-# Commitujeme jen capacitor.config.json + package.json; native projekty si
-# každý dev sestaví lokálně přes `npx cap add ios` / `npx cap add android`.
-ios/
-android/
-ios-broken/
+# Capacitor (mobile/ subdir)
+mobile/node_modules/
+mobile/package-lock.json
+mobile/ios/
+mobile/android/
+mobile/ios-broken/

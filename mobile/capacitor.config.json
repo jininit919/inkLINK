@@ -1,7 +1,7 @@
 {
   "appId": "club.inklink.app",
   "appName": "InkLink",
-  "webDir": "public",
+  "webDir": "../public",
   "server": {
     "url": "https://www.inklink.club",
     "cleartext": false,

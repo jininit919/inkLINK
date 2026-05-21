@@ -20,9 +20,11 @@ deploy, design. iOS app je shellu kolem [www.inklink.club](https://www.inklink.c
 
 ## První instalace (jen jednou na novém Macu)
 
+Capacitor projekt je v `mobile/` subdir (ne v root), ať Railway buildpack
+správně rozpozná Python jako primary jazyk podle requirements.txt.
+
 ```bash
-cd /Users/matejgajdos/Desktop/inklink
-git pull origin main
+cd /Users/matejgajdos/Desktop/inklink/mobile
 npm install
 npx cap add ios
 npx cap add android   # volitelně
