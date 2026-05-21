@@ -297,6 +297,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       <span style="color:var(--txt3);font-size:11px">Jinak platíš jen zálohu, zbytek dohodnete na místě (hotově / kartou) nebo ti tatér po sezení pošle link na doplatek přes InkLink.</span></span>
     </label>
 
+    <!-- Promo kód — volitelné. Live preview validation přes /api/discounts/preview -->
+    <label style="margin-top:14px">Promo kód <span style="color:var(--txt3);font-weight:400;letter-spacing:0.02em;text-transform:none">(volitelně)</span></label>
+    <div style="display:flex;gap:8px;align-items:stretch">
+      <input type="text" id="bm-discount" placeholder="např. WELCOME" style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:10px 12px;outline:none;text-transform:uppercase;letter-spacing:0.04em">
+      <button type="button" class="btn muted" id="bm-discount-apply" onclick="applyDiscountPreview()" style="padding:0 18px">Ověřit</button>
+    </div>
+    <div id="bm-discount-msg" style="font-size:11px;letter-spacing:0.04em;margin-top:6px;min-height:14px"></div>
+
     <div class="deposit-info" id="bm-deposit"></div>
     <div class="actions">
       <button class="btn muted" onclick="closeBook()">Zrušit</button>
@@ -970,6 +978,68 @@ function closeBook() {
   pendingPortfolioItem = null;
 }
 
+// ── Discount preview — volá /api/discounts/preview a ukazuje výsledek ────
+async function applyDiscountPreview() {
+  const code = (document.getElementById('bm-discount').value || '').trim().toUpperCase();
+  const msg = document.getElementById('bm-discount-msg');
+  if (!code) { msg.innerHTML = ''; return; }
+
+  // Compute current gross price the same way refreshDeposit() does
+  if (!pendingSize) {
+    msg.innerHTML = '<span style="color:#e58787">Nejdřív vyber velikost.</span>'; return;
+  }
+  let total;
+  if (pendingPortfolioItem && pendingPortfolioItem.price_kc) {
+    total = +pendingPortfolioItem.price_kc;
+  } else {
+    const avgRate = pendingSlot.price_min && pendingSlot.price_max
+      ? (pendingSlot.price_min + pendingSlot.price_max) / 2
+      : (pendingSlot.price_min || pendingSlot.price_max || 0);
+    total = avgRate * pendingSize.hours;
+  }
+  if (!total) {
+    msg.innerHTML = '<span style="color:#e58787">Nelze určit cenu.</span>'; return;
+  }
+
+  const btn = document.getElementById('bm-discount-apply');
+  btn.disabled = true;
+  msg.innerHTML = '<span style="color:var(--txt3)">Ověřuji…</span>';
+  try {
+    const r = await fetch('/api/discounts/preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        code: code,
+        gross_price_czk: Math.round(total),
+        artist_id: profile.id,
+      })
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      msg.innerHTML = `<span style="color:#e58787">${escapeHtml(d.error || 'Chyba')}</span>`;
+      return;
+    }
+    if (d.valid) {
+      msg.innerHTML = `<span style="color:#7fd391">✓ Sleva ${d.amount_czk} Kč (${d.discount_type})</span>`;
+    } else {
+      const map = {
+        'DISCOUNT_TOO_LARGE':    'Sleva je pro tuhle cenu příliš velká.',
+        'DISCOUNT_NOT_ELIGIBLE': 'Kód nesplňuje podmínky.',
+        'DISCOUNT_ALREADY_USED': 'Tenhle kód už jsi použil(a).',
+        'UNKNOWN_CODE':          'Kód neexistuje.',
+        'EXPIRED':               'Kód expiroval.',
+        'EXHAUSTED':             'Kód už vyčerpal limit použití.',
+      };
+      const human = map[d.error_code] || d.message || 'Kód neplatí.';
+      msg.innerHTML = `<span style="color:#e58787">${escapeHtml(human)}</span>`;
+    }
+  } catch (e) {
+    msg.innerHTML = '<span style="color:#e58787">Chyba sítě.</span>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function submitBook() {
   const note = document.getElementById('bm-note').value.trim();
   if (!pendingSize) {
@@ -984,6 +1054,7 @@ async function submitBook() {
   const btn = document.getElementById('bm-submit');
   btn.disabled = true;
   const payFull = document.getElementById('bm-payfull')?.checked || false;
+  const discountCode = (document.getElementById('bm-discount')?.value || '').trim().toUpperCase();
   const r = await fetch('/api/bookings', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -994,6 +1065,7 @@ async function submitBook() {
       booking_start_at: pendingStart,
       portfolio_item_id: pendingPortfolioItem ? pendingPortfolioItem.id : null,
       pay_full: payFull,
+      discount_code: discountCode || null,
     }),
   });
   if (!r.ok) {
