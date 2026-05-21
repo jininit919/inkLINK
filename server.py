@@ -2753,8 +2753,10 @@ def toggle_portfolio_like(item_id):
                        (uid, item_id)).fetchone()
     if row:
         conn.execute('DELETE FROM portfolio_likes WHERE user_id=? AND item_id=?', (uid, item_id))
-        conn.execute('UPDATE portfolio_items SET like_count = MAX(like_count - 1, 0) WHERE id=?',
-                     (item_id,))
+        # CASE místo MAX/GREATEST — funguje v SQLite i Postgresu
+        conn.execute('''UPDATE portfolio_items
+                        SET like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END
+                        WHERE id=?''', (item_id,))
         liked = False
     else:
         conn.execute('INSERT INTO portfolio_likes (user_id, item_id) VALUES (?,?)', (uid, item_id))
