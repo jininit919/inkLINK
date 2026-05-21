@@ -101,8 +101,13 @@ nav{
 .nav-logo{display:flex;align-items:center;cursor:pointer;font-family:'Bristol','Caveat',cursive;font-size:72px;color:var(--ink);line-height:0.9;letter-spacing:0.005em;font-weight:400;padding:0;text-decoration:none}
 .nav-logo:hover{color:var(--ink-soft)}
 @media(max-width:680px){
-  nav{height:80px;padding:0 22px}
-  .nav-logo{font-size:52px}
+  nav{height:76px;padding:0 18px;gap:14px}
+  .nav-logo{font-size:42px}
+  .nav-right{gap:14px}
+}
+@media(max-width:380px){
+  .nav-logo{font-size:36px}
+  .nav-right{gap:10px}
 }
 .nav-spacer{flex:1}
 .nav-right{display:flex;align-items:center;gap:24px}
@@ -346,10 +351,6 @@ footer .foot-tag{opacity:0.6}
   <a class="nav-logo" href="/" aria-label="InkLink">inklink</a>
   <div class="nav-spacer"></div>
   <div class="nav-right">
-    <div class="lang" role="group" aria-label="Language">
-      <button type="button" data-i18n-switch="cs" onclick="InkLinkI18N.set('cs')">cs</button>
-      <button type="button" data-i18n-switch="en" onclick="InkLinkI18N.set('en')">en</button>
-    </div>
     <a class="cta" href="/login" data-i18n="nav.signIn">přihlásit</a>
     <a class="cta" href="/login" data-i18n="nav.start">začít</a>
   </div>
