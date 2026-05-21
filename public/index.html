@@ -251,8 +251,10 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .card-who .name{color:var(--txt);font-weight:400}
 .card-who .meta{color:var(--txt3);font-size:11px;letter-spacing:0.04em}
 .card-rating{display:inline-flex;align-items:center;gap:2px;font-size:11px;color:#e8c87f;letter-spacing:0.04em;margin-left:6px;vertical-align:middle}
-.card-like{font-size:14px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;padding:8px 6px;margin:-8px -6px;min-height:36px}
+.card-like{font-size:14px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;padding:8px 6px;margin:-8px -6px;min-height:36px;user-select:none;-webkit-user-select:none}
 .card-like.on{color:#e58787}
+/* SVG a span uvnitř like/share absorbují click event — pointer-events:none je propaguje na parent */
+.card-like > *, .card-share > *{pointer-events:none}
 .card-share{color:var(--txt3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:8px;margin:-8px;min-width:36px;min-height:36px;transition:color 0.15s}
 .card-share:hover{color:var(--txt)}
 .card-share .icon{width:16px;height:16px}
