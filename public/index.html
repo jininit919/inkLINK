@@ -1073,14 +1073,31 @@ async function doSearch() {
 }
 
 async function toggleLike(id, el) {
+  console.log('[toggleLike]', id, 'currentOn:', el.classList.contains('on'));
   if (!me) { location.href = '/login'; return; }
-  if (el.dataset.busy) return;
+  if (el.dataset.busy) { console.log('busy, skip'); return; }
   el.dataset.busy = '1';
   try {
-    const r = await fetch(`/api/portfolio/${id}/like`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
-    if (!r) return;
-    el.classList.toggle('on', r.liked);
-    el.querySelector('span').textContent = r.like_count;
+    const resp = await fetch(`/api/portfolio/${id}/like`, {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: {'Accept': 'application/json'}
+    });
+    console.log('[toggleLike] HTTP', resp.status);
+    if (!resp.ok) {
+      if (resp.status === 401) { location.href = '/login'; return; }
+      showToast('Nepodařilo se aktualizovat lajk');
+      return;
+    }
+    const r = await resp.json();
+    console.log('[toggleLike] response', r);
+    el.classList.toggle('on', !!r.liked);
+    const sp = el.querySelector('span');
+    if (sp) sp.textContent = r.like_count;
+  } catch (e) {
+    console.error('[toggleLike] error', e);
+    showToast('Chyba sítě');
   } finally {
     delete el.dataset.busy;
   }
