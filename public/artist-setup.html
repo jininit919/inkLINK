@@ -223,19 +223,6 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
   <!-- ── PROFILE TAB ── -->
   <div id="tab-profile">
-
-    <!-- ── MŮJ ODKAZ — share na IG bio, vizitku, do DM ── -->
-    <div class="card" id="shareCard" style="display:none">
-      <h2>MŮJ ODKAZ</h2>
-      <p class="hint">Sdílej tenhle odkaz na Instagram bio, vizitku nebo v DM. Klient vidí tvé portfolio + volné termíny a rovnou rezervuje.</p>
-      <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;margin-top:14px">
-        <div id="shareUrl" style="flex:1;min-width:240px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:13px 16px;font-size:14px;color:var(--txt);letter-spacing:0;font-weight:500;display:flex;align-items:center;user-select:all;overflow-x:auto;white-space:nowrap"></div>
-        <button class="btn" id="copyLinkBtn" type="button" onclick="copyShareLink()">Zkopírovat</button>
-        <a class="btn muted" id="openLinkBtn" href="#" target="_blank" rel="noopener">Náhled →</a>
-      </div>
-      <div id="copyToast" style="margin-top:10px;font-size:12px;color:#7fd391;letter-spacing:0.04em;display:none">✓ Zkopírováno do schránky</div>
-    </div>
-
     <div class="card">
       <h2>VEŘEJNÝ PROFIL</h2>
       <p class="hint">Tyto informace uvidí klienti na tvém profilu. Po uložení se automaticky staneš tatérem (artist).</p>
@@ -406,19 +393,7 @@ async function init() {
   // (profileLink + zprávy ikona odstraněny z navu — nech bezpečný no-op)
   const _pl = document.getElementById('profileLink'); if (_pl) _pl.href = '/profile/' + me.username;
 
-  // Můj odkaz — zobrazit jen pokud je tatér (má profil pro klienty)
-  if (me.is_artist) {
-    const card = document.getElementById('shareCard');
-    if (card) {
-      const origin = location.origin.replace(/^https?:\/\//, '');
-      const shortPath = '/@' + me.username;
-      const fullUrl = location.origin + '/book/' + me.username;
-      document.getElementById('shareUrl').textContent = origin + shortPath;
-      document.getElementById('openLinkBtn').href = fullUrl;
-      card.style.display = 'block';
-      window.__shareLink = fullUrl;
-    }
-  }
+  // (Můj odkaz / Share button je teď na /profile/<username>)
 
   const styles = await fetch('/api/styles').then(r => r.json());
   ALLOWED_STYLES.push(...styles);
@@ -1067,35 +1042,7 @@ async function sdmDelete() {
 }
 
 // "Upravit blok" formulář byl odstraněn — slot management žije v /calendar.
-
-// Share link — copy do clipboardu + native share na mobilu
-async function copyShareLink() {
-  const url = window.__shareLink;
-  if (!url) return;
-  // Native share (iOS / Android přes Capacitor) → otevře sheet
-  if (window.InkLinkNative && window.InkLinkNative.isNative && window.InkLinkNative.share) {
-    try {
-      const r = await window.InkLinkNative.share({
-        title: 'Tetování — InkLink',
-        text: 'Tady je můj InkLink:',
-        url: url
-      });
-      if (r) return;
-    } catch(e) {}
-  }
-  // Web fallback — clipboard API
-  try {
-    await navigator.clipboard.writeText(url);
-    const toast = document.getElementById('copyToast');
-    if (toast) {
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 2200);
-    }
-  } catch(e) {
-    // Last-resort fallback — prompt
-    prompt('Zkopíruj tenhle odkaz:', url);
-  }
-}
+// Share link funkce byla přesunuta na /profile/<username> (button "Sdílet odkaz")
 
 document.addEventListener('DOMContentLoaded', () => {
   const prev = document.getElementById('calPrev');

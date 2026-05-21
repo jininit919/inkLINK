@@ -490,7 +490,11 @@ function render() {
   const actions = document.getElementById('actions');
   actions.innerHTML = '';
   if (profile.is_own) {
-    actions.innerHTML = `<a class="btn" href="/artist-setup">Editovat profil</a>`;
+    let btns = `<a class="btn" href="/artist-setup">Editovat profil</a>`;
+    if (profile.is_artist) {
+      btns += ` <button class="btn muted" type="button" onclick="shareMyLink('${profile.username.replace(/'/g, "\\'")}', this)">Sdílet odkaz</button>`;
+    }
+    actions.innerHTML = btns;
     document.getElementById('setupLink').style.display = 'flex';
   } else if (me) {
     actions.innerHTML = `
@@ -707,6 +711,33 @@ async function uploadAvatar(ev) {
   } finally {
     avatarEl.classList.remove('uploading');
     ev.target.value = ''; // reset, ať jde nahrát stejný soubor znovu
+  }
+}
+
+async function shareMyLink(username, btn) {
+  const url = location.origin + '/@' + username;
+  const opts = { title: 'Tetování — InkLink', text: 'Tady je můj InkLink:', url };
+  // Native share (Capacitor iOS/Android)
+  if (window.InkLinkNative && window.InkLinkNative.isNative && window.InkLinkNative.share) {
+    try { const r = await window.InkLinkNative.share(opts); if (r) return; } catch (e) {}
+  }
+  // Web Share API (mobile browser)
+  if (navigator.share) {
+    try { await navigator.share(opts); return; } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+  }
+  // Fallback — clipboard
+  try {
+    await navigator.clipboard.writeText(url);
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Zkopírováno';
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+    }
+  } catch (e) {
+    prompt('Zkopíruj odkaz:', url);
   }
 }
 
