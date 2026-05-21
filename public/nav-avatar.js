@@ -83,17 +83,11 @@
       ${isArtist ? `<a href="/artist-setup"><svg class="icon"><use href="#i-settings"/></svg> Nastavení tatéra</a>` : ''}
       ${isArtist ? `<a href="/earnings"><svg class="icon"><use href="#i-trending"/></svg> Výdělky</a>` : ''}
       <hr class="divider">
-      <button type="button" data-action="theme"><svg class="icon"><use href="#i-sun"/></svg> Přepnout téma</button>
-      <hr class="divider">
       <button type="button" data-action="logout"><svg class="icon"><use href="#i-log-out"/></svg> Odhlásit</button>
     `;
     wrap.appendChild(menu);
 
     // Wire up actions
-    menu.querySelector('[data-action="theme"]').addEventListener('click', () => {
-      if (typeof window.toggleTheme === 'function') window.toggleTheme();
-      menu.classList.remove('open');
-    });
     menu.querySelector('[data-action="logout"]').addEventListener('click', async () => {
       if (typeof window.doLogout === 'function') { window.doLogout(); return; }
       // Fallback POST /api/logout
