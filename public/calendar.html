@@ -79,10 +79,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .day-col .empty-day:hover{border-color:var(--accent);color:var(--accent);background:rgba(10,132,255,0.05)}
 
 /* FAB ADD */
-.fab-add-slot{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;box-shadow:0 12px 32px rgba(10,132,255,0.4),0 2px 6px rgba(20,16,8,0.08);transition:transform 0.18s var(--ease),box-shadow 0.18s;z-index:200;border:none;font-size:0}
-.fab-add-slot:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 16px 40px rgba(10,132,255,0.55),0 4px 10px rgba(20,16,8,0.08)}
+.fab-add-slot{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3);display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;box-shadow:0 12px 32px rgba(20,16,8,0.18),0 2px 6px rgba(20,16,8,0.08);transition:transform 0.18s var(--ease),box-shadow 0.18s;z-index:200;border:none;font-family:'Bristol','Caveat',cursive;font-size:58px;line-height:1;padding:0;padding-bottom:9px}
+.fab-add-slot:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 16px 40px rgba(20,16,8,0.24),0 4px 10px rgba(20,16,8,0.10)}
 .fab-add-slot:active{transform:translateY(0) scale(0.96)}
-.fab-add-slot .icon{width:24px;height:24px;stroke-width:2}
 @media(max-width:760px){.fab-add-slot{bottom:80px;right:20px}}
 
 /* SHEET MODAL — Apple-style slide up */
@@ -200,8 +199,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
   </div>
 </div>
 
-<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Přidat termín" aria-label="Přidat volný termín">
-  <svg class="icon"><use href="#i-plus"/></svg>
+<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Přidat termín" aria-label="Přidat volný termín">+
 </button>
 
 <!-- Sheet Modal — Apple-style -->
