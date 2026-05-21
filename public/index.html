@@ -253,8 +253,9 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .card-rating{display:inline-flex;align-items:center;gap:2px;font-size:11px;color:#e8c87f;letter-spacing:0.04em;margin-left:6px;vertical-align:middle}
 .card-like{font-size:14px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;padding:8px 6px;margin:-8px -6px;min-height:36px}
 .card-like.on{color:#e58787}
-.card-share{font-size:14px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;padding:8px 8px;margin:-8px -8px;min-height:36px;transition:color 0.15s}
-.card-share:hover{color:var(--red2)}
+.card-share{color:var(--txt3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:8px;margin:-8px;min-width:36px;min-height:36px;transition:color 0.15s}
+.card-share:hover{color:var(--txt)}
+.card-share .icon{width:16px;height:16px}
 
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-size:13px;letter-spacing:0.06em;padding:10px 20px;z-index:300;opacity:0;transition:all 0.2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -1007,7 +1008,7 @@ function render() {
             <div class="meta">${escapeHtml([u.studio, u.city].filter(Boolean).join(' · ') || 'tatér')}</div>
           </a>
           <span class="card-like ${p.liked ? 'on' : ''}" onclick="event.stopPropagation(); toggleLike(${p.id}, this)"><svg class="icon icon-sm"><use href="#i-heart"/></svg> <span>${p.like_count}</span></span>
-          <span class="card-share" onclick="event.stopPropagation(); shareSketch(${p.id})" title="Sdílet">↗</span>
+          <span class="card-share" onclick="event.stopPropagation(); shareSketch(${p.id})" title="Sdílet"><svg class="icon icon-sm"><use href="#i-share"/></svg></span>
         </div>
       </article>
     `;
