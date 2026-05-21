@@ -31,8 +31,9 @@
   .il-mnav-item.active .lbl{color:var(--txt,#0a0a0a)}
   .il-mnav-item:active .ico{transform:scale(0.92)}
   .il-mnav-item.primary{justify-content:flex-end;padding-bottom:8px}
-  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(20,16,8,0.18);transition:transform 0.15s,box-shadow 0.15s}
-  .il-mnav-item.primary .ico-circle.bristol-plus{font-family:'Bristol','Caveat',cursive;font-size:48px;line-height:1;padding-bottom:7px}
+  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(20,16,8,0.18);transition:transform 0.15s,box-shadow 0.15s;overflow:hidden}
+  .il-mnav-item.primary .ico-circle.bristol-plus{font-family:'Bristol','Caveat',cursive;font-size:42px;line-height:1;padding:0}
+  .il-mnav-item.primary .ico-circle.bristol-plus > span{display:block;line-height:1;transform:translateY(0.12em)}
   .il-mnav-item.primary .ico-circle svg{width:24px;height:24px;stroke:var(--bg,#faf8f3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .il-mnav-item.primary:active .ico-circle{transform:scale(0.92);box-shadow:0 2px 8px rgba(20,16,8,0.10)}
   .il-mnav-item.primary .lbl{color:var(--txt,#0a0a0a);font-weight:500}
@@ -122,8 +123,8 @@
     const onclickAttr = it.onclick ? ` onclick="${it.onclick}; return false"` : '';
     const hrefAttr = it.href ? ` href="${it.href}"` : ' href="#"';
     if (it.primary) {
-      // Plus pro Add v Bristolu místo SVG ikony
-      const inner = it.ico === 'i-plus' ? '+' : svgIcon(it.ico);
+      // Plus pro Add v Bristolu místo SVG ikony — wrapped pro precise centering
+      const inner = it.ico === 'i-plus' ? '<span>+</span>' : svgIcon(it.ico);
       return `<a class="il-mnav-item${active} primary"${hrefAttr}${onclickAttr} aria-label="${ariaLbl}">
         <span class="ico-circle bristol-plus">${inner}</span>
         <span class="lbl">${it.lbl}</span>
