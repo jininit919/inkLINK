@@ -742,6 +742,21 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_studio_invites_studio ON studio_invites(studio_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_studio_invites_email ON studio_invites(email)')
 
+    # ── native_push_tokens (iOS APNs / Android FCM tokeny z Capacitor app) ──
+    # Web VAPID push žije v push_subscriptions (endpoint/p256dh/auth schéma).
+    # Native push má jiný formát — token string + provider.
+    c.execute('''CREATE TABLE IF NOT EXISTS native_push_tokens (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL,
+        token      TEXT    NOT NULL UNIQUE,
+        provider   TEXT    NOT NULL,
+        platform   TEXT    NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_native_push_user ON native_push_tokens(user_id)')
+
     conn.commit()
     conn.close()
 
@@ -6283,6 +6298,49 @@ def studio_invite_page(token):
 @app.errorhandler(404)
 def not_found(e):
     return send_from_directory('public', '404.html'), 404
+
+@app.route('/api/native/register-push', methods=['POST'])
+@limiter.limit('60 per hour')
+def register_native_push():
+    """Capacitor app (iOS APNs nebo Android FCM) registruje push token.
+    Schema validace: provider ∈ {apns, fcm}, platform ∈ {ios, android}."""
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    token = (data.get('token') or '').strip()
+    provider = (data.get('provider') or '').strip().lower()
+    platform = (data.get('platform') or '').strip().lower()
+    if not token or len(token) > 500:
+        return jsonify({'error': 'Invalid token'}), 400
+    if provider not in ('apns', 'fcm'):
+        return jsonify({'error': 'Invalid provider'}), 400
+    if platform not in ('ios', 'android'):
+        return jsonify({'error': 'Invalid platform'}), 400
+
+    conn = get_db()
+    # Upsert — jeden token → jeden user (poslední přihlášený vlastní token)
+    try:
+        # Postgres
+        conn.execute('''
+            INSERT INTO native_push_tokens (user_id, token, provider, platform)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (token) DO UPDATE SET
+              user_id = EXCLUDED.user_id,
+              provider = EXCLUDED.provider,
+              platform = EXCLUDED.platform,
+              last_seen_at = CURRENT_TIMESTAMP
+        ''', (session['user_id'], token, provider, platform))
+    except sqlite3.OperationalError:
+        # SQLite fallback
+        conn.execute('''
+            INSERT OR REPLACE INTO native_push_tokens
+              (user_id, token, provider, platform, last_seen_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (session['user_id'], token, provider, platform))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
 
 @app.route('/__health')
 def __health():

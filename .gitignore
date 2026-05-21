@@ -20,3 +20,11 @@ server.log
 
 # Node (Capacitor)
 node_modules/
+package-lock.json
+
+# Capacitor — iOS / Android native projects jsou auto-generated z `npx cap add`
+# Commitujeme jen capacitor.config.json + package.json; native projekty si
+# každý dev sestaví lokálně přes `npx cap add ios` / `npx cap add android`.
+ios/
+android/
+ios-broken/

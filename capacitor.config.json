@@ -1,0 +1,42 @@
+{
+  "appId": "club.inklink.app",
+  "appName": "InkLink",
+  "webDir": "public",
+  "server": {
+    "url": "https://www.inklink.club",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#faf8f3",
+    "preferredContentMode": "mobile",
+    "scrollEnabled": true
+  },
+  "android": {
+    "backgroundColor": "#faf8f3",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#faf8f3",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#faf8f3",
+      "overlaysWebView": false
+    },
+    "Camera": {
+      "presentationStyle": "fullscreen"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "inklink",
+  "version": "1.0.0",
+  "description": "InkLink — tetování v ČR, marketplace pro tatéry a klienty (web + iOS + Android přes Capacitor)",
+  "main": "index.js",
+  "scripts": {
+    "cap:sync": "npx cap sync",
+    "cap:ios": "npx cap open ios",
+    "cap:android": "npx cap open android",
+    "cap:run:ios": "npx cap run ios",
+    "cap:run:android": "npx cap run android"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jininit919/inkLINK.git"
+  },
+  "keywords": ["tattoo", "marketplace", "booking", "capacitor", "ios", "android"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.3.1",
+    "@capacitor/push-notifications": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0"
+  }
+}
