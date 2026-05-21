@@ -44,18 +44,39 @@ if SENTRY_DSN:
                         req['headers'].pop(h.title(), None)
             except Exception:
                 pass
+            # Filter out client errors (4xx) — neplatné inputs, missing auth atd.
+            # se nedají fixnout server-side a jen zahltí Sentry quota.
+            try:
+                exc_info = hint.get('exc_info') if hint else None
+                if exc_info:
+                    exc = exc_info[1]
+                    # Werkzeug HTTPExceptions 4xx → ignore
+                    code = getattr(exc, 'code', None)
+                    if code and 400 <= code < 500:
+                        return None
+            except Exception:
+                pass
             return event
+
+        # Release version — git SHA pokud Railway poskytuje (slouží pro
+        # source-map style attribution v Sentry: "X errors in release abc123").
+        _release = (os.environ.get('RAILWAY_GIT_COMMIT_SHA', '') or '').strip()[:7]
 
         sentry_sdk.init(
             dsn=SENTRY_DSN,
             environment=SENTRY_ENV,
-            traces_sample_rate=0.1,   # 10 % requestů — performance monitoring
-            profiles_sample_rate=0.0, # profiling vypnuté (šetří kvótu)
-            send_default_pii=False,   # neposílat IP, cookies, user agent
+            release=f'inklink@{_release}' if _release else None,
+            traces_sample_rate=0.1,    # 10 % requestů — performance monitoring
+            profiles_sample_rate=0.0,  # profiling vypnuté (šetří kvótu)
+            send_default_pii=False,    # neposílat IP, cookies, user agent
+            attach_stacktrace=True,    # stack frames i u manuálních captures
             integrations=[FlaskIntegration()],
             before_send=_scrub,
             ignore_errors=[KeyboardInterrupt, SystemExit],
         )
+        # Tags — viditelné v Sentry side panel
+        sentry_sdk.set_tag('component', 'web')
+        sentry_sdk.set_tag('platform', 'railway')
     except Exception as _e:
         print(f'[SENTRY] init failed: {_e}')
 
