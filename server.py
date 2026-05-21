@@ -1273,6 +1273,19 @@ def register():
         session['display_name'] = user['display_name']
         if require_verify:
             session['pending_verify'] = True
+
+        # Founding-client auto-grant: first 500 non-artist signups get the
+        # flag permanently. After the cap, no more are created. See
+        # pricing/config.py for FOUNDING_CLIENT_MAX.
+        try:
+            from pricing import FOUNDING_CLIENT_MAX
+            cnt = conn.execute('SELECT COUNT(*) AS c FROM users WHERE founding_client = 1').fetchone()
+            if cnt and (cnt['c'] or 0) < FOUNDING_CLIENT_MAX:
+                conn.execute('UPDATE users SET founding_client = 1 WHERE id = ?', (user['id'],))
+                conn.commit()
+        except Exception as _e:
+            # Founding-client grant must never break signup — log and continue.
+            print(f'[founding-client] grant failed for user {user["id"]}: {_e}')
     except sqlite3.IntegrityError:
         conn.close()
         return jsonify({'error': 'Username je už obsazený'}), 400
@@ -3618,6 +3631,39 @@ def my_earnings():
 
 
 # ── Admin API ────────────────────────────────────────────────────────────────
+@app.route('/api/admin/kpis')
+def admin_kpis_endpoint():
+    """Net-take-rate dashboard KPI query. Filters: ?start=ISO&end=ISO&city=&tier=
+    (tier ∈ founding|standard). Default range = last 30 days."""
+    err = require_admin()
+    if err: return err
+    try:
+        from pricing.admin import admin_kpis, admin_kpis_last_30d
+    except Exception as e:
+        return jsonify({'error': f'pricing module load failed: {e}'}), 500
+
+    start_s = request.args.get('start')
+    end_s   = request.args.get('end')
+    city    = request.args.get('city') or None
+    tier    = request.args.get('tier') or None
+    if tier and tier not in ('founding', 'standard'):
+        return jsonify({'error': "tier must be 'founding' or 'standard'"}), 400
+
+    conn = get_db()
+    try:
+        if start_s and end_s:
+            start = datetime.fromisoformat(start_s)
+            end   = datetime.fromisoformat(end_s)
+            result = admin_kpis(conn, start, end, city=city, artist_tier=tier)
+        else:
+            result = admin_kpis_last_30d(conn, city=city, artist_tier=tier)
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    conn.close()
+    return jsonify(result)
+
+
 @app.route('/api/admin/stats')
 def admin_stats():
     err = require_admin()
@@ -4159,7 +4205,68 @@ def create_booking():
         deposit_cents = total_price_cents
     balance_due_cents = max(0, total_price_cents - deposit_cents)
 
-    platform_fee_cents = int(round(deposit_cents * PLATFORM_COMMISSION_PCT / 100))
+    # ── Pricing: legacy 8% flat vs. new tiered engine ──────────────────────
+    # Feature flag USE_NEW_PRICING_ENGINE controls which path runs.
+    # Legacy: flat 8 % on deposit_cents (existing behavior).
+    # New: pricing.calculate_booking_economics() with tiered % + service fee
+    # + founding programs + (validated) discount. Both compute platform_fee_cents
+    # in haler so downstream Stripe code is identical.
+    economics_snapshot = None
+    use_new_engine = os.environ.get('USE_NEW_PRICING_ENGINE', '0') == '1'
+    if use_new_engine:
+        try:
+            from pricing import (
+                BookingInput, calculate_booking_economics, emit_event,
+            )
+            from decimal import Decimal as _Dec
+            # Load founding flags for both sides
+            artist_full = conn.execute(
+                'SELECT founding_artist, founding_artist_started_at FROM users WHERE id = ?',
+                (slot['user_id'],)
+            ).fetchone()
+            client_full = conn.execute(
+                'SELECT founding_client FROM users WHERE id = ?',
+                (session['user_id'],)
+            ).fetchone()
+            started_iso = (artist_full['founding_artist_started_at']
+                           if artist_full and artist_full['founding_artist'] else None)
+            started_dt = None
+            if started_iso:
+                try:
+                    started_dt = datetime.fromisoformat(started_iso)
+                except Exception:
+                    started_dt = None
+            econ_input = BookingInput(
+                gross_price_czk            = _Dec(str(total_price)),
+                artist_founding_started_at = started_dt,
+                client_founding            = bool(client_full and client_full['founding_client']),
+                discount_amount_czk        = _Dec('0'),  # discount UI/integration in Fáze C
+                discount_source            = '',
+                stripe_card_type           = 'card_eea',  # re-snapshot post-payment with actual
+            )
+            econ = calculate_booking_economics(econ_input)
+            # platform_fee_cents = commission v haler (z deposit ratio,
+            # protože v live módu se Stripe charge dělá z deposit_cents, ne total)
+            # Při deposit-only platbě: artist_commission je v poměru k total,
+            # takže pro deposit charge = commission * (deposit/total). Při full payment
+            # = artist_commission přímo.
+            if pay_full:
+                platform_fee_cents = int(econ.artist_commission * 100)
+            else:
+                # proporční commission na deposit
+                if total_price > 0:
+                    ratio = float(deposit_cents) / float(total_price_cents)
+                    platform_fee_cents = int(econ.artist_commission * 100 * ratio)
+                else:
+                    platform_fee_cents = 0
+            economics_snapshot = econ.to_dict()
+        except Exception as e:
+            # Fail-safe: pokud engine vyhodí, padáme zpět na legacy 8 %.
+            print(f'[pricing-engine] error, falling back to legacy: {e}')
+            platform_fee_cents = int(round(deposit_cents * PLATFORM_COMMISSION_PCT / 100))
+    else:
+        platform_fee_cents = int(round(deposit_cents * PLATFORM_COMMISSION_PCT / 100))
+
     demo_mode  = not STRIPE_SECRET_KEY or not artist['stripe_charges_enabled']
     init_status = 'confirmed' if demo_mode else 'pending_payment'
 
@@ -4186,6 +4293,25 @@ def create_booking():
     conn.commit()
     bid = conn.execute('SELECT id FROM bookings WHERE client_id=? ORDER BY id DESC LIMIT 1',
                        (session['user_id'],)).fetchone()['id']
+
+    # Persist economics snapshot (immutable per-booking ledger entry).
+    # kind='initial' = first snapshot at booking creation. Refunds/adjusts
+    # create new rows linked to the same booking_id.
+    if economics_snapshot:
+        try:
+            import json as _json_econ
+            conn.execute(
+                "INSERT INTO economics_snapshots (booking_id, kind, snapshot) VALUES (?, 'initial', ?)",
+                (bid, _json_econ.dumps(economics_snapshot, ensure_ascii=False))
+            )
+            conn.commit()
+            from pricing import emit_event as _emit_econ
+            _emit_econ('booking.economics_calculated', {
+                'booking_id': bid, 'snapshot': economics_snapshot,
+            }, conn=conn)
+            conn.commit()
+        except Exception as e:
+            print(f'[economics-snapshot] persist failed for booking {bid}: {e}')
 
     push_notif(conn, slot['user_id'], session['user_id'], 'booking',
                bid, 'booking', f'Nová rezervace ({duration_hours} h): {design_note[:60]}')
@@ -4546,6 +4672,41 @@ def complete_booking(bid):
                     WHERE id=?''',
                  (datetime.utcnow().isoformat(), onsite_cents, bid))
     conn.commit()
+
+    # Founding-artist clock start: pokud je tatér v programu a ještě nemá
+    # started_at, set ho na timestamp prvního completed bookingu. Tím začíná
+    # 30denní free window + 60denní flat 5 % window. Viz pricing/config.py.
+    try:
+        a_row = conn.execute(
+            'SELECT founding_artist, founding_artist_started_at FROM users WHERE id = ?',
+            (b['artist_id'],)
+        ).fetchone()
+        if a_row and a_row['founding_artist'] and not a_row['founding_artist_started_at']:
+            conn.execute(
+                'UPDATE users SET founding_artist_started_at = ? WHERE id = ?',
+                (datetime.utcnow().isoformat(), b['artist_id'])
+            )
+            conn.commit()
+            try:
+                from pricing import emit_event as _emit_fa
+                _emit_fa('founding_artist.clock_started', {
+                    'artist_id': b['artist_id'], 'booking_id': bid,
+                }, conn=conn)
+                conn.commit()
+            except Exception:
+                pass
+    except Exception as _e:
+        print(f'[founding-artist clock] failed for booking {bid}: {_e}')
+
+    # Telemetry: booking completed
+    try:
+        from pricing import emit_event as _emit_done
+        _emit_done('booking.completed', {
+            'booking_id': bid, 'artist_id': b['artist_id'], 'client_id': b['client_id'],
+        }, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
 
     # Email to client — review request
     artist = conn.execute('SELECT display_name, username FROM users WHERE id=?',
@@ -5879,8 +6040,11 @@ def _sync_connect_status(user_id: int) -> dict:
 
 @app.route('/api/stripe/webhook', methods=['POST'])
 def stripe_webhook():
-    """Webhook handler — především account.updated z Connect účtů.
-    M3 přidá payment_intent.succeeded / charge.refunded pro bookings."""
+    """Webhook handler. Verifikuje podpis proti RAW request body bytes
+    (parsovaný JSON by signature rozbil). Idempotency přes
+    processed_stripe_events: insert event_id before processing — pokud
+    UNIQUE constraint fails, return 200 OK a skip (Stripe retries
+    aggressively a duplicate by mohl ztrojit commission)."""
     payload = request.get_data()
     sig = request.headers.get('Stripe-Signature', '')
     try:
@@ -5895,6 +6059,22 @@ def stripe_webhook():
 
     etype = event['type'] if isinstance(event, dict) else event.type
     obj   = event['data']['object'] if isinstance(event, dict) else event.data.object
+    event_id = event['id'] if isinstance(event, dict) else event.id
+
+    # Idempotency: insert event_id PRE processing. Pokud už existuje,
+    # vrátíme 200 OK a pas. To zabraňuje double-charge pri Stripe retry.
+    conn_idem = get_db()
+    try:
+        conn_idem.execute(
+            'INSERT INTO processed_stripe_events (event_id, event_type) VALUES (?, ?)',
+            (event_id, etype)
+        )
+        conn_idem.commit()
+    except Exception:
+        # Duplicate event_id = už zpracováno. Return 200 a skip.
+        conn_idem.close()
+        return '', 200
+    conn_idem.close()
 
     if etype == 'account.updated':
         acct_id = obj['id'] if isinstance(obj, dict) else obj.id
@@ -5920,7 +6100,135 @@ def stripe_webhook():
         conn.commit()
         conn.close()
 
-    # M3 hooks (payment_intent.succeeded, charge.refunded) přijdou s booking flow.
+    elif etype == 'payment_intent.succeeded':
+        # Payment cleared → booking confirm + re-snapshot economics s actual
+        # card type (zatím jen card_eea fallback). Funds už tečou tatérovi
+        # přes destination charges (current architecture), takže žádný
+        # manuální transfer.
+        pi_id = obj.get('id') if isinstance(obj, dict) else obj.id
+        meta = obj.get('metadata') if isinstance(obj, dict) else (obj.metadata or {})
+        booking_id = None
+        try:
+            booking_id = int(meta.get('inklink_booking_id') or 0) or None
+        except Exception:
+            booking_id = None
+        if not booking_id:
+            # Fallback: najít booking podle PI ID
+            conn = get_db()
+            row = conn.execute(
+                'SELECT id FROM bookings WHERE stripe_payment_intent_id = ? OR balance_payment_intent_id = ?',
+                (pi_id, pi_id)
+            ).fetchone()
+            if row:
+                booking_id = row['id']
+            conn.close()
+        if booking_id:
+            conn = get_db()
+            conn.execute(
+                "UPDATE bookings SET status='confirmed', confirmed_at=? WHERE id=? AND status='pending_payment'",
+                (datetime.utcnow().isoformat(), booking_id)
+            )
+            conn.commit()
+            try:
+                from pricing import emit_event as _emit_pi
+                _emit_pi('booking.payment_succeeded', {
+                    'booking_id': booking_id, 'payment_intent_id': pi_id,
+                }, conn=conn)
+                conn.commit()
+            except Exception:
+                pass
+            conn.close()
+
+    elif etype == 'payment_intent.payment_failed':
+        pi_id = obj.get('id') if isinstance(obj, dict) else obj.id
+        conn = get_db()
+        row = conn.execute(
+            'SELECT id FROM bookings WHERE stripe_payment_intent_id = ? OR balance_payment_intent_id = ?',
+            (pi_id, pi_id)
+        ).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE bookings SET status='payment_failed' WHERE id=?", (row['id'],)
+            )
+            conn.commit()
+            try:
+                from pricing import emit_event as _emit_pf
+                _emit_pf('booking.payment_failed', {
+                    'booking_id': row['id'], 'payment_intent_id': pi_id,
+                }, conn=conn)
+                conn.commit()
+            except Exception:
+                pass
+        conn.close()
+
+    elif etype == 'charge.refunded':
+        # Stripe-side refund (initiated z dashboardu nebo přes API). Ukládáme
+        # ekonomickou stopu jako new snapshot kind='refund' — net pro nás
+        # je loss Stripe fee (Stripe fee se nevrací).
+        ch_id = obj.get('id') if isinstance(obj, dict) else obj.id
+        pi_id = obj.get('payment_intent') if isinstance(obj, dict) else obj.payment_intent
+        amount_refunded = obj.get('amount_refunded') if isinstance(obj, dict) else obj.amount_refunded
+        conn = get_db()
+        row = conn.execute(
+            'SELECT id, total_price_cents FROM bookings WHERE stripe_payment_intent_id = ? OR balance_payment_intent_id = ?',
+            (pi_id, pi_id)
+        ).fetchone()
+        if row:
+            try:
+                import json as _json_r
+                # refund_loss = Stripe fee na původní platbě (nevrací se).
+                # Zatím použijeme heuristiku ~1.5% * amount_refunded + 6 CZK.
+                stripe_fee_loss_haler = int(amount_refunded * 0.015 + 600)
+                snapshot = {
+                    'refund_amount_haler': int(amount_refunded or 0),
+                    'refund_amount_czk': float(int(amount_refunded or 0)) / 100,
+                    'refund_loss_czk': float(stripe_fee_loss_haler) / 100,
+                    'charge_id': ch_id,
+                    'payment_intent_id': pi_id,
+                }
+                conn.execute(
+                    "INSERT INTO economics_snapshots (booking_id, kind, snapshot) VALUES (?, 'refund', ?)",
+                    (row['id'], _json_r.dumps(snapshot))
+                )
+                conn.execute(
+                    "UPDATE bookings SET status='refunded', refund_cents=? WHERE id=?",
+                    (int(amount_refunded or 0), row['id'])
+                )
+                conn.commit()
+                from pricing import emit_event as _emit_rf
+                _emit_rf('booking.refunded', {
+                    'booking_id': row['id'], 'snapshot': snapshot,
+                }, conn=conn)
+                conn.commit()
+            except Exception as e:
+                print(f'[webhook refunded] {e}')
+        conn.close()
+
+    elif etype == 'charge.dispute.created':
+        # Chargeback opened. Freeze any pending payout, mark booking disputed,
+        # alert admin. NEautomaticky neodpovídáme — admin to řeší z Stripe
+        # dashboardu.
+        pi_id = obj.get('payment_intent') if isinstance(obj, dict) else obj.payment_intent
+        dispute_reason = obj.get('reason') if isinstance(obj, dict) else obj.reason
+        conn = get_db()
+        row = conn.execute(
+            'SELECT id FROM bookings WHERE stripe_payment_intent_id = ?', (pi_id,)
+        ).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE bookings SET status='disputed' WHERE id=?", (row['id'],)
+            )
+            conn.commit()
+            try:
+                from pricing import emit_event as _emit_dp
+                _emit_dp('booking.disputed', {
+                    'booking_id': row['id'], 'reason': dispute_reason,
+                    'payment_intent_id': pi_id,
+                }, conn=conn)
+                conn.commit()
+            except Exception:
+                pass
+        conn.close()
 
     return '', 200
 
