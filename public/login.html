@@ -93,6 +93,9 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
   <!-- REGISTER -->
   <form class="form" id="registerForm" onsubmit="doRegister(event)">
     <div class="error-msg" id="registerError"></div>
+    <div id="refBanner" style="display:none;background:#0e0e0e;border:1px solid #2a2a2a;border-left:3px solid #c62828;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#bbb;letter-spacing:0.03em;line-height:1.6">
+      <span style="color:#eee">Pozván od <b id="refBy">—</b></span> · po tvé první rezervaci dostane bonus 300 Kč na svůj účet.
+    </div>
     <div class="field">
       <label>Uživatelské jméno *</label>
       <input type="text" id="regUsername" placeholder="jen písmena a čísla" autocomplete="username" required>
@@ -133,6 +136,15 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
   document.getElementById('loginForm').classList.toggle('active', tab === 'login');
   document.getElementById('registerForm').classList.toggle('active', tab === 'register');
+}
+
+// Read ?ref= from URL — show banner + remember for register POST.
+const refFromUrl = (new URLSearchParams(location.search).get('ref') || '').trim().toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,30);
+if (refFromUrl) {
+  document.getElementById('refBy').textContent = '@' + refFromUrl;
+  document.getElementById('refBanner').style.display = 'block';
+  // Auto-switch to register tab when arriving with a ref link.
+  try { switchTab('register'); } catch {}
 }
 
 function showError(id, msg) {
@@ -186,7 +198,8 @@ async function doRegister(e) {
       email:        document.getElementById('regEmail').value,
       phone:        document.getElementById('regPhone').value,
       city:         document.getElementById('regCity').value,
-      password:     document.getElementById('regPassword').value
+      password:     document.getElementById('regPassword').value,
+      ref:          refFromUrl || ''
     })
   });
   const data = await res.json();

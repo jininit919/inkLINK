@@ -68,6 +68,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 #mapInfo{position:fixed;top:66px;left:12px;z-index:500;background:rgba(20,16,8,0.55);backdrop-filter:blur(8px);border:1px solid var(--border2);padding:10px 14px;font-size:11px;letter-spacing:0.06em;color:var(--txt2);display:flex;align-items:center;gap:8px;max-width:calc(100vw - 24px)}
 #mapInfo .il-spinner{margin-right:2px}
+
+#geoBar{position:fixed;top:66px;right:12px;z-index:500;background:rgba(20,16,8,0.55);backdrop-filter:blur(8px);border:1px solid var(--border2);padding:6px 8px;display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.06em}
+#geoBar button{background:transparent;border:1px solid var(--border2);color:var(--txt2);padding:6px 10px;font-size:11px;letter-spacing:0.08em;cursor:pointer;font-family:inherit;text-transform:uppercase;transition:all 0.15s}
+#geoBar button:hover{background:var(--bg3);color:var(--red2)}
+#geoBar button.active{background:var(--red2);color:var(--bg);border-color:var(--red2)}
+#geoBar select{background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:6px 8px;font-size:11px;font-family:inherit;letter-spacing:0.06em}
+#geoBar.busy{opacity:0.6;pointer-events:none}
+@media(max-width:520px){#geoBar{top:auto;bottom:74px;right:8px;flex-direction:column;gap:4px;padding:6px}#geoBar select{width:100%}}
+
+.geo-marker{width:18px;height:18px;border-radius:50%;background:#4a9eff;border:3px solid #fff;box-shadow:0 0 0 6px rgba(74,158,255,0.25),0 4px 10px rgba(0,0,0,0.4)}
 </style>
 </head>
 <body data-theme="dark">
@@ -80,6 +90,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 </nav>
 
 <div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText">Načítám tatéry…</span></div>
+<div id="geoBar">
+  <select id="geoRadius" aria-label="Okruh">
+    <option value="5">5 km</option>
+    <option value="25" selected>25 km</option>
+    <option value="50">50 km</option>
+    <option value="100">100 km</option>
+  </select>
+  <button id="geoBtn" type="button" onclick="toggleGeo()">📍 V mém okolí</button>
+</div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -150,11 +169,127 @@ function buildPopup(a) {
   `;
 }
 
+let mapInstance = null;
+let allArtists = [];           // všechny tatéři z /api/artists/map
+let artistMarkers = new Map(); // id → Leaflet marker
+let geoState = { active: false, lat: null, lng: null, marker: null, circle: null };
+
+function countLabel(n) {
+  return `${n} ${n === 1 ? 'tatér' : (n < 5 ? 'tatéři' : 'tatérů')}`;
+}
+
+function setMapInfo(text, busy=false) {
+  document.getElementById('mapInfoText').textContent = text;
+  document.querySelector('#mapInfo .il-spinner').style.display = busy ? '' : 'none';
+}
+
+function renderAllMarkers() {
+  // Zobraz všechny tatéři (žádný filter)
+  artistMarkers.forEach(m => m.setOpacity(1));
+}
+
+function filterByRadius(centerLat, centerLng, km) {
+  // Spočítej distance lokálně; markeři mimo okruh se zprůhlední
+  let inside = 0;
+  artistMarkers.forEach((marker, id) => {
+    const a = allArtists.find(x => x.id === id);
+    if (!a) { marker.setOpacity(0); return; }
+    const d = haversineKm(centerLat, centerLng, a.lat, a.lng);
+    if (d <= km) { marker.setOpacity(1); inside++; }
+    else { marker.setOpacity(0); }
+  });
+  return inside;
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371.0;
+  const rad = Math.PI / 180;
+  const p1 = lat1 * rad, p2 = lat2 * rad;
+  const dp = (lat2 - lat1) * rad;
+  const dl = (lng2 - lng1) * rad;
+  const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+async function toggleGeo() {
+  const bar = document.getElementById('geoBar');
+  const btn = document.getElementById('geoBtn');
+  if (geoState.active) {
+    // Vypni filtr
+    if (geoState.marker) { mapInstance.removeLayer(geoState.marker); geoState.marker = null; }
+    if (geoState.circle) { mapInstance.removeLayer(geoState.circle); geoState.circle = null; }
+    geoState.active = false;
+    geoState.lat = geoState.lng = null;
+    btn.classList.remove('active');
+    btn.textContent = '📍 V mém okolí';
+    renderAllMarkers();
+    setMapInfo(countLabel(allArtists.length));
+    return;
+  }
+  if (!navigator.geolocation) {
+    alert('Geolokace není v tomto prohlížeči dostupná.');
+    return;
+  }
+  bar.classList.add('busy');
+  btn.textContent = '⏳ Hledám polohu…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      bar.classList.remove('busy');
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      const km = parseInt(document.getElementById('geoRadius').value, 10) || 25;
+      applyGeoFilter(lat, lng, km);
+    },
+    err => {
+      bar.classList.remove('busy');
+      btn.textContent = '📍 V mém okolí';
+      const msg = err && err.code === err.PERMISSION_DENIED
+        ? 'Nepovolil jsi přístup k poloze. Můžeš to změnit v nastavení prohlížeče.'
+        : 'Nepodařilo se získat polohu.';
+      alert(msg);
+    },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+  );
+}
+
+function applyGeoFilter(lat, lng, km) {
+  geoState.active = true;
+  geoState.lat = lat;
+  geoState.lng = lng;
+
+  // Marker tvé polohy
+  if (geoState.marker) mapInstance.removeLayer(geoState.marker);
+  const icon = L.divIcon({ className:'', html: '<div class="geo-marker"></div>', iconSize: [18,18], iconAnchor: [9,9] });
+  geoState.marker = L.marker([lat, lng], { icon, interactive: false }).addTo(mapInstance);
+
+  // Kruh poloměru
+  if (geoState.circle) mapInstance.removeLayer(geoState.circle);
+  geoState.circle = L.circle([lat, lng], {
+    radius: km * 1000,
+    color: '#4a9eff', weight: 1.5, fillColor: '#4a9eff', fillOpacity: 0.08,
+    interactive: false,
+  }).addTo(mapInstance);
+
+  const inside = filterByRadius(lat, lng, km);
+  mapInstance.fitBounds(geoState.circle.getBounds(), { padding: [40, 40], maxZoom: 12 });
+
+  const btn = document.getElementById('geoBtn');
+  btn.classList.add('active');
+  btn.textContent = '✕ Zrušit filtr';
+  setMapInfo(`${countLabel(inside)} do ${km} km`);
+}
+
+document.addEventListener('change', e => {
+  if (e.target && e.target.id === 'geoRadius' && geoState.active) {
+    const km = parseInt(e.target.value, 10) || 25;
+    applyGeoFilter(geoState.lat, geoState.lng, km);
+  }
+});
+
 async function init() {
   initNav();
 
   // Map default: ČR centrovaný (Praha), zoom 7 (vidět celé Česko)
-  const map = L.map('map', {
+  mapInstance = L.map('map', {
     center: [49.8, 15.5],
     zoom: 7,
     zoomControl: true,
@@ -165,34 +300,31 @@ async function init() {
     maxZoom: 19,
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
-  }).addTo(map);
+  }).addTo(mapInstance);
 
-  const info = document.getElementById('mapInfoText');
   try {
     const r = await fetch('/api/artists/map');
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const artists = await r.json();
-    if (!artists.length) {
-      info.textContent = 'Žádní tatéři na mapě zatím nejsou.';
+    allArtists = await r.json();
+    if (!allArtists.length) {
+      setMapInfo('Žádní tatéři na mapě zatím nejsou.');
       return;
     }
     const bounds = [];
-    artists.forEach(a => {
-      const marker = L.marker([a.lat, a.lng], { icon: buildMarker(a) }).addTo(map);
+    allArtists.forEach(a => {
+      const marker = L.marker([a.lat, a.lng], { icon: buildMarker(a) }).addTo(mapInstance);
       marker.bindPopup(buildPopup(a), { maxWidth: 240, autoPan: true });
+      artistMarkers.set(a.id, marker);
       bounds.push([a.lat, a.lng]);
     });
-    // Pokud máme dost markerů, fit bounds; jinak default ČR
-    if (artists.length > 1) {
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
-    } else if (artists.length === 1) {
-      map.setView(bounds[0], 12);
+    if (allArtists.length > 1) {
+      mapInstance.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
+    } else if (allArtists.length === 1) {
+      mapInstance.setView(bounds[0], 12);
     }
-    info.textContent = `${artists.length} ${artists.length === 1 ? 'tatér' : (artists.length < 5 ? 'tatéři' : 'tatérů')}`;
-    document.querySelector('#mapInfo .il-spinner').style.display = 'none';
+    setMapInfo(countLabel(allArtists.length));
   } catch (e) {
-    info.textContent = 'Nepodařilo se načíst tatéry.';
-    document.querySelector('#mapInfo .il-spinner').style.display = 'none';
+    setMapInfo('Nepodařilo se načíst tatéry.');
   }
 }
 

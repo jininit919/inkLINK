@@ -142,6 +142,18 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       <div class="tbl" id="discountCodesList"></div>
     </div>
 
+    <!-- ── Refund requests ─────────────────────────────────────────────── -->
+    <div class="section">
+      <div class="section-title">Refund requests <span class="sub" id="refundReqCount"></span></div>
+      <div class="tbl" id="refundReqList"></div>
+    </div>
+
+    <!-- ── Referrals leaderboard ───────────────────────────────────────── -->
+    <div class="section">
+      <div class="section-title">Referrals — top pozvávači</div>
+      <div class="tbl" id="referralsLeaderboard"></div>
+    </div>
+
     <!-- ── Telemetry events feed ──────────────────────────────────────── -->
     <div class="section">
       <div class="section-title">Telemetry events <span class="sub">posledních 50</span></div>
@@ -263,7 +275,121 @@ async function init() {
   loadReports();
   loadKpis();
   loadCodes();
+  loadRefundReqs();
+  loadReferralsLeaderboard();
   loadTelemetry();
+}
+
+// ── Refund requests ─────────────────────────────────────────────────────
+async function loadRefundReqs(){
+  let list;
+  try {
+    const r = await fetch('/api/refund-requests?all=1');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    list = await r.json();
+  } catch (e) {
+    document.getElementById('refundReqList').innerHTML = `<div class="il-error-banner">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  const pending = list.filter(r => r.status === 'pending').length;
+  document.getElementById('refundReqCount').textContent = pending ? `${pending} čeká` : '';
+  if (!list.length) {
+    document.getElementById('refundReqList').innerHTML = '<div class="empty" style="padding:18px">Žádné žádosti.</div>';
+    return;
+  }
+  document.getElementById('refundReqList').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="text-align:left;color:var(--txt3);font-size:10px;letter-spacing:0.08em">
+          <th style="padding:6px 8px">DATUM</th>
+          <th style="padding:6px 8px">KLIENT</th>
+          <th style="padding:6px 8px">TATÉR</th>
+          <th style="padding:6px 8px">ČÁSTKA</th>
+          <th style="padding:6px 8px">DŮVOD</th>
+          <th style="padding:6px 8px">STAV</th>
+          <th style="padding:6px 8px">AKCE</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list.map(rr => {
+          const dt = (rr.created_at || '').slice(0, 10);
+          const statColor = rr.status === 'pending' ? 'var(--warn,#e8c87f)' : (rr.status === 'approved' ? 'var(--ok,#7fd391)' : 'var(--err,#e58787)');
+          const actions = rr.status === 'pending'
+            ? `<button onclick="adminDecideRefund(${rr.id}, 'approve')" style="background:var(--ok,#7fd391);color:#000;border:none;padding:4px 9px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:0.06em">SCHVÁLIT</button>
+               <button onclick="adminDecideRefund(${rr.id}, 'reject')" style="background:var(--err,#e58787);color:#000;border:none;padding:4px 9px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:0.06em;margin-left:4px">ZAMÍTNOUT</button>`
+            : '—';
+          return `<tr style="border-top:1px solid var(--border)">
+            <td style="padding:7px 8px;color:var(--txt3)">${escapeHtml(dt)}</td>
+            <td style="padding:7px 8px">@${escapeHtml(rr.client_username)}</td>
+            <td style="padding:7px 8px">@${escapeHtml(rr.artist_username)}</td>
+            <td style="padding:7px 8px"><b>${Math.round((rr.amount_cents||0)/100).toLocaleString('cs-CZ')} Kč</b></td>
+            <td style="padding:7px 8px;max-width:240px;color:var(--txt2)">${escapeHtml((rr.reason||'').slice(0, 100))}</td>
+            <td style="padding:7px 8px;color:${statColor};letter-spacing:0.06em">${rr.status.toUpperCase()}</td>
+            <td style="padding:7px 8px">${actions}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function adminDecideRefund(rid, decision){
+  let note = '';
+  if (decision === 'reject') note = prompt('Důvod zamítnutí (klient ho uvidí):') || '';
+  else if (!confirm('Schválit refund? Stripe vrátí peníze klientovi — tato akce už nejde vrátit.')) return;
+  const r = await fetch(`/api/refund-requests/${rid}/decide`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({decision, note}),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(()=>({}));
+    alert(j.error || 'Akce selhala');
+    return;
+  }
+  loadRefundReqs();
+}
+
+// ── Referrals leaderboard ──────────────────────────────────────────────
+async function loadReferralsLeaderboard(){
+  let data;
+  try {
+    const r = await fetch('/api/admin/referrals/leaderboard');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (e) {
+    document.getElementById('referralsLeaderboard').innerHTML = `<div class="il-error-banner">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  if (!data.rows || !data.rows.length) {
+    document.getElementById('referralsLeaderboard').innerHTML = '<div class="empty" style="padding:18px">Zatím žádní pozvávači.</div>';
+    return;
+  }
+  document.getElementById('referralsLeaderboard').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="text-align:left;color:var(--txt3);font-size:10px;letter-spacing:0.08em">
+          <th style="padding:6px 8px">#</th>
+          <th style="padding:6px 8px">UŽIVATEL</th>
+          <th style="padding:6px 8px;text-align:right">REGISTRACÍ</th>
+          <th style="padding:6px 8px;text-align:right">DOKONČILO</th>
+          <th style="padding:6px 8px;text-align:right">KREDIT</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map((r, i) => `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:7px 8px;color:var(--txt3)">${i+1}</td>
+          <td style="padding:7px 8px"><a href="/profile/${escapeHtml(r.username)}" style="color:var(--red2);text-decoration:underline">${escapeHtml(r.display_name || r.username)}</a> <span style="color:var(--txt3)">@${escapeHtml(r.username)}</span></td>
+          <td style="padding:7px 8px;text-align:right"><b>${r.signups||0}</b></td>
+          <td style="padding:7px 8px;text-align:right"><b>${r.granted||0}</b></td>
+          <td style="padding:7px 8px;text-align:right">${Math.round((r.account_credit_cents||0)/100).toLocaleString('cs-CZ')} Kč</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:10px;color:var(--txt3);letter-spacing:0.06em">
+      celkem ${data.total_signups||0} registrací, ${data.total_granted||0} dokončilo, ${Math.round((data.total_credit_cents||0)/100).toLocaleString('cs-CZ')} Kč rozdaného kreditu
+    </div>
+  `;
 }
 
 // ── Pricing KPIs ────────────────────────────────────────────────────────

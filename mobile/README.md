@@ -175,36 +175,50 @@ iOS push potřebuje **APNs certifikát** + **Push Notifications capability**:
 (Pro MVP může push běžet jen přes web VAPID na webu, native push doděláme
 v druhé iteraci.)
 
-## App ikony pro iOS
+## App ikony a splash — automatika přes @capacitor/assets
 
-Po `npx cap add ios` se v `ios/App/App/Assets.xcassets/AppIcon.appiconset/`
-očekává:
+Source images jsou v `mobile/assets/`:
 
-- `Icon-App-20x20@2x.png` (40×40), `@3x.png` (60×60)
-- `Icon-App-29x29@2x.png` (58×58), `@3x.png` (87×87)
-- `Icon-App-40x40@2x.png` (80×80), `@3x.png` (120×120)
-- `Icon-App-60x60@2x.png` (120×120), `@3x.png` (180×180)
-- `Icon-App-1024x1024@1x.png` (1024×1024, App Store)
+| Soubor | Rozměr | Použití |
+|---|---|---|
+| `icon.png` | 1024×1024 | iOS App Store icon (white bg, "ink" black blob) |
+| `icon-foreground.png` | 1024×1024 | Android adaptive icon — foreground (transparent, jen logo) |
+| `icon-background.png` | 1024×1024 | Android adaptive icon — background (paper #faf8f3 solid) |
+| `splash.png` | 2732×2732 | Splash light mode — logo centered na paper bg |
+| `splash-dark.png` | 2732×2732 | Splash dark mode (zatím stejné) |
 
-Generovat z `/public/icons/icon-512.png` (paper bg s "ink" logem) nebo
-`/public/icons/icon-transparent-512.png` (lepší pro maskable). Script
-`scripts/build-ios-icons.py` doděláme později.
+Po `npx cap add ios` (a optionally `android`) spusť:
 
-## Splash screen
+```bash
+cd mobile
+npm install                # nainstaluje @capacitor/assets
+npm run assets:generate    # vygeneruje všechny iOS + Android velikosti
+```
 
-Po `npx cap add ios` v `ios/App/App/Assets.xcassets/Splash.imageset/`:
+Tool přepočítá:
+- iOS: `ios/App/App/Assets.xcassets/AppIcon.appiconset/` (9 velikostí) + `Splash.imageset/`
+- Android: `android/app/src/main/res/mipmap-*/` (5 hustot) + `drawable-*/`
 
-- `splash-2732x2732.png` (univerzální pro iPad i iPhone)
-- Paper bg `#faf8f3` + centered logo
+Po regeneraci ikon vždy spusť `npx cap sync` aby se to propíchlo do Xcode/Studio projektů.
 
-Generujeme z `/public/img/inklink-logo.jpg` (nebo nově `inkLink mini.jpg`).
+### Regenerování ikon ze zdroje
+
+Pokud chceš upravit logo (např. změnit barvu, scale), uprav soubory v `mobile/assets/`
+nebo přegeneruj z původního zdroje:
+
+```bash
+# Source: ~/Downloads/inkLink mini.jpg (2000×2000 RGB)
+# Skript: scripts/build_app_assets.py (regeneruje 5 souborů v mobile/assets/)
+python3 scripts/build_app_assets.py
+cd mobile && npm run assets:generate && npx cap sync
+```
 
 ## Známé issues / TODO
 
 - [ ] Safe-area inset CSS — notch + home indicator (theme.css)
 - [ ] Backend `/api/native/register-push` endpoint pro APNs token
-- [ ] iOS App Icon resources (1024 + příslušné velikosti)
-- [ ] Splash screen image
+- [x] iOS App Icon resources (1024 + příslušné velikosti) — generuje `npm run assets:generate`
+- [x] Splash screen image — paper bg, logo centered, light + dark variant
 - [ ] Pull-to-refresh — Capacitor `@capacitor/app` background events
 - [ ] Camera permission strings v `Info.plist` (NSCameraUsageDescription)
 - [ ] Privacy Manifest (`PrivacyInfo.xcprivacy`) pro App Store

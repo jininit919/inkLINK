@@ -7,6 +7,7 @@ boto3
 gunicorn
 psycopg2-binary
 pywebpush>=2.0.0
+apns2>=0.7.2
 reportlab>=4.0.0
 Pillow>=10.0.0
 sentry-sdk[flask]>=2.0.0
