@@ -1162,6 +1162,14 @@ async function submitBook() {
     return;
   }
   const j = await r.json();
+  // Live mode with deposit PI ready → redirect to Stripe Elements page
+  if (j.payment && j.payment.mode === 'live' && j.payment.payment_url) {
+    document.getElementById('bm-flash').innerHTML =
+      `<div class="flash-modal ok">Rezervace vytvořena ✓ Přesměrovávám na platbu…</div>`;
+    setTimeout(() => location.href = j.payment.payment_url, 600);
+    return;
+  }
+  // Demo mode or live without PI (legacy)
   document.getElementById('bm-flash').innerHTML =
     `<div class="flash-modal ok">Rezervace vytvořena ✓ ${j.demo_mode ? '(demo režim — bez reálné platby)' : ''}</div>`;
   setTimeout(() => location.href = '/my-bookings', 900);
@@ -1243,6 +1251,7 @@ load();
 <script src="/icons.js?v=2"></script>
 <script src="/icons.js?v=2"></script>
 <script src="/ink-trail.js?v=1"></script>
+<script src="/cookie-consent.js?v=1"></script>
 <script src="/native.js?v=1"></script>
 </body>
 </html>

@@ -202,6 +202,33 @@ Vrací JSON:
 
 ---
 
+## 3.4 Account deletion cron
+
+GDPR — anonymizuje účty 30 dní po jejich žádosti o smazání:
+
+```
+30 3 * * *      # denně v 3:30 UTC
+curl -sf -H "X-Cron-Token: $RECONCILE_TOKEN" https://www.inklink.club/api/cron/account-deletions
+```
+
+Najde usery s `deletion_requested_at <= now() - 30 days` a `deleted_at IS NULL`,
+přepíše PII (jméno, email, telefon, bio, foto…) na placeholdery, smaže portfolio
++ push subscriptions, password_hash nastaví na unguessable token. Účetní
+záznamy (bookings, economics_snapshots) zůstanou v DB s anonymizovanou FK
+linkou.
+
+Response:
+```json
+{
+  "ok": true,
+  "purged_count": 3,
+  "purged_user_ids": [42, 51, 78],
+  "cutoff_iso": "2026-04-23T13:00:00"
+}
+```
+
+---
+
 ## 3.5 Welcome email sequence cron
 
 Posílá 3-stupňový onboarding email klientům/tatérům:

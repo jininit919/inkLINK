@@ -128,6 +128,10 @@ STRIPE_PUBLIC_KEY     = os.environ.get('STRIPE_PUBLIC_KEY', '')
 STRIPE_PRO_PRICE_ID   = os.environ.get('STRIPE_PRO_PRICE_ID', '')
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
+    # Pin Stripe API version explicitly. Without this, every Stripe release
+    # silently changes behavior. Bump deliberately in PRs after testing.
+    # https://stripe.com/docs/api/versioning
+    stripe.api_version = '2024-12-18.acacia'
 
 RESEND_API_KEY    = os.environ.get('RESEND_API_KEY', '')
 VAPID_PUBLIC_KEY  = os.environ.get('PUSH_PUBLIC', '')
@@ -631,7 +635,14 @@ def init_db():
                 # Welcome email sequence (3 stages, cron-driven). 0=not started,
                 # 1=welcome sent, 2=tips sent (day 2), 3=re-engagement sent (done).
                 'welcome_email_stage INTEGER DEFAULT 0',
-                'welcome_email_next_at TEXT DEFAULT NULL'):
+                'welcome_email_next_at TEXT DEFAULT NULL',
+                # Soft deletion (GDPR right to erasure). Two-stage:
+                # 1) user requests → deletion_requested_at set, 30-day grace.
+                # 2) cron after 30 days → PII scrubbed, deleted_at set.
+                # Accounting data (bookings, economics_snapshots) is preserved
+                # by FK; only the user row is anonymized.
+                'deletion_requested_at TEXT DEFAULT NULL',
+                'deleted_at TEXT DEFAULT NULL'):
         add_col('users', col)
     conn.commit()
 
@@ -821,6 +832,9 @@ def init_db():
     # v live se napárlujeme se Stripe PaymentIntent.amount
     add_col('bookings', 'balance_charge_cents INTEGER NOT NULL DEFAULT 0')
     add_col('bookings', 'balance_charge_fee_cents INTEGER NOT NULL DEFAULT 0')
+    # Sprint 1 LITE: track deposit PI retry attempts. Used to rotate
+    # idempotency_key on retry (otherwise Stripe returns the same failed PI).
+    add_col('bookings', 'payment_attempts INTEGER DEFAULT 0')
 
     # ── InkLink: reviews (klient hodnotí dokončené sezení) ──────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS reviews (
@@ -1753,6 +1767,14 @@ def login():
     if not user or not check_password_hash(user['password_hash'], password):
         return jsonify({'error': 'Invalid credentials'}), 401
 
+    # Anonymized accounts can't log in (PII scrubbed, password_hash unguessable
+    # but be explicit anyway in case the random hash check is ever softened).
+    try:
+        if 'deleted_at' in user.keys() and user['deleted_at']:
+            return jsonify({'error': 'Tento účet byl smazán.'}), 410
+    except Exception:
+        pass
+
     session['user_id']      = user['id']
     session['username']     = user['username']
     session['display_name'] = user['display_name']
@@ -1963,7 +1985,8 @@ def me():
                                   deposit_pct_default, hourly_rate_min, hourly_rate_max,
                                   default_payment_mode,
                                   stripe_account_id, stripe_charges_enabled,
-                                  stripe_payouts_enabled, stripe_details_submitted
+                                  stripe_payouts_enabled, stripe_details_submitted,
+                                  deletion_requested_at
                            FROM users WHERE id = ?''',
                         (session['user_id'],)).fetchone()
     push_n = conn.execute('SELECT COUNT(*) FROM push_subscriptions WHERE user_id=?',
@@ -1975,6 +1998,13 @@ def me():
     d['can_accept_bookings'] = bool(d.get('stripe_charges_enabled'))
     d['push_subscriptions'] = push_n
     d['push_available'] = bool(VAPID_PUBLIC_KEY)
+    # Compute purge_at for UI banner — let frontend show countdown.
+    if d.get('deletion_requested_at'):
+        try:
+            req = datetime.fromisoformat((d['deletion_requested_at'] or '').replace('Z', '+00:00'))
+            d['deletion_purge_at'] = (req + timedelta(days=ACCOUNT_DELETION_GRACE_DAYS)).isoformat()
+        except Exception:
+            d['deletion_purge_at'] = None
     return jsonify(d)
 
 
@@ -5291,6 +5321,48 @@ def create_booking():
         'design_note': design_note,
         'booking_url': f'{APP_BASE_URL}/my-bookings',
     })
+
+    # ── Sprint 1 LITE: create deposit PaymentIntent in live mode ──────────────
+    # Gated behind ENABLE_DEPOSIT_PI env flag for safe rollout. Without the
+    # flag, behavior is unchanged from before (booking sits in pending_payment
+    # forever in live mode — broken but stable). With the flag, we create a
+    # PI and return client_secret for frontend Stripe Elements.
+    payment_block = {'mode': 'demo'} if demo_mode else None
+    enable_deposit_pi = os.environ.get('ENABLE_DEPOSIT_PI', '0') == '1'
+    if not demo_mode and enable_deposit_pi:
+        try:
+            charge_cents = total_price_cents if payment_mode == 'full' else deposit_cents
+            day = int(time.time() // 86400)
+            pi = stripe.PaymentIntent.create(
+                amount=charge_cents,
+                currency=(slot['currency'] if 'currency' in slot.keys() and slot['currency'] else 'czk').lower(),
+                description=f'InkLink — záloha za rezervaci #{bid}',
+                application_fee_amount=platform_fee_cents,
+                transfer_data={'destination': artist['stripe_account_id'] if 'stripe_account_id' in artist.keys() else None},
+                metadata={
+                    'inklink_booking_id': str(bid),
+                    'inklink_kind': 'deposit' if payment_mode != 'full' else 'full_payment',
+                },
+                idempotency_key=f'deposit-{slot_id}-{session["user_id"]}-{day}',
+            )
+            conn.execute(
+                'UPDATE bookings SET stripe_payment_intent_id=?, payment_attempts=1 WHERE id=?',
+                (pi.id, bid)
+            )
+            conn.commit()
+            payment_block = {
+                'mode': 'live',
+                'client_secret': pi.client_secret,
+                'publishable_key': STRIPE_PUBLIC_KEY,
+                'payment_url': f'/pay/{bid}',
+            }
+        except Exception as e:
+            # Don't roll back the booking — let user retry via /retry-payment-intent.
+            # Booking sits in pending_payment until they retry.
+            print(f'[deposit-pi] create failed for booking {bid}: {e}')
+            payment_block = {'mode': 'live', 'error': 'Stripe momentálně nedostupný, zkus za chvíli.',
+                             'payment_url': f'/pay/{bid}'}
+
     conn.close()
 
     return jsonify({
@@ -5307,6 +5379,7 @@ def create_booking():
         'booking_start_at': booking_start.isoformat(),
         'booking_end_at':   booking_end.isoformat(),
         'total_price_kc':   round(total_price),
+        'payment':          payment_block,
     })
 
 
@@ -5731,6 +5804,204 @@ def my_export():
     return send_file(buf, mimetype='application/zip', as_attachment=True, download_name=fname)
 
 
+ACCOUNT_DELETION_GRACE_DAYS = 30
+
+
+def _anonymize_user(conn, uid: int) -> None:
+    """Scrub PII from users row. Keeps id (FK integrity) + accounting joins.
+    Sets deleted_at to mark the row as terminal. Idempotent."""
+    import secrets as _secrets
+    # Free up the username slot but keep it referentially valid via a stable
+    # placeholder. Two anonymized users with same id won't collide.
+    placeholder = f'deleted-{uid}'
+    random_hash = 'deleted!' + _secrets.token_hex(16)  # unguessable, locks login
+    now_iso = datetime.utcnow().isoformat()
+    conn.execute('''
+        UPDATE users SET
+            username      = ?,
+            display_name  = 'Smazaný účet',
+            email         = '',
+            phone         = '',
+            city          = '',
+            bio           = '',
+            avatar        = '',
+            studio        = '',
+            instagram     = '',
+            styles        = '',
+            lat           = NULL,
+            lng           = NULL,
+            password_hash = ?,
+            verify_code   = NULL,
+            verify_expires= NULL,
+            calendar_token= NULL,
+            deleted_at    = ?
+        WHERE id = ?
+    ''', (placeholder, random_hash, now_iso, uid))
+    # Wipe portfolio items (privacy policy: "Portfolio se smaže s účtem")
+    conn.execute('DELETE FROM portfolio_items WHERE user_id = ?', (uid,))
+    # Clear active push subscriptions
+    conn.execute('DELETE FROM push_subscriptions WHERE user_id = ?', (uid,))
+
+
+@app.route('/api/me/delete', methods=['POST'])
+def request_account_deletion():
+    """Request soft deletion. 30-day grace; cron does the actual anonymization.
+    Rejects if user has future bookings — they must be cancelled first per ToS.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or {}
+    typed = (data.get('confirm_username') or '').strip().lower()
+
+    conn = get_db()
+    u = conn.execute('SELECT username, deletion_requested_at, deleted_at FROM users WHERE id=?',
+                     (uid,)).fetchone()
+    if not u:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if u['deleted_at']:
+        conn.close()
+        return jsonify({'error': 'Účet je už smazán.'}), 409
+    if u['deletion_requested_at']:
+        conn.close()
+        return jsonify({'error': 'Žádost o smazání už čeká.'}), 409
+
+    # Confirmation by username — prevents accidental deletion via XSS / CSRF / muscle memory
+    if typed != (u['username'] or '').lower():
+        conn.close()
+        return jsonify({'error': 'Pro potvrzení napiš své uživatelské jméno přesně.'}), 400
+
+    # Block deletion when there are future bookings (confirmed or pending payment)
+    now_iso = datetime.utcnow().isoformat()
+    active = conn.execute('''
+        SELECT COUNT(*) AS c FROM bookings
+        WHERE (client_id = ? OR artist_id = ?)
+          AND status IN ('confirmed', 'pending_payment')
+          AND booking_start_at IS NOT NULL
+          AND booking_start_at > ?
+    ''', (uid, uid, now_iso)).fetchone()
+    if (active['c'] or 0) > 0:
+        conn.close()
+        return jsonify({
+            'error': f'Máš ještě {active["c"]} aktivní rezervaci. Zruš ji v /my-bookings a pak požádej znovu.',
+            'active_bookings': active['c'],
+        }), 409
+
+    purge_at = (datetime.utcnow() + timedelta(days=ACCOUNT_DELETION_GRACE_DAYS)).isoformat()
+    conn.execute('UPDATE users SET deletion_requested_at = ? WHERE id = ?', (now_iso, uid))
+    conn.commit()
+
+    try:
+        from pricing import emit_event as _emit
+        _emit('account.deletion_requested', {'user_id': uid}, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+
+    # Email confirmation if Resend configured
+    try:
+        user_email = conn.execute('SELECT email, display_name FROM users WHERE id=?', (uid,)).fetchone()
+        if user_email and user_email['email'] and RESEND_API_KEY:
+            base = APP_BASE_URL or 'https://www.inklink.club'
+            send_email(user_email['email'], 'InkLink — žádost o smazání účtu přijata', f'''
+            <div style="background:#000;padding:24px 0"><div style="background:#0a0a0a;color:#ccc;font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;border:1px solid #1a1a1a">
+              <h1 style="color:#eee;font-size:22px;letter-spacing:0.06em;margin:0 0 12px">Žádost o smazání přijata</h1>
+              <p style="color:#bbb;font-size:14px;line-height:1.7">Ahoj {(user_email['display_name'] or '').strip() or 'tam'},</p>
+              <p style="color:#bbb;font-size:14px;line-height:1.7">Tvůj účet bude trvale anonymizován <b style="color:#eee">{ACCOUNT_DELETION_GRACE_DAYS} dní</b> ode dneška. Do té doby si můžeš žádost rozmyslet a zrušit ji v nastavení.</p>
+              <p style="color:#bbb;font-size:14px;line-height:1.7"><a href="{base}/artist-setup#account" style="color:#c62828">Otevřít nastavení účtu</a></p>
+              <p style="color:#888;font-size:12px;line-height:1.7;margin-top:18px">Po anonymizaci se ztratí: profil, portfolio, profilové údaje. Záznamy o platbách zůstanou v účetnictví po dobu 10 let (zákon o účetnictví) — ale bez vazby na tvou totožnost.</p>
+            </div></div>
+            ''')
+    except Exception:
+        pass
+
+    conn.close()
+    # Log the user out so the "delete" feels final
+    session.clear()
+    return jsonify({
+        'ok': True,
+        'requested_at': now_iso,
+        'purge_at': purge_at,
+        'grace_days': ACCOUNT_DELETION_GRACE_DAYS,
+    })
+
+
+@app.route('/api/me/delete-cancel', methods=['POST'])
+def cancel_account_deletion():
+    """Cancel a pending deletion request (only valid before purge_at)."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    u = conn.execute('SELECT deletion_requested_at, deleted_at FROM users WHERE id=?',
+                     (uid,)).fetchone()
+    if not u:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if u['deleted_at']:
+        conn.close()
+        return jsonify({'error': 'Účet je už nenávratně smazán.'}), 410
+    if not u['deletion_requested_at']:
+        conn.close()
+        return jsonify({'error': 'Žádná žádost o smazání neexistuje.'}), 404
+    conn.execute('UPDATE users SET deletion_requested_at = NULL WHERE id = ?', (uid,))
+    conn.commit()
+    try:
+        from pricing import emit_event as _emit
+        _emit('account.deletion_cancelled', {'user_id': uid}, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/cron/account-deletions', methods=['GET', 'POST'])
+@limiter.limit('30 per hour')
+def cron_account_deletions():
+    """Daily cron — anonymize users whose grace period expired. Trigger:
+    GET /api/cron/account-deletions?token=$RECONCILE_TOKEN"""
+    token = request.args.get('token', '') or request.headers.get('X-Cron-Token', '')
+    if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
+        return jsonify({'error': 'forbidden'}), 403
+    cutoff = (datetime.utcnow() - timedelta(days=ACCOUNT_DELETION_GRACE_DAYS)).isoformat()
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT id FROM users
+           WHERE deletion_requested_at IS NOT NULL
+             AND deletion_requested_at <= ?
+             AND deleted_at IS NULL
+           ORDER BY id ASC LIMIT 200''',
+        (cutoff,)
+    ).fetchall()
+    purged_ids = []
+    for r in rows:
+        try:
+            _anonymize_user(conn, r['id'])
+            purged_ids.append(r['id'])
+        except Exception as e:
+            print(f'[account-deletion] failed for user {r["id"]}: {e}')
+    conn.commit()
+
+    try:
+        from pricing import emit_event as _emit
+        _emit('account.deletion_batch_purged', {
+            'purged_count': len(purged_ids), 'user_ids': purged_ids,
+        }, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+
+    conn.close()
+    return jsonify({
+        'ok': True,
+        'purged_count': len(purged_ids),
+        'purged_user_ids': purged_ids,
+        'cutoff_iso': cutoff,
+    })
+
+
 @app.route('/api/me/referrals', methods=['GET'])
 def my_referrals():
     """Returns current user's referral link + stats:
@@ -5795,6 +6066,131 @@ def my_referrals():
         'total_signups': len(referred),
         'total_granted': granted,
         'referred': referred,
+    })
+
+
+@app.route('/pay/<int:bid>')
+def deposit_pay_page(bid):
+    """Serves the public deposit-pay page (Stripe Elements). Auth gating via
+    booking_id only — URL is the capability. Anyone with the link can pay."""
+    return send_from_directory('public', 'deposit-pay.html')
+
+
+@app.route('/api/pay/<int:bid>')
+def deposit_pay_info(bid):
+    """Public — returns safe display fields + client_secret for Stripe Elements.
+    No auth required (the URL is the capability). Returns 410 if booking is
+    already past pending_payment (frontend redirects to /my-bookings)."""
+    conn = get_db()
+    b = conn.execute('''SELECT b.*, ua.display_name AS a_name, ua.studio AS a_studio,
+                               ua.avatar AS a_avatar
+                        FROM bookings b
+                        JOIN users ua ON ua.id = b.artist_id
+                        WHERE b.id = ?''', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'Rezervace neexistuje.'}), 404
+    conn.close()
+
+    # If booking moved past pending_payment, nothing to pay.
+    if b['status'] not in ('pending_payment', 'payment_failed'):
+        return jsonify({'error': 'Tato rezervace už nečeká na platbu.',
+                        'status': b['status']}), 410
+
+    charge_cents = b['total_price_cents'] if b['payment_mode'] == 'full' else b['deposit_cents']
+    pi_id = b['stripe_payment_intent_id']
+    client_secret = None
+    if pi_id and not pi_id.startswith('demo_pi_'):
+        # Fetch fresh client_secret from Stripe — PI may have rotated.
+        try:
+            pi = stripe.PaymentIntent.retrieve(pi_id)
+            client_secret = pi.client_secret
+        except Exception as e:
+            print(f'[pay-info] PI retrieve failed: {e}')
+
+    return jsonify({
+        'id':                 b['id'],
+        'amount_cents':       charge_cents,
+        'currency':           (b['currency'] or 'CZK'),
+        'client_secret':      client_secret,
+        'publishable_key':    STRIPE_PUBLIC_KEY,
+        'artist_name':        b['a_name'],
+        'artist_studio':      b['a_studio'] or '',
+        'artist_avatar_url':  f'/uploads/{b["a_avatar"]}' if b['a_avatar'] else None,
+        'when':               b['booking_start_at'],
+        'design_note':        b['design_note'] or '',
+        'status':             b['status'],
+        'payment_attempts':   b['payment_attempts'] if 'payment_attempts' in b.keys() else 0,
+    })
+
+
+@app.route('/api/bookings/<int:bid>/retry-payment-intent', methods=['POST'])
+def retry_deposit_payment_intent(bid):
+    """When the first PI failed (status='payment_failed'), create a fresh PI
+    with a rotated idempotency_key. Auth: client_id only — privacy.
+    Allowed states: pending_payment, payment_failed.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'Rezervace neexistuje.'}), 404
+    if uid != b['client_id']:
+        conn.close()
+        return jsonify({'error': 'Retry může spustit jen klient rezervace.'}), 403
+    if b['status'] not in ('pending_payment', 'payment_failed'):
+        conn.close()
+        return jsonify({'error': f'Booking ve stavu {b["status"]} nemůže retry.'}), 409
+    if not STRIPE_SECRET_KEY:
+        conn.close()
+        return jsonify({'error': 'Stripe není nakonfigurovaný.'}), 503
+
+    artist = conn.execute(
+        'SELECT stripe_account_id, stripe_charges_enabled FROM users WHERE id=?',
+        (b['artist_id'],)
+    ).fetchone()
+    if not artist or not artist['stripe_charges_enabled']:
+        conn.close()
+        return jsonify({'error': 'Tatér nemá aktivní platby — nelze retry.'}), 409
+
+    attempt = (b['payment_attempts'] if 'payment_attempts' in b.keys() else 0) + 1
+    charge_cents = b['total_price_cents'] if b['payment_mode'] == 'full' else b['deposit_cents']
+    try:
+        pi = stripe.PaymentIntent.create(
+            amount=charge_cents,
+            currency=(b['currency'] or 'CZK').lower(),
+            description=f'InkLink — záloha za rezervaci #{bid} (retry #{attempt})',
+            application_fee_amount=b['platform_fee_cents'] or 0,
+            transfer_data={'destination': artist['stripe_account_id']},
+            metadata={
+                'inklink_booking_id': str(bid),
+                'inklink_kind': 'deposit_retry',
+                'inklink_attempt': str(attempt),
+            },
+            idempotency_key=f'deposit-retry-{bid}-{attempt}',
+        )
+    except Exception as e:
+        conn.close()
+        print(f'[deposit-retry] PI create failed: {e}')
+        return jsonify({'error': f'Stripe: {e}'}), 502
+
+    conn.execute(
+        '''UPDATE bookings SET stripe_payment_intent_id=?, payment_attempts=?,
+                                status=CASE WHEN status='payment_failed' THEN 'pending_payment' ELSE status END
+           WHERE id=?''',
+        (pi.id, attempt, bid)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({
+        'ok': True,
+        'client_secret':   pi.client_secret,
+        'publishable_key': STRIPE_PUBLIC_KEY,
+        'payment_url':     f'/pay/{bid}',
+        'attempt':         attempt,
     })
 
 
@@ -6201,6 +6597,9 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
 
     if not demo_mode:
         try:
+            # Daily-rotating idempotency_key: same artist re-issuing the same
+            # balance amount on the same day → same PI. Next day → fresh PI.
+            day = int(time.time() // 86400)
             pi = stripe.PaymentIntent.create(
                 amount=cents,
                 currency=(b['currency'] or 'CZK').lower(),
@@ -6211,6 +6610,7 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
                     'inklink_booking_id': str(booking_id),
                     'inklink_kind': 'balance',
                 },
+                idempotency_key=f'balance-{booking_id}-{cents}-{day}',
             )
             pi_id = pi.id
             # klient dostane Stripe Payment Link / Hosted page přes /api/balance-pay/<bid>
@@ -7360,16 +7760,19 @@ def connect_onboard():
                     'mcc': '7299',  # personal services
                 },
                 metadata={'inklink_user_id': str(u['id']), 'inklink_username': u['username']},
+                idempotency_key=f'connect-account-{u["id"]}',
             )
             acct_id = acct.id
             conn.execute('UPDATE users SET stripe_account_id=? WHERE id=?', (acct_id, u['id']))
             conn.commit()
 
+        day = int(time.time() // 86400)
         link = stripe.AccountLink.create(
             account=acct_id,
             refresh_url=f'{_origin()}/api/artist/connect/refresh',
             return_url=f'{_origin()}/api/artist/connect/return',
             type='account_onboarding',
+            idempotency_key=f'connect-link-onboard-{u["id"]}-{day}',
         )
     except stripe.error.StripeError as e:
         conn.close()
@@ -7392,11 +7795,13 @@ def connect_refresh():
     if not u or not u['stripe_account_id']:
         return redirect('/artist-setup?stripe=no-account')
     try:
+        day = int(time.time() // 86400)
         link = stripe.AccountLink.create(
             account=u['stripe_account_id'],
             refresh_url=f'{_origin()}/api/artist/connect/refresh',
             return_url=f'{_origin()}/api/artist/connect/return',
             type='account_onboarding',
+            idempotency_key=f'connect-link-refresh-{session["user_id"]}-{day}',
         )
         return redirect(link.url)
     except stripe.error.StripeError:
