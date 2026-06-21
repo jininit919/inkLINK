@@ -7881,6 +7881,83 @@ def _sync_connect_status(user_id: int) -> dict:
         conn.close()
         return {'connected': True, 'error': str(e)}
 
+@app.route('/api/_diag/stripe-connect', methods=['GET'])
+def diag_stripe_connect():
+    """TEMPORARY diagnostic. Returns Stripe platform account state + tries
+    Account.create for each account type to isolate which is broken.
+    Token-protected. Delete after Sprint 1 LITE E2E test passes."""
+    token = request.args.get('token', '')
+    if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
+        return jsonify({'error': 'forbidden'}), 403
+    out = {'sk_prefix': (STRIPE_SECRET_KEY or '')[:14] + '...', 'api_version': stripe.api_version}
+    try:
+        bal = stripe.Balance.retrieve()
+        out['balance_ok'] = True
+        out['balance_currencies'] = sorted({b.currency for b in bal.available})
+    except Exception as e:
+        out['balance_error'] = str(e)[:300]
+    try:
+        acct = stripe.Account.retrieve()
+        out['platform_id'] = acct.id
+        out['platform_type'] = acct.type
+        out['platform_country'] = acct.country
+        out['platform_charges_enabled'] = acct.charges_enabled
+        out['platform_details_submitted'] = acct.details_submitted
+        caps = {}
+        try:
+            for k, v in (acct.capabilities or {}).items():
+                caps[k] = v
+        except Exception:
+            pass
+        out['platform_capabilities'] = caps
+        out['platform_business_type'] = getattr(acct, 'business_type', None)
+    except Exception as e:
+        out['account_retrieve_error'] = str(e)[:300]
+    for acct_type in ('standard', 'express', 'custom'):
+        try:
+            kwargs = {'type': acct_type, 'country': 'CZ',
+                      'email': f'diag-{acct_type}-{int(time.time())}@inklink.test'}
+            if acct_type in ('express', 'custom'):
+                kwargs['capabilities'] = {
+                    'card_payments': {'requested': True},
+                    'transfers': {'requested': True},
+                }
+                kwargs['business_type'] = 'individual'
+            test_acct = stripe.Account.create(**kwargs)
+            out[f'create_{acct_type}_ok'] = True
+            out[f'create_{acct_type}_id'] = test_acct.id
+        except Exception as e:
+            out[f'create_{acct_type}_error'] = str(e)[:400]
+    return jsonify(out)
+
+
+@app.route('/api/_diag/set-stripe-account', methods=['POST', 'GET'])
+def diag_set_stripe_account():
+    """TEMPORARY workaround. Manually assigns a stripe_account_id to a user,
+    bypassing Connect onboarding. Token-protected.
+    Usage: ?token=...&username=USER&acct_id=acct_XXX"""
+    token = request.args.get('token', '')
+    if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
+        return jsonify({'error': 'forbidden'}), 403
+    username = (request.args.get('username') or '').strip().lower()
+    acct_id = (request.args.get('acct_id') or '').strip()
+    if not username or not acct_id.startswith('acct_'):
+        return jsonify({'error': 'need ?username=X&acct_id=acct_...'}), 400
+    conn = get_db()
+    u = conn.execute('SELECT id, username FROM users WHERE username=?', (username,)).fetchone()
+    if not u:
+        conn.close()
+        return jsonify({'error': f'user {username} not found'}), 404
+    conn.execute(
+        'UPDATE users SET stripe_account_id=?, stripe_charges_enabled=1, stripe_details_submitted=1, '
+        'is_artist=1, verified_artist_at=COALESCE(verified_artist_at, ?) WHERE id=?',
+        (acct_id, datetime.utcnow().isoformat(), u['id'])
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'user_id': u['id'], 'username': u['username'], 'stripe_account_id': acct_id})
+
+
 @app.route('/api/stripe/webhook', methods=['POST'])
 def stripe_webhook():
     """Webhook handler. Verifikuje podpis proti RAW request body bytes
