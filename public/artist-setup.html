@@ -911,7 +911,7 @@ async function savePortEdit() {
   else { flash((await r.json()).error || 'Selhalo', 'err'); }
 }
 
-document.getElementById('pImage').addEventListener('change', e => {
+document.getElementById('pImage')?.addEventListener('change', e => {
   const files = Array.from(e.target.files || []);
   if (!files.length) { clearImagePreview(); return; }
   // Validuj velikost
