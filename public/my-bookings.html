@@ -75,8 +75,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 .demo-banner{background:rgba(232,200,127,0.08);border:1px solid rgba(232,200,127,0.3);padding:10px 14px;color:#e8c87f;font-size:12px;letter-spacing:0.04em;margin-bottom:18px;line-height:1.5}
 
-#completeModal,#reviewModal,#respondModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-#completeModal.show,#reviewModal.show,#respondModal.show{display:flex}
+#completeModal,#reviewModal,#respondModal,#refundModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#completeModal.show,#reviewModal.show,#respondModal.show,#refundModal.show{display:flex}
 .cm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
 .cm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
 .cm-card p{color:var(--txt2);font-size:12px;line-height:1.5;margin-bottom:14px;letter-spacing:0.04em}
@@ -219,6 +219,23 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   </div>
 </div>
 
+<div id="refundModal" onclick="if(event.target===this)closeRefund()">
+  <div class="cm-card">
+    <h3 id="rfTitle">ŽÁDOST O VRÁCENÍ PENĚZ</h3>
+    <p id="rfHint" style="font-size:13px;color:var(--txt3);letter-spacing:0">Tatér tvou žádost posoudí — pokud schválí, peníze ti přijdou zpět na kartu do 5–10 dní.</p>
+    <div id="rfMaxLine" style="font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin:6px 0 4px"></div>
+    <label>Částka (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— necháš prázdné = celá zaplacená částka</span></label>
+    <input type="number" id="rfAmount" min="1" placeholder="celá zaplacená částka">
+    <label style="margin-top:14px">Důvod (min. 10 znaků)</label>
+    <textarea id="rfReason" rows="4" style="width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:10px;font-family:inherit;font-size:14px;resize:vertical" placeholder="Stručně co se stalo…"></textarea>
+    <div id="rfFlash" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn muted" onclick="closeRefund()">Zavřít</button>
+      <button class="btn" onclick="submitRefund()">Odeslat žádost</button>
+    </div>
+  </div>
+</div>
+
 <div id="completeModal" onclick="if(event.target===this)closeComplete()">
   <div class="cm-card">
     <h3>DOKONČIT REZERVACI</h3>
@@ -237,6 +254,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <script>
 let me = null, completingId = null, demoMode = false;
+let refundByBooking = {}; // booking_id → latest refund_request (or null)
+let refundingBookingId = null, refundingMaxKc = 0;
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
@@ -272,7 +291,23 @@ async function init() {
     banner.textContent = '⚠ Demo režim — Stripe ještě nepropojen, rezervace jsou jen evidované, žádná skutečná záloha se neúčtuje.';
     document.getElementById('content').insertBefore(banner, document.querySelector('.tabs'));
   }
+  await loadRefundRequests();
   await Promise.all([loadClient(), loadArtist()]);
+}
+
+async function loadRefundRequests() {
+  refundByBooking = {};
+  try {
+    const list = await fetch('/api/refund-requests').then(r => r.json());
+    if (!Array.isArray(list)) return;
+    // Keep the most recent request per booking
+    list.forEach(rr => {
+      const prev = refundByBooking[rr.booking_id];
+      if (!prev || new Date(rr.created_at) > new Date(prev.created_at)) {
+        refundByBooking[rr.booking_id] = rr;
+      }
+    });
+  } catch (e) { console.warn('refund load failed', e); }
 }
 
 async function loadClient() {
@@ -375,6 +410,43 @@ function renderRow(b, view) {
     }
   }
 
+  // Klient: pending_payment booking se Stripe PI → Zaplatit zálohu
+  if (view === 'client' && b.status === 'pending_payment' && b.stripe_payment_intent_id) {
+    const depAmount = b.payment_mode === 'full' ? (b.total_price_cents || b.deposit_cents) : b.deposit_cents;
+    payCta = `<a class="btn" href="/pay/${b.id}" style="background:var(--red2);color:var(--bg);text-decoration:none">Zaplatit zálohu ${fmtKc(depAmount)}</a>` + (payCta ? ' ' + payCta : '');
+  }
+
+  // ── REFUND REQUEST block + button ─────────────────────────────────────
+  const rr = refundByBooking[b.id];
+  let refundBlock = '';
+  let refundCta = '';
+  if (rr) {
+    const amt = fmtKc(rr.amount_cents);
+    if (rr.status === 'pending') {
+      refundBlock = `<div class="b-money" style="color:#e8c87f">⏳ Žádost o refund ${amt} — čeká na vyjádření tatéra</div>`;
+      if (view === 'artist') {
+        refundCta = `
+          <button class="btn" onclick="decideRefund(${rr.id}, 'approve')">Schválit refund</button>
+          <button class="btn danger" onclick="decideRefund(${rr.id}, 'reject')">Zamítnout</button>`;
+      }
+    } else if (rr.status === 'approved') {
+      refundBlock = `<div class="b-money" style="color:#7fd391">✓ Refund ${amt} schválen${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
+    } else if (rr.status === 'rejected') {
+      refundBlock = `<div class="b-money" style="color:#e58787">✗ Refund zamítnut${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
+    }
+  }
+  // Client can request refund only if booking is past-completion or already cancelled
+  // (cancellation flow handles refund automatically — request is for everything else).
+  const wasPaid = (b.deposit_cents || 0) > 0;
+  const refundable = wasPaid && !rr && view === 'client'
+    && (b.status === 'completed' || (isPast && b.status !== 'pending_payment'));
+  if (refundable) {
+    const maxKc = Math.max(0, Math.floor(((b.deposit_cents || 0) + (b.balance_paid_cents || 0) - (b.refund_cents || 0)) / 100));
+    if (maxKc > 0) {
+      refundCta = `<button class="btn muted" onclick="openRefund(${b.id}, ${maxKc})">Vrátit peníze</button>`;
+    }
+  }
+
   // duration badge
   const durTxt = b.duration_hours
     ? `${(+b.duration_hours).toFixed(1).replace(/\.0$/,'')} h${b.size_label ? ` · ${b.size_label}` : ''}`
@@ -390,7 +462,7 @@ function renderRow(b, view) {
         </a>
         ${b.design_note ? `<div class="b-note">${escapeHtml(b.design_note)}</div>` : ''}
         <div class="b-money">${b.payment_mode === 'full' ? 'Plná platba' : 'Záloha'} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · provize ${fmtKc(b.platform_fee_cents)}`:''}</div>
-        ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${reviewBlock}
+        ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${refundBlock}${reviewBlock}
       </div>
       <div class="b-actions">
         <span class="b-status ${b.status}">${statusLabel(b.status)}</span>
@@ -399,8 +471,81 @@ function renderRow(b, view) {
         ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">Zrušit</button>` : ''}
         ${canComplete ? `<button class="btn" onclick="openComplete(${b.id})">Označit dokončené</button>` : ''}
         ${reviewCta}
+        ${refundCta}
       </div>
     </div>`;
+}
+
+function openRefund(bookingId, maxKc) {
+  refundingBookingId = bookingId;
+  refundingMaxKc = maxKc;
+  document.getElementById('rfAmount').value = '';
+  document.getElementById('rfAmount').max = maxKc;
+  document.getElementById('rfReason').value = '';
+  document.getElementById('rfFlash').innerHTML = '';
+  document.getElementById('rfMaxLine').textContent = `Max k vrácení: ${maxKc.toLocaleString('cs-CZ')} Kč`;
+  document.getElementById('refundModal').classList.add('show');
+  setTimeout(() => document.getElementById('rfReason').focus(), 30);
+}
+
+function closeRefund() {
+  document.getElementById('refundModal').classList.remove('show');
+  refundingBookingId = null;
+  refundingMaxKc = 0;
+}
+
+async function submitRefund() {
+  if (!refundingBookingId) return;
+  const flash = document.getElementById('rfFlash');
+  const reason = document.getElementById('rfReason').value.trim();
+  if (reason.length < 10) {
+    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Důvod musí mít alespoň 10 znaků.</div>';
+    return;
+  }
+  const amountStr = document.getElementById('rfAmount').value.trim();
+  const body = { reason };
+  if (amountStr) {
+    const v = parseFloat(amountStr);
+    if (!v || v <= 0 || v > refundingMaxKc) {
+      flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Částka mimo rozsah (1–${refundingMaxKc} Kč).</div>`;
+      return;
+    }
+    body.amount_kc = v;
+  }
+  const r = await fetch(`/api/bookings/${refundingBookingId}/refund-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${j.error || 'Žádost se nepodařilo odeslat'}</div>`;
+    return;
+  }
+  closeRefund();
+  await loadRefundRequests();
+  await Promise.all([loadClient(), loadArtist()]);
+}
+
+async function decideRefund(rid, decision) {
+  let note = '';
+  if (decision === 'reject') {
+    note = prompt('Důvod zamítnutí (volitelně, klient ho uvidí):') || '';
+  } else {
+    if (!confirm('Schválit refund? Stripe vrátí peníze klientovi a tahle akce už nejde vrátit.')) return;
+  }
+  const r = await fetch(`/api/refund-requests/${rid}/decide`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision, note }),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    alert(j.error || 'Akce selhala');
+    return;
+  }
+  await loadRefundRequests();
+  await Promise.all([loadClient(), loadArtist()]);
 }
 
 async function cancelBooking(id) {
@@ -685,6 +830,7 @@ init();
 <script src="/icons.js?v=2"></script>
 <script src="/icons.js?v=2"></script>
 <script src="/ink-trail.js?v=1"></script>
+<script src="/cookie-consent.js?v=1"></script>
 <script src="/native.js?v=1"></script>
 </body>
 </html>

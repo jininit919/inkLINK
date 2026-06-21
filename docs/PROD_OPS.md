@@ -34,8 +34,66 @@ Pro tech specs viz `docs/pricing_engine.pdf` a `docs/PRICING_MIGRATION.md`.
 |---|---|---|
 | `VERIFY_EMAIL` | `0` | Set `1` to require email verification on signup |
 | `ADMIN_USERNAME` | empty | Username co dostane admin práva bootstrap (jinak set `is_admin=1` v DB) |
-| `VAPID_PUBLIC_KEY` | empty | Web push (browser notifications) |
-| `VAPID_PRIVATE_KEY` | empty | Web push |
+| `PUSH_PUBLIC` / `PUSH_PRIVATE` | empty | Web push VAPID keys (browser notifications) |
+
+### iOS push (APNs)
+| Variable | Required | Note |
+|---|---|---|
+| `APNS_KEY_ID` | ⚠️ | 10-char Key ID z Apple Developer → Keys |
+| `APNS_TEAM_ID` | ⚠️ | 10-char Team ID z Apple Developer → Membership |
+| `APNS_BUNDLE_ID` | ⬜ | Default `club.inklink.app` — musí matchovat Xcode bundle |
+| `APNS_KEY_PEM` | ⚠️ | Celý obsah `.p8` souboru (multi-line) — preferred pro Railway |
+| `APNS_KEY_PATH` | ⬜ | Alternativa k `APNS_KEY_PEM` — cesta k `.p8` souboru (lokál dev) |
+| `APNS_USE_SANDBOX` | ⬜ | Set `1` jen pro TestFlight sandbox build (default `0` = production) |
+
+---
+
+## 1.5 APNs setup (iOS push)
+
+### Vytvořit APNs Key (jednou pro celý team)
+
+1. [developer.apple.com](https://developer.apple.com/account) → **Certificates, IDs & Profiles** → **Keys** → **+**
+2. Name: `InkLink APNs`, zaškrtni **Apple Push Notifications service (APNs)** → Continue → Register
+3. Stáhni `.p8` soubor (`AuthKey_XXXXXXXXXX.p8`) — **lze stáhnout jen jednou**, ulož do 1Password
+4. Pozn. Key ID (10 znaků, vidíš v Keys přehledu)
+5. Team ID — Apple Developer Account → **Membership** (10 znaků)
+6. Identifiers → `club.inklink.app` → Edit → zaškrtni **Push Notifications** capability
+
+### Railway env
+
+```
+APNS_KEY_ID=XXXXXXXXXX
+APNS_TEAM_ID=XXXXXXXXXX
+APNS_BUNDLE_ID=club.inklink.app
+APNS_KEY_PEM=-----BEGIN PRIVATE KEY-----
+MIGTAgEAMBMG...
+-----END PRIVATE KEY-----
+```
+
+(V Railway dashboardu klikni "Multiline" u `APNS_KEY_PEM`, paste celý obsah `.p8` souboru.)
+
+### Co se stane v aplikaci
+
+1. Capacitor app po loginu zavolá `PushNotifications.requestPermissions()` → `register()`
+2. iOS vrátí device token (64-hex), náš `public/native.js` ho POST-ne na `/api/native/register-push`
+3. Backend uloží do `push_subscriptions` s `provider='apns'`
+4. Při notifikaci `send_push()` automaticky fan-outuje na všechny tokeny daného usera (web + apns)
+5. Stale tokens (BadDeviceToken / Unregistered) se auto-mažou
+
+### Test
+
+Po nasazení v Capacitor appce po prvním přihlášení v Settings (iOS) → Notifications → InkLink → musí být allowed. V admin DB:
+
+```sql
+SELECT user_id, provider, platform, substr(endpoint, 1, 20) || '...' AS token
+FROM push_subscriptions WHERE provider = 'apns';
+```
+
+Pro test poslání pushe:
+```python
+from server import send_push
+send_push(<your_user_id>, 'Test', 'iOS push funguje 🎉', '/')
+```
 
 ---
 
@@ -140,6 +198,71 @@ Vrací JSON:
   "diff_czk": 2.5,
   "reconciled": true
 }
+```
+
+---
+
+## 3.4 Account deletion cron
+
+GDPR — anonymizuje účty 30 dní po jejich žádosti o smazání:
+
+```
+30 3 * * *      # denně v 3:30 UTC
+curl -sf -H "X-Cron-Token: $RECONCILE_TOKEN" https://www.inklink.club/api/cron/account-deletions
+```
+
+Najde usery s `deletion_requested_at <= now() - 30 days` a `deleted_at IS NULL`,
+přepíše PII (jméno, email, telefon, bio, foto…) na placeholdery, smaže portfolio
++ push subscriptions, password_hash nastaví na unguessable token. Účetní
+záznamy (bookings, economics_snapshots) zůstanou v DB s anonymizovanou FK
+linkou.
+
+Response:
+```json
+{
+  "ok": true,
+  "purged_count": 3,
+  "purged_user_ids": [42, 51, 78],
+  "cutoff_iso": "2026-04-23T13:00:00"
+}
+```
+
+---
+
+## 3.5 Welcome email sequence cron
+
+Posílá 3-stupňový onboarding email klientům/tatérům:
+- **Stage 1** (immediate při registraci) — uvítací mail, jak InkLink funguje
+- **Stage 2** (+2 dny) — tipy podle role (klient: kde hledat, tatér: setup)
+- **Stage 3** (+7 dní) — re-engagement (founding programy, mobilní app)
+
+### Setup (Railway cron service)
+
+Stejný setup jako reconcile, jen jiný endpoint:
+
+```
+0 9 * * *      # denně v 9:00 UTC = 10:00/11:00 lokálně
+curl -sf -H "X-Cron-Token: $RECONCILE_TOKEN" https://www.inklink.club/api/cron/welcome-emails
+```
+
+Cron každý den najde usery, kteří dosáhli `welcome_email_next_at`, pošle jim
+další stage a posune timer. Idempotent — stage advance je atomický.
+
+### Response
+
+```json
+{
+  "ok": true,
+  "sent_count": 7,
+  "failed_count": 0,
+  "sent": [{"user_id": 42, "stage": 2}, ...]
+}
+```
+
+### Manual trigger / test
+
+```bash
+curl -H "X-Cron-Token: $RECONCILE_TOKEN" https://www.inklink.club/api/cron/welcome-emails
 ```
 
 ---

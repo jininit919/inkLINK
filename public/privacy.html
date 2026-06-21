@@ -86,7 +86,7 @@ ul li{margin-bottom:6px}
     <li><strong>Analytické cookies:</strong> pouze s vaším souhlasem — pomáhají nám zlepšovat platformu.</li>
     <li><strong>Marketingové cookies:</strong> nepoužíváme.</li>
   </ul>
-  <p>Svůj souhlas s cookies můžete kdykoliv změnit v nastavení prohlížeče nebo kliknutím na odkaz v patičce stránky.</p>
+  <p>Svůj souhlas s cookies můžete kdykoliv změnit kliknutím <a href="#" onclick="event.preventDefault();window.InkLinkCookies&&window.InkLinkCookies.open()" style="color:#c62828;text-decoration:underline">zde (nastavení cookies)</a> nebo v nastavení vašeho prohlížeče.</p>
 
   <h2>5. Komu data předáváme</h2>
   <p>Vaše data <strong>neprodáváme</strong> třetím stranám. Předáváme je pouze nezbytně:</p>
@@ -120,6 +120,7 @@ ul li{margin-bottom:6px}
   </ul>
   <div class="highlight">
     <p>Pro uplatnění jakéhokoliv práva nás kontaktujte na <a href="mailto:info@inklink.cz">info@inklink.cz</a>. Na vaši žádost odpovíme do 30 dnů. Smazání účtu lze také provést přímo v nastavení profilu.</p>
+    <p style="margin-top:10px"><strong>Stáhnout vlastní data (právo na přenositelnost):</strong> jako přihlášený uživatel si můžeš data stáhnout v ZIP přes <a href="/api/me/export">/api/me/export</a> (JSON soubory, čitelné strojově i lidsky).</p>
   </div>
   <p>Máte také právo podat stížnost u dozorového úřadu — v České republice je to <a href="https://www.uoou.cz" target="_blank" rel="noopener">Úřad pro ochranu osobních údajů (ÚOOÚ)</a>.</p>
 
@@ -127,10 +128,11 @@ ul li{margin-bottom:6px}
   <p>Hesla ukládáme jako kryptografický hash (PBKDF2-SHA256). Komunikace je šifrována pomocí HTTPS. Session cookies jsou označené HttpOnly a SameSite=Lax. Platební údaje (čísla karet) <strong>nikdy</strong> neprocházejí naším serverem — předávají se přímo do Stripe.</p>
 
   <h2>9. Smazání účtu a dat</h2>
-  <p>Účet můžete smazat kdykoliv (zatím e-mailem na <a href="mailto:info@inklink.cz">info@inklink.cz</a>, brzy přibude tlačítko v nastavení). Po smazání:</p>
+  <p>Účet můžete smazat kdykoliv přímo v nastavení (sekce <strong>Účet → Smazat účet</strong>) nebo e-mailem na <a href="mailto:info@inklink.cz">info@inklink.cz</a>. Po žádosti:</p>
   <ul>
-    <li>Profil, portfolio a osobní údaje se smažou do 30 dnů.</li>
-    <li>Aktivní rezervace se vyřeší dle pravidel storna (storna iniciuje druhá strana, refund proběhne automaticky).</li>
+    <li>Následuje <strong>30denní ochranná lhůta</strong>, během níž lze žádost zrušit (přihlásíte se a otevřete stejný panel).</li>
+    <li>Po jejím uplynutí se profil, portfolio, profilová fota a osobní údaje nenávratně anonymizují.</li>
+    <li>Aktivní rezervace v budoucnu musí být vyřízeny před žádostí (zrušení v <a href="/my-bookings">Mých rezervacích</a> — refund proběhne automaticky).</li>
     <li>Anonymizovaná data o transakcích zůstanou v účetnictví po dobu 10 let — bez vazby na vaši totožnost.</li>
   </ul>
 
@@ -147,6 +149,7 @@ ul li{margin-bottom:6px}
 <script src="/legal.js"></script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
 <script src="/ink-trail.js?v=1"></script>
+<script src="/cookie-consent.js?v=1"></script>
 <script src="/native.js?v=1"></script>
 </body>
 </html>

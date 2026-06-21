@@ -128,10 +128,24 @@ STRIPE_PUBLIC_KEY     = os.environ.get('STRIPE_PUBLIC_KEY', '')
 STRIPE_PRO_PRICE_ID   = os.environ.get('STRIPE_PRO_PRICE_ID', '')
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
+    # Pin Stripe API version explicitly. Without this, every Stripe release
+    # silently changes behavior. Bump deliberately in PRs after testing.
+    # https://stripe.com/docs/api/versioning
+    stripe.api_version = '2024-12-18.acacia'
 
 RESEND_API_KEY    = os.environ.get('RESEND_API_KEY', '')
 VAPID_PUBLIC_KEY  = os.environ.get('PUSH_PUBLIC', '')
 VAPID_PRIVATE_KEY = os.environ.get('PUSH_PRIVATE', '')
+
+# APNs (iOS push) — token-based auth via .p8 key from Apple Developer Portal.
+# Set APNS_KEY_PEM as the full PEM string (Railway env supports multi-line)
+# OR APNS_KEY_PATH pointing to a mounted .p8 file.
+APNS_KEY_ID    = os.environ.get('APNS_KEY_ID', '')
+APNS_TEAM_ID   = os.environ.get('APNS_TEAM_ID', '')
+APNS_BUNDLE_ID = os.environ.get('APNS_BUNDLE_ID', 'club.inklink.app')
+APNS_KEY_PEM   = os.environ.get('APNS_KEY_PEM', '')
+APNS_KEY_PATH  = os.environ.get('APNS_KEY_PATH', '')
+APNS_USE_SANDBOX = os.environ.get('APNS_USE_SANDBOX', '0') == '1'
 
 # Cloudflare R2 (cloud storage pro nahrané soubory)
 R2_ACCOUNT_ID = os.environ.get('R2_ACCOUNT_ID', '')
@@ -328,6 +342,128 @@ def _booking_email_html(event, ctx):
     return None, None
 
 
+def _welcome_email_html(stage: int, is_artist: bool, display_name: str) -> tuple:
+    """Build (subject, html) for welcome stages. stage in (1, 2, 3). Czech copy."""
+    from html import escape as _h
+    base = APP_BASE_URL or 'https://www.inklink.club'
+    name = _h(display_name or 'tam')
+    container = ('background:#0a0a0a;color:#ccc;font-family:Helvetica,Arial,sans-serif;'
+                 'max-width:560px;margin:0 auto;padding:24px;border:1px solid #1a1a1a')
+    btn = ('display:inline-block;padding:11px 18px;background:#c62828;color:#fff;'
+           'text-decoration:none;letter-spacing:0.08em;font-size:13px')
+    h1 = 'color:#eee;font-size:22px;letter-spacing:0.06em;margin:0 0 12px'
+    p = 'color:#bbb;font-size:14px;line-height:1.7;margin:0 0 12px'
+    li = 'color:#bbb;font-size:14px;line-height:1.7;margin-bottom:6px'
+    footer = ('color:#555;font-size:11px;letter-spacing:0.06em;margin-top:32px;'
+              'padding-top:16px;border-top:1px solid #1a1a1a')
+    footer_html = (
+        f'<p style="{footer}">InkLink · '
+        f'<a href="{base}/privacy" style="color:#777">Privacy</a> · '
+        f'<a href="{base}/terms" style="color:#777">Terms</a></p>')
+
+    if stage == 1:
+        subject = 'Vítej v InkLink'
+        body = f'''
+        <h1 style="{h1}">Vítej, {name}</h1>
+        <p style="{p}">Díky, že jsi se přidal/a k InkLink — marketplace, kde tetování má férová pravidla
+        a žádné DM ping-pongy.</p>
+        <p style="{p}"><b style="color:#eee">Jak to funguje:</b></p>
+        <ul style="padding-left:18px">
+          <li style="{li}">Procházej feed skic a portfólia tatérů</li>
+          <li style="{li}">Klikni na termín v kalendáři tatéra a rezervuj přes Stripe</li>
+          <li style="{li}">Záloha je nevratná podle pravidel storna (96 / 48 h)</li>
+          <li style="{li}">Doplatek řešíte na místě nebo přes InkLink</li>
+        </ul>
+        <p style="{p}"><a href="{base}" style="{btn}">Otevřít InkLink</a></p>'''
+    elif stage == 2:
+        if is_artist:
+            subject = 'Tipy pro tatéry — jak rozjet kalendář'
+            body = f'''
+            <h1 style="{h1}">Tipy pro tatéry, {name}</h1>
+            <p style="{p}">Pár věcí, co tě posune na první rezervaci:</p>
+            <ul style="padding-left:18px">
+              <li style="{li}"><b style="color:#eee">Doplň profil</b> — bio, styly, hodinová sazba.
+              Klient má větší šanci kliknout když vidí konkrétní čísla.</li>
+              <li style="{li}"><b style="color:#eee">Nahraj 5+ prací</b> do portfolia. Doneseš tím
+              filtr stylů a klienti tě najdou.</li>
+              <li style="{li}"><b style="color:#eee">Vytvoř první blok v kalendáři</b> (Nastavení tatéra
+              → Kalendář). Můžeš nabízet jen part-time sloty.</li>
+              <li style="{li}"><b style="color:#eee">Propoj Stripe Connect</b> — bez něj nemůžou klienti
+              zaplatit zálohu, takže ani rezervovat. Trvá to ~10 min.</li>
+            </ul>
+            <p style="{p}"><a href="{base}/artist-setup" style="{btn}">Otevřít nastavení tatéra</a></p>'''
+        else:
+            subject = 'Najdi svého tatéra'
+            body = f'''
+            <h1 style="{h1}">Najdi svého tatéra, {name}</h1>
+            <p style="{p}">Když nevíš kudy začít, máme tři cesty:</p>
+            <ul style="padding-left:18px">
+              <li style="{li}"><b style="color:#eee">Feed</b> — skicy a hotové práce v mapě
+              tatérů kolem tebe.</li>
+              <li style="{li}"><b style="color:#eee">Mapa</b> — filtruj podle města a stylu
+              (blackwork, fineline, color, …).</li>
+              <li style="{li}"><b style="color:#eee">Like → rezervace</b> — když ti něco padne
+              do oka, otevři tatérův profil a klikni na volný termín.</li>
+            </ul>
+            <p style="{p}">Záloha je zpravidla 30 % a chrání jak tebe, tak tatéra. Při storně 96 h
+            předem máš 100 % zpět.</p>
+            <p style="{p}"><a href="{base}" style="{btn}">Otevřít feed</a></p>'''
+    elif stage == 3:
+        if is_artist:
+            subject = 'Týden v InkLink — kde jsi?'
+            body = f'''
+            <h1 style="{h1}">Týden v InkLink, {name}</h1>
+            <p style="{p}">Pár věcí co možná stojí za podívání:</p>
+            <ul style="padding-left:18px">
+              <li style="{li}"><b style="color:#eee">Founding artist program</b> — prvních 30 dnů
+              0 % provize, poté 5 % do dne 90. Začíná až tvou první splněnou rezervací.</li>
+              <li style="{li}"><b style="color:#eee">Sdílej svůj profil</b> — máš krátký link
+              <code style="color:#eee">{base}/@username</code> co můžeš dát na IG bio.</li>
+              <li style="{li}"><b style="color:#eee">Mobilní app</b> — iOS a Android přijde brzy.
+              Push notifikace na nové rezervace.</li>
+            </ul>
+            <p style="{p}"><a href="{base}/artist-setup" style="{btn}">Otevřít nastavení</a></p>'''
+        else:
+            subject = 'Pár tipů pro první rezervaci'
+            body = f'''
+            <h1 style="{h1}">Pár tipů, {name}</h1>
+            <p style="{p}">Kdyby jsi pořád váhal/a koho oslovit:</p>
+            <ul style="padding-left:18px">
+              <li style="{li}"><b style="color:#eee">Recenze</b> — každý tatér má veřejné hodnocení
+              od reálných klientů. Klikni na hvězdičky v profilu.</li>
+              <li style="{li}"><b style="color:#eee">Founding client</b> — prvních 500 registrací
+              má service fee navždy zdarma. Pokud čteš tenhle mail, pravděpodobně tam patříš.</li>
+              <li style="{li}"><b style="color:#eee">Discount kód?</b> Pokud máš promo, zadáš ho
+              v platebním modalu před zálohou.</li>
+            </ul>
+            <p style="{p}"><a href="{base}" style="{btn}">Otevřít InkLink</a></p>'''
+    else:
+        return ('', '')
+
+    html = f'<div style="background:#000;padding:24px 0"><div style="{container}">{body}{footer_html}</div></div>'
+    return (subject, html)
+
+
+def send_welcome_email_for(conn, user_id: int, stage: int) -> bool:
+    """Send one welcome email stage. Returns True if Resend accepted it."""
+    if not RESEND_API_KEY:
+        return False
+    try:
+        u = conn.execute(
+            'SELECT email, display_name, COALESCE(is_artist, 0) AS is_artist FROM users WHERE id=?',
+            (user_id,)
+        ).fetchone()
+        if not u or not u['email']:
+            return False
+        subject, html = _welcome_email_html(stage, bool(u['is_artist']), u['display_name'] or '')
+        if not subject:
+            return False
+        return send_email(u['email'], subject, html)
+    except Exception as e:
+        print(f'[welcome_email] stage={stage} user={user_id} err={e}')
+        return False
+
+
 def send_booking_email(conn, user_id, event, ctx):
     """Load user.email and dispatch the booking email. Never raises;
     returns True on success, False otherwise. Booking endpoints must
@@ -495,7 +631,18 @@ def init_db():
                 # iCal feed token — opaque slug pro Apple/Google Calendar subscription
                 'calendar_token TEXT DEFAULT NULL',
                 # Admin flag — moderace, dashboard. Lze taky přes ADMIN_USERNAME env.
-                'is_admin INTEGER DEFAULT 0'):
+                'is_admin INTEGER DEFAULT 0',
+                # Welcome email sequence (3 stages, cron-driven). 0=not started,
+                # 1=welcome sent, 2=tips sent (day 2), 3=re-engagement sent (done).
+                'welcome_email_stage INTEGER DEFAULT 0',
+                'welcome_email_next_at TEXT DEFAULT NULL',
+                # Soft deletion (GDPR right to erasure). Two-stage:
+                # 1) user requests → deletion_requested_at set, 30-day grace.
+                # 2) cron after 30 days → PII scrubbed, deleted_at set.
+                # Accounting data (bookings, economics_snapshots) is preserved
+                # by FK; only the user row is anonymized.
+                'deletion_requested_at TEXT DEFAULT NULL',
+                'deleted_at TEXT DEFAULT NULL'):
         add_col('users', col)
     conn.commit()
 
@@ -578,6 +725,12 @@ def init_db():
         auth       TEXT    NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    # 'web' = browser VAPID push (endpoint = URL, p256dh + auth filled).
+    # 'apns' = iOS native (endpoint = device token, p256dh + auth empty).
+    # 'fcm'  = Android native (endpoint = registration token, p256dh + auth empty).
+    add_col('push_subscriptions', "provider TEXT DEFAULT 'web'")
+    add_col('push_subscriptions', "platform TEXT DEFAULT ''")
+    conn.commit()
 
     c.execute('''CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -679,6 +832,9 @@ def init_db():
     # v live se napárlujeme se Stripe PaymentIntent.amount
     add_col('bookings', 'balance_charge_cents INTEGER NOT NULL DEFAULT 0')
     add_col('bookings', 'balance_charge_fee_cents INTEGER NOT NULL DEFAULT 0')
+    # Sprint 1 LITE: track deposit PI retry attempts. Used to rotate
+    # idempotency_key on retry (otherwise Stripe returns the same failed PI).
+    add_col('bookings', 'payment_attempts INTEGER DEFAULT 0')
 
     # ── InkLink: reviews (klient hodnotí dokončené sezení) ──────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS reviews (
@@ -872,6 +1028,26 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_telemetry_name ON telemetry_events(event_name)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_telemetry_time ON telemetry_events(created_at)')
 
+    # ── Refund requests — client-initiated post-booking, artist/admin decides ──
+    # Separate from cancellation (rules-based, auto-refund per timing). Used
+    # when booking was already past, quality dispute, no-show, etc.
+    c.execute('''CREATE TABLE IF NOT EXISTS refund_requests (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id    INTEGER NOT NULL,
+        client_id     INTEGER NOT NULL,
+        artist_id     INTEGER NOT NULL,
+        amount_cents  INTEGER NOT NULL,
+        reason        TEXT    NOT NULL,
+        status        TEXT    NOT NULL DEFAULT 'pending',
+        decision_by   INTEGER,
+        decision_note TEXT    DEFAULT '',
+        stripe_refund_id TEXT DEFAULT NULL,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at   TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_refund_booking ON refund_requests(booking_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_refund_status ON refund_requests(status)')
+
     conn.commit()
     conn.close()
 
@@ -954,45 +1130,127 @@ def initials(name):
     return ''.join(p[0] for p in parts[:2]).upper() if parts else '?'
 
 
-def send_web_push(user_id: int, title: str, body: str, url: str = '/'):
-    """Sends a browser push notification to all subscriptions of a user."""
-    if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
-        return
+_apns_client = None
+
+
+def _get_apns_client():
+    """Lazy singleton — apns2 token client. Returns None if not configured."""
+    global _apns_client
+    if _apns_client is not None:
+        return _apns_client
+    if not APNS_KEY_ID or not APNS_TEAM_ID:
+        return None
+    if not APNS_KEY_PEM and not APNS_KEY_PATH:
+        return None
     try:
-        from pywebpush import webpush, WebPushException
-        import json, base64
-        pem = base64.urlsafe_b64decode(VAPID_PRIVATE_KEY + '==')
+        from apns2.client import APNsClient
+        from apns2.credentials import TokenCredentials
+        import tempfile
+        # apns2 expects a file path. If we have the PEM in env, write to /tmp once.
+        key_path = APNS_KEY_PATH
+        if not key_path and APNS_KEY_PEM:
+            tmp = tempfile.NamedTemporaryFile(
+                mode='w', suffix='.p8', delete=False, prefix='apns_key_'
+            )
+            tmp.write(APNS_KEY_PEM)
+            tmp.close()
+            key_path = tmp.name
+        creds = TokenCredentials(
+            auth_key_path=key_path,
+            auth_key_id=APNS_KEY_ID,
+            team_id=APNS_TEAM_ID,
+        )
+        _apns_client = APNsClient(credentials=creds, use_sandbox=APNS_USE_SANDBOX)
+        return _apns_client
+    except Exception as e:
+        print(f'[APNS] init failed: {e}')
+        return None
+
+
+def _send_apns_one(token: str, title: str, body: str, url: str) -> tuple:
+    """Send one APNs notification. Returns (ok, should_delete)."""
+    try:
+        from apns2.payload import Payload
+        from apns2.errors import BadDeviceToken, Unregistered, DeviceTokenNotForTopic
+        client = _get_apns_client()
+        if client is None:
+            return (False, False)
+        payload = Payload(alert={'title': title, 'body': body},
+                          sound='default', badge=1, custom={'url': url})
+        client.send_notification(token, payload, topic=APNS_BUNDLE_ID)
+        return (True, False)
+    except (BadDeviceToken, Unregistered, DeviceTokenNotForTopic):
+        return (False, True)  # purge stale token
+    except Exception as e:
+        print(f'[APNS] send failed: {e}')
+        return (False, False)
+
+
+def send_push(user_id: int, title: str, body: str, url: str = '/'):
+    """Fan-out push to all of a user's subscriptions (web VAPID + iOS APNs)."""
+    try:
         conn = get_db()
         subs = conn.execute(
-            'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?',
+            "SELECT id, endpoint, p256dh, auth, COALESCE(provider, 'web') AS provider "
+            "FROM push_subscriptions WHERE user_id = ?",
             (user_id,)
         ).fetchall()
         conn.close()
-        payload = json.dumps({'title': title, 'body': body, 'url': url})
-        dead = []
-        for sub in subs:
+    except Exception as e:
+        print(f'[PUSH] db read failed: {e}')
+        return
+
+    dead_ids = []
+    web_pem = None
+    if VAPID_PRIVATE_KEY:
+        try:
+            import base64
+            web_pem = base64.urlsafe_b64decode(VAPID_PRIVATE_KEY + '==')
+        except Exception:
+            web_pem = None
+
+    for sub in subs:
+        provider = sub['provider']
+        if provider == 'web':
+            if not web_pem:
+                continue
             try:
+                from pywebpush import webpush, WebPushException
+                import json as _json
+                payload = _json.dumps({'title': title, 'body': body, 'url': url})
+                ep = sub['endpoint']
+                aud = ep.split('/', 3)[2] if '/' in ep else ep
                 webpush(
-                    subscription_info={'endpoint': sub['endpoint'],
+                    subscription_info={'endpoint': ep,
                                        'keys': {'p256dh': sub['p256dh'], 'auth': sub['auth']}},
                     data=payload,
-                    vapid_private_key=pem,
-                    vapid_claims={'sub': 'mailto:admin@inklink.app',
-                                  'aud': sub['endpoint'].split('/', 3)[:3][2] if '/' in sub['endpoint'] else sub['endpoint']},
+                    vapid_private_key=web_pem,
+                    vapid_claims={'sub': 'mailto:admin@inklink.app', 'aud': 'https://' + aud},
                 )
             except WebPushException as ex:
                 if ex.response and ex.response.status_code in (404, 410):
-                    dead.append(sub['endpoint'])
-            except Exception:
-                pass
-        if dead:
+                    dead_ids.append(sub['id'])
+            except Exception as e:
+                print(f'[PUSH/web] {e}')
+        elif provider == 'apns':
+            ok, purge = _send_apns_one(sub['endpoint'], title, body, url)
+            if purge:
+                dead_ids.append(sub['id'])
+        # 'fcm' (Android) — TODO when we add Firebase
+
+    if dead_ids:
+        try:
             c2 = get_db()
-            for ep in dead:
-                c2.execute('DELETE FROM push_subscriptions WHERE endpoint = ?', (ep,))
+            for sid in dead_ids:
+                c2.execute('DELETE FROM push_subscriptions WHERE id = ?', (sid,))
             c2.commit()
             c2.close()
-    except Exception as e:
-        print(f'[PUSH] {e}')
+        except Exception as e:
+            print(f'[PUSH] cleanup failed: {e}')
+
+
+# Back-compat alias — callers still using send_web_push keep working.
+send_web_push = send_push
 
 
 def push_notif(conn, user_id, actor_id, notif_type, ref_id, ref_type, message):
@@ -1002,7 +1260,7 @@ def push_notif(conn, user_id, actor_id, notif_type, ref_id, ref_type, message):
         'INSERT INTO notifications (user_id, actor_id, type, ref_id, ref_type, message) VALUES (?,?,?,?,?,?)',
         (user_id, actor_id, notif_type, ref_id, ref_type, message)
     )
-    send_web_push(user_id, 'InkLink', message, '/')
+    send_push(user_id, 'InkLink', message, '/')
 
 
 def require_login():
@@ -1187,6 +1445,14 @@ def login_page():
         return redirect('/')
     return send_from_directory('public', 'login.html')
 
+
+@app.route('/register')
+def register_page():
+    # Same page as /login (register form is a tab there); the JS reads ?ref= from URL.
+    if 'user_id' in session:
+        return redirect('/')
+    return send_from_directory('public', 'login.html')
+
 @app.route('/verify')
 def verify_page():
     if 'user_id' not in session:
@@ -1248,6 +1514,7 @@ def register():
     password     = data.get('password', '')
     email        = data.get('email', '').strip().lower()
     phone        = data.get('phone', '').strip()
+    ref_username = (data.get('ref') or '').strip().lower()
 
     if not username or not display_name or not password or not email:
         return jsonify({'error': 'Vyplň uživatelské jméno, jméno, e-mail a heslo'}), 400
@@ -1307,6 +1574,48 @@ def register():
         except Exception as _e:
             # Founding-client grant must never break signup — log and continue.
             print(f'[founding-client] grant failed for user {user["id"]}: {_e}')
+
+        # Welcome email sequence — fire stage 1 immediately (don't gate on
+        # verify; the welcome stands on its own), schedule stage 2 for +2 days.
+        try:
+            send_welcome_email_for(conn, user['id'], 1)
+            next_at = (datetime.utcnow() + timedelta(days=2)).isoformat()
+            conn.execute(
+                'UPDATE users SET welcome_email_stage = 1, welcome_email_next_at = ? WHERE id = ?',
+                (next_at, user['id'])
+            )
+            conn.commit()
+        except Exception as _e:
+            # Welcome email must never break signup.
+            print(f'[welcome-email] stage 1 failed for user {user["id"]}: {_e}')
+
+        # Referral tracking — if user signed up via ?ref=<username>, write a
+        # referrals row. Credit isn't granted yet — only when this user
+        # completes their first booking (see complete_booking).
+        try:
+            if ref_username and ref_username != username:
+                ref_user = conn.execute(
+                    'SELECT id FROM users WHERE username = ?', (ref_username,)
+                ).fetchone()
+                if ref_user and ref_user['id'] != user['id']:
+                    conn.execute(
+                        '''INSERT INTO referrals (referrer_user_id, referred_user_id, code)
+                           VALUES (?, ?, ?)''',
+                        (ref_user['id'], user['id'], ref_username)
+                    )
+                    conn.commit()
+                    try:
+                        from pricing import emit_event as _emit_ref
+                        _emit_ref('referral.signup', {
+                            'referrer_user_id': ref_user['id'],
+                            'referred_user_id': user['id'],
+                            'code': ref_username,
+                        }, conn=conn)
+                        conn.commit()
+                    except Exception:
+                        pass
+        except Exception as _e:
+            print(f'[referral] track failed for user {user["id"]}: {_e}')
     except sqlite3.IntegrityError:
         conn.close()
         return jsonify({'error': 'Username je už obsazený'}), 400
@@ -1458,6 +1767,14 @@ def login():
     if not user or not check_password_hash(user['password_hash'], password):
         return jsonify({'error': 'Invalid credentials'}), 401
 
+    # Anonymized accounts can't log in (PII scrubbed, password_hash unguessable
+    # but be explicit anyway in case the random hash check is ever softened).
+    try:
+        if 'deleted_at' in user.keys() and user['deleted_at']:
+            return jsonify({'error': 'Tento účet byl smazán.'}), 410
+    except Exception:
+        pass
+
     session['user_id']      = user['id']
     session['username']     = user['username']
     session['display_name'] = user['display_name']
@@ -1591,6 +1908,58 @@ def push_subscribe():
     return jsonify({'ok': True})
 
 
+@app.route('/api/native/register-push', methods=['POST'])
+def native_register_push():
+    """Capacitor app calls this after PushNotifications.register() returns a device token.
+
+    Body: {token: '<device-token>', platform: 'ios'|'android'}
+    Stores the token in push_subscriptions with provider='apns' (iOS) or 'fcm' (Android).
+    """
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not signed in'}), 401
+    data = request.json or {}
+    token = (data.get('token') or '').strip()
+    platform = (data.get('platform') or '').strip().lower()
+    if not token or platform not in ('ios', 'android'):
+        return jsonify({'error': 'Invalid payload'}), 400
+    provider = 'apns' if platform == 'ios' else 'fcm'
+    conn = get_db()
+    if conn._pg:
+        conn.execute(
+            "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, provider, platform) "
+            "VALUES (?,?,?,?,?,?) "
+            "ON CONFLICT (endpoint) DO UPDATE SET user_id=EXCLUDED.user_id, provider=EXCLUDED.provider, platform=EXCLUDED.platform",
+            (session['user_id'], token, '', '', provider, platform)
+        )
+    else:
+        conn.execute(
+            "INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth, provider, platform) "
+            "VALUES (?,?,?,?,?,?)",
+            (session['user_id'], token, '', '', provider, platform)
+        )
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/native/unregister-push', methods=['POST'])
+def native_unregister_push():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not signed in'}), 401
+    data = request.json or {}
+    token = (data.get('token') or '').strip()
+    if not token:
+        return jsonify({'error': 'Invalid payload'}), 400
+    conn = get_db()
+    conn.execute(
+        'DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?',
+        (token, session['user_id'])
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
 @app.route('/api/push/unsubscribe', methods=['POST'])
 def push_unsubscribe():
     if 'user_id' not in session:
@@ -1616,7 +1985,8 @@ def me():
                                   deposit_pct_default, hourly_rate_min, hourly_rate_max,
                                   default_payment_mode,
                                   stripe_account_id, stripe_charges_enabled,
-                                  stripe_payouts_enabled, stripe_details_submitted
+                                  stripe_payouts_enabled, stripe_details_submitted,
+                                  deletion_requested_at
                            FROM users WHERE id = ?''',
                         (session['user_id'],)).fetchone()
     push_n = conn.execute('SELECT COUNT(*) FROM push_subscriptions WHERE user_id=?',
@@ -1628,6 +1998,13 @@ def me():
     d['can_accept_bookings'] = bool(d.get('stripe_charges_enabled'))
     d['push_subscriptions'] = push_n
     d['push_available'] = bool(VAPID_PUBLIC_KEY)
+    # Compute purge_at for UI banner — let frontend show countdown.
+    if d.get('deletion_requested_at'):
+        try:
+            req = datetime.fromisoformat((d['deletion_requested_at'] or '').replace('Z', '+00:00'))
+            d['deletion_purge_at'] = (req + timedelta(days=ACCOUNT_DELETION_GRACE_DAYS)).isoformat()
+        except Exception:
+            d['deletion_purge_at'] = None
     return jsonify(d)
 
 
@@ -3496,6 +3873,11 @@ def my_checklist():
     upcoming_slots = conn.execute('''SELECT COUNT(*) FROM slots
                                      WHERE user_id=? AND end_at >= ?''',
                                   (uid, now_iso)).fetchone()[0]
+    bookings_count = conn.execute(
+        '''SELECT COUNT(*) FROM bookings WHERE artist_id=?
+           AND status IN ('confirmed', 'completed', 'pending_payment')''',
+        (uid,)
+    ).fetchone()[0]
     conn.close()
 
     items = [
@@ -3519,8 +3901,8 @@ def my_checklist():
         },
         {
             'key':  'portfolio',
-            'label':'Přidat aspoň jednu položku do portfolia',
-            'done': portfolio_count > 0,
+            'label':'Přidat aspoň 3 položky do portfolia',
+            'done': portfolio_count >= 3,
             'href': '/artist-setup#portfolio',
             'count': portfolio_count,
         },
@@ -3536,6 +3918,13 @@ def my_checklist():
             'label':'Propojit Stripe Connect (přijímat zálohy)',
             'done': bool(u['stripe_charges_enabled']),
             'href': '/artist-setup#payments',
+        },
+        {
+            'key':  'first_booking',
+            'label':'První rezervace',
+            'done': bookings_count > 0,
+            'href': '/my-bookings',
+            'count': bookings_count,
         },
     ]
     done_n = sum(1 for it in items if it['done'])
@@ -3921,6 +4310,116 @@ def cron_reconcile():
         'stripe_total_czk': stripe_total_czk,
         'diff_czk': diff,
         'reconciled': diff is None or diff <= 10,
+    })
+
+
+# ── Welcome email sequence cron ───────────────────────────────────────────
+# Hodinový (nebo denní) cron co posílá další stage onboarding emailu pro
+# usery, kteří dosáhli welcome_email_next_at. Tři stages: 1 (immediate on
+# signup), 2 (+2 days), 3 (+7 days). Cron táhne 2 a 3.
+# Trigger: GET /api/cron/welcome-emails?token=<RECONCILE_TOKEN>
+
+@app.route('/api/cron/welcome-emails', methods=['GET', 'POST'])
+@limiter.limit('30 per hour')
+def cron_welcome_emails():
+    token = request.args.get('token', '') or request.headers.get('X-Cron-Token', '')
+    if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
+        return jsonify({'error': 'forbidden'}), 403
+    if not RESEND_API_KEY:
+        return jsonify({'error': 'RESEND_API_KEY not set', 'sent': 0}), 503
+
+    now_iso = datetime.utcnow().isoformat()
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT id, COALESCE(welcome_email_stage, 0) AS stage
+           FROM users
+           WHERE COALESCE(welcome_email_stage, 0) IN (1, 2)
+             AND welcome_email_next_at IS NOT NULL
+             AND welcome_email_next_at <= ?
+           ORDER BY id ASC LIMIT 200''',
+        (now_iso,)
+    ).fetchall()
+
+    sent = []
+    failed = []
+    for r in rows:
+        uid = r['id']
+        next_stage = r['stage'] + 1   # 1→2 (day 2), 2→3 (day 7)
+        ok = send_welcome_email_for(conn, uid, next_stage)
+        # Advance regardless of send success — failed sends shouldn't loop
+        # forever; we log and move on. If stage 3, next_at = NULL (done).
+        if next_stage >= 3:
+            new_next = None
+        else:
+            new_next = (datetime.utcnow() + timedelta(days=5)).isoformat()  # 2 → 3 = 5 days later (total 7)
+        conn.execute(
+            'UPDATE users SET welcome_email_stage = ?, welcome_email_next_at = ? WHERE id = ?',
+            (next_stage, new_next, uid)
+        )
+        (sent if ok else failed).append({'user_id': uid, 'stage': next_stage})
+    conn.commit()
+
+    try:
+        from pricing import emit_event as _emit
+        _emit('welcome_email.batch_sent', {
+            'sent_count': len(sent), 'failed_count': len(failed),
+        }, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+
+    conn.close()
+    return jsonify({
+        'ok': True,
+        'sent_count': len(sent),
+        'failed_count': len(failed),
+        'sent': sent[:50],
+        'failed': failed[:50],
+    })
+
+
+# ── Admin: referrals leaderboard ──────────────────────────────────────────
+
+@app.route('/api/admin/referrals/leaderboard')
+def admin_referrals_leaderboard():
+    err = require_admin()
+    if err: return err
+    conn = get_db()
+    # Aggregate: per referrer, count total signups + granted, joined with their account credit.
+    rows = conn.execute('''
+        SELECT u.id, u.username, u.display_name,
+               COALESCE(u.account_credit_cents, 0) AS account_credit_cents,
+               COUNT(r.id) AS signups,
+               SUM(CASE WHEN r.credit_granted_at IS NOT NULL THEN 1 ELSE 0 END) AS granted
+        FROM referrals r
+        JOIN users u ON u.id = r.referrer_user_id
+        GROUP BY u.id, u.username, u.display_name, u.account_credit_cents
+        ORDER BY granted DESC, signups DESC
+        LIMIT 50
+    ''').fetchall()
+    totals = conn.execute('''
+        SELECT COUNT(*) AS total_signups,
+               SUM(CASE WHEN credit_granted_at IS NOT NULL THEN 1 ELSE 0 END) AS total_granted
+        FROM referrals
+    ''').fetchone()
+    credit_total = conn.execute(
+        'SELECT COALESCE(SUM(account_credit_cents), 0) AS c FROM users WHERE account_credit_cents > 0'
+    ).fetchone()
+    conn.close()
+    return jsonify({
+        'rows': [
+            {
+                'username':              r['username'],
+                'display_name':          r['display_name'],
+                'signups':               r['signups'] or 0,
+                'granted':               r['granted'] or 0,
+                'account_credit_cents':  r['account_credit_cents'] or 0,
+            }
+            for r in rows
+        ],
+        'total_signups':       (totals['total_signups'] if totals else 0) or 0,
+        'total_granted':       (totals['total_granted'] if totals else 0) or 0,
+        'total_credit_cents':  (credit_total['c'] if credit_total else 0) or 0,
     })
 
 
@@ -4317,6 +4816,83 @@ def artists_map():
         }
         for r in rows
     ])
+
+
+def _haversine_km(lat1, lng1, lat2, lng2):
+    """Great-circle distance in km. Returns None if any coord is missing."""
+    import math
+    if lat1 is None or lng1 is None or lat2 is None or lng2 is None:
+        return None
+    R = 6371.0
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+@app.route('/api/artists/near')
+def artists_near():
+    """Returns artists within ?km kilometers of (?lat, ?lng), sorted by distance.
+    Filters via bounding box (cheap SQL) then exact Haversine in Python.
+    """
+    try:
+        lat = float(request.args.get('lat', ''))
+        lng = float(request.args.get('lng', ''))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'lat/lng required'}), 400
+    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+        return jsonify({'error': 'invalid lat/lng'}), 400
+    try:
+        km = float(request.args.get('km', '25'))
+    except (TypeError, ValueError):
+        km = 25.0
+    km = max(1.0, min(km, 500.0))  # 1–500 km
+
+    # Bounding box pre-filter: 1° lat ≈ 111 km; 1° lng ≈ 111 * cos(lat) km.
+    # Pad a touch (km * 1.1) so the circle never gets clipped at the box edge.
+    import math
+    deg_lat = (km * 1.1) / 111.0
+    deg_lng = (km * 1.1) / max(1.0, 111.0 * math.cos(math.radians(lat)))
+    lat_min, lat_max = lat - deg_lat, lat + deg_lat
+    lng_min, lng_max = lng - deg_lng, lng + deg_lng
+
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT id, username, display_name, city, studio, styles, avatar, lat, lng,
+               (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
+               (SELECT COUNT(*)    FROM reviews WHERE artist_id = users.id) AS rating_count
+        FROM users
+        WHERE is_artist = 1
+          AND lat IS NOT NULL AND lng IS NOT NULL
+          AND lat BETWEEN ? AND ?
+          AND lng BETWEEN ? AND ?
+    ''', (lat_min, lat_max, lng_min, lng_max)).fetchall()
+    conn.close()
+
+    out = []
+    for r in rows:
+        d = _haversine_km(lat, lng, r['lat'], r['lng'])
+        if d is None or d > km:
+            continue
+        out.append({
+            'id':            r['id'],
+            'username':      r['username'],
+            'display_name':  r['display_name'],
+            'city':          r['city'] or '',
+            'studio':        r['studio'] or '',
+            'styles':        r['styles'] or '',
+            'avatar_url':    f'/uploads/{r["avatar"]}' if r['avatar'] else None,
+            'initials':      initials(r['display_name']),
+            'lat':           r['lat'],
+            'lng':           r['lng'],
+            'rating_avg':    round(r['rating_avg'], 1) if r['rating_avg'] else None,
+            'rating_count':  r['rating_count'] or 0,
+            'distance_km':   round(d, 1),
+        })
+    out.sort(key=lambda x: x['distance_km'])
+    return jsonify({'center': {'lat': lat, 'lng': lng}, 'km': km, 'artists': out, 'count': len(out)})
 
 
 @app.route('/api/sizes')
@@ -4745,6 +5321,48 @@ def create_booking():
         'design_note': design_note,
         'booking_url': f'{APP_BASE_URL}/my-bookings',
     })
+
+    # ── Sprint 1 LITE: create deposit PaymentIntent in live mode ──────────────
+    # Gated behind ENABLE_DEPOSIT_PI env flag for safe rollout. Without the
+    # flag, behavior is unchanged from before (booking sits in pending_payment
+    # forever in live mode — broken but stable). With the flag, we create a
+    # PI and return client_secret for frontend Stripe Elements.
+    payment_block = {'mode': 'demo'} if demo_mode else None
+    enable_deposit_pi = os.environ.get('ENABLE_DEPOSIT_PI', '0') == '1'
+    if not demo_mode and enable_deposit_pi:
+        try:
+            charge_cents = total_price_cents if payment_mode == 'full' else deposit_cents
+            day = int(time.time() // 86400)
+            pi = stripe.PaymentIntent.create(
+                amount=charge_cents,
+                currency=(slot['currency'] if 'currency' in slot.keys() and slot['currency'] else 'czk').lower(),
+                description=f'InkLink — záloha za rezervaci #{bid}',
+                application_fee_amount=platform_fee_cents,
+                transfer_data={'destination': artist['stripe_account_id'] if 'stripe_account_id' in artist.keys() else None},
+                metadata={
+                    'inklink_booking_id': str(bid),
+                    'inklink_kind': 'deposit' if payment_mode != 'full' else 'full_payment',
+                },
+                idempotency_key=f'deposit-{slot_id}-{session["user_id"]}-{day}',
+            )
+            conn.execute(
+                'UPDATE bookings SET stripe_payment_intent_id=?, payment_attempts=1 WHERE id=?',
+                (pi.id, bid)
+            )
+            conn.commit()
+            payment_block = {
+                'mode': 'live',
+                'client_secret': pi.client_secret,
+                'publishable_key': STRIPE_PUBLIC_KEY,
+                'payment_url': f'/pay/{bid}',
+            }
+        except Exception as e:
+            # Don't roll back the booking — let user retry via /retry-payment-intent.
+            # Booking sits in pending_payment until they retry.
+            print(f'[deposit-pi] create failed for booking {bid}: {e}')
+            payment_block = {'mode': 'live', 'error': 'Stripe momentálně nedostupný, zkus za chvíli.',
+                             'payment_url': f'/pay/{bid}'}
+
     conn.close()
 
     return jsonify({
@@ -4761,6 +5379,7 @@ def create_booking():
         'booking_start_at': booking_start.isoformat(),
         'booking_end_at':   booking_end.isoformat(),
         'total_price_kc':   round(total_price),
+        'payment':          payment_block,
     })
 
 
@@ -5020,7 +5639,24 @@ def cancel_booking(bid):
     refund_cents = int(round(b['deposit_cents'] * refund_pct / 100))
     new_status   = 'cancelled_artist' if actor == 'artist' else 'cancelled_client'
 
-    # M4 později: pokud máme stripe_payment_intent_id, zavolat Refund. Teď jen status.
+    # Trigger Stripe refund if there's something to refund and a payment exists.
+    # If Stripe fails, abort the cancellation — user can retry. The webhook
+    # charge.refunded will write the economics_snapshots row.
+    pi_id = b['stripe_payment_intent_id'] if 'stripe_payment_intent_id' in b.keys() else None
+    if refund_cents > 0 and pi_id and STRIPE_SECRET_KEY:
+        try:
+            stripe.Refund.create(
+                payment_intent=pi_id,
+                amount=refund_cents,
+                reason='requested_by_customer',
+                idempotency_key=f'cancel-{bid}-{actor}',
+                metadata={'inklink_booking_id': str(bid), 'inklink_actor': actor},
+            )
+        except Exception as e:
+            conn.close()
+            print(f'[cancel] stripe refund failed: {e}')
+            return jsonify({'error': f'Refund se nepodařilo zpracovat: {e}'}), 502
+
     conn.execute('''UPDATE bookings SET status=?, cancelled_at=?, cancellation_actor=?, refund_cents=?
                     WHERE id=?''',
                  (new_status, datetime.utcnow().isoformat(), actor, refund_cents, bid))
@@ -5050,6 +5686,740 @@ def cancel_booking(bid):
         'refund_pct': refund_pct,
         'refund_cents': refund_cents,
     })
+
+
+@app.route('/api/me/export', methods=['GET'])
+@limiter.limit('5 per hour')
+def my_export():
+    """GDPR Article 20 — data portability. Returns a ZIP of JSON files with
+    everything we have about the current user. Rate-limited (5/h) to discourage
+    abuse, but the user can always request again later.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+
+    import io as _io
+    import zipfile as _zf
+    import json as _json
+
+    conn = get_db()
+
+    def fetch_dicts(sql, params=()):
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+
+    # Profile (drop password_hash + verify_code — never export auth secrets)
+    user = conn.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    profile = dict(user)
+    for sensitive in ('password_hash', 'verify_code', 'verify_expires'):
+        profile.pop(sensitive, None)
+
+    bookings_as_client = fetch_dicts(
+        'SELECT * FROM bookings WHERE client_id=? ORDER BY id DESC', (uid,)
+    )
+    bookings_as_artist = fetch_dicts(
+        'SELECT * FROM bookings WHERE artist_id=? ORDER BY id DESC', (uid,)
+    )
+    portfolio = fetch_dicts(
+        'SELECT * FROM portfolio_items WHERE user_id=? ORDER BY id DESC', (uid,)
+    )
+    messages_sent = fetch_dicts(
+        'SELECT * FROM messages WHERE sender_id=? ORDER BY id DESC', (uid,)
+    )
+    messages_received = fetch_dicts(
+        'SELECT * FROM messages WHERE receiver_id=? ORDER BY id DESC', (uid,)
+    )
+    refund_requests = fetch_dicts(
+        'SELECT * FROM refund_requests WHERE client_id=? OR artist_id=? ORDER BY id DESC',
+        (uid, uid)
+    )
+    referrals_made = fetch_dicts(
+        'SELECT * FROM referrals WHERE referrer_user_id=? ORDER BY id DESC', (uid,)
+    )
+    referrals_received = fetch_dicts(
+        'SELECT * FROM referrals WHERE referred_user_id=? ORDER BY id DESC', (uid,)
+    )
+    reviews_written = fetch_dicts(
+        'SELECT * FROM reviews WHERE client_id=? ORDER BY id DESC', (uid,)
+    )
+    reviews_received = fetch_dicts(
+        'SELECT * FROM reviews WHERE artist_id=? ORDER BY id DESC', (uid,)
+    )
+    # Notifications are user-scoped
+    notifications = fetch_dicts(
+        'SELECT * FROM notifications WHERE user_id=? ORDER BY id DESC LIMIT 1000',
+        (uid,)
+    )
+    # Push subscriptions (mask the device token — keep only provider + created_at)
+    push_subs_raw = conn.execute(
+        "SELECT id, provider, platform, created_at FROM push_subscriptions WHERE user_id=?",
+        (uid,)
+    ).fetchall()
+    push_subscriptions = [dict(r) for r in push_subs_raw]
+
+    conn.close()
+
+    bundle = {
+        'export_metadata': {
+            'generated_at_utc': datetime.utcnow().isoformat(),
+            'user_id':          uid,
+            'gdpr_article':     'Article 20 — Right to data portability',
+            'note':             'Password hashes and verification codes are intentionally excluded.',
+        },
+        'profile':              profile,
+        'bookings_as_client':   bookings_as_client,
+        'bookings_as_artist':   bookings_as_artist,
+        'portfolio':            portfolio,
+        'messages_sent':        messages_sent,
+        'messages_received':    messages_received,
+        'refund_requests':      refund_requests,
+        'referrals_made':       referrals_made,
+        'referrals_received':   referrals_received,
+        'reviews_written':      reviews_written,
+        'reviews_received':     reviews_received,
+        'notifications':        notifications,
+        'push_subscriptions':   push_subscriptions,
+    }
+
+    # Build ZIP in-memory: one JSON file per section + README.
+    buf = _io.BytesIO()
+    with _zf.ZipFile(buf, 'w', _zf.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            'README.txt',
+            'InkLink — export osobních údajů (GDPR článek 20)\n\n'
+            'Tento ZIP obsahuje všechna data, která o tobě máme uložena.\n'
+            'Soubory jsou ve formátu JSON (čitelný strojově i lidsky).\n\n'
+            'Pokud chceš data smazat, napiš nám na gdpr@inklink.cz.\n'
+        )
+        for key, value in bundle.items():
+            zf.writestr(f'{key}.json', _json.dumps(value, ensure_ascii=False, indent=2, default=str))
+
+    buf.seek(0)
+    from flask import send_file
+    fname = f'inklink-export-{user["username"]}-{datetime.utcnow().strftime("%Y%m%d")}.zip'
+    return send_file(buf, mimetype='application/zip', as_attachment=True, download_name=fname)
+
+
+ACCOUNT_DELETION_GRACE_DAYS = 30
+
+
+def _anonymize_user(conn, uid: int) -> None:
+    """Scrub PII from users row. Keeps id (FK integrity) + accounting joins.
+    Sets deleted_at to mark the row as terminal. Idempotent."""
+    import secrets as _secrets
+    # Free up the username slot but keep it referentially valid via a stable
+    # placeholder. Two anonymized users with same id won't collide.
+    placeholder = f'deleted-{uid}'
+    random_hash = 'deleted!' + _secrets.token_hex(16)  # unguessable, locks login
+    now_iso = datetime.utcnow().isoformat()
+    conn.execute('''
+        UPDATE users SET
+            username      = ?,
+            display_name  = 'Smazaný účet',
+            email         = '',
+            phone         = '',
+            city          = '',
+            bio           = '',
+            avatar        = '',
+            studio        = '',
+            instagram     = '',
+            styles        = '',
+            lat           = NULL,
+            lng           = NULL,
+            password_hash = ?,
+            verify_code   = NULL,
+            verify_expires= NULL,
+            calendar_token= NULL,
+            deleted_at    = ?
+        WHERE id = ?
+    ''', (placeholder, random_hash, now_iso, uid))
+    # Wipe portfolio items (privacy policy: "Portfolio se smaže s účtem")
+    conn.execute('DELETE FROM portfolio_items WHERE user_id = ?', (uid,))
+    # Clear active push subscriptions
+    conn.execute('DELETE FROM push_subscriptions WHERE user_id = ?', (uid,))
+
+
+@app.route('/api/me/delete', methods=['POST'])
+def request_account_deletion():
+    """Request soft deletion. 30-day grace; cron does the actual anonymization.
+    Rejects if user has future bookings — they must be cancelled first per ToS.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or {}
+    typed = (data.get('confirm_username') or '').strip().lower()
+
+    conn = get_db()
+    u = conn.execute('SELECT username, deletion_requested_at, deleted_at FROM users WHERE id=?',
+                     (uid,)).fetchone()
+    if not u:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if u['deleted_at']:
+        conn.close()
+        return jsonify({'error': 'Účet je už smazán.'}), 409
+    if u['deletion_requested_at']:
+        conn.close()
+        return jsonify({'error': 'Žádost o smazání už čeká.'}), 409
+
+    # Confirmation by username — prevents accidental deletion via XSS / CSRF / muscle memory
+    if typed != (u['username'] or '').lower():
+        conn.close()
+        return jsonify({'error': 'Pro potvrzení napiš své uživatelské jméno přesně.'}), 400
+
+    # Block deletion when there are future bookings (confirmed or pending payment)
+    now_iso = datetime.utcnow().isoformat()
+    active = conn.execute('''
+        SELECT COUNT(*) AS c FROM bookings
+        WHERE (client_id = ? OR artist_id = ?)
+          AND status IN ('confirmed', 'pending_payment')
+          AND booking_start_at IS NOT NULL
+          AND booking_start_at > ?
+    ''', (uid, uid, now_iso)).fetchone()
+    if (active['c'] or 0) > 0:
+        conn.close()
+        return jsonify({
+            'error': f'Máš ještě {active["c"]} aktivní rezervaci. Zruš ji v /my-bookings a pak požádej znovu.',
+            'active_bookings': active['c'],
+        }), 409
+
+    purge_at = (datetime.utcnow() + timedelta(days=ACCOUNT_DELETION_GRACE_DAYS)).isoformat()
+    conn.execute('UPDATE users SET deletion_requested_at = ? WHERE id = ?', (now_iso, uid))
+    conn.commit()
+
+    try:
+        from pricing import emit_event as _emit
+        _emit('account.deletion_requested', {'user_id': uid}, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+
+    # Email confirmation if Resend configured
+    try:
+        user_email = conn.execute('SELECT email, display_name FROM users WHERE id=?', (uid,)).fetchone()
+        if user_email and user_email['email'] and RESEND_API_KEY:
+            base = APP_BASE_URL or 'https://www.inklink.club'
+            send_email(user_email['email'], 'InkLink — žádost o smazání účtu přijata', f'''
+            <div style="background:#000;padding:24px 0"><div style="background:#0a0a0a;color:#ccc;font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;border:1px solid #1a1a1a">
+              <h1 style="color:#eee;font-size:22px;letter-spacing:0.06em;margin:0 0 12px">Žádost o smazání přijata</h1>
+              <p style="color:#bbb;font-size:14px;line-height:1.7">Ahoj {(user_email['display_name'] or '').strip() or 'tam'},</p>
+              <p style="color:#bbb;font-size:14px;line-height:1.7">Tvůj účet bude trvale anonymizován <b style="color:#eee">{ACCOUNT_DELETION_GRACE_DAYS} dní</b> ode dneška. Do té doby si můžeš žádost rozmyslet a zrušit ji v nastavení.</p>
+              <p style="color:#bbb;font-size:14px;line-height:1.7"><a href="{base}/artist-setup#account" style="color:#c62828">Otevřít nastavení účtu</a></p>
+              <p style="color:#888;font-size:12px;line-height:1.7;margin-top:18px">Po anonymizaci se ztratí: profil, portfolio, profilové údaje. Záznamy o platbách zůstanou v účetnictví po dobu 10 let (zákon o účetnictví) — ale bez vazby na tvou totožnost.</p>
+            </div></div>
+            ''')
+    except Exception:
+        pass
+
+    conn.close()
+    # Log the user out so the "delete" feels final
+    session.clear()
+    return jsonify({
+        'ok': True,
+        'requested_at': now_iso,
+        'purge_at': purge_at,
+        'grace_days': ACCOUNT_DELETION_GRACE_DAYS,
+    })
+
+
+@app.route('/api/me/delete-cancel', methods=['POST'])
+def cancel_account_deletion():
+    """Cancel a pending deletion request (only valid before purge_at)."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    u = conn.execute('SELECT deletion_requested_at, deleted_at FROM users WHERE id=?',
+                     (uid,)).fetchone()
+    if not u:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if u['deleted_at']:
+        conn.close()
+        return jsonify({'error': 'Účet je už nenávratně smazán.'}), 410
+    if not u['deletion_requested_at']:
+        conn.close()
+        return jsonify({'error': 'Žádná žádost o smazání neexistuje.'}), 404
+    conn.execute('UPDATE users SET deletion_requested_at = NULL WHERE id = ?', (uid,))
+    conn.commit()
+    try:
+        from pricing import emit_event as _emit
+        _emit('account.deletion_cancelled', {'user_id': uid}, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/cron/account-deletions', methods=['GET', 'POST'])
+@limiter.limit('30 per hour')
+def cron_account_deletions():
+    """Daily cron — anonymize users whose grace period expired. Trigger:
+    GET /api/cron/account-deletions?token=$RECONCILE_TOKEN"""
+    token = request.args.get('token', '') or request.headers.get('X-Cron-Token', '')
+    if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
+        return jsonify({'error': 'forbidden'}), 403
+    cutoff = (datetime.utcnow() - timedelta(days=ACCOUNT_DELETION_GRACE_DAYS)).isoformat()
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT id FROM users
+           WHERE deletion_requested_at IS NOT NULL
+             AND deletion_requested_at <= ?
+             AND deleted_at IS NULL
+           ORDER BY id ASC LIMIT 200''',
+        (cutoff,)
+    ).fetchall()
+    purged_ids = []
+    for r in rows:
+        try:
+            _anonymize_user(conn, r['id'])
+            purged_ids.append(r['id'])
+        except Exception as e:
+            print(f'[account-deletion] failed for user {r["id"]}: {e}')
+    conn.commit()
+
+    try:
+        from pricing import emit_event as _emit
+        _emit('account.deletion_batch_purged', {
+            'purged_count': len(purged_ids), 'user_ids': purged_ids,
+        }, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+
+    conn.close()
+    return jsonify({
+        'ok': True,
+        'purged_count': len(purged_ids),
+        'purged_user_ids': purged_ids,
+        'cutoff_iso': cutoff,
+    })
+
+
+@app.route('/api/me/referrals', methods=['GET'])
+def my_referrals():
+    """Returns current user's referral link + stats:
+    {
+      link: 'https://www.inklink.club/register?ref=username',
+      code: 'username',
+      bonus_czk: 300,
+      account_credit_czk: 0,
+      total_signups: 0,
+      total_granted: 0,
+      referred: [{username, display_name, status: 'signed_up'|'granted', signed_up_at, granted_at}]
+    }
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    me = conn.execute(
+        'SELECT username, account_credit_cents FROM users WHERE id = ?', (uid,)
+    ).fetchone()
+    if not me:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+
+    rows = conn.execute(
+        '''SELECT r.created_at AS signed_up_at, r.credit_granted_at,
+                  u.username, u.display_name
+           FROM referrals r
+           JOIN users u ON u.id = r.referred_user_id
+           WHERE r.referrer_user_id = ?
+           ORDER BY r.created_at DESC LIMIT 200''',
+        (uid,)
+    ).fetchall()
+    conn.close()
+
+    referred = []
+    granted = 0
+    for r in rows:
+        is_granted = bool(r['credit_granted_at'])
+        if is_granted:
+            granted += 1
+        referred.append({
+            'username':      r['username'],
+            'display_name':  r['display_name'],
+            'status':        'granted' if is_granted else 'signed_up',
+            'signed_up_at':  r['signed_up_at'],
+            'granted_at':    r['credit_granted_at'],
+        })
+
+    try:
+        from pricing.config import REFERRAL_BONUS_CZK
+        bonus_czk = float(REFERRAL_BONUS_CZK)
+    except Exception:
+        bonus_czk = 300.0
+
+    base = APP_BASE_URL or 'https://www.inklink.club'
+    return jsonify({
+        'link': f"{base}/register?ref={me['username']}",
+        'code': me['username'],
+        'bonus_czk': bonus_czk,
+        'account_credit_czk': float(me['account_credit_cents'] or 0) / 100,
+        'total_signups': len(referred),
+        'total_granted': granted,
+        'referred': referred,
+    })
+
+
+@app.route('/pay/<int:bid>')
+def deposit_pay_page(bid):
+    """Serves the public deposit-pay page (Stripe Elements). Auth gating via
+    booking_id only — URL is the capability. Anyone with the link can pay."""
+    return send_from_directory('public', 'deposit-pay.html')
+
+
+@app.route('/api/pay/<int:bid>')
+def deposit_pay_info(bid):
+    """Public — returns safe display fields + client_secret for Stripe Elements.
+    No auth required (the URL is the capability). Returns 410 if booking is
+    already past pending_payment (frontend redirects to /my-bookings)."""
+    conn = get_db()
+    b = conn.execute('''SELECT b.*, ua.display_name AS a_name, ua.studio AS a_studio,
+                               ua.avatar AS a_avatar
+                        FROM bookings b
+                        JOIN users ua ON ua.id = b.artist_id
+                        WHERE b.id = ?''', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'Rezervace neexistuje.'}), 404
+    conn.close()
+
+    # If booking moved past pending_payment, nothing to pay.
+    if b['status'] not in ('pending_payment', 'payment_failed'):
+        return jsonify({'error': 'Tato rezervace už nečeká na platbu.',
+                        'status': b['status']}), 410
+
+    charge_cents = b['total_price_cents'] if b['payment_mode'] == 'full' else b['deposit_cents']
+    pi_id = b['stripe_payment_intent_id']
+    client_secret = None
+    if pi_id and not pi_id.startswith('demo_pi_'):
+        # Fetch fresh client_secret from Stripe — PI may have rotated.
+        try:
+            pi = stripe.PaymentIntent.retrieve(pi_id)
+            client_secret = pi.client_secret
+        except Exception as e:
+            print(f'[pay-info] PI retrieve failed: {e}')
+
+    return jsonify({
+        'id':                 b['id'],
+        'amount_cents':       charge_cents,
+        'currency':           (b['currency'] or 'CZK'),
+        'client_secret':      client_secret,
+        'publishable_key':    STRIPE_PUBLIC_KEY,
+        'artist_name':        b['a_name'],
+        'artist_studio':      b['a_studio'] or '',
+        'artist_avatar_url':  f'/uploads/{b["a_avatar"]}' if b['a_avatar'] else None,
+        'when':               b['booking_start_at'],
+        'design_note':        b['design_note'] or '',
+        'status':             b['status'],
+        'payment_attempts':   b['payment_attempts'] if 'payment_attempts' in b.keys() else 0,
+    })
+
+
+@app.route('/api/bookings/<int:bid>/retry-payment-intent', methods=['POST'])
+def retry_deposit_payment_intent(bid):
+    """When the first PI failed (status='payment_failed'), create a fresh PI
+    with a rotated idempotency_key. Auth: client_id only — privacy.
+    Allowed states: pending_payment, payment_failed.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'Rezervace neexistuje.'}), 404
+    if uid != b['client_id']:
+        conn.close()
+        return jsonify({'error': 'Retry může spustit jen klient rezervace.'}), 403
+    if b['status'] not in ('pending_payment', 'payment_failed'):
+        conn.close()
+        return jsonify({'error': f'Booking ve stavu {b["status"]} nemůže retry.'}), 409
+    if not STRIPE_SECRET_KEY:
+        conn.close()
+        return jsonify({'error': 'Stripe není nakonfigurovaný.'}), 503
+
+    artist = conn.execute(
+        'SELECT stripe_account_id, stripe_charges_enabled FROM users WHERE id=?',
+        (b['artist_id'],)
+    ).fetchone()
+    if not artist or not artist['stripe_charges_enabled']:
+        conn.close()
+        return jsonify({'error': 'Tatér nemá aktivní platby — nelze retry.'}), 409
+
+    attempt = (b['payment_attempts'] if 'payment_attempts' in b.keys() else 0) + 1
+    charge_cents = b['total_price_cents'] if b['payment_mode'] == 'full' else b['deposit_cents']
+    try:
+        pi = stripe.PaymentIntent.create(
+            amount=charge_cents,
+            currency=(b['currency'] or 'CZK').lower(),
+            description=f'InkLink — záloha za rezervaci #{bid} (retry #{attempt})',
+            application_fee_amount=b['platform_fee_cents'] or 0,
+            transfer_data={'destination': artist['stripe_account_id']},
+            metadata={
+                'inklink_booking_id': str(bid),
+                'inklink_kind': 'deposit_retry',
+                'inklink_attempt': str(attempt),
+            },
+            idempotency_key=f'deposit-retry-{bid}-{attempt}',
+        )
+    except Exception as e:
+        conn.close()
+        print(f'[deposit-retry] PI create failed: {e}')
+        return jsonify({'error': f'Stripe: {e}'}), 502
+
+    conn.execute(
+        '''UPDATE bookings SET stripe_payment_intent_id=?, payment_attempts=?,
+                                status=CASE WHEN status='payment_failed' THEN 'pending_payment' ELSE status END
+           WHERE id=?''',
+        (pi.id, attempt, bid)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({
+        'ok': True,
+        'client_secret':   pi.client_secret,
+        'publishable_key': STRIPE_PUBLIC_KEY,
+        'payment_url':     f'/pay/{bid}',
+        'attempt':         attempt,
+    })
+
+
+@app.route('/api/bookings/<int:bid>/refund-request', methods=['POST'])
+def create_refund_request(bid):
+    """Client requests a refund post-booking (e.g. quality dispute, no-show).
+    Body: {amount_kc?, reason}. Default amount = full paid deposit.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or {}
+    reason = (data.get('reason') or '').strip()
+    if len(reason) < 10:
+        return jsonify({'error': 'Důvod musí mít alespoň 10 znaků.'}), 400
+    if len(reason) > 1000:
+        return jsonify({'error': 'Důvod je moc dlouhý (max 1000 znaků).'}), 400
+
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'Rezervace nenalezena.'}), 404
+    if uid != b['client_id']:
+        conn.close()
+        return jsonify({'error': 'Žádost o refund může podat jen klient.'}), 403
+
+    # Determine what's refundable: paid - already-refunded
+    paid_cents = (b['deposit_cents'] or 0) + (b['balance_paid_cents'] if 'balance_paid_cents' in b.keys() and b['balance_paid_cents'] else 0)
+    already_refunded = b['refund_cents'] or 0
+    max_refundable = max(0, paid_cents - already_refunded)
+    if max_refundable <= 0:
+        conn.close()
+        return jsonify({'error': 'Není co vracet (nic zaplaceno nebo už vráceno).'}), 400
+
+    # Custom amount or full
+    try:
+        req_kc = data.get('amount_kc')
+        if req_kc is not None:
+            req_cents = int(round(float(req_kc) * 100))
+        else:
+            req_cents = max_refundable
+    except (ValueError, TypeError):
+        conn.close()
+        return jsonify({'error': 'Neplatná částka.'}), 400
+    if req_cents <= 0 or req_cents > max_refundable:
+        conn.close()
+        return jsonify({'error': f'Částka musí být mezi 1 a {max_refundable // 100} Kč.'}), 400
+
+    # No duplicate pending requests on the same booking
+    existing = conn.execute(
+        "SELECT id FROM refund_requests WHERE booking_id=? AND status='pending'",
+        (bid,)
+    ).fetchone()
+    if existing:
+        conn.close()
+        return jsonify({'error': 'Pro tuto rezervaci už máš čekající žádost.'}), 409
+
+    conn.execute(
+        '''INSERT INTO refund_requests (booking_id, client_id, artist_id, amount_cents, reason, status)
+           VALUES (?, ?, ?, ?, ?, 'pending')''',
+        (bid, uid, b['artist_id'], req_cents, reason)
+    )
+    rid = conn.execute('SELECT last_insert_rowid() AS id').fetchone()['id']
+
+    # Notify artist
+    push_notif(conn, b['artist_id'], uid, 'refund_requested', bid, 'booking',
+               f'Klient žádá vrácení {req_cents // 100} Kč.')
+    conn.commit()
+
+    try:
+        from pricing import emit_event as _emit
+        _emit('refund.requested', {
+            'booking_id': bid, 'request_id': rid, 'amount_cents': req_cents,
+            'client_id': uid, 'artist_id': b['artist_id'],
+        }, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+
+    conn.close()
+    return jsonify({'ok': True, 'id': rid, 'amount_cents': req_cents, 'status': 'pending'})
+
+
+@app.route('/api/refund-requests', methods=['GET'])
+def list_refund_requests():
+    """Returns refund requests visible to the current user:
+    - clients see their own
+    - artists see those on bookings they own
+    - admins see all (filter by ?all=1)
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    show_all = request.args.get('all') == '1'
+    me = conn.execute('SELECT is_admin FROM users WHERE id=?', (uid,)).fetchone()
+    is_admin = bool(me and me['is_admin'])
+
+    if show_all and is_admin:
+        rows = conn.execute(
+            '''SELECT rr.*, c.username AS client_username, a.username AS artist_username,
+                      b.design_note, b.deposit_cents
+               FROM refund_requests rr
+               JOIN users c ON c.id = rr.client_id
+               JOIN users a ON a.id = rr.artist_id
+               JOIN bookings b ON b.id = rr.booking_id
+               ORDER BY rr.created_at DESC LIMIT 200'''
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            '''SELECT rr.*, c.username AS client_username, a.username AS artist_username,
+                      b.design_note, b.deposit_cents
+               FROM refund_requests rr
+               JOIN users c ON c.id = rr.client_id
+               JOIN users a ON a.id = rr.artist_id
+               JOIN bookings b ON b.id = rr.booking_id
+               WHERE rr.client_id = ? OR rr.artist_id = ?
+               ORDER BY rr.created_at DESC LIMIT 200''',
+            (uid, uid)
+        ).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        out.append({
+            'id': r['id'],
+            'booking_id': r['booking_id'],
+            'amount_cents': r['amount_cents'],
+            'reason': r['reason'],
+            'status': r['status'],
+            'decision_note': r['decision_note'] or '',
+            'created_at': r['created_at'],
+            'resolved_at': r['resolved_at'],
+            'client_username': r['client_username'],
+            'artist_username': r['artist_username'],
+            'role': 'client' if r['client_id'] == uid else ('artist' if r['artist_id'] == uid else 'admin'),
+        })
+    return jsonify(out)
+
+
+@app.route('/api/refund-requests/<int:rid>/decide', methods=['POST'])
+def decide_refund_request(rid):
+    """Artist (or admin) approves or rejects a refund request.
+    Body: {decision: 'approve'|'reject', note?: str}
+    On approve → triggers Stripe.Refund.create(). On reject → just marks status.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or {}
+    decision = (data.get('decision') or '').strip().lower()
+    note = (data.get('note') or '').strip()[:500]
+    if decision not in ('approve', 'reject'):
+        return jsonify({'error': 'Decision must be approve or reject.'}), 400
+
+    conn = get_db()
+    me = conn.execute('SELECT is_admin FROM users WHERE id=?', (uid,)).fetchone()
+    is_admin = bool(me and me['is_admin'])
+    rr = conn.execute('SELECT * FROM refund_requests WHERE id=?', (rid,)).fetchone()
+    if not rr:
+        conn.close()
+        return jsonify({'error': 'Refund request not found.'}), 404
+    if rr['status'] != 'pending':
+        conn.close()
+        return jsonify({'error': 'Žádost už byla vyřešena.'}), 409
+    if uid != rr['artist_id'] and not is_admin:
+        conn.close()
+        return jsonify({'error': 'Rozhodnout může jen tatér nebo admin.'}), 403
+
+    refund_id = None
+    if decision == 'approve':
+        b = conn.execute(
+            'SELECT stripe_payment_intent_id, balance_payment_intent_id FROM bookings WHERE id=?',
+            (rr['booking_id'],)
+        ).fetchone()
+        # Pick whichever PI is set (initial deposit first, then balance charge)
+        pi_id = (b['stripe_payment_intent_id'] if b and 'stripe_payment_intent_id' in b.keys() else None) \
+                 or (b['balance_payment_intent_id'] if b and 'balance_payment_intent_id' in b.keys() else None)
+        if not pi_id:
+            conn.close()
+            return jsonify({'error': 'Booking nemá záznam o platbě — refund nelze provést přes Stripe.'}), 400
+        if not STRIPE_SECRET_KEY:
+            conn.close()
+            return jsonify({'error': 'Stripe není nakonfigurovaný.'}), 500
+        try:
+            refund = stripe.Refund.create(
+                payment_intent=pi_id,
+                amount=rr['amount_cents'],
+                reason='requested_by_customer',
+                idempotency_key=f'rrq-{rid}',
+                metadata={
+                    'inklink_refund_request_id': str(rid),
+                    'inklink_booking_id': str(rr['booking_id']),
+                    'decided_by': str(uid),
+                },
+            )
+            refund_id = refund.id
+        except Exception as e:
+            conn.close()
+            print(f'[refund decide] stripe failed: {e}')
+            return jsonify({'error': f'Stripe refund selhal: {e}'}), 502
+
+    new_status = 'approved' if decision == 'approve' else 'rejected'
+    conn.execute(
+        '''UPDATE refund_requests
+           SET status=?, decision_by=?, decision_note=?, stripe_refund_id=?,
+               resolved_at=CURRENT_TIMESTAMP
+           WHERE id=?''',
+        (new_status, uid, note, refund_id, rid)
+    )
+
+    # Notify client
+    push_notif(conn, rr['client_id'], uid, 'refund_decided', rr['booking_id'], 'booking',
+               f'Tvoje žádost o refund {rr["amount_cents"] // 100} Kč byla {"schválena" if decision == "approve" else "zamítnuta"}.')
+    conn.commit()
+
+    try:
+        from pricing import emit_event as _emit
+        _emit('refund.decided', {
+            'request_id': rid, 'booking_id': rr['booking_id'], 'decision': decision,
+            'amount_cents': rr['amount_cents'], 'decided_by': uid,
+            'stripe_refund_id': refund_id,
+        }, conn=conn)
+        conn.commit()
+    except Exception:
+        pass
+
+    conn.close()
+    return jsonify({'ok': True, 'status': new_status, 'stripe_refund_id': refund_id})
 
 
 @app.route('/api/bookings/<int:bid>/complete', methods=['POST'])
@@ -5127,6 +6497,50 @@ def complete_booking(bid):
     except Exception:
         pass
 
+    # Referral credit grant — if the client was referred AND this is their
+    # first completed booking AND credit wasn't yet granted, add bonus to
+    # referrer's account_credit_cents and mark the referral row as granted.
+    try:
+        ref_row = conn.execute(
+            '''SELECT id, referrer_user_id FROM referrals
+               WHERE referred_user_id = ? AND credit_granted_at IS NULL''',
+            (b['client_id'],)
+        ).fetchone()
+        if ref_row:
+            prior = conn.execute(
+                '''SELECT COUNT(*) AS c FROM bookings
+                   WHERE client_id = ? AND status = 'completed' AND id != ?''',
+                (b['client_id'], bid)
+            ).fetchone()
+            if (prior['c'] or 0) == 0:
+                from pricing.config import REFERRAL_BONUS_CZK
+                bonus_cents = int(REFERRAL_BONUS_CZK * 100)
+                conn.execute(
+                    'UPDATE users SET account_credit_cents = COALESCE(account_credit_cents, 0) + ? WHERE id = ?',
+                    (bonus_cents, ref_row['referrer_user_id'])
+                )
+                conn.execute(
+                    "UPDATE referrals SET credit_granted_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (ref_row['id'],)
+                )
+                conn.commit()
+                push_notif(conn, ref_row['referrer_user_id'], b['client_id'],
+                           'referral_bonus', bid, 'booking',
+                           f'Tvůj referral dokončil rezervaci! +{bonus_cents // 100} Kč na účtu.')
+                conn.commit()
+                try:
+                    from pricing import emit_event as _emit_ref
+                    _emit_ref('referral.bonus_granted', {
+                        'referrer_user_id': ref_row['referrer_user_id'],
+                        'referred_user_id': b['client_id'],
+                        'booking_id': bid, 'bonus_cents': bonus_cents,
+                    }, conn=conn)
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception as _e:
+        print(f'[referral] grant failed for booking {bid}: {_e}')
+
     # Email to client — review request
     artist = conn.execute('SELECT display_name, username FROM users WHERE id=?',
                           (b['artist_id'],)).fetchone()
@@ -5183,6 +6597,9 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
 
     if not demo_mode:
         try:
+            # Daily-rotating idempotency_key: same artist re-issuing the same
+            # balance amount on the same day → same PI. Next day → fresh PI.
+            day = int(time.time() // 86400)
             pi = stripe.PaymentIntent.create(
                 amount=cents,
                 currency=(b['currency'] or 'CZK').lower(),
@@ -5193,6 +6610,7 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
                     'inklink_booking_id': str(booking_id),
                     'inklink_kind': 'balance',
                 },
+                idempotency_key=f'balance-{booking_id}-{cents}-{day}',
             )
             pi_id = pi.id
             # klient dostane Stripe Payment Link / Hosted page přes /api/balance-pay/<bid>
@@ -6342,16 +7760,19 @@ def connect_onboard():
                     'mcc': '7299',  # personal services
                 },
                 metadata={'inklink_user_id': str(u['id']), 'inklink_username': u['username']},
+                idempotency_key=f'connect-account-{u["id"]}',
             )
             acct_id = acct.id
             conn.execute('UPDATE users SET stripe_account_id=? WHERE id=?', (acct_id, u['id']))
             conn.commit()
 
+        day = int(time.time() // 86400)
         link = stripe.AccountLink.create(
             account=acct_id,
             refresh_url=f'{_origin()}/api/artist/connect/refresh',
             return_url=f'{_origin()}/api/artist/connect/return',
             type='account_onboarding',
+            idempotency_key=f'connect-link-onboard-{u["id"]}-{day}',
         )
     except stripe.error.StripeError as e:
         conn.close()
@@ -6374,11 +7795,13 @@ def connect_refresh():
     if not u or not u['stripe_account_id']:
         return redirect('/artist-setup?stripe=no-account')
     try:
+        day = int(time.time() // 86400)
         link = stripe.AccountLink.create(
             account=u['stripe_account_id'],
             refresh_url=f'{_origin()}/api/artist/connect/refresh',
             return_url=f'{_origin()}/api/artist/connect/return',
             type='account_onboarding',
+            idempotency_key=f'connect-link-refresh-{session["user_id"]}-{day}',
         )
         return redirect(link.url)
     except stripe.error.StripeError:

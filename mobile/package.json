@@ -8,7 +8,8 @@
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android",
     "cap:run:ios": "npx cap run ios",
-    "cap:run:android": "npx cap run android"
+    "cap:run:android": "npx cap run android",
+    "assets:generate": "npx @capacitor/assets generate --iconBackgroundColor '#faf8f3' --iconBackgroundColorDark '#0a0a0a' --splashBackgroundColor '#faf8f3' --splashBackgroundColorDark '#0a0a0a'"
   },
   "repository": {
     "type": "git",
@@ -29,5 +30,8 @@
     "@capacitor/share": "^8.0.0",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
   }
 }

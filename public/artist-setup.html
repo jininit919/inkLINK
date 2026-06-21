@@ -207,6 +207,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <div class="tabs">
     <div class="tab active" data-tab="profile">Profil</div>
     <div class="tab" data-tab="payments">Platby</div>
+    <div class="tab" data-tab="ical">Kalendář-feed</div>
+    <div class="tab" data-tab="account">Účet</div>
   </div>
   <p style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin:8px 0 0">
     Portfolio přidáš z <a href="/" style="color:var(--red2);border-bottom:1px solid currentColor">feedu (+)</a>,
@@ -318,6 +320,74 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     </div>
   </div>
 
+  <!-- ── iCAL FEED TAB ── -->
+  <div id="tab-ical" style="display:none">
+    <div class="card">
+      <h2>KALENDÁŘ-FEED (.ICS)</h2>
+      <p class="hint">Přihlas si InkLink rezervace do Google Calendar / Apple Calendar / Outlooku. Po každé nové rezervaci se zobrazí automaticky — feed se synchronizuje cca každých 15 minut (závisí na klientovi).</p>
+
+      <label style="display:block;margin:18px 0 8px;font-size:11px;color:var(--txt3);letter-spacing:0.12em">SUBSCRIBE URL</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="icalUrl" type="text" readonly value="Načítám…" style="flex:1;min-width:260px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:9px 11px;font-family:'JetBrains Mono','Menlo',monospace;font-size:12px;letter-spacing:0">
+        <button class="btn muted" type="button" onclick="copyIcalUrl(this)">Kopírovat</button>
+        <button class="btn muted" type="button" onclick="regenerateIcalToken()">Vygenerovat nový</button>
+      </div>
+      <p class="hint" style="margin-top:10px">⚠ Pokud token regeneruješ, starý URL přestane fungovat (všechny aplikace co subscribují se musí znovu přidat).</p>
+
+      <h3 style="margin-top:24px;font-size:13px;letter-spacing:0.12em;color:var(--txt2)">JAK SE PŘIHLÁSIT</h3>
+      <div style="margin-top:10px;font-size:12px;line-height:1.8;color:var(--txt2);letter-spacing:0.02em">
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Google Calendar:</b> Settings → Add calendar → From URL → vlož URL → Add</p>
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Apple Calendar (Mac):</b> File → New Calendar Subscription → vlož URL → Subscribe</p>
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Apple Calendar (iPhone):</b> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → vlož URL</p>
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Outlook:</b> Add calendar → Subscribe from web → vlož URL</p>
+      </div>
+
+      <h3 style="margin-top:24px;font-size:13px;letter-spacing:0.12em;color:var(--txt2)">CO BUDEŠ V KALENDÁŘI VIDĚT</h3>
+      <ul style="margin-top:10px;padding-left:18px;font-size:12px;line-height:1.8;color:var(--txt2);letter-spacing:0.02em">
+        <li>Potvrzené rezervace (klient + studio + popis)</li>
+        <li>Pending payment (jako TENTATIVE — nepřekáží jiným meetingům)</li>
+        <li>Volné termíny v kalendáři (TRANSPARENT — počítají se jako available)</li>
+        <li>Storno-vané rezervace se z feedu zmizí automaticky</li>
+      </ul>
+
+      <p class="hint" style="margin-top:18px">Feed je token-protected — kdokoliv s URL vidí tvůj kalendář (read-only). Drž URL stejně tajný jako heslo.</p>
+
+      <div style="margin-top:18px">
+        <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics">Stáhnout jednorázový .ics</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ACCOUNT TAB ── -->
+  <div id="tab-account" style="display:none">
+    <div class="card">
+      <h2>EXPORT DAT (GDPR)</h2>
+      <p class="hint">Stáhni si všechna svá data v ZIP — profil, rezervace, zprávy, portfolio, recenze, referrals. JSON soubory, čitelné strojově i lidsky. Rate-limit 5 stahování/h.</p>
+      <div style="margin-top:14px">
+        <a class="btn" href="/api/me/export" download>Stáhnout ZIP</a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;border-left:3px solid #b20000">
+      <h2 style="color:#e58787">SMAZAT ÚČET</h2>
+      <p class="hint">Po žádosti následuje <b>30denní ochranná lhůta</b>, během níž si rozhodnutí můžeš rozmyslet. Po jejím uplynutí se profil, portfolio a osobní údaje nenávratně anonymizují.</p>
+      <p class="hint" style="margin-top:8px">Záznamy o platbách v účetnictví zůstanou po dobu 10 let (zákon č. 563/1991 Sb.) — ale bez vazby na tvou totožnost.</p>
+
+      <div id="deletionStatus" style="margin-top:14px"></div>
+
+      <div id="deletionForm" style="margin-top:14px;display:none">
+        <label style="display:block;margin-bottom:6px;font-size:11px;color:var(--txt3);letter-spacing:0.1em">PRO POTVRZENÍ NAPIŠ SVÉ UŽIVATELSKÉ JMÉNO</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="deletionConfirm" type="text" placeholder="username" autocomplete="off" style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:9px 11px;font-family:inherit;font-size:13px">
+          <button class="btn danger" type="button" onclick="submitDeletion()">Smazat účet</button>
+        </div>
+        <div id="deletionFlash" style="margin-top:10px"></div>
+      </div>
+
+      <p class="hint" style="margin-top:14px">⚠ Pokud máš aktivní rezervaci (potvrzenou v budoucnosti), zruš ji nejdřív v <a href="/my-bookings" style="color:var(--red2);border-bottom:1px solid currentColor">Mých rezervacích</a> — InkLink ti pak smazání povolí.</p>
+    </div>
+  </div>
+
 </div>
 
 <div id="slotDetailModal" onclick="if(event.target===this)closeSlotDetail()">
@@ -371,8 +441,9 @@ function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString('cs-
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
   t.classList.add('active');
-  ['profile','portfolio','slots','payments','reports'].forEach(name => {
-    document.getElementById('tab-' + name).style.display = name === t.dataset.tab ? 'block' : 'none';
+  ['profile','payments','ical','account'].forEach(name => {
+    const el = document.getElementById('tab-' + name);
+    if (el) el.style.display = name === t.dataset.tab ? 'block' : 'none';
   });
 }));
 
@@ -444,7 +515,122 @@ async function init() {
   if (hash === 'slots')     { location.replace('/calendar'); return; }
   if (hash === 'reports')   { location.replace('/earnings'); return; }
   if (hash === 'payments') document.querySelector('.tab[data-tab="payments"]')?.click();
+  if (hash === 'ical') document.querySelector('.tab[data-tab="ical"]')?.click();
+  if (hash === 'account') document.querySelector('.tab[data-tab="account"]')?.click();
 }
+
+// ── Account deletion (danger zone) ──────────────────────────────────────
+async function loadDeletionStatus() {
+  const me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  const statusEl = document.getElementById('deletionStatus');
+  const formEl   = document.getElementById('deletionForm');
+  if (!me || !statusEl || !formEl) return;
+  if (me.deletion_requested_at) {
+    formEl.style.display = 'none';
+    const purgeDate = me.deletion_purge_at ? new Date(me.deletion_purge_at) : null;
+    const dateStr = purgeDate ? purgeDate.toLocaleDateString('cs-CZ', {day:'numeric', month:'long', year:'numeric'}) : '?';
+    const daysLeft = purgeDate ? Math.max(0, Math.ceil((purgeDate - new Date()) / (1000*60*60*24))) : 0;
+    statusEl.innerHTML = `
+      <div style="background:#0e0e0e;border:1px solid #2a2a2a;border-left:3px solid #e8c87f;padding:14px 16px;border-radius:2px;font-size:13px;color:#bbb;line-height:1.6">
+        ⏳ <b style="color:#eee">Žádost o smazání podána.</b><br>
+        Účet bude anonymizován <b style="color:#eee">${dateStr}</b> (za ${daysLeft} ${daysLeft === 1 ? 'den' : (daysLeft < 5 ? 'dny' : 'dní')}).<br>
+        <button class="btn muted" type="button" onclick="cancelDeletion()" style="margin-top:10px">Zrušit žádost</button>
+      </div>
+    `;
+  } else {
+    statusEl.innerHTML = '';
+    formEl.style.display = 'block';
+  }
+}
+
+async function submitDeletion() {
+  const flash = document.getElementById('deletionFlash');
+  flash.innerHTML = '';
+  const confirm_username = (document.getElementById('deletionConfirm').value || '').trim();
+  if (!confirm_username) {
+    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Napiš své uživatelské jméno pro potvrzení.</div>';
+    return;
+  }
+  if (!window.confirm('Opravdu chceš smazat svůj účet? Tato akce po 30 dnech nepůjde vrátit.')) return;
+  const r = await fetch('/api/me/delete', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({confirm_username}),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${escapeHtml(j.error || 'Akce selhala')}</div>`;
+    return;
+  }
+  // Server cleared the session — redirect to landing.
+  alert('Žádost o smazání byla zaznamenána. Máš 30 dní na rozmyšlenou; pokud chceš žádost zrušit, znovu se přihlas a otevři tento panel.');
+  location.href = '/';
+}
+
+async function cancelDeletion() {
+  if (!window.confirm('Zrušit žádost o smazání? Účet zůstane plně aktivní.')) return;
+  const r = await fetch('/api/me/delete-cancel', {method: 'POST'});
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    alert(j.error || 'Zrušení selhalo');
+    return;
+  }
+  loadDeletionStatus();
+}
+
+// Auto-load when Account tab opens (first time)
+document.addEventListener('click', e => {
+  const t = e.target.closest('.tab[data-tab="account"]');
+  if (t && !window._accountLoaded) {
+    window._accountLoaded = true;
+    loadDeletionStatus();
+  }
+});
+
+// ── iCal feed ──────────────────────────────────────────────────────────────
+async function loadIcalToken(forceRegenerate) {
+  const url = '/api/me/calendar-token';
+  const opts = forceRegenerate ? {method: 'POST'} : {method: 'GET'};
+  try {
+    const r = await fetch(url, opts);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const input = document.getElementById('icalUrl');
+    if (input) input.value = d.subscribe_url || '';
+  } catch (e) {
+    const input = document.getElementById('icalUrl');
+    if (input) input.value = '(chyba načítání)';
+  }
+}
+
+async function copyIcalUrl(btn) {
+  const input = document.getElementById('icalUrl');
+  if (!input || !input.value || input.value.startsWith('(')) return;
+  try {
+    await navigator.clipboard.writeText(input.value);
+    const orig = btn.textContent;
+    btn.textContent = '✓ Zkopírováno';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+  } catch (e) {
+    input.select();
+    document.execCommand && document.execCommand('copy');
+  }
+}
+
+async function regenerateIcalToken() {
+  if (!confirm('Opravdu vygenerovat nový token? Existující subscribers (Google/Apple Calendar) přestanou fungovat — budou se muset přidat znovu s novým URL.')) return;
+  await loadIcalToken(true);
+}
+
+// Auto-load when iCal tab is opened
+document.addEventListener('click', e => {
+  const t = e.target.closest('.tab[data-tab="ical"]');
+  if (t && !window._icalLoaded) {
+    window._icalLoaded = true;
+    loadIcalToken(false);
+  }
+});
 
 // ── Push notifikace opt-in ─────────────────────────────────────────────────
 function urlBase64ToUint8Array(b64) {
@@ -1095,6 +1281,7 @@ init();
 <script src="/icons.js?v=2"></script>
 <script src="/icons.js?v=2"></script>
 <script src="/ink-trail.js?v=1"></script>
+<script src="/cookie-consent.js?v=1"></script>
 <script src="/native.js?v=1"></script>
 </body>
 </html>
