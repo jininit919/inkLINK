@@ -7761,7 +7761,10 @@ def connect_onboard():
                     'mcc': '7299',  # personal services
                 },
                 metadata={'inklink_user_id': str(u['id']), 'inklink_username': u['username']},
-                idempotency_key=f'connect-account-{u["id"]}',
+                # Hour-bucketed idempotency: protects against double-click within an hour
+                # (rapid duplicate would create 2 orphan accounts), but allows retry after
+                # a fix without waiting 24h (Stripe caches failure responses per key).
+                idempotency_key=f'connect-account-{u["id"]}-{int(time.time() // 3600)}',
             )
             acct_id = acct.id
             conn.execute('UPDATE users SET stripe_account_id=? WHERE id=?', (acct_id, u['id']))
@@ -7883,9 +7886,10 @@ def _sync_connect_status(user_id: int) -> dict:
 
 @app.route('/api/_diag/stripe-connect', methods=['GET'])
 def diag_stripe_connect():
-    """TEMPORARY diagnostic. Returns Stripe platform account state + tries
-    Account.create for each account type to isolate which is broken.
-    Token-protected. Delete after Sprint 1 LITE E2E test passes."""
+    """TEMPORARY diagnostic. Gated by ENABLE_DIAG=1 env — OFF by default in prod.
+    To use: set ENABLE_DIAG=1 in Railway env, run diag, unset the flag."""
+    if os.environ.get('ENABLE_DIAG', '0') != '1':
+        return jsonify({'error': 'not enabled — set ENABLE_DIAG=1 to use'}), 404
     token = request.args.get('token', '')
     if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
         return jsonify({'error': 'forbidden'}), 403
@@ -7933,9 +7937,10 @@ def diag_stripe_connect():
 
 @app.route('/api/_diag/set-stripe-account', methods=['POST', 'GET'])
 def diag_set_stripe_account():
-    """TEMPORARY workaround. Manually assigns a stripe_account_id to a user,
-    bypassing Connect onboarding. Token-protected.
+    """TEMPORARY workaround. Gated by ENABLE_DIAG=1 env — OFF by default.
     Usage: ?token=...&username=USER&acct_id=acct_XXX"""
+    if os.environ.get('ENABLE_DIAG', '0') != '1':
+        return jsonify({'error': 'not enabled — set ENABLE_DIAG=1 to use'}), 404
     token = request.args.get('token', '')
     if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
         return jsonify({'error': 'forbidden'}), 403
