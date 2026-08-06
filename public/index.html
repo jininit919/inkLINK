@@ -215,8 +215,12 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 
 .card{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin-bottom:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;position:relative;overflow:hidden;cursor:pointer;transition:transform 0.25s cubic-bezier(0.32,0.72,0,1),box-shadow 0.25s,border-color 0.15s;display:block}
 .card:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 14px 32px rgba(20,16,8,0.10)}
-.card .img{background:var(--bg4);overflow:hidden;position:relative}
+/* min-height reserves space so masonry doesn't collapse before img loads
+   (Safari lazy-load timing bug caused broken hover render — cards without
+   loaded image showed only abs-positioned overlays). */
+.card .img{background:var(--bg4);overflow:hidden;position:relative;min-height:220px}
 .card .img img{width:100%;height:auto;display:block;transition:transform 0.5s cubic-bezier(0.32,0.72,0,1)}
+.card .img img.broken{display:none}
 .card:hover .img img{transform:scale(1.03)}
 
 /* Subtle price pill — glass blur, less harsh */
@@ -992,7 +996,7 @@ function render() {
     return `
       <article class="card" data-i="${i}">
         <div class="img" onclick="openLb(${i})">
-          <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy">
+          <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy" onerror="this.classList.add('broken')">
           <div class="card-kind">${kindLabel}</div>
           ${imgCount > 1 ? `<div class="card-imgs-badge"><svg class="icon icon-sm"><use href="#i-image"/></svg> +${imgCount - 1}</div>` : ''}
           ${priced ? `<div class="card-price">${priceTxt}</div>` : ''}
