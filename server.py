@@ -1164,7 +1164,7 @@ def _get_apns_client():
         _apns_client = APNsClient(credentials=creds, use_sandbox=APNS_USE_SANDBOX)
         return _apns_client
     except Exception as e:
-        print(f'[APNS] init failed: {e}')
+        app.logger.error(f'[APNS] init failed: {e}')
         return None
 
 
@@ -1183,7 +1183,7 @@ def _send_apns_one(token: str, title: str, body: str, url: str) -> tuple:
     except (BadDeviceToken, Unregistered, DeviceTokenNotForTopic):
         return (False, True)  # purge stale token
     except Exception as e:
-        print(f'[APNS] send failed: {e}')
+        app.logger.error(f'[APNS] send failed for token …{token[-8:] if token else "?"}: {e}')
         return (False, False)
 
 
@@ -5360,7 +5360,7 @@ def create_booking():
         except Exception as e:
             # Don't roll back the booking — let user retry via /retry-payment-intent.
             # Booking sits in pending_payment until they retry.
-            print(f'[deposit-pi] create failed for booking {bid}: {e}')
+            app.logger.error(f'[deposit-pi] create failed for booking {bid}: {e}')
             payment_block = {'mode': 'live', 'error': 'Stripe momentálně nedostupný, zkus za chvíli.',
                              'payment_url': f'/pay/{bid}'}
 
@@ -5655,7 +5655,7 @@ def cancel_booking(bid):
             )
         except Exception as e:
             conn.close()
-            print(f'[cancel] stripe refund failed: {e}')
+            app.logger.error(f'[cancel] stripe refund failed for booking {bid}: {e}')
             return jsonify({'error': f'Refund se nepodařilo zpracovat: {e}'}), 502
 
     conn.execute('''UPDATE bookings SET status=?, cancelled_at=?, cancellation_actor=?, refund_cents=?
@@ -6391,7 +6391,7 @@ def decide_refund_request(rid):
             refund_id = refund.id
         except Exception as e:
             conn.close()
-            print(f'[refund decide] stripe failed: {e}')
+            app.logger.error(f'[refund decide] stripe failed for request {rid}: {e}')
             return jsonify({'error': f'Stripe refund selhal: {e}'}), 502
 
     new_status = 'approved' if decision == 'approve' else 'rejected'
