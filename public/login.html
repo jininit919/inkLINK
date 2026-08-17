@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="InkLink">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="preload" href="/theme.css" as="style">
+<link rel="preload" href="/img/inklink-logo.png" as="image">
 <title>InkLink — Přihlášení</title>
 <meta name="description" content="Přihlaš se nebo si založ účet na InkLinku — najdi tatéra, rezervuj termín, plať bezpečně.">
 <meta property="og:title" content="InkLink — Tattoo Booking Network">
@@ -67,7 +69,6 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 <body>
 
 <img class="brand" src="/img/inklink-logo.png" alt="inklink">
-<div class="brand-sub">Tattoo Booking Network</div>
 
 <div class="card">
   <div class="tabs">
@@ -217,10 +218,9 @@ async function doRegister(e) {
 
 
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
-<script src="/icons.js?v=2"></script>
-<script src="/icons.js?v=2"></script>
-<script src="/ink-trail.js?v=1"></script>
-<script src="/cookie-consent.js?v=1"></script>
-<script src="/native.js?v=1"></script>
+<script src="/icons.js?v=2" defer></script>
+<script src="/native.js?v=1" defer></script>
+<script src="/cookie-consent.js?v=1" defer></script>
+<script src="/ink-trail.js?v=1" defer></script>
 </body>
 </html>

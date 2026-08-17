@@ -1,24 +1,34 @@
-const CACHE = 'inklink-v9';
+/**
+ * InkLink service worker
+ *
+ * Strategy:
+ *   - HTML / documents: network-first (freshness matters — auth, feed data)
+ *   - Static assets (CSS/JS/fonts/images): stale-while-revalidate — serve
+ *     from cache immediately, refresh in background. Perceived load is instant
+ *     after the first visit.
+ *   - API + uploads: pass through (no SW involvement)
+ */
+
+const CACHE = 'inklink-v10';
 const PRECACHE = [
   '/',
+  '/theme.css',
   '/manifest.json',
   '/favicon.svg',
-  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap',
+  '/img/inklink-logo.png',
+  '/fonts/Bristol.otf',
 ];
 
-// Install — nuclear option: smaže VŠECHNY cache (i ne-CACHE keys),
-// pak preloaduje shell. Tím se zbavíme dead entries z předchozích verzí.
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.map(k => caches.delete(k))))
       .then(() => caches.open(CACHE))
-      .then(c => c.addAll(PRECACHE))
+      .then(c => c.addAll(PRECACHE).catch(() => {})) // don't fail install if one asset 404s
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate — clean old caches
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -56,32 +66,50 @@ self.addEventListener('notificationclick', e => {
   }));
 });
 
-// Fetch — network first, cache fallback
+function isStaticAsset(request) {
+  const d = request.destination;
+  return d === 'script' || d === 'style' || d === 'font' || d === 'image';
+}
+
 self.addEventListener('fetch', e => {
   const { request } = e;
   const url = new URL(request.url);
 
-  // Skip non-GET, cross-origin API calls, uploads, auth
   if (request.method !== 'GET') return;
   if (url.pathname.startsWith('/api/')) return;
   if (url.pathname.startsWith('/uploads/')) return;
 
-  e.respondWith(
-    fetch(request)
-      .then(res => {
-        // Cache successful HTML/CSS/JS/font responses
-        if (res.ok && (
-          request.destination === 'document' ||
-          request.destination === 'script' ||
-          request.destination === 'style' ||
-          request.destination === 'font' ||
-          request.destination === 'image'
-        )) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(request, clone));
-        }
-        return res;
-      })
-      .catch(() => caches.match(request).then(r => r || caches.match('/')))
-  );
+  // Static assets: stale-while-revalidate — instant cache hit, refresh in bg
+  if (isStaticAsset(request)) {
+    e.respondWith(
+      caches.open(CACHE).then(cache =>
+        cache.match(request).then(cached => {
+          const fetchPromise = fetch(request).then(res => {
+            if (res && res.ok) cache.put(request, res.clone());
+            return res;
+          }).catch(() => cached);
+          return cached || fetchPromise;
+        })
+      )
+    );
+    return;
+  }
+
+  // HTML/documents: network-first, cache fallback (freshness > staleness)
+  if (request.destination === 'document') {
+    e.respondWith(
+      fetch(request)
+        .then(res => {
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(request).then(r => r || caches.match('/')))
+    );
+    return;
+  }
+
+  // Everything else: pass through
 });
