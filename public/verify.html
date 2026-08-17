@@ -37,12 +37,19 @@ h2{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;le
 .success{text-align:center;display:none}
 .success .check{font-size:48px;margin-bottom:16px;color:var(--red2)}
 .success p{font-size:13px;color:var(--txt2);letter-spacing:0.04em}
+
+.auth-back{position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:16px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--border2);border-radius:50%;color:var(--txt2);text-decoration:none;z-index:100;transition:background 0.15s,color 0.15s,border-color 0.15s;-webkit-tap-highlight-color:transparent}
+.auth-back:hover{background:var(--bg3);color:var(--txt);border-color:var(--txt3)}
+.auth-back svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 </style>
 </head>
 <body>
 
+<a class="auth-back" href="/landing" aria-label="Zpět na hlavní stránku">
+  <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+</a>
+
 <img class="brand" src="/img/inklink-logo.png" alt="inklink">
-<div class="brand-sub">Tattoo Booking Network</div>
 
 <div class="card">
   <div id="verifyForm">

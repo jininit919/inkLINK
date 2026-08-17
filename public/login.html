@@ -64,9 +64,17 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 .submit-btn:hover{background:var(--red3)}
 
 .hint{font-size:9px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-align:center;margin-top:8px}
+
+.auth-back{position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:16px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--border2);border-radius:50%;color:var(--txt2);text-decoration:none;z-index:100;transition:background 0.15s,color 0.15s,border-color 0.15s;-webkit-tap-highlight-color:transparent}
+.auth-back:hover{background:var(--bg3);color:var(--txt);border-color:var(--txt3)}
+.auth-back svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 </style>
 </head>
 <body>
+
+<a class="auth-back" href="/landing" aria-label="Zpět na hlavní stránku">
+  <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+</a>
 
 <img class="brand" src="/img/inklink-logo.png" alt="inklink">
 
@@ -80,8 +88,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
   <form class="form active" id="loginForm" onsubmit="doLogin(event)">
     <div class="error-msg" id="loginError"></div>
     <div class="field">
-      <label>Uživatelské jméno</label>
-      <input type="text" id="loginUsername" placeholder="uživatelské jméno" autocomplete="username" required>
+      <label>E-mail nebo telefon</label>
+      <input type="text" id="loginUsername" placeholder="jmeno@email.cz nebo +420…" autocomplete="username" required>
     </div>
     <div class="field">
       <label>Heslo</label>
