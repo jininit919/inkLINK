@@ -226,14 +226,6 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .card .img img.broken{display:none}
 .card:hover .img img{transform:scale(1.03)}
 
-/* Subtle price pill — glass blur, less harsh */
-.card-price{position:absolute;top:10px;right:10px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.04em;padding:5px 10px;background:rgba(0,0,0,0.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:6px;line-height:1.2}
-.card-kind{position:absolute;top:10px;left:10px;font-size:9px;letter-spacing:0.16em;padding:4px 8px;background:rgba(0,0,0,0.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:4px}
-
-/* Minimal card footer — just artist name below image */
-.card-name{display:block;padding:8px 4px 4px;font-size:12px;letter-spacing:0.02em;color:var(--txt2);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color 0.15s}
-.card-name:hover{color:var(--txt)}
-
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-size:13px;letter-spacing:0.06em;padding:10px 20px;z-index:300;opacity:0;transition:all 0.2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
@@ -965,13 +957,10 @@ function render() {
       : '';
     const imgCount = (p.images && p.images.length) || (p.image ? 1 : 0);
     return `
-      <article class="card" data-i="${i}">
-        <div class="img" onclick="openLb(${i})">
+      <article class="card" data-i="${i}" onclick="openLb(${i})">
+        <div class="img">
           <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy" onerror="this.classList.add('broken')">
-          <div class="card-kind">${kindLabel}</div>
-          ${priced ? `<div class="card-price">${priceTxt}</div>` : ''}
         </div>
-        <a class="card-name" href="/profile/${escapeHtml(u.username)}" onclick="event.stopPropagation()">${escapeHtml(u.display_name)}</a>
       </article>
     `;
   }).join('');
