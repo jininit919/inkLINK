@@ -22,8 +22,8 @@
       "presentationOptions": ["badge", "sound", "alert"]
     },
     "SplashScreen": {
-      "launchShowDuration": 1200,
-      "launchAutoHide": true,
+      "launchShowDuration": 3000,
+      "launchAutoHide": false,
       "backgroundColor": "#faf8f3",
       "showSpinner": false,
       "splashFullScreen": true,
