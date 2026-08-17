@@ -238,25 +238,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       </div>
     </div>
 
-    <!-- Referral card — visible only on own profile -->
-    <div id="referralCard" style="display:none;background:#0e0e0e;border:1px solid #1f1f1f;border-left:3px solid #c62828;padding:18px 20px;margin:20px 0;border-radius:2px">
-      <div style="font-size:11px;letter-spacing:0.16em;color:#777;margin-bottom:8px">POZVI PŘÁTELE</div>
-      <div style="font-size:14px;color:#bbb;line-height:1.6;margin-bottom:12px">
-        Když se přihlásí přes tvůj link a dokončí první rezervaci, máš <b style="color:#eee"><span id="refBonusKc">300</span> Kč</b> kreditu na svůj účet.
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <input id="refLink" type="text" readonly value="" style="flex:1;min-width:200px;background:#080808;border:1px solid #1a1a1a;color:#ddd;padding:9px 11px;font-family:'JetBrains Mono','Menlo',monospace;font-size:12px;letter-spacing:0">
-        <button class="btn muted" type="button" onclick="copyRefLink(this)">Kopírovat</button>
-        <button class="btn" type="button" onclick="shareRefLink()">Sdílet</button>
-      </div>
-      <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#888;letter-spacing:0.05em">
-        <div><b style="color:#eee" id="refSignups">0</b> registrací</div>
-        <div><b style="color:#eee" id="refGranted">0</b> dokončilo</div>
-        <div>na účtu: <b style="color:#eee" id="refCredit">0 Kč</b></div>
-      </div>
-      <div id="refList" style="margin-top:14px;display:none"></div>
-    </div>
-
     <div class="tabs">
       <div class="tab active" data-tab="portfolio">Portfolio <span id="portfolioCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
       <div class="tab" data-tab="slots" id="slotsTab">Kalendář <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
@@ -523,7 +504,6 @@ function render() {
     }
     actions.innerHTML = btns;
     document.getElementById('setupLink').style.display = 'flex';
-    loadReferralCard();
   } else if (me) {
     actions.innerHTML = `
       <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? 'Sleduješ' : 'Sledovat'}</button>
@@ -767,66 +747,6 @@ async function shareMyLink(username, btn) {
   } catch (e) {
     prompt('Zkopíruj odkaz:', url);
   }
-}
-
-let referralData = null;
-
-async function loadReferralCard() {
-  try {
-    const r = await fetch('/api/me/referrals').then(r => r.json());
-    if (!r || r.error) return;
-    referralData = r;
-    document.getElementById('referralCard').style.display = 'block';
-    document.getElementById('refLink').value = r.link || '';
-    document.getElementById('refBonusKc').textContent = Math.round(r.bonus_czk || 0);
-    document.getElementById('refSignups').textContent = r.total_signups || 0;
-    document.getElementById('refGranted').textContent = r.total_granted || 0;
-    document.getElementById('refCredit').textContent = `${Math.round(r.account_credit_czk || 0).toLocaleString('cs-CZ')} Kč`;
-    const refList = document.getElementById('refList');
-    if (r.referred && r.referred.length) {
-      refList.style.display = 'block';
-      refList.innerHTML = '<div style="font-size:10px;color:#666;letter-spacing:0.12em;margin-bottom:8px">POZVANÍ</div>' +
-        r.referred.slice(0, 10).map(u => {
-          const granted = u.status === 'granted';
-          const dot = granted ? '<span style="color:#7fd391">●</span>' : '<span style="color:#888">○</span>';
-          const label = granted ? 'dokončil' : 'registrován';
-          return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid #1a1a1a;font-size:12px;color:#aaa"><span>${dot} <b style="color:#ddd">${escapeHtml(u.display_name || u.username)}</b> <span style="color:#666">@${escapeHtml(u.username)}</span></span><span style="color:#666;letter-spacing:0.04em">${label}</span></div>`;
-        }).join('');
-    } else {
-      refList.style.display = 'none';
-    }
-  } catch (e) { /* silent — endpoint może not be available yet */ }
-}
-
-async function copyRefLink(btn) {
-  const url = document.getElementById('refLink').value;
-  if (!url) return;
-  try {
-    await navigator.clipboard.writeText(url);
-    const orig = btn.textContent;
-    btn.textContent = '✓ Zkopírováno';
-    btn.disabled = true;
-    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
-  } catch (e) {
-    document.getElementById('refLink').select();
-    document.execCommand && document.execCommand('copy');
-  }
-}
-
-async function shareRefLink() {
-  const url = document.getElementById('refLink').value;
-  if (!url) return;
-  const opts = { title: 'Připoj se na InkLink', text: 'Tetování bez DM ping-pongů. Pozvánka:', url };
-  if (window.InkLinkNative && window.InkLinkNative.isNative && window.InkLinkNative.share) {
-    try { const r = await window.InkLinkNative.share(opts); if (r) return; } catch {}
-  }
-  if (navigator.share) {
-    try { await navigator.share(opts); return; } catch (e) {
-      if (e && e.name === 'AbortError') return;
-    }
-  }
-  try { await navigator.clipboard.writeText(url); alert('Odkaz zkopírován do schránky.'); }
-  catch { prompt('Zkopíruj odkaz:', url); }
 }
 
 async function toggleFollow() {

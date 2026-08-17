@@ -232,15 +232,26 @@ async function init() {
 
 // ── Conversations ─────────────────────────────────────────────────────────────
 async function loadConversations() {
-  const res  = await fetch('/api/messages/conversations');
-  allConvs   = await res.json();
+  try {
+    const res = await fetch('/api/messages/conversations');
+    if (!res.ok) throw new Error('http ' + res.status);
+    allConvs = await res.json();
+  } catch (e) {
+    allConvs = [];
+  }
   renderConvs(allConvs);
 }
 
 function renderConvs(convs) {
   const el = document.getElementById('convList');
   if (!convs.length) {
-    el.innerHTML = '<div class="conv-empty">Zatím tu nemáš žádné konverzace.<br>Vyhledej uživatele nahoře nebo klikni <b>+ New</b>.</div>';
+    el.innerHTML = `
+      <div class="conv-empty">
+        <div style="font-size:36px;opacity:0.15;margin-bottom:12px">✉</div>
+        <div style="font-size:13px;color:var(--txt);letter-spacing:0.02em;margin-bottom:6px">Zatím žádné zprávy</div>
+        <div style="font-size:11px;line-height:1.6;margin-bottom:18px">Napiš tatérovi, o kterého se zajímáš.<br>Konverzace se objeví tady.</div>
+        <a href="/" style="display:inline-block;padding:9px 18px;background:var(--txt);color:var(--bg);text-decoration:none;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;border-radius:6px">Prohlédnout tatéry</a>
+      </div>`;
     return;
   }
   el.innerHTML = convs.map(c => convItemHTML(c, false)).join('');
