@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="InkLink">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>InkLink — Přihlášení</title>
 <meta name="description" content="Přihlaš se nebo si založ účet na InkLinku — najdi tatéra, rezervuj termín, plať bezpečně.">
 <meta property="og:title" content="InkLink — Tattoo Booking Network">
@@ -31,8 +31,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--red)}
 
-.brand{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:32px;letter-spacing:0.2em;color:var(--red2);margin-bottom:4px;text-align:center}
-.brand-sub{font-size:10px;color:var(--txt3);letter-spacing:0.15em;text-align:center;margin-bottom:40px}
+.brand{display:block;height:70px;width:auto;margin:0 auto 4px;object-fit:contain}
+.brand-sub{font-size:10px;color:var(--txt3);letter-spacing:0.15em;text-align:center;margin-bottom:40px;text-transform:uppercase}
 
 .card{width:100%;max-width:400px;background:var(--bg2);border:1px solid var(--border2)}
 
@@ -66,7 +66,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 </head>
 <body>
 
-<div class="brand">INKLINK</div>
+<img class="brand" src="/img/inklink-logo.png" alt="inklink">
 <div class="brand-sub">Tattoo Booking Network</div>
 
 <div class="card">
