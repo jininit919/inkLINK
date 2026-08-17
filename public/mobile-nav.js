@@ -21,7 +21,7 @@
   if (window.InkLinkMobileNav) return;
 
   const CSS = `
-  .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:rgba(250,248,243,0.96) !important;backdrop-filter:blur(12px);border-top:1px solid var(--border,#d4cfbf);display:none;height:62px !important;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;-webkit-tap-highlight-color:transparent;padding:0 !important;margin:0 !important}
+  .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:rgba(250,248,243,0.96) !important;backdrop-filter:blur(12px);border-top:1px solid var(--border,#d4cfbf);display:none;height:calc(62px + env(safe-area-inset-bottom)) !important;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;-webkit-tap-highlight-color:transparent;padding:0 0 env(safe-area-inset-bottom) 0 !important;margin:0 !important}
   .il-mnav-grid{display:grid;grid-template-columns:repeat(5,1fr);height:100%}
   .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#5a5a5a);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
   .il-mnav-item .ico{line-height:1;display:flex;align-items:center;justify-content:center}
@@ -44,7 +44,7 @@
 
   @media(max-width:768px){
     .il-mnav{display:block}
-    body{padding-bottom:68px}
+    body{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
     nav .nav-icons,
     nav .nav-links{display:none !important}
     nav > .nav-icon{display:none !important}
@@ -148,8 +148,8 @@
     const useModal = isArtist && onFeed && typeof window.openAddPortfolio === 'function';
     const centerItem = isArtist
       ? (useModal
-          ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
-          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' })
+          ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' }
+          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' })
       // Klient: kalendář vede na rezervace, tatér: kalendář na slot management
       : { href: '/my-bookings',            ico: 'i-calendar', lbl: 'Rezervace' };
     return [

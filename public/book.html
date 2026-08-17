@@ -195,7 +195,7 @@ async function load() {
       <h2 class="section-title">Portfolio <span class="count">${p.portfolio.length}</span></h2>
       <div class="portfolio-scroll">
         ${port.map(item => {
-          const badge = item.kind === 'sketch' ? '<span class="badge">Skica</span>' : '<span class="badge">Hotovo</span>';
+          const badge = item.kind === 'sketch' ? '<span class="badge">Sketch</span>' : '<span class="badge">Healed</span>';
           const price = item.price_kc ? `${(+item.price_kc).toLocaleString('cs-CZ')} Kč` : '';
           const cap = esc(item.caption || '');
           return `<a class="port-tile" href="/sketch/${item.id}">

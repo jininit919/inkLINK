@@ -50,7 +50,7 @@
       // STATS
       'stats.artists':       'Tatérů',
       'stats.artistsSub':    'aktivních v ČR',
-      'stats.sketches':      'Skic',
+      'stats.sketches':      'Sketch',
       'stats.sketchesSub':   'k rezervaci',
       'stats.commission':    'Provize',
       'stats.commissionSub': 'jen z bookingu',
@@ -88,9 +88,9 @@
       'feat.f6Title':  'Kalendář export',
       'feat.f6Desc':   'Stáhni si .ics nebo si přidej InkLink kalendář do Apple / Google jako odběr.',
       'feat.f7Title':  'Lajky & uložené',
-      'feat.f7Desc':   'Lajkuj skicy a vracej se k nim. Tvůj wishlist pro příští kus.',
+      'feat.f7Desc':   'Lajkuj sketche a vracej se k nim. Tvůj wishlist pro příští kus.',
       'feat.f8Title':  'Sdílení na Stories',
-      'feat.f8Desc':   'Jedním klikem hotový obrázek pro Instagram Story s odkazem na skicu.',
+      'feat.f8Desc':   'Jedním klikem hotový obrázek pro Instagram Story s odkazem na sketch.',
 
       // SPLIT
       'split.eyebrow':       'Pro koho',
@@ -125,7 +125,7 @@
       'pricing.artistTitle': 'Tatér',
       'pricing.artistUnit':  'z bookingu',
       'pricing.artistLead':  'Žádné měsíční poplatky. Platíš jen z toho, co skutečně vyděláš.',
-      'pricing.artistL1':    'Neomezené portfolio (skicy + hotové práce)',
+      'pricing.artistL1':    'Neomezené portfolio (sketch + healed)',
       'pricing.artistL2':    'Stripe Connect — peníze přímo na tvůj účet',
       'pricing.artistL3':    'Kalendář s opakováním a slot managementem',
       'pricing.artistL4':    'Earnings dashboard a měsíční PDF reporty',
