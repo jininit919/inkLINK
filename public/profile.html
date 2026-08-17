@@ -357,12 +357,12 @@ async function load() {
     }
     const item = profile.portfolio.find(p => p.id === parseInt(m[1]));
     if (!item) {
-      showBookFallback('Tato skica byla smazána nebo už není dostupná.', null);
+      showBookFallback('Tento sketch byl smazán nebo už není dostupný.', null);
     } else if (!item.price_kc || !item.estimated_hours) {
-      // Skica nemá kompletní data → nemůžeme rezervovat, ale dáme možnost napsat tatérovi
+      // Sketch nemá kompletní data → nemůžeme rezervovat, ale dáme možnost napsat tatérovi
       const missing = !item.price_kc ? 'cena' : 'odhad času';
       showBookFallback(
-        `Tato skica zatím nemá vyplněný <b>${missing}</b>, takže ji nelze rezervovat přímo. Napiš tatérovi a domluvte se na detailech.`,
+        `Tento sketch zatím nemá vyplněný <b>${missing}</b>, takže ho nelze rezervovat přímo. Napiš tatérovi a domluvte se na detailech.`,
         item
       );
     } else {
@@ -392,7 +392,7 @@ async function load() {
 
 function showBookFallback(messageHTML, item) {
   // Plain overlay modal — vysvětlí proč to nešlo a nabídne "Napsat zprávu"
-  const itemBlurb = item ? `<div style="margin:14px 0;padding:10px 12px;border:1px solid var(--border2);background:var(--bg3);font-size:11px;letter-spacing:0.04em;color:var(--txt2)"><b>${escapeHtml(item.caption || 'Skica')}</b>${item.price_kc?` · ${(+item.price_kc).toLocaleString('cs-CZ')} Kč`:''}${item.estimated_hours?` · ${item.estimated_hours} h`:''}</div>` : '';
+  const itemBlurb = item ? `<div style="margin:14px 0;padding:10px 12px;border:1px solid var(--border2);background:var(--bg3);font-size:11px;letter-spacing:0.04em;color:var(--txt2)"><b>${escapeHtml(item.caption || 'Sketch')}</b>${item.price_kc?` · ${(+item.price_kc).toLocaleString('cs-CZ')} Kč`:''}${item.estimated_hours?` · ${item.estimated_hours} h`:''}</div>` : '';
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,16,8,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'Helvetica Neue\',\'Helvetica\',\'Arial\',sans-serif';
   overlay.innerHTML = `
@@ -526,7 +526,7 @@ function render() {
       return `
       <div class="tile" onclick="openLightbox(${i}, 0)">
         <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy">
-        <div class="tile-kind">${p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ'}</div>
+        <div class="tile-kind">${p.kind === 'sketch' ? 'SKETCH' : 'HEALED'}</div>
         ${imgs.length > 1 ? `<div class="tile-imgs-badge">⧉ +${imgs.length - 1}</div>` : ''}
         ${fixedPrice ? `<div class="tile-price">${fixedPrice}${hoursTxt}</div>` : ''}
         <div class="tile-overlay">
@@ -895,7 +895,7 @@ function bookPortfolioItem(itemId) {
   if (!item) return;
   if (!item.price_kc || !item.estimated_hours) {
     const missing = !item.price_kc ? 'cena' : 'odhad času';
-    showBookFallback(`Tato skica zatím nemá vyplněný <b>${missing}</b>. Napiš tatérovi a domluvte se na detailech.`, item);
+    showBookFallback(`Tento sketch zatím nemá vyplněný <b>${missing}</b>. Napiš tatérovi a domluvte se na detailech.`, item);
     return;
   }
   // najdi blok s dostatečným volným časem

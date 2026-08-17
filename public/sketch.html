@@ -180,7 +180,7 @@ function render() {
   const p = item;
   const u = p.user;
   const isSketch = p.kind === 'sketch';
-  const kindLabel = isSketch ? 'SKICA' : 'HOTOVÉ';
+  const kindLabel = isSketch ? 'SKETCH' : 'HEALED';
   const priced = isSketch && p.price_kc;
   const priceTxt = priced
     ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč${p.estimated_hours?` · ${(+p.estimated_hours).toString().replace(/\.0$/,'')}h`:''}`
@@ -216,12 +216,12 @@ function render() {
   const priceBlock = priced
     ? `<div class="price-block">
          <div class="price-main">${priceTxt}</div>
-         <div class="price-meta">${isSketch ? 'Cena za <b>celou skicu</b> včetně realizace' : 'Hotová práce — referenční cena'}</div>
+         <div class="price-meta">${isSketch ? 'Cena za <b>celý sketch</b> včetně realizace' : 'Healed — referenční cena'}</div>
        </div>`
     : '';
 
   document.getElementById('info').innerHTML = `
-    <div class="caption ${p.caption?'':'empty'}">${escapeHtml(p.caption || (isSketch ? 'Skica bez popisu.' : 'Hotová práce bez popisu.'))}</div>
+    <div class="caption ${p.caption?'':'empty'}">${escapeHtml(p.caption || (isSketch ? 'Sketch bez popisu.' : 'Healed bez popisu.'))}</div>
 
     ${styles ? `<div class="meta-row"><span>${escapeHtml(styles)}</span></div>` : ''}
 

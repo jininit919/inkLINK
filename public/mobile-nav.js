@@ -148,8 +148,8 @@
     const useModal = isArtist && onFeed && typeof window.openAddPortfolio === 'function';
     const centerItem = isArtist
       ? (useModal
-          ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' }
-          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat skicu nebo práci' })
+          ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' }
+          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' })
       // Klient: kalendář vede na rezervace, tatér: kalendář na slot management
       : { href: '/my-bookings',            ico: 'i-calendar', lbl: 'Rezervace' };
     return [

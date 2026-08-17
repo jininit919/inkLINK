@@ -351,8 +351,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 <div class="layout">
   <main>
     <div class="feed-tabs">
-      <div class="feed-tab active" data-kind="sketch">Skicy <span class="tab-hint" id="cntSketch"></span></div>
-      <div class="feed-tab" data-kind="done">Hotové <span class="tab-hint" id="cntDone"></span></div>
+      <div class="feed-tab active" data-kind="sketch">Sketch <span class="tab-hint" id="cntSketch"></span></div>
+      <div class="feed-tab" data-kind="done">Healed <span class="tab-hint" id="cntDone"></span></div>
     </div>
 
     <div class="feed-toolbar">
@@ -371,8 +371,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     <div id="feed" class="feed-grid"></div>
     <div id="emptyState" class="empty" style="display:none">
       <span class="b" id="emptyTitle">ZATÍM ŽÁDNÉ SKICY</span>
-      <span id="emptyText">Nové skicy se tu objeví, jakmile je tatéři přidají.<br>
-      Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svoji první skicu</a> a klienti si tě najdou.</span>
+      <span id="emptyText">Nové sketche se tu objeví, jakmile je tatéři přidají.<br>
+      Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svůj první sketch</a> a klienti si tě najdou.</span>
     </div>
   </main>
 </div>
@@ -380,7 +380,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 <div class="toast" id="toast"></div>
 
 <!-- Floating Action Button — desktop only, přidat skicu / práci -->
-<button class="fab-add" id="fabAdd" type="button" onclick="openAddPortfolio()" title="Přidat skicu nebo hotovou práci" aria-label="Přidat skicu"><span>+</span></button>
+<button class="fab-add" id="fabAdd" type="button" onclick="openAddPortfolio()" title="Přidat sketch nebo healed" aria-label="Přidat sketch"><span>+</span></button>
 
 <!-- Add Portfolio Modal — focused form (sketch / done) -->
 <div id="addPortfolioModal" onclick="if(event.target===this)closeAddPortfolio()">
@@ -394,8 +394,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
         <div class="addp-field">
           <label>Typ</label>
           <select name="kind" id="addpKind" required>
-            <option value="sketch">Skica / návrh k tetování</option>
-            <option value="done">Hotová práce</option>
+            <option value="sketch">Sketch / návrh k tetování</option>
+            <option value="done">Healed / hotová práce</option>
           </select>
         </div>
         <div class="addp-field">
@@ -427,7 +427,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       </div>
 
       <p class="addp-hint">
-        Pokud vyplníš <b>cenu + délku u skicy</b>, klient si může rezervovat přímo tento návrh za pevnou cenu.
+        Pokud vyplníš <b>cenu + délku u sketche</b>, klient si může rezervovat přímo tento návrh za pevnou cenu.
       </p>
 
       <div id="addpFlash"></div>
@@ -476,7 +476,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
           <div class="welcome-step-title">Lajkni ♥ co se ti líbí</div>
-          <div class="welcome-step-sub">Skicy najdeš později v sekci <a href="/liked" style="color:var(--red2);text-decoration:underline">Lajknuté</a>.</div>
+          <div class="welcome-step-sub">Sketch najdeš později v sekci <a href="/liked" style="color:var(--red2);text-decoration:underline">Lajknuté</a>.</div>
         </div>
       </div>
       <div class="welcome-step">
@@ -503,7 +503,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
           <div class="welcome-step-title">Nahraj portfolio</div>
-          <div class="welcome-step-sub">Skicy s cenou se zobrazí klientům jako "Rezervovat tento návrh →". Hotové práce ukazují tvůj styl.</div>
+          <div class="welcome-step-sub">Sketch s cenou se zobrazí klientům jako "Rezervovat tento návrh →". Healed ukazuje tvůj styl.</div>
         </div>
       </div>
       <div class="welcome-step">
@@ -651,7 +651,7 @@ async function init() {
     kindFilter = t.dataset.kind;
     // FAB title se mění podle aktivní záložky
     const fab = document.getElementById('fabAdd');
-    if (fab) fab.title = kindFilter === 'sketch' ? 'Přidat skicu' : 'Přidat hotovou práci';
+    if (fab) fab.title = kindFilter === 'sketch' ? 'Přidat sketch' : 'Přidat healed';
     loadFeed();
   }));
 
@@ -965,8 +965,8 @@ function render() {
     if (kindFilter === 'sketch') {
       document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ SKICY';
       document.getElementById('emptyText').innerHTML =
-        'Nové skicy se tu objeví, jakmile je tatéři přidají.<br>'
-        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svoji první skicu</a> a klienti si tě najdou.';
+        'Nové sketche se tu objeví, jakmile je tatéři přidají.<br>'
+        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svůj první sketch</a> a klienti si tě najdou.';
     } else {
       document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ PRÁCE';
       document.getElementById('emptyText').innerHTML =
@@ -980,7 +980,7 @@ function render() {
   grid.innerHTML = items.map((p, i) => {
     const u = p.user;
     const av = u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="">` : escapeHtml(u.initials || '?');
-    const kindLabel = p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ';
+    const kindLabel = p.kind === 'sketch' ? 'SKETCH' : 'HEALED';
     const priced = p.kind === 'sketch' && p.price_kc;
     const bookable = priced && p.estimated_hours;  // rezervovatelné jen s cenou I odhadem času
     const priceTxt = priced
@@ -1050,8 +1050,8 @@ async function doSearch() {
       const price = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč` : '';
       return `<a class="sd-item" href="/profile/${escapeHtml(p.username)}#book-${p.id}">
         <div class="sd-img"><img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy"></div>
-        <div class="sd-body"><div class="n">${escapeHtml(p.caption || (p.kind==='sketch'?'Skica':'Hotová práce'))}</div>
-          <div class="m">${escapeHtml(p.display_name)} · ${p.kind==='sketch'?'skica':'hotové'}</div></div>
+        <div class="sd-body"><div class="n">${escapeHtml(p.caption || (p.kind==='sketch'?'Sketch':'Healed'))}</div>
+          <div class="m">${escapeHtml(p.display_name)} · ${p.kind==='sketch'?'sketch':'healed'}</div></div>
         <div class="sd-meta">${price}</div>
       </a>`;
     }).join('');

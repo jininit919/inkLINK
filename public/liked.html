@@ -121,13 +121,13 @@ main{padding:24px 24px 80px;min-width:0}
   <main>
     <div class="page-head">
       <h1 class="page-title"><svg class="icon icon-lg" style="vertical-align:-3px;margin-right:6px"><use href="#i-heart"/></svg> Lajknuté</h1>
-      <div class="page-sub">Tvoje uložené skicy a hotové práce</div>
+      <div class="page-sub">Tvoje uložené položky</div>
     </div>
 
     <div class="feed-tabs">
       <div class="feed-tab active" data-kind="">Vše <span class="tab-hint" id="cntAll"></span></div>
-      <div class="feed-tab" data-kind="sketch">Skicy <span class="tab-hint" id="cntSketch"></span></div>
-      <div class="feed-tab" data-kind="done">Hotové <span class="tab-hint" id="cntDone"></span></div>
+      <div class="feed-tab" data-kind="sketch">Sketch <span class="tab-hint" id="cntSketch"></span></div>
+      <div class="feed-tab" data-kind="done">Healed <span class="tab-hint" id="cntDone"></span></div>
     </div>
 
     <div id="feed" class="feed-grid"></div>
@@ -208,7 +208,7 @@ function render() {
   grid.innerHTML = filtered.map(p => {
     const u = p.user;
     const av = u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="">` : escapeHtml(u.initials || '?');
-    const kindLabel = p.kind === 'sketch' ? 'SKICA' : 'HOTOVÉ';
+    const kindLabel = p.kind === 'sketch' ? 'SKETCH' : 'HEALED';
     const priced = p.kind === 'sketch' && p.price_kc;
     const priceTxt = priced
       ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč${p.estimated_hours?` · ${(+p.estimated_hours).toString().replace(/\.0$/,'')}h`:''}`
