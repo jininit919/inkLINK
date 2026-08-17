@@ -1757,12 +1757,17 @@ def reset_password_page():
 @app.route('/api/login', methods=['POST'])
 @limiter.limit('10 per minute; 30 per hour')
 def login():
-    data     = request.get_json()
-    username = data.get('username', '').strip().lower()
-    password = data.get('password', '')
+    data       = request.get_json()
+    identifier = data.get('username', '').strip().lower()
+    password   = data.get('password', '')
 
     conn = get_db()
-    user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+    # Accept username, email, or phone — users forget usernames but remember
+    # the contact detail they registered with.
+    user = conn.execute(
+        'SELECT * FROM users WHERE LOWER(username) = ? OR LOWER(email) = ? OR phone = ? LIMIT 1',
+        (identifier, identifier, identifier)
+    ).fetchone()
     conn.close()
 
     if not user or not check_password_hash(user['password_hash'], password):
