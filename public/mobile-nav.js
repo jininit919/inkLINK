@@ -123,10 +123,12 @@
     const onclickAttr = it.onclick ? ` onclick="${it.onclick}; return false"` : '';
     const hrefAttr = it.href ? ` href="${it.href}"` : ' href="#"';
     if (it.primary) {
-      // Plus pro Add v Bristolu místo SVG ikony — wrapped pro precise centering
-      const inner = it.ico === 'i-plus' ? '<span>+</span>' : svgIcon(it.ico);
+      // Plus pro Add v Bristolu; ostatní ikony jako SVG v černém kruhu
+      const isBristolPlus = it.ico === 'i-plus';
+      const inner = isBristolPlus ? '<span>+</span>' : svgIcon(it.ico);
+      const circleClass = isBristolPlus ? 'ico-circle bristol-plus' : 'ico-circle';
       return `<a class="il-mnav-item${active} primary"${hrefAttr}${onclickAttr} aria-label="${ariaLbl}">
-        <span class="ico-circle bristol-plus">${inner}</span>
+        <span class="${circleClass}">${inner}</span>
         <span class="lbl">${it.lbl}</span>
       </a>`;
     }
@@ -142,16 +144,23 @@
   function buildItems(me) {
     const isArtist = !!(me && me.is_artist);
     const profileHref = me ? `/profile/${me.username}` : '/login';
-    // Pokud jsme na feedu (/) a window.openAddPortfolio existuje → použij modal,
-    // jinak redirect na artist-setup#portfolio.
     const onFeed = location.pathname === '/' || location.pathname === '/feed';
-    const useModal = isArtist && onFeed && typeof window.openAddPortfolio === 'function';
-    const centerItem = isArtist
-      ? (useModal
-          ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' }
-          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' })
-      // Klient: kalendář vede na rezervace, tatér: kalendář na slot management
-      : { href: '/my-bookings',            ico: 'i-calendar', lbl: 'Rezervace' };
+
+    // Center slot — role-aware primary CTA:
+    //   Tatér:  + Přidat  (opens add-portfolio modal on feed, else artist-setup)
+    //   Klient: 🔍 Hledat (opens search overlay on feed, else deep-link /?search=1)
+    let centerItem;
+    if (isArtist) {
+      const useAddModal = onFeed && typeof window.openAddPortfolio === 'function';
+      centerItem = useAddModal
+        ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' }
+        : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' };
+    } else {
+      centerItem = onFeed && typeof window.openSearchOverlay === 'function'
+        ? { onclick: 'window.openSearchOverlay()', ico: 'i-search', lbl: 'Hledat', primary: true, aria: 'Hledat tatéra' }
+        : { href: '/?search=1',                   ico: 'i-search', lbl: 'Hledat', primary: true, aria: 'Hledat tatéra' };
+    }
+
     return [
       { href: '/',         ico: 'i-home',    lbl: 'Feed' },
       { href: '/liked',    ico: 'i-heart',   lbl: 'Lajknuté' },
