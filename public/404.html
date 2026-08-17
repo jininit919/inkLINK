@@ -11,7 +11,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg,#faf8f3);color:var(--txt,#0a0a0a);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
 .code{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:120px;line-height:1;letter-spacing:0.05em;color:#1a1a1a;margin-bottom:-16px}
-.brand{font-family:'Bristol','Caveat',cursive;font-size:52px;letter-spacing:0;color:#0a0a0a;line-height:0.9;margin-bottom:8px;font-weight:400}
+.brand{display:block;height:56px;width:auto;margin:0 auto 8px;object-fit:contain}
 .msg{font-size:12px;color:#555;letter-spacing:0.08em;margin-bottom:40px;line-height:1.7}
 .btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.15em;padding:14px 32px;background:#0a0a0a;color:#faf8f3;text-decoration:none;display:inline-block;transition:background 0.15s}
 .btn:hover{background:#cc0000}
@@ -19,7 +19,7 @@ body{background:var(--bg,#faf8f3);color:var(--txt,#0a0a0a);font-family:'Helvetic
 </head>
 <body>
 <div class="code">404</div>
-<div class="brand">inklink</div>
+<img class="brand" src="/img/inklink-logo.png" alt="inklink">
 <div class="msg">This page doesn't exist or has been moved.</div>
 <a href="/" class="btn">BACK TO FEED</a>
 <script src="/icons.js?v=2"></script>
