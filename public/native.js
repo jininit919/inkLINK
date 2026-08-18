@@ -180,8 +180,15 @@
       setupStatusBar();
       setupPushListeners();
       // Push permission se ptáme až po prvním user interaction — ne hned na boot.
-      // hideSplash běží paralelně s boot
-      hideSplash();
     });
+
+    // Splash schováme až po `window.load` — čekáme na všechny obrázky a fonty,
+    // aby po zmizení splashe nedošlo k layout shiftu (Bristol swap, logo image).
+    // Requestem animation frame navíc necháme browser dorender.
+    function hideAfterPaint() {
+      requestAnimationFrame(() => requestAnimationFrame(hideSplash));
+    }
+    if (document.readyState === 'complete') hideAfterPaint();
+    else window.addEventListener('load', hideAfterPaint, { once: true });
   }
 })();
