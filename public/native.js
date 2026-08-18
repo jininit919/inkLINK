@@ -37,14 +37,15 @@
     const style = document.createElement('style');
     style.textContent = `
       #il-brand-splash{position:fixed;inset:0;background:#faf8f3;z-index:2147483000;
-        display:flex;align-items:center;justify-content:center;
+        display:flex;align-items:flex-start;justify-content:center;
+        padding-top:34vh;
         pointer-events:none;transition:opacity .3s ease}
-      #il-brand-splash img{width:60vmin;max-width:420px;max-height:40vh;object-fit:contain}
+      #il-brand-splash img{width:40vmin;max-width:280px;max-height:30vh;object-fit:contain}
       #il-brand-splash.hide{opacity:0}
     `;
     const div = document.createElement('div');
     div.id = 'il-brand-splash';
-    div.innerHTML = '<img src="/img/inklink-logo.png" alt="">';
+    div.innerHTML = '<img src="/img/ink-logo.png" alt="">';
     // Prepend so it's above page content immediately
     (document.head || document.documentElement).appendChild(style);
     (document.body || document.documentElement).appendChild(div);
