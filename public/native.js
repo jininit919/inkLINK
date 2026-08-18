@@ -22,6 +22,44 @@
     document.documentElement.classList.add('capacitor-app', 'capacitor-' + platform);
   }
 
+  // ── Brand overlay ─────────────────────────────────────────────────────────
+  // Full-screen paper + centered inklink logo, matches native splash.
+  // When native splash lifts, this overlay is already on top of page content
+  // so there's no visible "logo jump". After a short beat, we fade it out
+  // to reveal the actual page.
+  // Only in Capacitor context; only on first entry of the session, so
+  // client-side navigation between pages doesn't re-flash the splash.
+  function injectBrandOverlay() {
+    if (!isCapacitor) return;
+    if (window.sessionStorage && sessionStorage.getItem('il-splash-shown') === '1') return;
+    try { sessionStorage.setItem('il-splash-shown', '1'); } catch {}
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #il-brand-splash{position:fixed;inset:0;background:#faf8f3;z-index:2147483000;
+        display:flex;align-items:center;justify-content:center;
+        pointer-events:none;transition:opacity .3s ease}
+      #il-brand-splash img{width:60vmin;max-width:420px;max-height:40vh;object-fit:contain}
+      #il-brand-splash.hide{opacity:0}
+    `;
+    const div = document.createElement('div');
+    div.id = 'il-brand-splash';
+    div.innerHTML = '<img src="/img/inklink-logo.png" alt="">';
+    // Prepend so it's above page content immediately
+    (document.head || document.documentElement).appendChild(style);
+    (document.body || document.documentElement).appendChild(div);
+  }
+  function hideBrandOverlay(delayMs) {
+    const el = document.getElementById('il-brand-splash');
+    if (!el) return;
+    setTimeout(() => {
+      el.classList.add('hide');
+      setTimeout(() => el.remove(), 350);
+    }, delayMs || 0);
+  }
+  // Run immediately — as soon as native.js parses, the overlay covers the page
+  injectBrandOverlay();
+
   // Lazy-load Capacitor plugins (pouze pokud běžíme v native shellu)
   function plugin(name) {
     if (!isCapacitor) return null;
@@ -48,11 +86,15 @@
   // ── Splash hide ────────────────────────────────────────────────────────────
   async function hideSplash() {
     const SplashScreen = plugin('SplashScreen');
-    if (!SplashScreen) return;
-    try {
-      // Instantní schování bez fade-out — logo staticky sedí a pak zmizí.
-      await SplashScreen.hide({ fadeOutDuration: 0 });
-    } catch (e) { /* nic */ }
+    if (SplashScreen) {
+      try {
+        // Instantní schování — web overlay pod tím už drží stejný vizuál.
+        await SplashScreen.hide({ fadeOutDuration: 0 });
+      } catch (e) { /* nic */ }
+    }
+    // Fade out the web-side brand overlay after native splash is truly gone
+    // + small hold so uživatel má chvíli na vjem loga.
+    hideBrandOverlay(300);
   }
 
   // ── Haptics ────────────────────────────────────────────────────────────────
