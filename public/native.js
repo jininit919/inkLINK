@@ -50,9 +50,8 @@
     const SplashScreen = plugin('SplashScreen');
     if (!SplashScreen) return;
     try {
-      // Drobné zpoždění aby paper grain měl čas se vykreslit
-      await new Promise(r => setTimeout(r, 250));
-      await SplashScreen.hide({ fadeOutDuration: 220 });
+      // Instantní schování bez fade-out — logo staticky sedí a pak zmizí.
+      await SplashScreen.hide({ fadeOutDuration: 0 });
     } catch (e) { /* nic */ }
   }
 
