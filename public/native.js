@@ -23,33 +23,11 @@
   }
 
   // ── Brand overlay ─────────────────────────────────────────────────────────
-  // Full-screen paper + centered inklink logo, matches native splash.
-  // When native splash lifts, this overlay is already on top of page content
-  // so there's no visible "logo jump". After a short beat, we fade it out
-  // to reveal the actual page.
-  // Only in Capacitor context; only on first entry of the session, so
-  // client-side navigation between pages doesn't re-flash the splash.
-  function injectBrandOverlay() {
-    if (!isCapacitor) return;
-    if (window.sessionStorage && sessionStorage.getItem('il-splash-shown') === '1') return;
-    try { sessionStorage.setItem('il-splash-shown', '1'); } catch {}
-
-    const style = document.createElement('style');
-    style.textContent = `
-      #il-brand-splash{position:fixed;inset:0;background:#faf8f3;z-index:2147483000;
-        display:flex;align-items:flex-start;justify-content:center;
-        padding-top:34vh;
-        pointer-events:none;transition:opacity .3s ease}
-      #il-brand-splash img{width:40vmin;max-width:280px;max-height:30vh;object-fit:contain}
-      #il-brand-splash.hide{opacity:0}
-    `;
-    const div = document.createElement('div');
-    div.id = 'il-brand-splash';
-    div.innerHTML = '<img src="/img/ink-logo.png" alt="">';
-    // Prepend so it's above page content immediately
-    (document.head || document.documentElement).appendChild(style);
-    (document.body || document.documentElement).appendChild(div);
-  }
+  // Overlay is server-rendered inline at the top of <body> on entry pages
+  // (landing/login/index/forgot-password/verify) — it's part of the first
+  // paint, so when the native splash lifts there's no gap between them.
+  // Only visible when html.capacitor-app class is present (CSS gate).
+  // Fade + remove once page is fully loaded and rendered.
   function hideBrandOverlay(delayMs) {
     const el = document.getElementById('il-brand-splash');
     if (!el) return;
@@ -58,8 +36,6 @@
       setTimeout(() => el.remove(), 350);
     }, delayMs || 0);
   }
-  // Run immediately — as soon as native.js parses, the overlay covers the page
-  injectBrandOverlay();
 
   // Lazy-load Capacitor plugins (pouze pokud běžíme v native shellu)
   function plugin(name) {
