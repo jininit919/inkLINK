@@ -209,9 +209,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-calendar"/></svg></a>
+  <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Calendar"><svg class="icon"><use href="#i-calendar"/></svg></a>
   <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
-  <a class="nav-icon" id="setupLink" href="/artist-setup" title="Editovat profil" style="display:none"><svg class="icon"><use href="#i-settings"/></svg></a>
+  <a class="nav-icon" id="setupLink" href="/artist-setup" title="Edit profile" style="display:none"><svg class="icon"><use href="#i-settings"/></svg></a>
 </nav>
 <script src="/notifs.js?v=5"></script>
 <script src="/mobile-nav.js?v=14"></script>
@@ -241,8 +241,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
     <div class="tabs">
       <div class="tab active" data-tab="portfolio">Portfolio <span id="portfolioCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
-      <div class="tab" data-tab="slots" id="slotsTab">Kalendář <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
-      <div class="tab" data-tab="reviews" id="reviewsTab">Recenze <span id="reviewsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="slots" id="slotsTab">Calendar <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="reviews" id="reviewsTab">Reviews <span id="reviewsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
     </div>
 
     <div id="tab-portfolio">
@@ -258,7 +258,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div id="tab-reviews" style="display:none">
       <div id="reviewsHead" style="margin-bottom:18px;font-size:13px;color:var(--txt2);letter-spacing:0.04em"></div>
       <div class="review-list" id="reviews"></div>
-      <div class="empty" id="reviewsEmpty" style="display:none">Recenze se tu objeví po prvním dokončeném sezení.</div>
+      <div class="empty" id="reviewsEmpty" style="display:none">Reviews will appear here after the first completed session.</div>
     </div>
 
     <div id="similarBlock" style="display:none;margin-top:60px;border-top:1px solid var(--border);padding-top:32px">
@@ -499,15 +499,15 @@ function render() {
   const actions = document.getElementById('actions');
   actions.innerHTML = '';
   if (profile.is_own) {
-    let btns = `<a class="btn" href="/artist-setup">Editovat profil</a>`;
+    let btns = `<a class="btn" href="/artist-setup">Edit profile</a>`;
     if (profile.is_artist) {
-      btns += ` <button class="btn muted" type="button" onclick="shareMyLink('${profile.username.replace(/'/g, "\\'")}', this)">Sdílet odkaz</button>`;
+      btns += ` <button class="btn muted" type="button" onclick="shareMyLink('${profile.username.replace(/'/g, "\\'")}', this)">Share link</button>`;
     }
     actions.innerHTML = btns;
     document.getElementById('setupLink').style.display = 'flex';
   } else if (me) {
     actions.innerHTML = `
-      <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? 'Sleduješ' : 'Sledovat'}</button>
+      <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? 'Following' : 'Follow'}</button>
       <a class="btn muted" href="/messages?to=${encodeURIComponent(profile.username)}">Zpráva</a>
     `;
   } else {
@@ -754,7 +754,7 @@ async function toggleFollow() {
   const r = await fetch(`/api/follow/${profile.id}`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
   if (r) {
     profile.is_following = r.following;
-    document.getElementById('followBtn').textContent = r.following ? 'Sleduješ' : 'Sledovat';
+    document.getElementById('followBtn').textContent = r.following ? 'Following' : 'Follow';
   }
 }
 

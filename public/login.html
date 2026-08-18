@@ -75,7 +75,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 
 <div id="il-brand-splash" aria-hidden="true"><img src="/img/ink-logo.png" alt=""></div>
 <style>#il-brand-splash{position:fixed;inset:0;background:#faf8f3;z-index:2147483000;display:flex;align-items:flex-start;justify-content:center;padding-top:34vh;pointer-events:none;transition:opacity .3s ease}#il-brand-splash img{width:40vmin;max-width:280px;max-height:30vh;object-fit:contain}#il-brand-splash.hide{opacity:0}html:not(.capacitor-app) #il-brand-splash{display:none}</style>
-<a class="auth-back" href="/landing" aria-label="Zpět na hlavní stránku">
+<a class="auth-back" href="/landing" aria-label="Back to home">
   <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
 </a>
 
@@ -83,63 +83,63 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 
 <div class="card">
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('login')">Přihlásit se</button>
-    <button class="tab" onclick="switchTab('register')">Registrovat</button>
+    <button class="tab active" onclick="switchTab('login')">Sign in</button>
+    <button class="tab" onclick="switchTab('register')">Register</button>
   </div>
 
   <!-- LOGIN -->
   <form class="form active" id="loginForm" onsubmit="doLogin(event)">
     <div class="error-msg" id="loginError"></div>
     <div class="field">
-      <label>E-mail, telefon nebo uživatelské jméno</label>
-      <input type="text" id="loginUsername" placeholder="ty@email.cz" autocomplete="username" required>
+      <label>Email, phone, or username</label>
+      <input type="text" id="loginUsername" placeholder="you@email.com" autocomplete="username" required>
     </div>
     <div class="field">
-      <label>Heslo</label>
+      <label>Password</label>
       <input type="password" id="loginPassword" placeholder="••••••" autocomplete="current-password" required>
     </div>
-    <button class="submit-btn" type="submit" id="loginBtn">PŘIHLÁSIT</button>
-    <div class="hint"><a href="/forgot-password" style="color:var(--txt3)">Zapomenuté heslo?</a></div>
+    <button class="submit-btn" type="submit" id="loginBtn">SIGN IN</button>
+    <div class="hint"><a href="/forgot-password" style="color:var(--txt3)">Forgot password?</a></div>
   </form>
 
   <!-- REGISTER -->
   <form class="form" id="registerForm" onsubmit="doRegister(event)">
     <div class="error-msg" id="registerError"></div>
     <div id="refBanner" style="display:none;background:#0e0e0e;border:1px solid #2a2a2a;border-left:3px solid #c62828;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#bbb;letter-spacing:0.03em;line-height:1.6">
-      <span style="color:#eee">Pozván od <b id="refBy">—</b></span> · po tvé první rezervaci dostane bonus 300 Kč na svůj účet.
+      <span style="color:#eee">Invited by <b id="refBy">—</b></span> · they get a 300 CZK bonus after your first booking.
     </div>
     <div class="field">
-      <label>Uživatelské jméno *</label>
-      <input type="text" id="regUsername" placeholder="jen písmena a čísla" autocomplete="username" required>
+      <label>Username *</label>
+      <input type="text" id="regUsername" placeholder="letters and numbers only" autocomplete="username" required>
     </div>
     <div class="field">
-      <label>Jméno *</label>
-      <input type="text" id="regDisplayName" placeholder="Jak tě uvidí ostatní" required>
+      <label>Name *</label>
+      <input type="text" id="regDisplayName" placeholder="How others will see you" required>
     </div>
     <div class="field">
-      <label>E-mail *</label>
-      <input type="email" id="regEmail" placeholder="ty@email.cz" autocomplete="email" required>
+      <label>Email *</label>
+      <input type="email" id="regEmail" placeholder="you@email.com" autocomplete="email" required>
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Telefon (volitelně)</label>
+        <label>Phone (optional)</label>
         <input type="tel" id="regPhone" placeholder="+420 xxx xxx xxx" autocomplete="tel">
       </div>
       <div class="field">
-        <label>Město (volitelně)</label>
-        <input type="text" id="regCity" placeholder="Praha, Brno…">
+        <label>City (optional)</label>
+        <input type="text" id="regCity" placeholder="Prague, Brno…">
       </div>
     </div>
     <div class="field">
-      <label>Heslo * (min. 6 znaků)</label>
+      <label>Password * (min 6 chars)</label>
       <input type="password" id="regPassword" placeholder="••••••" autocomplete="new-password" required>
     </div>
     <div class="field" style="flex-direction:row;align-items:flex-start;gap:10px">
       <input type="checkbox" id="regTerms" required style="width:auto;margin-top:2px;accent-color:var(--red2)">
-      <label for="regTerms" style="font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-transform:none;cursor:pointer">Souhlasím s <a href="/terms" style="color:var(--txt2)" target="_blank">podmínkami</a> a <a href="/privacy" style="color:var(--txt2)" target="_blank">ochranou údajů</a></label>
+      <label for="regTerms" style="font-size:10px;color:var(--txt3);letter-spacing:0.04em;line-height:1.6;text-transform:none;cursor:pointer">I agree to the <a href="/terms" style="color:var(--txt2)" target="_blank">terms</a> and <a href="/privacy" style="color:var(--txt2)" target="_blank">privacy policy</a></label>
     </div>
-    <button class="submit-btn" type="submit" id="registerBtn">VYTVOŘIT ÚČET</button>
-    <div class="hint" id="registerHint">Tatérem se staneš později v Nastavení tatéra (po loginu).</div>
+    <button class="submit-btn" type="submit" id="registerBtn">CREATE ACCOUNT</button>
+    <div class="hint" id="registerHint">You can become an artist later in Artist settings (after login).</div>
   </form>
 </div>
 

@@ -298,19 +298,19 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 <nav>
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-icons">
-    <button class="nav-icon" onclick="openSearchOverlay()" title="Hledat" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
-    <a class="nav-icon" href="/map" title="Mapa tatérů"><svg class="icon"><use href="#i-map-pin"/></svg></a>
-    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
-    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-calendar"/></svg></a>
-    <a class="nav-icon" href="/messages" title="Zprávy" id="navMessages" style="position:relative"><svg class="icon"><use href="#i-message"/></svg><span id="navMessagesBadge" style="display:none;position:absolute;top:4px;right:4px;min-width:8px;height:8px;border-radius:50%;background:var(--red2);border:1.5px solid var(--bg)"></span></a>
+    <button class="nav-icon" onclick="openSearchOverlay()" title="Search" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
+    <a class="nav-icon" href="/map" title="Map"><svg class="icon"><use href="#i-map-pin"/></svg></a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Liked" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
+    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Calendar"><svg class="icon"><use href="#i-calendar"/></svg></a>
+    <a class="nav-icon" href="/messages" title="Messages" id="navMessages" style="position:relative"><svg class="icon"><use href="#i-message"/></svg><span id="navMessagesBadge" style="display:none;position:absolute;top:4px;right:4px;min-width:8px;height:8px;border-radius:50%;background:var(--red2);border:1.5px solid var(--bg)"></span></a>
     <div class="nav-avatar-wrap">
-      <div class="nav-avatar" id="navAvatar" title="Účet" onclick="toggleAvatarMenu(event)">??</div>
+      <div class="nav-avatar" id="navAvatar" title="Account" onclick="toggleAvatarMenu(event)">??</div>
       <div class="avatar-menu" id="avatarMenu" onclick="event.stopPropagation()">
-        <a id="amProfile" href="#"><svg class="icon"><use href="#i-user"/></svg> Můj profil</a>
-        <a id="amSetup" href="/artist-setup" style="display:none"><svg class="icon"><use href="#i-settings"/></svg> Nastavení tatéra</a>
-        <a id="amEarnings" href="/earnings" style="display:none"><svg class="icon"><use href="#i-trending"/></svg> Výdělky</a>
+        <a id="amProfile" href="#"><svg class="icon"><use href="#i-user"/></svg> My profile</a>
+        <a id="amSetup" href="/artist-setup" style="display:none"><svg class="icon"><use href="#i-settings"/></svg> Artist settings</a>
+        <a id="amEarnings" href="/earnings" style="display:none"><svg class="icon"><use href="#i-trending"/></svg> Earnings</a>
         <hr class="divider">
-        <button type="button" onclick="doLogout()"><svg class="icon"><use href="#i-log-out"/></svg> Odhlásit</button>
+        <button type="button" onclick="doLogout()"><svg class="icon"><use href="#i-log-out"/></svg> Sign out</button>
       </div>
     </div>
   </div>
@@ -335,78 +335,78 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     </div>
 
     <div class="filter-floating">
-      <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filtr a řazení" title="Filtr & řazení">
+      <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filter and sort" title="Filter & sort">
         <svg class="icon icon-sm"><use href="#i-filter"/></svg><span class="count" id="filterCount" style="display:none">0</span>
       </button>
     </div>
 
     <div id="feed" class="feed-grid"></div>
     <div id="emptyState" class="empty" style="display:none">
-      <span class="b" id="emptyTitle">ZATÍM ŽÁDNÉ SKICY</span>
-      <span id="emptyText">Nové sketche se tu objeví, jakmile je tatéři přidají.<br>
-      Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svůj první sketch</a> a klienti si tě najdou.</span>
+      <span class="b" id="emptyTitle">NO SKETCHES YET</span>
+      <span id="emptyText">New sketches will appear here as artists add them.<br>
+      Are you an artist? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Add your first sketch</a> and clients will find you.</span>
     </div>
   </main>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<!-- Floating Action Button — desktop only, přidat skicu / práci -->
-<button class="fab-add" id="fabAdd" type="button" onclick="openAddPortfolio()" title="Přidat sketch nebo healed" aria-label="Přidat sketch"><span>+</span></button>
+<!-- Floating Action Button — desktop only, add sketch / healed work -->
+<button class="fab-add" id="fabAdd" type="button" onclick="openAddPortfolio()" title="Add sketch or healed" aria-label="Add sketch"><span>+</span></button>
 
 <!-- Add Portfolio Modal — focused form (sketch / done) -->
 <div id="addPortfolioModal" onclick="if(event.target===this)closeAddPortfolio()">
   <div class="addp-card">
     <div class="addp-head">
-      <h3 id="addpTitle">PŘIDAT SKICU</h3>
-      <button class="addp-close" type="button" onclick="closeAddPortfolio()" aria-label="Zavřít"><svg class="icon"><use href="#i-x"/></svg></button>
+      <h3 id="addpTitle">ADD SKETCH</h3>
+      <button class="addp-close" type="button" onclick="closeAddPortfolio()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form id="addPortfolioForm" class="addp-body">
       <div class="addp-row">
         <div class="addp-field">
-          <label>Typ</label>
+          <label>Type</label>
           <select name="kind" id="addpKind" required>
-            <option value="sketch">Sketch / návrh k tetování</option>
-            <option value="done">Healed / hotová práce</option>
+            <option value="sketch">Sketch / tattoo design</option>
+            <option value="done">Healed / finished work</option>
           </select>
         </div>
         <div class="addp-field">
-          <label>Cena (Kč) <span class="hint">— volitelně</span></label>
+          <label>Price (CZK) <span class="hint">— optional</span></label>
           <input type="number" name="price_kc" min="0" placeholder="4500">
         </div>
       </div>
 
       <div class="addp-field">
-        <label>Popis / název</label>
-        <input type="text" name="caption" maxlength="500" placeholder="Vlk na předloktí, realismus">
+        <label>Caption / title</label>
+        <input type="text" name="caption" maxlength="500" placeholder="Wolf on forearm, realism">
       </div>
 
       <div class="addp-field">
-        <label>Obrázky <span class="hint">(1-4, JPG/PNG/WEBP, do 10 MB)</span></label>
+        <label>Images <span class="hint">(1-4, JPG/PNG/WEBP, up to 10 MB)</span></label>
         <input type="file" id="addpImage" accept="image/jpeg,image/png,image/webp" multiple required>
         <div id="addpPreview"></div>
       </div>
 
       <div class="addp-row">
         <div class="addp-field">
-          <label>Odhad délky (h) <span class="hint">— volitelně</span></label>
+          <label>Estimated hours <span class="hint">— optional</span></label>
           <input type="number" name="estimated_hours" min="0.5" max="24" step="0.5" placeholder="3">
         </div>
         <div class="addp-field">
-          <label>Styly <span class="hint">— až 4</span></label>
+          <label>Styles <span class="hint">— up to 4</span></label>
           <div class="addp-styles" id="addpStylesGrid"></div>
         </div>
       </div>
 
       <p class="addp-hint">
-        Pokud vyplníš <b>cenu + délku u sketche</b>, klient si může rezervovat přímo tento návrh za pevnou cenu.
+        If you fill in <b>price + hours for a sketch</b>, clients can book this design directly at the fixed price.
       </p>
 
       <div id="addpFlash"></div>
 
       <div class="addp-foot">
-        <button type="button" class="btn" onclick="closeAddPortfolio()">Zrušit</button>
-        <button type="submit" class="btn btn-primary" id="addpSubmit">Nahrát</button>
+        <button type="button" class="btn" onclick="closeAddPortfolio()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="addpSubmit">Upload</button>
       </div>
     </form>
   </div>

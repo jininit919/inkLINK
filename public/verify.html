@@ -48,7 +48,7 @@ h2{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;le
 
 <div id="il-brand-splash" aria-hidden="true"><img src="/img/ink-logo.png" alt=""></div>
 <style>#il-brand-splash{position:fixed;inset:0;background:#faf8f3;z-index:2147483000;display:flex;align-items:flex-start;justify-content:center;padding-top:34vh;pointer-events:none;transition:opacity .3s ease}#il-brand-splash img{width:40vmin;max-width:280px;max-height:30vh;object-fit:contain}#il-brand-splash.hide{opacity:0}html:not(.capacitor-app) #il-brand-splash{display:none}</style>
-<a class="auth-back" href="/landing" aria-label="Zpět na hlavní stránku">
+<a class="auth-back" href="/landing" aria-label="Back to home">
   <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
 </a>
 
@@ -56,8 +56,8 @@ h2{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;le
 
 <div class="card">
   <div id="verifyForm">
-    <h2>Ověř svůj účet</h2>
-    <p class="sub" id="subText">Poslali jsme ti na e-mail šestimístný kód. Vlož ho níže — platí 15 minut.</p>
+    <h2>Verify your account</h2>
+    <p class="sub" id="subText">We sent a six-digit code to your email. Enter it below — valid for 15 minutes.</p>
     <div class="error-msg" id="errMsg"></div>
     <div class="code-inputs" id="codeInputs">
       <input type="text" maxlength="1" inputmode="numeric" id="c0" oninput="codeInput(0)" onkeydown="codeKey(event,0)">
@@ -67,18 +67,18 @@ h2{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;le
       <input type="text" maxlength="1" inputmode="numeric" id="c4" oninput="codeInput(4)" onkeydown="codeKey(event,4)">
       <input type="text" maxlength="1" inputmode="numeric" id="c5" oninput="codeInput(5)" onkeydown="codeKey(event,5)">
     </div>
-    <button class="submit-btn" id="verifyBtn" onclick="doVerify()">OVĚŘIT</button>
+    <button class="submit-btn" id="verifyBtn" onclick="doVerify()">VERIFY</button>
     <div class="resend">
-      Nedostal(a) jsi kód?
-      <button id="resendBtn" onclick="resend()">Poslat znovu</button>
+      Didn't get the code?
+      <button id="resendBtn" onclick="resend()">Send again</button>
       <span id="resendTimer"></span>
     </div>
   </div>
 
   <div class="success" id="successBox">
     <div class="check">✓</div>
-    <h2 style="margin-bottom:12px">Účet ověřen</h2>
-    <p>Přesměrováváme tě na hlavní stránku…</p>
+    <h2 style="margin-bottom:12px">Account verified</h2>
+    <p>Redirecting you to the home page…</p>
   </div>
 </div>
 
@@ -110,9 +110,9 @@ function showError(msg) {
 
 async function doVerify() {
   const code = getCode();
-  if (code.length < 6) { showError('Vlož všech 6 číslic'); return; }
+  if (code.length < 6) { showError('Enter all 6 digits'); return; }
   const btn = document.getElementById('verifyBtn');
-  btn.disabled = true; btn.textContent = 'OVĚŘUJI…';
+  btn.disabled = true; btn.textContent = 'VERIFYING…';
   document.getElementById('errMsg').classList.remove('visible');
 
   const res  = await fetch('/api/verify-email', {
@@ -127,8 +127,8 @@ async function doVerify() {
     try { localStorage.setItem('inklink_show_welcome', '1'); } catch {}
     setTimeout(() => window.location.href = '/', 1500);
   } else {
-    showError(data.error || 'Nesprávný kód');
-    btn.disabled = false; btn.textContent = 'OVĚŘIT';
+    showError(data.error || 'Invalid code');
+    btn.disabled = false; btn.textContent = 'VERIFY';
   }
 }
 
