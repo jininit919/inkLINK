@@ -160,7 +160,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 <nav>
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-icons">
-    <a class="nav-icon" href="/" title="Zpět"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
+    <a class="nav-icon" href="/" title="Back"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
   </div>
 </nav>
 
@@ -175,7 +175,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
     <div class="cal-hero">
       <div>
         <h1>MŮJ KALENDÁŘ</h1>
-        <div class="sub" id="weekRange">Načítám…</div>
+        <div class="sub" id="weekRange">Loading…</div>
       </div>
       <div class="week-nav">
         <button onclick="shiftWeek(-1)" title="Předchozí týden"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
@@ -195,7 +195,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
   </div>
 </div>
 
-<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Přidat termín" aria-label="Přidat volný termín"><span>+</span></button>
+<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Add termín" aria-label="Add volný termín"><span>+</span></button>
 
 <!-- Sheet Modal — Apple-style -->
 <div id="slotSheet" onclick="if(event.target===this)closeSlotSheet()">
@@ -203,11 +203,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
     <div class="sheet-handle"></div>
     <div class="sheet-head">
       <h3>NOVÝ TERMÍN</h3>
-      <button class="sheet-close" type="button" onclick="closeSlotSheet()" aria-label="Zavřít"><svg class="icon"><use href="#i-x"/></svg></button>
+      <button class="sheet-close" type="button" onclick="closeSlotSheet()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form id="slotSheetForm" class="sheet-body">
       <div class="fld">
-        <label>Datum</label>
+        <label>Date</label>
         <input type="date" id="ssDate" required>
       </div>
 
@@ -295,8 +295,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
     </form>
 
     <div class="sheet-foot">
-      <button type="button" class="btn" onclick="closeSlotSheet()">Zrušit</button>
-      <button type="button" class="btn btn-primary" id="ssSubmit" onclick="submitSlot()">Uložit termín</button>
+      <button type="button" class="btn" onclick="closeSlotSheet()">Cancel</button>
+      <button type="button" class="btn btn-primary" id="ssSubmit" onclick="submitSlot()">Save termín</button>
     </div>
   </div>
 </div>
@@ -395,7 +395,7 @@ function render() {
               <div class="slot-pill ${s.status==='booked'?'booked':''}">
                 <span class="t">${fmtTime(s.start_at)}–${fmtTime(s.end_at)}</span>
                 <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} Kč/h` : 'cena dohodou'}</span>
-                ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="Smazat">×</button>` : ''}
+                ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="Delete">×</button>` : ''}
               </div>`).join('')
           : (isPast
               ? '<div style="color:var(--txt4);font-size:10px;text-align:center;padding:8px 0;letter-spacing:0.06em">—</div>'
@@ -474,7 +474,7 @@ async function submitSlot() {
     const until = document.getElementById('recurUntil').value;
     if (!days.length || !until) {
       flash.innerHTML = '<div class="flash err">Pro opakování vyber dny a "Opakovat do"</div>';
-      btn.disabled = false; btn.textContent = 'Uložit termín';
+      btn.disabled = false; btn.textContent = 'Save termín';
       return;
     }
     body.recur = { days, until };
@@ -500,19 +500,19 @@ async function submitSlot() {
       }, 700);
     } else {
       const j = await r.json().catch(() => ({}));
-      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || 'Nepodařilo se uložit')}</div>`;
+      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || 'Failed uložit')}</div>`;
     }
   } catch {
     flash.innerHTML = '<div class="flash err">Chyba sítě</div>';
   }
-  btn.disabled = false; btn.textContent = 'Uložit termín';
+  btn.disabled = false; btn.textContent = 'Save termín';
 }
 
 async function delSlot(id) {
-  if (!confirm('Smazat tento termín?')) return;
+  if (!confirm('Delete tento termín?')) return;
   const r = await fetch('/api/slots/' + id, {method:'DELETE'});
   if (r.ok) await loadWeek();
-  else alert((await r.json()).error || 'Nepodařilo se smazat');
+  else alert((await r.json()).error || 'Failed smazat');
 }
 
 init();

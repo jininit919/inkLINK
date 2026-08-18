@@ -158,7 +158,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-back" href="/" title="Zpět"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
+  <a class="nav-back" href="/" title="Back"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
 </nav>
 
 <div class="layout">
@@ -173,7 +173,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
       <input type="text" id="convSearch" placeholder="Search conversations...">
     </div>
     <div class="conv-list" id="convList">
-      <div class="il-loading-row"><span class="il-spinner"></span> Načítám konverzace…</div>
+      <div class="il-loading-row"><span class="il-spinner"></span> Loading conversations…</div>
     </div>
   </div>
 
@@ -249,9 +249,9 @@ function renderConvs(convs) {
     el.innerHTML = `
       <div class="conv-empty">
         <div style="font-size:36px;opacity:0.15;margin-bottom:12px">✉</div>
-        <div style="font-size:13px;color:var(--txt);letter-spacing:0.02em;margin-bottom:6px">Zatím žádné zprávy</div>
-        <div style="font-size:11px;line-height:1.6;margin-bottom:18px">Napiš tatérovi, o kterého se zajímáš.<br>Konverzace se objeví tady.</div>
-        <a href="/" style="display:inline-block;padding:9px 18px;background:var(--txt);color:var(--bg);text-decoration:none;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;border-radius:6px">Prohlédnout tatéry</a>
+        <div style="font-size:13px;color:var(--txt);letter-spacing:0.02em;margin-bottom:6px">No messages yet</div>
+        <div style="font-size:11px;line-height:1.6;margin-bottom:18px">Message an artist you're interested in.<br>Conversations will appear here.</div>
+        <a href="/" style="display:inline-block;padding:9px 18px;background:var(--txt);color:var(--bg);text-decoration:none;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;border-radius:6px">Browse artists</a>
       </div>`;
     return;
   }
@@ -298,12 +298,12 @@ function renderConvsWithSuggestions(convs, newUsers) {
     html += newUsers.map(u => convItemHTML({
       user_id: u.id, username: u.username, display_name: u.display_name,
       avatar: u.avatar, initials: u.initials,
-      last_msg: u.is_artist ? '@' + u.username + ' · tatér' : '@' + u.username,
+      last_msg: u.is_artist ? '@' + u.username + ' · artist' : '@' + u.username,
       last_at: '', unread: 0
     }, true)).join('');
   }
   if (!html) {
-    html = '<div class="conv-empty">Žádné výsledky.</div>';
+    html = '<div class="conv-empty">No results.</div>';
   }
   el.innerHTML = html;
 }
@@ -316,7 +316,7 @@ function convItemHTML(c, isSuggestion) {
     ${avatarHTML}
     <div class="conv-info">
       <div class="conv-name">${esc(c.display_name)}</div>
-      <div class="conv-preview">${isSuggestion ? '+ Nová zpráva' : esc(c.last_msg)}</div>
+      <div class="conv-preview">${isSuggestion ? '+ New message' : esc(c.last_msg)}</div>
     </div>
     <div class="conv-meta">
       <div class="conv-time">${esc(c.last_at)}</div>
@@ -340,13 +340,13 @@ async function openChat(userId, name, ini, avatar, username) {
   const panel = document.getElementById('chatPanel');
   panel.innerHTML = `
     <div class="chat-header">
-      <button class="mobile-back-btn" onclick="closeChatMobile()" title="Zpět"><svg class="icon icon-lg"><use href="#i-arrow-left"/></svg></button>
+      <button class="mobile-back-btn" onclick="closeChatMobile()" title="Back"><svg class="icon icon-lg"><use href="#i-arrow-left"/></svg></button>
       <a class="chat-avatar" href="/profile/${esc(username)}">
         ${avatar ? `<img src="/uploads/${esc(avatar)}" alt="">` : esc(ini)}
       </a>
       <div class="chat-name"><a href="/profile/${esc(username)}">${esc(name)}</a></div>
     </div>
-    <div class="chat-messages" id="chatMessages"><div class="il-loading-row"><span class="il-spinner"></span> Načítám zprávy…</div></div>
+    <div class="chat-messages" id="chatMessages"><div class="il-loading-row"><span class="il-spinner"></span> Loading messages…</div></div>
     <div class="chat-input-bar">
       <div class="emoji-picker" id="emojiPicker">${buildEmojiPicker()}</div>
       <div class="img-preview-bar" id="imgPreviewBar">

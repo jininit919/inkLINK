@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 <div class="brand-sub">Záloha za rezervaci</div>
 
 <div class="card" id="card">
-  <div class="il-loading-row" style="padding:24px"><span class="il-spinner"></span> Načítám…</div>
+  <div class="il-loading-row" style="padding:24px"><span class="il-spinner"></span> Loading…</div>
 </div>
 
 <div class="foot-link">
@@ -107,7 +107,7 @@ async function load() {
   if (r.status === 410) {
     document.getElementById('card').innerHTML = `
       <div class="card-body">
-        <div class="success-banner">✓ Rezervace už byla zaplacena nebo zrušena.</div>
+        <div class="success-banner">✓ Booking už byla zaplacena nebo zrušena.</div>
         <a href="/my-bookings" class="btn" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid var(--border2);color:var(--txt2)">Moje rezervace</a>
       </div>`;
     return;
@@ -140,7 +140,7 @@ function render(d) {
   document.getElementById('card').innerHTML = `
     <div class="card-head">
       <h1>ZAPLATIT ZÁLOHU</h1>
-      <div class="sub">Rezervace #${d.id}${d.payment_attempts > 1 ? ' · pokus ' + d.payment_attempts : ''}</div>
+      <div class="sub">Booking #${d.id}${d.payment_attempts > 1 ? ' · pokus ' + d.payment_attempts : ''}</div>
     </div>
     <div class="card-body">
       <div class="who">
@@ -211,7 +211,7 @@ async function pay(ev) {
   if (error) {
     flash.innerHTML = `<div class="flash err">${escapeHtml(error.message || 'Platba selhala.')}</div>`;
     btn.disabled = false;
-    btn.textContent = 'Zkusit znovu';
+    btn.textContent = 'Try again';
     // Offer retry endpoint if PI is in unrecoverable state
     if (error.payment_intent && ['requires_payment_method', 'canceled'].includes(error.payment_intent.status)) {
       flash.innerHTML += `<button class="btn" style="margin-top:10px;background:transparent;border:1px solid var(--border2);color:var(--txt2)" onclick="retryPayment()">Vytvořit novou platbu</button>`;
@@ -224,7 +224,7 @@ async function pay(ev) {
   } else {
     flash.innerHTML = `<div class="flash err">Stav platby: ${paymentIntent ? paymentIntent.status : 'neznámý'}. Zkus to znovu nebo kontaktuj podporu.</div>`;
     btn.disabled = false;
-    btn.textContent = 'Zkusit znovu';
+    btn.textContent = 'Try again';
   }
 }
 

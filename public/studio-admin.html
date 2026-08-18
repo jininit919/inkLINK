@@ -88,11 +88,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <nav>
   <a href="/" class="nav-logo">INKLINK</a>
-  <a href="/feed" class="nav-icon" title="Zpět"><i data-lucide="arrow-left"></i></a>
+  <a href="/feed" class="nav-icon" title="Back"><i data-lucide="arrow-left"></i></a>
 </nav>
 
 <div class="wrap" id="root">
-  <div class="empty-state" data-i18n="studioAdmin.loading">Načítám…</div>
+  <div class="empty-state" data-i18n="studioAdmin.loading">Loading…</div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -126,7 +126,7 @@ async function loadStudio(){
     render();
   } catch(e){
     console.error(e);
-    root.innerHTML = `<div class="empty-state" data-i18n="studioAdmin.loadError">Nepodařilo se načíst studio.</div>`;
+    root.innerHTML = `<div class="empty-state" data-i18n="studioAdmin.loadError">Failed načíst studio.</div>`;
     window.applyI18n && window.applyI18n();
   }
 }
@@ -166,7 +166,7 @@ function renderInvite(inv){
       <i data-lucide="mail" style="width:14px;height:14px;color:var(--txt3);flex-shrink:0"></i>
       <span class="invite-email">${esc(inv.email)}</span>
       <span class="invite-exp" data-i18n="studioAdmin.expires" data-i18n-args="${exp}">Vyprší ${exp}</span>
-      <button class="btn ghost sm" onclick="cancelInvite(${inv.id})" data-i18n="studioAdmin.cancel">Zrušit</button>
+      <button class="btn ghost sm" onclick="cancelInvite(${inv.id})" data-i18n="studioAdmin.cancel">Cancel</button>
     </div>
   `;
 }
@@ -207,7 +207,7 @@ function render(){
             <label data-i18n="studioAdmin.inviteEmail">E-mail tatéra</label>
             <input type="email" id="inviteEmail" required placeholder="jana@example.com">
           </div>
-          <button class="btn" type="submit" data-i18n="studioAdmin.sendInvite">Odeslat</button>
+          <button class="btn" type="submit" data-i18n="studioAdmin.sendInvite">Send</button>
         </form>
       </div>
     `;
@@ -259,7 +259,7 @@ function render(){
               <input id="f_logo" value="${esc(s.logo||'')}" maxlength="300" placeholder="https://...">
             </div>
           </div>
-          <button class="btn" type="submit" data-i18n="studioAdmin.save">Uložit změny</button>
+          <button class="btn" type="submit" data-i18n="studioAdmin.save">Save změny</button>
         </form>
       </div>
     `;

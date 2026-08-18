@@ -414,7 +414,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 
 <div id="welcomeModal" onclick="if(event.target===this)closeWelcome()">
   <div class="welcome-card">
-    <button class="welcome-close" onclick="closeWelcome()" aria-label="Zavřít">×</button>
+    <button class="welcome-close" onclick="closeWelcome()" aria-label="Close">×</button>
     <div id="welcomeStep1">
       <div class="welcome-brand">INKLINK</div>
       <h2 class="welcome-title">Vítej v InkLinku</h2>
@@ -436,7 +436,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 
     <div id="welcomeStep2Client" style="display:none">
       <div class="welcome-brand">INKLINK</div>
-      <h2 class="welcome-title">Jak to funguje</h2>
+      <h2 class="welcome-title">How it works</h2>
       <div class="welcome-step">
         <div class="welcome-step-num">1</div>
         <div class="welcome-step-body">
@@ -447,35 +447,35 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       <div class="welcome-step">
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Lajkni ♥ co se ti líbí</div>
-          <div class="welcome-step-sub">Sketch najdeš později v sekci <a href="/liked" style="color:var(--red2);text-decoration:underline">Lajknuté</a>.</div>
+          <div class="welcome-step-title">Like ♥ what you enjoy</div>
+          <div class="welcome-step-sub">You will find sketches later in <a href="/liked" style="color:var(--red2);text-decoration:underline">Lajknuté</a>.</div>
         </div>
       </div>
       <div class="welcome-step">
         <div class="welcome-step-num">3</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Rezervuj termín přes profil tatéra</div>
-          <div class="welcome-step-sub">Zaplať zálohu kartou, zbytek na místě. Refund podle pravidel tatéra.</div>
+          <div class="welcome-step-title">Book an appointment via the artist profile</div>
+          <div class="welcome-step-sub">Pay a deposit by card, the rest on-site. Refund per artist rules.</div>
         </div>
       </div>
-      <button class="welcome-cta" onclick="closeWelcome()">Začít prohlížet</button>
+      <button class="welcome-cta" onclick="closeWelcome()">Start browsing</button>
     </div>
 
     <div id="welcomeStep2Artist" style="display:none">
       <div class="welcome-brand">INKLINK</div>
-      <h2 class="welcome-title">4 kroky a jsi vidět</h2>
+      <h2 class="welcome-title">4 steps and you are live</h2>
       <div class="welcome-step">
         <div class="welcome-step-num">1</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Vyplň profil</div>
-          <div class="welcome-step-sub">Jméno, město, studio, bio, styly a hodinová sazba.</div>
+          <div class="welcome-step-title">Fill in your profile</div>
+          <div class="welcome-step-sub">Name, city, studio, bio, styles, and hourly rate.</div>
         </div>
       </div>
       <div class="welcome-step">
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Nahraj portfolio</div>
-          <div class="welcome-step-sub">Sketch s cenou se zobrazí klientům jako "Rezervovat tento návrh →". Healed ukazuje tvůj styl.</div>
+          <div class="welcome-step-title">Upload portfolio</div>
+          <div class="welcome-step-sub">Sketch s cenou se zobrazí klientům jako "Book tento návrh →". Healed ukazuje tvůj styl.</div>
         </div>
       </div>
       <div class="welcome-step">
@@ -504,7 +504,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     <div class="search-bar">
       <svg class="icon" style="color:var(--txt3);flex-shrink:0"><use href="#i-search"/></svg>
       <input type="text" id="searchInput" placeholder="Hledat tatéra, styl, město…" autocomplete="off">
-      <button class="search-close" onclick="closeSearchOverlay()" aria-label="Zavřít"><svg class="icon"><use href="#i-x"/></svg></button>
+      <button class="search-close" onclick="closeSearchOverlay()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <div id="searchDrop" class="search-drop-inner"></div>
   </div>
@@ -514,7 +514,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
   <div class="filter-card">
     <div class="filter-head">
       <h3>Filtr & řazení</h3>
-      <button class="filter-close" onclick="closeFilterModal()" aria-label="Zavřít">×</button>
+      <button class="filter-close" onclick="closeFilterModal()" aria-label="Close">×</button>
     </div>
     <div class="filter-section">
       <div class="filter-section-label">Řadit podle</div>
@@ -556,7 +556,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       <div class="lb-actions">
         <a class="lb-btn" id="lb-profile" href="#"><svg class="icon"><use href="#i-user"/></svg> Profil</a>
         <a class="lb-btn" id="lb-message" href="#"><svg class="icon"><use href="#i-message"/></svg> Zpráva</a>
-        <a class="lb-btn primary" id="lb-book" href="#" style="display:none"><svg class="icon"><use href="#i-arrow-right"/></svg> Rezervovat</a>
+        <a class="lb-btn primary" id="lb-book" href="#" style="display:none"><svg class="icon"><use href="#i-arrow-right"/></svg> Book</a>
       </div>
     </div>
     <div class="lb-cap" id="lb-cap"></div>
@@ -601,9 +601,9 @@ async function init() {
       if (navCal) { navCal.href = '/calendar'; navCal.title = 'Kalendář — moje termíny'; }
     }
   } else {
-    // Host: avatar → Přihlásit button
+    // Host: avatar → Sign in button
     const wrap = navAvatar.closest('.nav-avatar-wrap');
-    if (wrap) wrap.outerHTML = '<a href="/login" class="btn" style="margin-left:6px">Přihlásit</a>';
+    if (wrap) wrap.outerHTML = '<a href="/login" class="btn" style="margin-left:6px">Sign in</a>';
   }
 
   // sort chips in filter modal
@@ -623,7 +623,7 @@ async function init() {
     kindFilter = t.dataset.kind;
     // FAB title se mění podle aktivní záložky
     const fab = document.getElementById('fabAdd');
-    if (fab) fab.title = kindFilter === 'sketch' ? 'Přidat sketch' : 'Přidat healed';
+    if (fab) fab.title = kindFilter === 'sketch' ? 'Add sketch' : 'Add healed';
     loadFeed();
   }));
 
@@ -903,7 +903,7 @@ async function loadFeed() {
   if (kindFilter) params.set('kind', kindFilter);
   if (sortBy) params.set('sort', sortBy);
   const grid = document.getElementById('feed');
-  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Načítám feed…</div>';
+  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Loading feed…</div>';
   try {
     const r = await fetch('/api/feed?' + params.toString());
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -912,8 +912,8 @@ async function loadFeed() {
   } catch (e) {
     items = [];
     grid.innerHTML = `<div class="il-error-banner">
-      <span>Nepodařilo se načíst feed (${escapeHtml(e.message || 'chyba sítě')}).</span>
-      <button onclick="loadFeed()">Zkusit znovu</button>
+      <span>Failed načíst feed (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="loadFeed()">Try again</button>
     </div>`;
     document.getElementById('emptyState').style.display = 'none';
   }
@@ -1044,7 +1044,7 @@ async function toggleLike(id, el) {
     console.log('[toggleLike] HTTP', resp.status);
     if (!resp.ok) {
       if (resp.status === 401) { location.href = '/login'; return; }
-      showToast('Nepodařilo se aktualizovat lajk');
+      showToast('Failed aktualizovat lajk');
       return;
     }
     const r = await resp.json();
@@ -1130,7 +1130,7 @@ function openLb(i) {
   document.getElementById('lb-profile').href = profileHref;
   document.getElementById('lb-message').href = '/messages?user=' + encodeURIComponent(username);
   const bookBtn = document.getElementById('lb-book');
-  // Rezervovat vždy zobrazit pro skicy — pokud chybí cena/hours, profil ukáže fallback modal
+  // Book vždy zobrazit pro skicy — pokud chybí cena/hours, profil ukáže fallback modal
   if (isSketch) {
     bookBtn.href = `/profile/${encodeURIComponent(username)}#book-${p.id}`;
     bookBtn.style.display = 'inline-flex';

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="InkLink">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Nastavení tatéra — InkLink</title>
+<title>Artist settings — InkLink</title>
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
 <style>
@@ -192,7 +192,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-icon" href="/" title="Zpět"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
+  <a class="nav-icon" href="/" title="Back"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
 </nav>
 <script src="/notifs.js?v=5"></script>
 <script src="/mobile-nav.js?v=14"></script>
@@ -206,8 +206,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <div id="flash"></div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="profile">Profil</div>
-    <div class="tab" data-tab="payments">Platby</div>
+    <div class="tab active" data-tab="profile">Profile</div>
+    <div class="tab" data-tab="payments">Payments</div>
     <div class="tab" data-tab="ical">Kalendář-feed</div>
     <div class="tab" data-tab="account">Účet</div>
   </div>
@@ -289,7 +289,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         <p class="hint" style="margin:0 0 14px;color:var(--txt3);font-size:11px">
           Sazba a záloha se předvyplní v každém novém bloku dostupnosti. Platební režim se předvybere v rezervačním modalu klienta — pokud volíš <b>plnou platbu předem</b>, klient zaplatí celé přes InkLink a na místě už nic neřešíš.
         </p>
-        <button class="btn" type="submit">Uložit profil</button>
+        <button class="btn" type="submit">Save profil</button>
       </form>
     </div>
 
@@ -298,7 +298,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
       <p class="hint">Dostávej upozornění o nových rezervacích, doplatcích a recenzích — i když máš InkLink zavřený. Funguje v Chromu, Edge, Firefoxu (na iOS pouze v Safari z home-screen aplikace).</p>
       <div class="stripe-status" id="pushStatus">
         <div class="dot"></div>
-        <span id="pushStatusText">Načítám stav…</span>
+        <span id="pushStatusText">Loading stav…</span>
       </div>
       <div id="pushActions" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
@@ -311,7 +311,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
       <p class="hint">Pro přijímání záloh dokončíš Stripe Connect onboarding (KYC + bankovní spojení). Peníze tečou přímo tobě, InkLink si automaticky bere 8% provizi.</p>
       <div class="stripe-status" id="stripeStatus">
         <div class="dot"></div>
-        <span id="stripeStatusText">Načítám stav…</span>
+        <span id="stripeStatusText">Loading stav…</span>
       </div>
       <div id="stripeRequirements" style="margin-top:14px;font-size:11px;color:var(--txt2);letter-spacing:0.04em;display:none">
         <div style="color:var(--txt3);margin-bottom:6px;letter-spacing:0.1em">CHYBÍ DOPLNIT:</div>
@@ -325,12 +325,12 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <div id="tab-ical" style="display:none">
     <div class="card">
       <h2>KALENDÁŘ-FEED (.ICS)</h2>
-      <p class="hint">Přihlas si InkLink rezervace do Google Calendar / Apple Calendar / Outlooku. Po každé nové rezervaci se zobrazí automaticky — feed se synchronizuje cca každých 15 minut (závisí na klientovi).</p>
+      <p class="hint">Přihlas si InkLink rezervace do Google Calendar / Apple Calendar / Outlooku. Po každé nové rezervaci se zobrazí automaticky — feed se synchronizuje cca každých 15 minutes (závisí na klientovi).</p>
 
       <label style="display:block;margin:18px 0 8px;font-size:11px;color:var(--txt3);letter-spacing:0.12em">SUBSCRIBE URL</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="icalUrl" type="text" readonly value="Načítám…" style="flex:1;min-width:260px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:9px 11px;font-family:'JetBrains Mono','Menlo',monospace;font-size:12px;letter-spacing:0">
-        <button class="btn muted" type="button" onclick="copyIcalUrl(this)">Kopírovat</button>
+        <input id="icalUrl" type="text" readonly value="Loading…" style="flex:1;min-width:260px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:9px 11px;font-family:'JetBrains Mono','Menlo',monospace;font-size:12px;letter-spacing:0">
+        <button class="btn muted" type="button" onclick="copyIcalUrl(this)">Copy</button>
         <button class="btn muted" type="button" onclick="regenerateIcalToken()">Vygenerovat nový</button>
       </div>
       <p class="hint" style="margin-top:10px">⚠ Pokud token regeneruješ, starý URL přestane fungovat (všechny aplikace co subscribují se musí znovu přidat).</p>
@@ -380,7 +380,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         <label style="display:block;margin-bottom:6px;font-size:11px;color:var(--txt3);letter-spacing:0.1em">PRO POTVRZENÍ NAPIŠ SVÉ UŽIVATELSKÉ JMÉNO</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <input id="deletionConfirm" type="text" placeholder="username" autocomplete="off" style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:9px 11px;font-family:inherit;font-size:13px">
-          <button class="btn danger" type="button" onclick="submitDeletion()">Smazat účet</button>
+          <button class="btn danger" type="button" onclick="submitDeletion()">Delete účet</button>
         </div>
         <div id="deletionFlash" style="margin-top:10px"></div>
       </div>
@@ -399,9 +399,9 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <h4>REZERVACE V TOMTO BLOKU</h4>
     <div class="sdm-bookings" id="sdmBookings"></div>
     <div class="sdm-actions">
-      <button class="btn muted" onclick="closeSlotDetail()">Zavřít</button>
-      <a class="btn" href="/calendar">Upravit v kalendáři</a>
-      <button class="btn danger" id="sdmDel" onclick="sdmDelete()">Smazat blok</button>
+      <button class="btn muted" onclick="closeSlotDetail()">Close</button>
+      <a class="btn" href="/calendar">Edit v kalendáři</a>
+      <button class="btn danger" id="sdmDel" onclick="sdmDelete()">Delete blok</button>
     </div>
   </div>
 </div>
@@ -422,14 +422,14 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <label>Odhad délky (h) — volitelně</label>
     <input type="number" id="epm-hours" min="0.5" max="24" step="0.5" placeholder="např. 3">
     <div class="actions">
-      <button class="btn muted" onclick="closePortEdit()">Zrušit</button>
-      <button class="btn" onclick="savePortEdit()">Uložit</button>
+      <button class="btn muted" onclick="closePortEdit()">Cancel</button>
+      <button class="btn" onclick="savePortEdit()">Save</button>
     </div>
   </div>
 </div>
 
 <script>
-const ALLOWED_STYLES = []; let me = null;
+const ALLOWED_STYLEES = []; let me = null;
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function flash(msg, kind='ok') {
@@ -457,7 +457,7 @@ async function init() {
       <h1>NASTAVENÍ TATÉRA</h1>
       <div class="sub">Pro úpravu profilu se musíš přihlásit.</div>
       <div style="margin-top:24px;display:flex;gap:8px">
-        <a class="btn" href="/login">Přihlásit / registrovat</a>
+        <a class="btn" href="/login">Sign in / register</a>
         <a class="btn muted" href="/">Zpět na feed</a>
       </div>`;
     return;
@@ -468,7 +468,7 @@ async function init() {
   // (Můj odkaz / Share button je teď na /profile/<username>)
 
   const styles = await fetch('/api/styles').then(r => r.json());
-  ALLOWED_STYLES.push(...styles);
+  ALLOWED_STYLEES.push(...styles);
   renderStylesGrid('stylesGrid', (me.styles||'').split(',').map(s=>s.trim()).filter(Boolean), 6);
   renderStylesGrid('pStylesGrid', [], 4);
 
@@ -535,7 +535,7 @@ async function loadDeletionStatus() {
       <div style="background:#0e0e0e;border:1px solid #2a2a2a;border-left:3px solid #e8c87f;padding:14px 16px;border-radius:2px;font-size:13px;color:#bbb;line-height:1.6">
         ⏳ <b style="color:#eee">Žádost o smazání podána.</b><br>
         Účet bude anonymizován <b style="color:#eee">${dateStr}</b> (za ${daysLeft} ${daysLeft === 1 ? 'den' : (daysLeft < 5 ? 'dny' : 'dní')}).<br>
-        <button class="btn muted" type="button" onclick="cancelDeletion()" style="margin-top:10px">Zrušit žádost</button>
+        <button class="btn muted" type="button" onclick="cancelDeletion()" style="margin-top:10px">Cancel žádost</button>
       </div>
     `;
   } else {
@@ -569,11 +569,11 @@ async function submitDeletion() {
 }
 
 async function cancelDeletion() {
-  if (!window.confirm('Zrušit žádost o smazání? Účet zůstane plně aktivní.')) return;
+  if (!window.confirm('Cancel žádost o smazání? Účet zůstane plně aktivní.')) return;
   const r = await fetch('/api/me/delete-cancel', {method: 'POST'});
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    alert(j.error || 'Zrušení selhalo');
+    alert(j.error || 'Cancellation failed');
     return;
   }
   loadDeletionStatus();
@@ -781,7 +781,7 @@ async function loadStripeStatus() {
 
   if (status.error) {
     txt.textContent = 'Chyba ze Stripe: ' + status.error;
-    actions.innerHTML = `<button class="btn" onclick="startOnboard()">Zkusit znovu</button>`;
+    actions.innerHTML = `<button class="btn" onclick="startOnboard()">Try again</button>`;
     return;
   }
   if (!status.connected) {
@@ -807,7 +807,7 @@ async function loadStripeStatus() {
     reqList.innerHTML = due.map(d => `<li>${escapeHtml(d.replace(/_/g,' '))}</li>`).join('');
   }
   actions.innerHTML = `
-    <button class="btn" onclick="startOnboard()">Pokračovat na Stripe</button>
+    <button class="btn" onclick="startOnboard()">Continue na Stripe</button>
     <button class="btn muted" onclick="loadStripeStatus()">Obnovit stav</button>`;
 }
 
@@ -827,7 +827,7 @@ async function openDashboard() {
 
 function renderStylesGrid(id, selected, max) {
   const el = document.getElementById(id);
-  el.innerHTML = ALLOWED_STYLES.map(s =>
+  el.innerHTML = ALLOWED_STYLEES.map(s =>
     `<span class="style-pill ${selected.includes(s) ? 'on' : ''}" data-style="${escapeHtml(s)}" data-max="${max}">${escapeHtml(s)}</span>`
   ).join('');
   el.querySelectorAll('.style-pill').forEach(pill => {
@@ -852,7 +852,7 @@ document.getElementById('profileForm').addEventListener('submit', async e => {
     flash('Profil uložen ✓');
     me = await fetch('/api/me').then(r => r.json());
   } else {
-    flash((await r.json()).error || 'Nepodařilo se uložit', 'err');
+    flash((await r.json()).error || 'Failed uložit', 'err');
   }
 });
 
@@ -869,7 +869,7 @@ async function loadPortfolio() {
     return `
     <div class="gtile" onclick="openPortEdit(${p.id})">
       <div class="kindbadge">${p.kind === 'sketch' ? 'SKETCH' : 'HEALED'}</div>
-      <button class="del" onclick="event.stopPropagation();delPortfolio(${p.id})" title="Smazat">×</button>
+      <button class="del" onclick="event.stopPropagation();delPortfolio(${p.id})" title="Delete">×</button>
       <img src="/uploads/${escapeHtml(p.image)}" alt="">
       ${meta ? `<div style="position:absolute;bottom:0;left:0;right:0;padding:6px 8px;background:linear-gradient(transparent, rgba(0,0,0,0.85));font-size:10px;color:#fff;letter-spacing:0.05em">${escapeHtml(meta)}</div>` : ''}
       <div class="edit-hint">UPRAVIT</div>
@@ -981,10 +981,10 @@ document.getElementById('portfolioForm')?.addEventListener('submit', async e => 
 });
 
 async function delPortfolio(id) {
-  if (!confirm('Smazat tuto položku?')) return;
+  if (!confirm('Delete tuto položku?')) return;
   const r = await fetch('/api/portfolio/' + id, {method:'DELETE'});
   if (r.ok) { await loadPortfolio(); flash('Smazáno'); }
-  else flash('Nepodařilo se smazat', 'err');
+  else flash('Failed smazat', 'err');
 }
 
 async function loadSlots() {
@@ -1005,7 +1005,7 @@ async function loadSlots() {
         <div class="slot-item-price">${priceTxt}${s.deposit_pct?` · záloha ${s.deposit_pct}%`:''}${s.note?` · ${escapeHtml(s.note)}`:''}</div>
         <span class="slot-item-status ${status}">${status === 'booked' ? 'REZERVOVÁNO' : status === 'blocked' ? 'BLOKOVÁNO' : 'VOLNÝ'}</span>
         <div class="slot-item-actions">
-          <button class="btn danger" style="padding:5px 10px;font-size:11px" onclick="delSlot(${s.id}, '${status}')">Smazat</button>
+          <button class="btn danger" style="padding:5px 10px;font-size:11px" onclick="delSlot(${s.id}, '${status}')">Delete</button>
         </div>
       </div>`;
   }).join('');
@@ -1064,8 +1064,8 @@ function renderCalendar() {
   }
   html += '</div>';
 
-  // body — pro každý den jeden sloupec, hodiny vlevo opakovaně
-  // Strategie: vykreslit sloupec hodin (slévá se s gridem), pak 7 day-cols jako relativní kontejnery s absolutními sloty
+  // body — pro každý den jeden sloupec, hoursy vlevo opakovaně
+  // Strategie: vykreslit sloupec hours (slévá se s gridem), pak 7 day-cols jako relativní kontejnery s absolutními sloty
   // Pro CSS grid jednoduchost: row per hour, 8 cols (1 hour + 7 days), cells jsou clickable
   for (let h = CAL_HOUR_START; h < CAL_HOUR_END; h++) {
     html += `<div class="cal-hour">${h}:00</div>`;
@@ -1222,13 +1222,13 @@ function closeSlotDetail() {
 
 async function sdmDelete() {
   const id = parseInt(document.getElementById('sdmDel').dataset.slotId);
-  if (!confirm('Smazat tento blok dostupnosti?')) return;
+  if (!confirm('Delete tento blok dostupnosti?')) return;
   const r = await fetch('/api/slots/' + id, {method:'DELETE'});
   if (r.ok) { closeSlotDetail(); flash('Blok smazán'); await loadSlots(); }
   else flash((await r.json()).error || 'Selhalo', 'err');
 }
 
-// "Upravit blok" formulář byl odstraněn — slot management žije v /calendar.
+// "Edit blok" formulář byl odstraněn — slot management žije v /calendar.
 // Share link funkce byla přesunuta na /profile/<username> (button "Sdílet odkaz")
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1266,15 +1266,15 @@ document.getElementById('slotForm')?.addEventListener('submit', async e => {
     body: JSON.stringify(body),
   });
   if (r.ok) { flash('Termín přidán ✓'); e.target.reset(); await loadSlots(); }
-  else flash((await r.json()).error || 'Nepodařilo se přidat', 'err');
+  else flash((await r.json()).error || 'Failed přidat', 'err');
 });
 
 async function delSlot(id, status) {
   if (status === 'booked') { flash('Termín má aktivní rezervaci — nejdřív ji zruš.', 'err'); return; }
-  if (!confirm('Smazat termín?')) return;
+  if (!confirm('Delete termín?')) return;
   const r = await fetch('/api/slots/' + id, {method:'DELETE'});
   if (r.ok) { await loadSlots(); flash('Smazáno'); }
-  else flash((await r.json()).error || 'Nepodařilo se', 'err');
+  else flash((await r.json()).error || 'Failed', 'err');
 }
 
 init();

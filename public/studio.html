@@ -78,11 +78,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <nav>
   <a href="/" class="nav-logo">INKLINK</a>
-  <a href="/feed" class="nav-icon" title="Zpět"><i data-lucide="arrow-left"></i></a>
+  <a href="/feed" class="nav-icon" title="Back"><i data-lucide="arrow-left"></i></a>
 </nav>
 
 <div class="wrap" id="root">
-  <div class="empty" data-i18n="studio.loading">Načítám studio…</div>
+  <div class="empty" data-i18n="studio.loading">Loading studio…</div>
 </div>
 
 <script src="/i18n.js?v=1"></script>
@@ -169,7 +169,7 @@ async function load(){
     if(window.lucide) window.lucide.createIcons();
   } catch(e){
     console.error(e);
-    root.innerHTML = `<div class="error" data-i18n="studio.loadError">Nepodařilo se načíst studio.</div>`;
+    root.innerHTML = `<div class="error" data-i18n="studio.loadError">Failed načíst studio.</div>`;
     window.applyI18n && window.applyI18n();
   }
 }

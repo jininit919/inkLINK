@@ -124,9 +124,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-icons">
 
-    <button class="nav-icon" onclick="location.href='/?search=1'" title="Hledat" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-bookmark"/></svg></a>
-    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
-    <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
+    <button class="nav-icon" onclick="location.href='/?search=1'" title="Search" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Calendar"><svg class="icon"><use href="#i-bookmark"/></svg></a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Liked" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
+    <a class="nav-icon" href="/messages" title="Messages"><svg class="icon"><use href="#i-message"/></svg></a>
     <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
   </div>
 </nav>
@@ -168,7 +168,7 @@ async function init() {
     else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
     document.getElementById('navLiked').style.display = 'flex';
   } else {
-    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Přihlásit</a>';
+    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Sign in</a>';
   }
 
   const r = await fetch('/api/sketch/' + ITEM_ID);
@@ -258,7 +258,7 @@ function fmtDate(iso) {
   try {
     const d = new Date(iso);
     return d.toLocaleDateString('cs-CZ', {day:'numeric', month:'short'})
-         + ' · ' + d.toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'});
+         + ' · ' + d.toLocaleTimeString('cs-CZ', {hour:'2-digit', minutese:'2-digit'});
   } catch { return iso; }
 }
 
@@ -317,7 +317,7 @@ async function loadSlots(username) {
             <span class="dep">${totalH.toFixed(1).replace(/\.0$/,'')} h blok</span>
             ${s.note ? `<span class="dep">${escapeHtml(s.note)}</span>` : ''}
           </div>
-          <span class="slot-cta">${canBook ? 'Rezervovat →' : 'Detail →'}</span>
+          <span class="slot-cta">${canBook ? 'Book →' : 'Detail →'}</span>
         </a>`;
       }).join('')}
       ${more > 0 ? `<a class="slot-more" href="/profile/${escapeHtml(u.username)}">+ ${more} dalších termínů na profilu →</a>` : ''}
@@ -370,7 +370,7 @@ async function shareStory() {
       ? 'Obrázek stažen, odkaz zkopírován'
       : 'Obrázek stažen — odkaz si zkopíruj z adresního řádku');
   } catch (e) {
-    showToast('Nepodařilo se vygenerovat Story obrázek');
+    showToast('Failed vygenerovat Story obrázek');
   } finally {
     btn.disabled = false;
     btn.textContent = orig;

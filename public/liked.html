@@ -85,12 +85,12 @@ main{padding:24px 24px 80px;min-width:0}
 <nav>
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-icons">
-    <button class="nav-icon" onclick="location.href='/?search=1'" title="Hledat" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
+    <button class="nav-icon" onclick="location.href='/?search=1'" title="Search" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
     <a class="nav-icon" href="/" title="Feed"><svg class="icon"><use href="#i-home"/></svg></a>
-    <a class="nav-icon" href="/map" title="Mapa tatérů"><svg class="icon"><use href="#i-map-pin"/></svg></a>
-    <a class="nav-icon active" href="/liked" title="Lajknuté"><svg class="icon"><use href="#i-heart"/></svg></a>
-    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-calendar"/></svg></a>
-    <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
+    <a class="nav-icon" href="/map" title="Map"><svg class="icon"><use href="#i-map-pin"/></svg></a>
+    <a class="nav-icon active" href="/liked" title="Liked"><svg class="icon"><use href="#i-heart"/></svg></a>
+    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Calendar"><svg class="icon"><use href="#i-calendar"/></svg></a>
+    <a class="nav-icon" href="/messages" title="Messages"><svg class="icon"><use href="#i-message"/></svg></a>
     <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
   </div>
 </nav>
@@ -150,7 +150,7 @@ async function init() {
 
 async function loadLiked() {
   const grid = document.getElementById('feed');
-  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Načítám lajknuté…</div>';
+  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Loading lajknuté…</div>';
   try {
     const r = await fetch('/api/liked');
     if (r.status === 401) { location.href = '/login'; return; }
@@ -160,8 +160,8 @@ async function loadLiked() {
   } catch (e) {
     items = [];
     grid.innerHTML = `<div class="il-error-banner">
-      <span>Nepodařilo se načíst lajknuté (${escapeHtml(e.message || 'chyba sítě')}).</span>
-      <button onclick="loadLiked()">Zkusit znovu</button>
+      <span>Failed načíst lajknuté (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="loadLiked()">Try again</button>
     </div>`;
     document.getElementById('emptyState').style.display = 'none';
   }

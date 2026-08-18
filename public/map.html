@@ -86,11 +86,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 <nav>
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-icons">
-    <a class="nav-icon" href="/" title="Zpět"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
+    <a class="nav-icon" href="/" title="Back"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
   </div>
 </nav>
 
-<div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText">Načítám tatéry…</span></div>
+<div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText">Loading tatéry…</span></div>
 <div id="geoBar">
   <select id="geoRadius" aria-label="Okruh">
     <option value="5">5 km</option>
@@ -120,7 +120,7 @@ async function initNav() {
     else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
     document.getElementById('navLiked').style.display = 'flex';
   } else {
-    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Přihlásit</a>';
+    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Sign in</a>';
   }
 }
 
@@ -245,7 +245,7 @@ async function toggleGeo() {
       btn.textContent = '📍 V mém okolí';
       const msg = err && err.code === err.PERMISSION_DENIED
         ? 'Nepovolil jsi přístup k poloze. Můžeš to změnit v nastavení prohlížeče.'
-        : 'Nepodařilo se získat polohu.';
+        : 'Failed získat polohu.';
       alert(msg);
     },
     { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
@@ -275,7 +275,7 @@ function applyGeoFilter(lat, lng, km) {
 
   const btn = document.getElementById('geoBtn');
   btn.classList.add('active');
-  btn.textContent = '✕ Zrušit filtr';
+  btn.textContent = '✕ Cancel filtr';
   setMapInfo(`${countLabel(inside)} do ${km} km`);
 }
 
@@ -325,7 +325,7 @@ async function init() {
     }
     setMapInfo(countLabel(allArtists.length));
   } catch (e) {
-    setMapInfo('Nepodařilo se načíst tatéry.');
+    setMapInfo('Failed načíst tatéry.');
   }
 }
 
