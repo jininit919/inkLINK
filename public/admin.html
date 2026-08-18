@@ -170,7 +170,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
   </div>
 
-  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Načítám admin panel…</div>
+  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Loading admin panel…</div>
 </div>
 
 <script>
@@ -200,8 +200,8 @@ async function init() {
     stats = await r.json();
   } catch (e) {
     document.getElementById('loading').innerHTML = `<div class="il-error-banner">
-      <span>Nepodařilo se načíst stats (${escapeHtml(e.message || 'chyba sítě')}).</span>
-      <button onclick="location.reload()">Zkusit znovu</button>
+      <span>Failed načíst stats (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="location.reload()">Try again</button>
     </div>`;
     return;
   }
@@ -217,7 +217,7 @@ async function init() {
       <div class="kpi-sub">${stats.users.artists} tatérů · +${stats.users.new_this_month} tento měsíc</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Rezervace</div>
+      <div class="kpi-label">Booking</div>
       <div class="kpi-value">${stats.bookings.total.toLocaleString('cs-CZ')}</div>
       <div class="kpi-sub">${stats.bookings.confirmed} potvrzených · +${stats.bookings.this_month} tento měsíc</div>
     </div>
@@ -526,7 +526,7 @@ async function loadReports() {
     if (!r.ok) throw new Error();
     reports = await r.json();
   } catch {
-    el.innerHTML = '<div class="empty">Nepodařilo se načíst reporty.</div>';
+    el.innerHTML = '<div class="empty">Failed načíst reporty.</div>';
     return;
   }
 
@@ -558,7 +558,7 @@ async function loadReports() {
       ${r.resolved ? '' : `
         <div class="report-actions">
           <button class="btn-mini" onclick="resolveReport(${r.id}, false)">Označit za vyřešený</button>
-          <button class="btn-mini danger" onclick="resolveReport(${r.id}, true)">Smazat recenzi + vyřešit</button>
+          <button class="btn-mini danger" onclick="resolveReport(${r.id}, true)">Delete recenzi + vyřešit</button>
           ${r.review_id ? `<a class="btn-mini" href="/profile/${escapeHtml(r.review_artist_username || '')}#reviews">Otevřít na profilu</a>` : ''}
         </div>
       `}

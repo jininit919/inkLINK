@@ -230,7 +230,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
   <div class="nav-links">
     <a class="nav-link" href="/">Feed</a>
     <a class="nav-link active" href="/events">Eventy</a>
-    <a class="nav-link" href="/my-bookings">Rezervace</a>
+    <a class="nav-link" href="/my-bookings">Booking</a>
     <a class="nav-link" href="/artist-setup">Pro tatéry</a>
   </div>
   <div class="nav-icons">
@@ -316,7 +316,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 
 <!-- ADD BUTTON -->
 <div class="add-bar">
-  <button class="add-btn" onclick="openAdd()">+ Přidat event</button>
+  <button class="add-btn" onclick="openAdd()">+ Add event</button>
 </div>
 
 <!-- ADD EVENT MODAL -->
@@ -377,7 +377,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
         <label>Fotky / plakát <span style="color:var(--txt3)">(max 5)</span></label>
         <label class="photo-upload-area" id="photoUploadArea">
           <input type="file" id="aPhotos" accept="image/*" multiple onchange="previewPhotos(this)">
-          <span id="photoUploadHint">＋ Přidat fotky</span>
+          <span id="photoUploadHint">＋ Add fotky</span>
         </label>
         <div class="photo-preview-strip" id="photoPreviewStrip"></div>
       </div>
@@ -1038,9 +1038,9 @@ function renderPhotoPreviews() {
     strip.appendChild(div);
   });
   hint.textContent = selectedPhotos.length === 0
-    ? '＋ Přidat fotky'
+    ? '＋ Add fotky'
     : selectedPhotos.length < 5
-      ? `＋ Přidat fotky (${selectedPhotos.length}/5)`
+      ? `＋ Add fotky (${selectedPhotos.length}/5)`
       : '5/5 photos';
   document.getElementById('photoUploadArea').style.display =
     selectedPhotos.length >= 5 ? 'none' : 'block';

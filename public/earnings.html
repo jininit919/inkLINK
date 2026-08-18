@@ -114,9 +114,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-icons">
 
-    <button class="nav-icon" onclick="location.href='/?search=1'" title="Hledat" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-bookmark"/></svg></a>
-    <a class="nav-icon" id="navLiked" href="/liked" title="Lajknuté" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
-    <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
+    <button class="nav-icon" onclick="location.href='/?search=1'" title="Search" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Calendar"><svg class="icon"><use href="#i-bookmark"/></svg></a>
+    <a class="nav-icon" id="navLiked" href="/liked" title="Liked" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
+    <a class="nav-icon" href="/messages" title="Messages"><svg class="icon"><use href="#i-message"/></svg></a>
     <div class="nav-avatar" id="navAvatar" title="Profil" onclick="goToProfile()">??</div>
   </div>
 </nav>
@@ -124,7 +124,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 <div class="wrap">
   <div id="content" style="display:none">
     <div class="page-head">
-      <h1 class="page-title">Výdělky</h1>
+      <h1 class="page-title">Earnings</h1>
       <span class="page-sub">Online platby přes InkLink (Stripe)</span>
     </div>
 
@@ -190,7 +190,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div class="disclaimer">
       <b>Jak se počítá:</b> Net = zaplacená záloha + doplatek − platforma provize − vrácené zálohy.
       Onsite (vybráno na místě) sledujeme samostatně, do net částky nepočítáme.
-      Pro výplaty bankovním převodem otevři <b>Stripe Express</b> (odkaz v Nastavení tatéra).
+      Pro výplaty bankovním převodem otevři <b>Stripe Express</b> (odkaz v Artist settings).
     </div>
   </div>
 
@@ -198,7 +198,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div class="empty">
       <span class="b">PŘIHLASTE SE</span>
       <span>Pro výdělky se musíš přihlásit.<br>
-      <a href="/login">Přihlásit / registrovat</a></span>
+      <a href="/login">Sign in / register</a></span>
     </div>
   </div>
 
@@ -210,7 +210,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
   </div>
 
-  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Načítám výdělky…</div>
+  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Loading výdělky…</div>
 </div>
 
 <script src="/notifs.js?v=11"></script>
@@ -272,7 +272,7 @@ async function init() {
   } else {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('needLogin').style.display = 'block';
-    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Přihlásit</a>';
+    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Sign in</a>';
     return;
   }
 
@@ -289,8 +289,8 @@ async function init() {
     data = await r.json();
   } catch (e) {
     document.getElementById('loading').innerHTML = `<div class="il-error-banner">
-      <span>Nepodařilo se načíst výdělky (${escapeHtml(e.message || 'chyba sítě')}).</span>
-      <button onclick="location.reload()">Zkusit znovu</button>
+      <span>Failed načíst výdělky (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <button onclick="location.reload()">Try again</button>
     </div>`;
     return;
   }

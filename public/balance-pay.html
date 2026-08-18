@@ -65,7 +65,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 <div class="brand-sub">Doplatek za tetování</div>
 
 <div class="card" id="card">
-  <div class="il-loading-row"><span class="il-spinner"></span> Načítám detaily…</div>
+  <div class="il-loading-row"><span class="il-spinner"></span> Loading detaily…</div>
 </div>
 
 <div class="foot-link">
@@ -111,7 +111,7 @@ function render(d) {
   document.getElementById('card').innerHTML = `
     <div class="card-head">
       <h1>${headLabel}</h1>
-      <div class="sub">Rezervace #${d.id}</div>
+      <div class="sub">Booking #${d.id}</div>
     </div>
     <div class="card-body">
       <div class="who">
@@ -127,7 +127,7 @@ function render(d) {
       ${isPaid
         ? `<div class="success-banner">✓ Doplatek je již zaplacen. Děkujeme!</div>
            <a href="/my-bookings" class="btn" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid var(--border2);color:var(--txt2)">Moje rezervace</a>`
-        : `<button class="btn" id="payBtn" onclick="pay()">${d.is_demo ? 'Potvrdit (demo režim)' : 'Zaplatit kartou'}</button>
+        : `<button class="btn" id="payBtn" onclick="pay()">${d.is_demo ? 'Confirm (demo režim)' : 'Zaplatit kartou'}</button>
            ${d.is_demo
              ? `<div class="demo-banner">⚠ Demo režim — Stripe není propojen. Klik jen označí doplatek jako zaplacený, žádné peníze se nestrhnou.</div>`
              : `<div class="demo-banner" style="background:rgba(232,232,232,0.04);border-color:var(--border2);color:var(--txt3)">Stripe Elements platba se zde renderuje (M2). Po zaplacení se balance v reportu tatéra automaticky zaktualizuje přes webhook.</div>`}
@@ -144,8 +144,8 @@ async function pay() {
     location.reload();  // znovunačte → success state
   } else {
     btn.disabled = false;
-    btn.textContent = 'Zkusit znovu';
-    alert((await r.json()).error || 'Nepodařilo se');
+    btn.textContent = 'Try again';
+    alert((await r.json()).error || 'Failed');
   }
 }
 

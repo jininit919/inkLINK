@@ -105,10 +105,10 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-icon" href="/" title="Zpět na feed"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
-  <a class="nav-icon" id="profileLink" href="#" title="Můj profil"><svg class="icon"><use href="#i-bookmark"/></svg></a>
-  <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
-  <a class="nav-icon" href="/artist-setup" title="Nastavení tatéra">⚙</a>
+  <a class="nav-icon" href="/" title="Back to feed"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
+  <a class="nav-icon" id="profileLink" href="#" title="My profile"><svg class="icon"><use href="#i-bookmark"/></svg></a>
+  <a class="nav-icon" href="/messages" title="Messages"><svg class="icon"><use href="#i-message"/></svg></a>
+  <a class="nav-icon" href="/artist-setup" title="Artist settings">⚙</a>
 </nav>
 <script src="/notifs.js?v=5"></script>
 <script src="/mobile-nav.js?v=14"></script>
@@ -119,45 +119,45 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
   <div id="loginNeeded" style="display:none">
     <div class="empty">
-      <div class="b">PŘIHLAS SE</div>
-      Pro zobrazení rezervací se musíš přihlásit.<br><br>
-      <a class="btn" href="/login">Přihlásit / registrovat</a>
+      <div class="b">SIGN IN</div>
+      You must sign in to see your bookings.<br><br>
+      <a class="btn" href="/login">Sign in / register</a>
     </div>
   </div>
 
   <div id="content" style="display:none">
     <div class="cal-tools" id="calTools">
-      <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics">⇩ Stáhnout .ics</a>
+      <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics">⇩ Download .ics</a>
       <button class="btn muted" onclick="showCalendarSubscribe()">⌷ Subscribe URL</button>
     </div>
     <div id="calSubBox" style="display:none;margin:14px 0;padding:14px;background:var(--bg2);border:1px solid var(--border2);font-size:11px;letter-spacing:0.04em;color:var(--txt2);line-height:1.7">
-      <div style="margin-bottom:8px;color:var(--txt)">Continuous sync URL — vlož do Apple/Google Calendar (Subscribe to calendar):</div>
+      <div style="margin-bottom:8px;color:var(--txt)">Continuous sync URL — paste into Apple/Google Calendar (Subscribe to calendar):</div>
       <input id="calSubUrl" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:8px 10px;letter-spacing:0.02em" onclick="this.select()">
       <div style="margin-top:10px;display:flex;gap:8px">
-        <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px">Kopírovat</button>
-        <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)">Regenerovat (zneplatní starou URL)</button>
+        <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px">Copy</button>
+        <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)">Regenerate (invalidates old URL)</button>
       </div>
     </div>
 
     <div class="tabs">
       <div class="tab active" data-tab="client">Jako klient<span class="count" id="cntClient"></span></div>
-      <div class="tab" data-tab="artist">Jako tatér<span class="count" id="cntArtist"></span></div>
+      <div class="tab" data-tab="artist">As artist<span class="count" id="cntArtist"></span></div>
     </div>
 
     <div id="tab-client">
       <div class="list" id="clientList"></div>
       <div class="empty" id="clientEmpty" style="display:none">
-        <div class="b">ZATÍM ŽÁDNÁ REZERVACE</div>
-        Najdi si tatéra ve <a href="/" style="color:var(--red2);text-decoration:underline">feedu</a> a klikni na volný termín.
+        <div class="b">NO BOOKINGS YET</div>
+        Find an artist in the <a href="/" style="color:var(--red2);text-decoration:underline">feed</a> and click on an open slot.
       </div>
     </div>
 
     <div id="tab-artist" style="display:none">
       <div class="list" id="artistList"></div>
       <div class="empty" id="artistEmpty" style="display:none">
-        <div class="b">ŽÁDNÉ REZERVACE</div>
-        Klienti se zatím nikam nezarezervovali.<br>
-        Přidej termíny v <a href="/artist-setup" style="color:var(--red2);text-decoration:underline">nastavení tatéra</a>, ať tě můžou najít.
+        <div class="b">NO BOOKINGS</div>
+        No clients have booked with you yet.<br>
+        Add slots in <a href="/artist-setup" style="color:var(--red2);text-decoration:underline">artist settings</a> so clients can find you.
       </div>
     </div>
   </div>
@@ -165,35 +165,35 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <div id="reviewModal" onclick="if(event.target===this)closeReview()">
   <div class="cm-card">
-    <h3>HODNOTÍŠ TETOVÁNÍ</h3>
-    <p id="rmHint">Tvé hodnocení uvidí ostatní klienti na profilu tatéra. Můžeš ho kdykoliv upravit.</p>
-    <label>Hvězdy *</label>
+    <h3>RATE THE TATTOO</h3>
+    <p id="rmHint">Your rating will be visible to other clients on the artist's profile. You can edit it anytime.</p>
+    <label>Stars *</label>
     <div class="star-pick" id="rmStars" data-rating="0">
       <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
       <span data-v="4">★</span><span data-v="5">★</span>
     </div>
-    <label>Komentář (volitelně)</label>
-    <textarea id="rmText" maxlength="1000" placeholder="Jak proběhlo sezení? Komunikace, hygiena, výsledek..."></textarea>
+    <label>Comment (optional)</label>
+    <textarea id="rmText" maxlength="1000" placeholder="How was the session? Communication, hygiene, result..."></textarea>
     <div id="rmFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn danger" id="rmDelete" onclick="deleteReview()" style="margin-right:auto;display:none">Smazat hodnocení</button>
-      <button class="btn muted" onclick="closeReview()">Zrušit</button>
-      <button class="btn" onclick="submitReview()">Uložit</button>
+      <button class="btn danger" id="rmDelete" onclick="deleteReview()" style="margin-right:auto;display:none">Delete rating</button>
+      <button class="btn muted" onclick="closeReview()">Cancel</button>
+      <button class="btn" onclick="submitReview()">Save</button>
     </div>
   </div>
 </div>
 
 <div id="respondModal" onclick="if(event.target===this)closeRespond()">
   <div class="cm-card">
-    <h3>ODPOVĚDĚT NA RECENZI</h3>
-    <p>Tvá odpověď se zobrazí pod recenzí klienta na tvém profilu.</p>
+    <h3>REPLY TO REVIEW</h3>
+    <p>Your reply will appear under the client's review on your profile.</p>
     <div id="respClientReview" style="margin-bottom:12px"></div>
-    <label>Tvá odpověď</label>
-    <textarea id="respText" maxlength="500" placeholder="Díky za hodnocení, Bobe!"></textarea>
+    <label>Your reply</label>
+    <textarea id="respText" maxlength="500" placeholder="Thanks for the review, Bob!"></textarea>
     <div id="respFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeRespond()">Zrušit</button>
-      <button class="btn" onclick="submitResponse()">Odeslat odpověď</button>
+      <button class="btn muted" onclick="closeRespond()">Cancel</button>
+      <button class="btn" onclick="submitResponse()">Send reply</button>
     </div>
   </div>
 </div>
@@ -201,54 +201,54 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <div id="editBookModal" onclick="if(event.target===this)closeEditBook()">
   <div class="cm-card">
     <h3 id="ebmTitle">UPRAVIT REZERVACI</h3>
-    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Změnit popis tetování. Termín a délku může měnit jen tatér.</p>
+    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Change the tattoo description. Only the artist can change the time and duration.</p>
     <div id="ebmTimeFields" style="display:none">
-      <label>Začátek</label>
+      <label>Start</label>
       <input type="datetime-local" id="ebmStart">
-      <label>Délka (hodiny)</label>
+      <label>Duration (hours)</label>
       <select id="ebmSize">
         <option value="">— ponechat ${'$'}{currentDuration} h —</option>
       </select>
     </div>
-    <label>Popis tetování</label>
+    <label>Tattoo description</label>
     <textarea id="ebmNote" maxlength="1000"></textarea>
     <div id="ebmFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeEditBook()">Zrušit</button>
-      <button class="btn" onclick="submitEditBook()">Uložit změny</button>
+      <button class="btn muted" onclick="closeEditBook()">Cancel</button>
+      <button class="btn" onclick="submitEditBook()">Save changes</button>
     </div>
   </div>
 </div>
 
 <div id="refundModal" onclick="if(event.target===this)closeRefund()">
   <div class="cm-card">
-    <h3 id="rfTitle">ŽÁDOST O VRÁCENÍ PENĚZ</h3>
-    <p id="rfHint" style="font-size:13px;color:var(--txt3);letter-spacing:0">Tatér tvou žádost posoudí — pokud schválí, peníze ti přijdou zpět na kartu do 5–10 dní.</p>
+    <h3 id="rfTitle">REFUND REQUEST</h3>
+    <p id="rfHint" style="font-size:13px;color:var(--txt3);letter-spacing:0">The artist will review your request — if approved, the money will be refunded to your card within 5–10 days.</p>
     <div id="rfMaxLine" style="font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin:6px 0 4px"></div>
-    <label>Částka (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— necháš prázdné = celá zaplacená částka</span></label>
-    <input type="number" id="rfAmount" min="1" placeholder="celá zaplacená částka">
-    <label style="margin-top:14px">Důvod (min. 10 znaků)</label>
+    <label>Amount (CZK) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— leave blank = full paid amount</span></label>
+    <input type="number" id="rfAmount" min="1" placeholder="full paid amount">
+    <label style="margin-top:14px">Reason (min 10 chars)</label>
     <textarea id="rfReason" rows="4" style="width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:10px;font-family:inherit;font-size:14px;resize:vertical" placeholder="Stručně co se stalo…"></textarea>
     <div id="rfFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeRefund()">Zavřít</button>
-      <button class="btn" onclick="submitRefund()">Odeslat žádost</button>
+      <button class="btn muted" onclick="closeRefund()">Close</button>
+      <button class="btn" onclick="submitRefund()">Send request</button>
     </div>
   </div>
 </div>
 
 <div id="completeModal" onclick="if(event.target===this)closeComplete()">
   <div class="cm-card">
-    <h3>DOKONČIT REZERVACI</h3>
-    <p id="cmHint">Zadej, kolik klient zaplatil po odečtení zálohy. Můžeš rozdělit na hotovost / kartu na místě a doplatek přes InkLink (klient dostane mailem link na zaplacení kartou).</p>
-    <label>Doplatek na místě (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— hotově / karta mimo InkLink</span></label>
+    <h3>COMPLETE BOOKING</h3>
+    <p id="cmHint">Enter how much the client paid after the deposit. You can split between cash / card on-site and the balance via InkLink (client gets an email with a payment link).</p>
+    <label>On-site balance (CZK) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— cash / card outside InkLink</span></label>
     <input type="number" id="onsiteKc" min="0" placeholder="0">
-    <label style="margin-top:14px">Doplatek přes InkLink (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— pošleme klientovi link na platbu</span></label>
+    <label style="margin-top:14px">Balance via InkLink (CZK) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— we will send the client a payment link</span></label>
     <input type="number" id="balanceKc" min="0" placeholder="0">
     <div id="cmFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeComplete()">Zrušit</button>
-      <button class="btn" onclick="confirmComplete()">Označit jako dokončené</button>
+      <button class="btn muted" onclick="closeComplete()">Cancel</button>
+      <button class="btn" onclick="confirmComplete()">Mark as completed</button>
     </div>
   </div>
 </div>
@@ -260,13 +260,13 @@ let refundingBookingId = null, refundingMaxKc = 0;
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
-function fmtKc(cents){return cents ? `${(cents/100).toLocaleString('cs-CZ')} Kč` : '—';}
+function fmtKc(cents){return cents ? `${(cents/100).toLocaleString('cs-CZ')} CZK` : '—';}
 function statusLabel(s){return ({
-  pending_payment: 'ČEKÁ NA PLATBU',
+  pending_payment: 'AWAITING PAYMENT',
   confirmed:       'POTVRZENO',
-  completed:       'DOKONČENO',
-  cancelled_client:'ZRUŠENO KLIENTEM',
-  cancelled_artist:'ZRUŠENO TATÉREM',
+  completed:       'COMPLETED',
+  cancelled_client:'CANCELLED BY CLIENT',
+  cancelled_artist:'CANCELLED BY ARTIST',
   no_show:         'NEDORAZIL',
 })[s] || (s||'').toUpperCase();}
 
@@ -289,7 +289,7 @@ async function init() {
   if (demoMode) {
     const banner = document.createElement('div');
     banner.className = 'demo-banner';
-    banner.textContent = '⚠ Demo režim — Stripe ještě nepropojen, rezervace jsou jen evidované, žádná skutečná záloha se neúčtuje.';
+    banner.textContent = '⚠ Demo mode — Stripe not yet connected, bookings are just recorded, no real deposit is charged.';
     document.getElementById('content').insertBefore(banner, document.querySelector('.tabs'));
   }
   await loadRefundRequests();
@@ -348,13 +348,13 @@ function renderRow(b, view) {
   let refundHint = '';
   if (isCancellable && view === 'client') {
     const pct = hoursBefore >= 96 ? 100 : hoursBefore >= 48 ? 50 : 0;
-    refundHint = `<div class="b-money" style="margin-top:4px">Storno teď: refund ${pct}% (${pct === 100 ? 'zdarma' : pct === 50 ? '50% zpět' : 'záloha propadá'})</div>`;
+    refundHint = `<div class="b-money" style="margin-top:4px">Cancel now: refund ${pct}% (${pct === 100 ? 'free' : pct === 50 ? '50% back' : 'deposit forfeited'})</div>`;
   }
 
   let cancelInfo = '';
   if (b.status === 'cancelled_client' || b.status === 'cancelled_artist') {
     const pct = b.deposit_cents ? Math.round(b.refund_cents / b.deposit_cents * 100) : 0;
-    cancelInfo = `<div class="b-money">Zrušeno ${b.cancellation_actor === 'artist' ? 'tatérem' : 'klientem'} — refund ${pct}% (${fmtKc(b.refund_cents)})</div>`;
+    cancelInfo = `<div class="b-money">Cancelled by ${b.cancellation_actor === 'artist' ? 'artist' : 'client'} — refund ${pct}% (${fmtKc(b.refund_cents)})</div>`;
   }
 
   let onsiteInfo = '';
@@ -363,8 +363,8 @@ function renderRow(b, view) {
     const balKc    = b.balance_paid_cents || 0;
     if (onsiteKc || balKc) {
       const parts = [];
-      if (onsiteKc) parts.push(`na místě <b>${fmtKc(onsiteKc)}</b>`);
-      if (balKc)    parts.push(`přes InkLink <b>${fmtKc(balKc)}</b>`);
+      if (onsiteKc) parts.push(`on-site <b>${fmtKc(onsiteKc)}</b>`);
+      if (balKc)    parts.push(`via InkLink <b>${fmtKc(balKc)}</b>`);
       const totalKc = (b.deposit_cents || 0) + onsiteKc + balKc;
       onsiteInfo = `<div class="b-money">Doplatek: ${parts.join(' · ')} · celkem <b>${fmtKc(totalKc)}</b></div>`;
     }
@@ -378,22 +378,22 @@ function renderRow(b, view) {
       // ukázat existing review v řádku
       reviewBlock = renderReviewBlock(b.review, view, b.id);
       if (view === 'client') {
-        reviewCta = `<button class="btn muted" onclick="openReview(${b.id}, ${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Upravit ★</button>`;
+        reviewCta = `<button class="btn muted" onclick="openReview(${b.id}, ${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Edit ★</button>`;
       } else if (view === 'artist' && !b.review.response) {
-        reviewCta = `<button class="btn" onclick="openRespond(${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Odpovědět</button>`;
+        reviewCta = `<button class="btn" onclick="openRespond(${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Reply</button>`;
       }
     } else if (view === 'client') {
-      reviewCta = `<button class="btn" onclick="openReview(${b.id}, null, 0, '')">★ Napsat hodnocení</button>`;
+      reviewCta = `<button class="btn" onclick="openReview(${b.id}, null, 0, '')">★ Write a review</button>`;
     }
   }
 
   // platební režim badge
   let modeBadge = '';
   if (b.payment_mode === 'full') {
-    modeBadge = `<div class="b-money" style="color:#7fd391">✓ Zaplaceno celé předem (${fmtKc(b.deposit_cents)})</div>`;
+    modeBadge = `<div class="b-money" style="color:#7fd391">✓ Paid in full upfront (${fmtKc(b.deposit_cents)})</div>`;
   } else if (b.balance_due_cents > 0 && b.balance_paid_cents < b.balance_due_cents && b.status === 'completed') {
     const remaining = b.balance_due_cents - (b.balance_paid_cents || 0) - (b.onsite_amount_cents || 0);
-    if (remaining > 0) modeBadge = `<div class="b-money" style="color:#e8c87f">⚠ Zbývá doplatit ${fmtKc(remaining)}</div>`;
+    if (remaining > 0) modeBadge = `<div class="b-money" style="color:#e8c87f">⚠ ${fmtKc(remaining)} remaining</div>`;
   }
 
   // Klient: pokud tatér vystavil balance přes platformu a ještě není zaplaceno → CTA
@@ -405,16 +405,16 @@ function renderRow(b, view) {
       // čeká na zaplacení
       const remaining = charge - paid;
       payCta = `<a class="btn" href="/balance-pay/${b.id}" style="background:var(--red2);color:var(--bg);text-decoration:none">Zaplatit doplatek ${fmtKc(remaining)}</a>`;
-      modeBadge += `<div class="b-money" style="color:#e8c87f">⚠ Tatér ti vystavil doplatek ${fmtKc(remaining)} přes InkLink</div>`;
+      modeBadge += `<div class="b-money" style="color:#e8c87f">⚠ Artist sent you a ${fmtKc(remaining)} balance via InkLink</div>`;
     } else if (paid > 0) {
-      modeBadge += `<div class="b-money" style="color:#7fd391">✓ Doplatek přes InkLink zaplacen (${fmtKc(paid)})</div>`;
+      modeBadge += `<div class="b-money" style="color:#7fd391">✓ InkLink balance paid (${fmtKc(paid)})</div>`;
     }
   }
 
   // Klient: pending_payment booking se Stripe PI → Zaplatit zálohu
   if (view === 'client' && b.status === 'pending_payment' && b.stripe_payment_intent_id) {
     const depAmount = b.payment_mode === 'full' ? (b.total_price_cents || b.deposit_cents) : b.deposit_cents;
-    payCta = `<a class="btn" href="/pay/${b.id}" style="background:var(--red2);color:var(--bg);text-decoration:none">Zaplatit zálohu ${fmtKc(depAmount)}</a>` + (payCta ? ' ' + payCta : '');
+    payCta = `<a class="btn" href="/pay/${b.id}" style="background:var(--red2);color:var(--bg);text-decoration:none">Pay deposit ${fmtKc(depAmount)}</a>` + (payCta ? ' ' + payCta : '');
   }
 
   // ── REFUND REQUEST block + button ─────────────────────────────────────
@@ -427,8 +427,8 @@ function renderRow(b, view) {
       refundBlock = `<div class="b-money" style="color:#e8c87f">⏳ Žádost o refund ${amt} — čeká na vyjádření tatéra</div>`;
       if (view === 'artist') {
         refundCta = `
-          <button class="btn" onclick="decideRefund(${rr.id}, 'approve')">Schválit refund</button>
-          <button class="btn danger" onclick="decideRefund(${rr.id}, 'reject')">Zamítnout</button>`;
+          <button class="btn" onclick="decideRefund(${rr.id}, 'approve')">Approve refund</button>
+          <button class="btn danger" onclick="decideRefund(${rr.id}, 'reject')">Reject</button>`;
       }
     } else if (rr.status === 'approved') {
       refundBlock = `<div class="b-money" style="color:#7fd391">✓ Refund ${amt} schválen${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
@@ -444,7 +444,7 @@ function renderRow(b, view) {
   if (refundable) {
     const maxKc = Math.max(0, Math.floor(((b.deposit_cents || 0) + (b.balance_paid_cents || 0) - (b.refund_cents || 0)) / 100));
     if (maxKc > 0) {
-      refundCta = `<button class="btn muted" onclick="openRefund(${b.id}, ${maxKc})">Vrátit peníze</button>`;
+      refundCta = `<button class="btn muted" onclick="openRefund(${b.id}, ${maxKc})">Refund</button>`;
     }
   }
 
@@ -462,15 +462,15 @@ function renderRow(b, view) {
           <span><b>${escapeHtml(other.display_name)}</b><span style="color:var(--txt3)"> · @${escapeHtml(other.username)}</span></span>
         </a>
         ${b.design_note ? `<div class="b-note">${escapeHtml(b.design_note)}</div>` : ''}
-        <div class="b-money">${b.payment_mode === 'full' ? 'Plná platba' : 'Záloha'} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · provize ${fmtKc(b.platform_fee_cents)}`:''}</div>
+        <div class="b-money">${b.payment_mode === 'full' ? 'Full payment' : 'Deposit'} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · provize ${fmtKc(b.platform_fee_cents)}`:''}</div>
         ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${refundBlock}${reviewBlock}
       </div>
       <div class="b-actions">
         <span class="b-status ${b.status}">${statusLabel(b.status)}</span>
         ${payCta}
-        ${isEditable ? `<button class="btn muted" onclick='openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>Upravit</button>` : ''}
-        ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">Zrušit</button>` : ''}
-        ${canComplete ? `<button class="btn" onclick="openComplete(${b.id})">Označit dokončené</button>` : ''}
+        ${isEditable ? `<button class="btn muted" onclick='openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>Edit</button>` : ''}
+        ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">Cancel</button>` : ''}
+        ${canComplete ? `<button class="btn" onclick="openComplete(${b.id})">Mark completed</button>` : ''}
         ${reviewCta}
         ${refundCta}
       </div>
@@ -484,7 +484,7 @@ function openRefund(bookingId, maxKc) {
   document.getElementById('rfAmount').max = maxKc;
   document.getElementById('rfReason').value = '';
   document.getElementById('rfFlash').innerHTML = '';
-  document.getElementById('rfMaxLine').textContent = `Max k vrácení: ${maxKc.toLocaleString('cs-CZ')} Kč`;
+  document.getElementById('rfMaxLine').textContent = `Max refundable: ${maxKc.toLocaleString('cs-CZ')} CZK`;
   document.getElementById('refundModal').classList.add('show');
   setTimeout(() => document.getElementById('rfReason').focus(), 30);
 }
@@ -500,7 +500,7 @@ async function submitRefund() {
   const flash = document.getElementById('rfFlash');
   const reason = document.getElementById('rfReason').value.trim();
   if (reason.length < 10) {
-    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Důvod musí mít alespoň 10 znaků.</div>';
+    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Reason must be at least 10 characters.</div>';
     return;
   }
   const amountStr = document.getElementById('rfAmount').value.trim();
@@ -508,7 +508,7 @@ async function submitRefund() {
   if (amountStr) {
     const v = parseFloat(amountStr);
     if (!v || v <= 0 || v > refundingMaxKc) {
-      flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Částka mimo rozsah (1–${refundingMaxKc} Kč).</div>`;
+      flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Amount out of range (1–${refundingMaxKc} CZK).</div>`;
       return;
     }
     body.amount_kc = v;
@@ -520,7 +520,7 @@ async function submitRefund() {
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${j.error || 'Žádost se nepodařilo odeslat'}</div>`;
+    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${j.error || 'Failed to send request'}</div>`;
     return;
   }
   closeRefund();
@@ -531,9 +531,9 @@ async function submitRefund() {
 async function decideRefund(rid, decision) {
   let note = '';
   if (decision === 'reject') {
-    note = prompt('Důvod zamítnutí (volitelně, klient ho uvidí):') || '';
+    note = prompt('Reason for rejection (optional, client will see it):') || '';
   } else {
-    if (!confirm('Schválit refund? Stripe vrátí peníze klientovi a tahle akce už nejde vrátit.')) return;
+    if (!confirm('Approve refund? Stripe will return the money to the client and this action cannot be undone.')) return;
   }
   const r = await fetch(`/api/refund-requests/${rid}/decide`, {
     method: 'POST',
@@ -550,15 +550,15 @@ async function decideRefund(rid, decision) {
 }
 
 async function cancelBooking(id) {
-  if (!confirm('Opravdu zrušit rezervaci? Refund se spočítá podle pravidel storna.')) return;
+  if (!confirm('Really cancel this booking? Refund will be calculated by cancellation rules.')) return;
   const r = await fetch(`/api/bookings/${id}/cancel`, {method:'POST'});
   if (r.ok) {
     const j = await r.json();
-    alert(`Rezervace zrušena. ${j.hours_before > 0 ? `${Math.round(j.hours_before)} h před termínem` : 'po termínu'} → refund ${j.refund_pct}%.`);
+    alert(`Booking cancelled. ${j.hours_before > 0 ? `${Math.round(j.hours_before)} h before appointment` : 'after appointment'} → refund ${j.refund_pct}%.`);
     await Promise.all([loadClient(), loadArtist()]);
   } else {
     const j = await r.json().catch(() => ({}));
-    alert(j.error || 'Zrušení selhalo');
+    alert(j.error || 'Cancellation failed');
   }
 }
 
@@ -585,8 +585,8 @@ function openEditBook(booking, view) {
   const isArtist = view === 'artist';
   document.getElementById('ebmTitle').textContent = isArtist ? 'UPRAVIT REZERVACI' : 'UPRAVIT POPIS';
   document.getElementById('ebmHint').innerHTML = isArtist
-    ? 'Můžeš přesunout termín v rámci svého bloku, změnit délku nebo upravit popis. Klient dostane notifikaci.'
-    : 'Klient může upravit jen <b>popis tetování</b>. Pokud potřebuješ přesunout termín, domluv se s tatérem (přes zprávy) — termín může změnit jen on.';
+    ? 'You can move the appointment within your slot, change duration or edit description. Client will be notified.'
+    : 'Clients can only edit the <b>tattoo description</b>. To move the appointment, message the artist — only they can change the time.';
   document.getElementById('ebmNote').value = booking.design_note || '';
   document.getElementById('ebmFlash').innerHTML = '';
 
@@ -600,9 +600,9 @@ function openEditBook(booking, view) {
     const sizeSel = document.getElementById('ebmSize');
     const cur = booking.duration_hours || 1;
     sizeSel.innerHTML = `<option value="">— ponechat ${cur} h —</option>`
-      + [{key:'mini',h:1,l:'Mini (1 h)'},{key:'small',h:2,l:'Malé (2 h)'},
-         {key:'medium',h:3,l:'Středně (3 h)'},{key:'large',h:5,l:'Velké (5 h)'},
-         {key:'xl',h:8,l:'Celý den (8 h)'}]
+      + [{key:'mini',h:1,l:'Mini (1 h)'},{key:'small',h:2,l:'Small (2 h)'},
+         {key:'medium',h:3,l:'Medium (3 h)'},{key:'large',h:5,l:'Large (5 h)'},
+         {key:'xl',h:8,l:'Full day (8 h)'}]
         .map(s => `<option value="${s.key}">${s.l}</option>`).join('');
   } else {
     tf.style.display = 'none';
@@ -723,7 +723,7 @@ async function submitReview() {
 
 async function deleteReview() {
   if (!reviewExistingId) return;
-  if (!confirm('Smazat své hodnocení?')) return;
+  if (!confirm('Delete your rating?')) return;
   const r = await fetch(`/api/reviews/${reviewExistingId}`, {method:'DELETE'});
   if (r.ok) { closeReview(); await loadClient(); }
   else alert((await r.json()).error || 'Selhalo');
@@ -778,15 +778,15 @@ async function confirmComplete() {
   }
   const j = await r.json();
   if (j.balance_charge && j.balance_charge.error) {
-    document.getElementById('cmFlash').innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Doplatek přes InkLink selhal: ${j.balance_charge.error}</div>`;
+    document.getElementById('cmFlash').innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">InkLink balance failed: ${j.balance_charge.error}</div>`;
     return;
   }
   closeComplete();
   await loadArtist();
   if (j.balance_charge && j.balance_charge.demo_mode) {
-    alert('Hotovo. Doplatek přes InkLink se v demo módu (bez Stripe) označil rovnou jako zaplacený.');
+    alert('Done. In demo mode (no Stripe) the InkLink balance was marked as paid immediately.');
   } else if (j.balance_charge && j.balance_charge.payment_url) {
-    alert('Hotovo. Klientovi jsme poslali e-mail s linkem na zaplacení doplatku.');
+    alert('Done. We sent the client an email with a payment link.');
   }
 }
 
@@ -800,7 +800,7 @@ async function showCalendarSubscribe() {
     document.getElementById('calSubUrl').value = d.subscribe_url;
     box.style.display = 'block';
   } catch (e) {
-    alert('Nepodařilo se získat subscribe URL.');
+    alert('Failed to get subscribe URL.');
   }
 }
 
@@ -809,20 +809,20 @@ function copyCalSubUrl() {
   el.select();
   try {
     navigator.clipboard.writeText(el.value);
-    alert('URL zkopírována.');
+    alert('URL copied.');
   } catch {}
 }
 
 async function regenerateCalToken() {
-  if (!confirm('Vygenerovat nový token? Stará subscribe URL přestane fungovat — musíš ji v kalendáři nahradit.')) return;
+  if (!confirm('Generate a new token? Old subscribe URL will stop working — you will need to replace it in your calendar.')) return;
   try {
     const r = await fetch('/api/me/calendar-token', {method:'POST'});
     if (!r.ok) throw new Error();
     const d = await r.json();
     document.getElementById('calSubUrl').value = d.subscribe_url;
-    alert('Nový token vygenerován. Aktualizuj subscribe URL v kalendáři.');
+    alert('New token generated. Update subscribe URL in your calendar.');
   } catch {
-    alert('Nepodařilo se regenerovat token.');
+    alert('Failed to regenerate token.');
   }
 }
 

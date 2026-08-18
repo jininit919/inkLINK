@@ -147,26 +147,26 @@
     const onFeed = location.pathname === '/' || location.pathname === '/feed';
 
     // Center slot — role-aware primary CTA:
-    //   Tatér:  + Přidat  (opens add-portfolio modal on feed, else artist-setup)
-    //   Klient: 🔍 Hledat (opens search overlay on feed, else deep-link /?search=1)
+    //   Artist: + Add    (opens add-portfolio modal on feed, else artist-setup)
+    //   Client: 🔍 Search (opens search overlay on feed, else deep-link /?search=1)
     let centerItem;
     if (isArtist) {
       const useAddModal = onFeed && typeof window.openAddPortfolio === 'function';
       centerItem = useAddModal
-        ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' }
-        : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Přidat', primary: true, aria: 'Přidat sketch nebo healed' };
+        ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Add', primary: true, aria: 'Add sketch or healed' }
+        : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Add', primary: true, aria: 'Add sketch or healed' };
     } else {
       centerItem = onFeed && typeof window.openSearchOverlay === 'function'
-        ? { onclick: 'window.openSearchOverlay()', ico: 'i-search', lbl: 'Hledat', primary: true, aria: 'Hledat tatéra' }
-        : { href: '/?search=1',                   ico: 'i-search', lbl: 'Hledat', primary: true, aria: 'Hledat tatéra' };
+        ? { onclick: 'window.openSearchOverlay()', ico: 'i-search', lbl: 'Search', primary: true, aria: 'Search artists' }
+        : { href: '/?search=1',                   ico: 'i-search', lbl: 'Search', primary: true, aria: 'Search artists' };
     }
 
     return [
       { href: '/',         ico: 'i-home',    lbl: 'Feed' },
-      { href: '/liked',    ico: 'i-heart',   lbl: 'Lajknuté' },
+      { href: '/liked',    ico: 'i-heart',   lbl: 'Liked' },
       centerItem,
-      { href: '/messages', ico: 'i-message', lbl: 'Zprávy', badgeId: 'il-mnav-msg-badge' },
-      { href: profileHref, ico: 'i-user',    lbl: me ? 'Profil' : 'Přihlásit', dotId: 'il-mnav-profile-dot' },
+      { href: '/messages', ico: 'i-message', lbl: 'Messages', badgeId: 'il-mnav-msg-badge' },
+      { href: profileHref, ico: 'i-user',    lbl: me ? 'Profile' : 'Sign in', dotId: 'il-mnav-profile-dot' },
     ];
   }
 
@@ -180,7 +180,7 @@
       nav.id = 'il-mnav-root';
       nav.className = 'il-mnav';
       nav.setAttribute('role', 'navigation');
-      nav.setAttribute('aria-label', 'Hlavní navigace');
+      nav.setAttribute('aria-label', 'Main navigation');
       document.body.appendChild(nav);
     }
     nav.innerHTML = `<div class="il-mnav-grid">${items.map(renderItem).join('')}</div>`;

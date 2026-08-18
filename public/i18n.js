@@ -6,7 +6,7 @@
 (function () {
   const STORE_KEY = 'il_lang';
   const SUPPORTED = ['cs', 'en'];
-  const FALLBACK = 'cs';
+  const FALLBACK = 'en';
 
   // ── Dictionary ───────────────────────────────────────────────────────────────
   const STRINGS = {
@@ -511,10 +511,11 @@
 
   // ── Core ─────────────────────────────────────────────────────────────────────
   function detect() {
+    // English by default for all new users — international-first.
+    // Users can toggle to Czech via the language switcher; choice persists.
     const saved = localStorage.getItem(STORE_KEY);
     if (saved && SUPPORTED.includes(saved)) return saved;
-    const browser = ((navigator.language || FALLBACK).slice(0, 2)).toLowerCase();
-    return SUPPORTED.includes(browser) ? browser : FALLBACK;
+    return FALLBACK;
   }
 
   let lang = detect();

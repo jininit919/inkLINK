@@ -209,9 +209,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Kalendář"><svg class="icon"><use href="#i-calendar"/></svg></a>
-  <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
-  <a class="nav-icon" id="setupLink" href="/artist-setup" title="Editovat profil" style="display:none"><svg class="icon"><use href="#i-settings"/></svg></a>
+  <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Calendar"><svg class="icon"><use href="#i-calendar"/></svg></a>
+  <a class="nav-icon" href="/messages" title="Messages"><svg class="icon"><use href="#i-message"/></svg></a>
+  <a class="nav-icon" id="setupLink" href="/artist-setup" title="Edit profile" style="display:none"><svg class="icon"><use href="#i-settings"/></svg></a>
 </nav>
 <script src="/notifs.js?v=5"></script>
 <script src="/mobile-nav.js?v=14"></script>
@@ -219,7 +219,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <div class="wrap">
-  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Načítám profil…</div>
+  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Loading profil…</div>
   <div id="profile" style="display:none">
     <div class="head">
       <div class="avatar" id="avatar">??</div>
@@ -241,8 +241,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
     <div class="tabs">
       <div class="tab active" data-tab="portfolio">Portfolio <span id="portfolioCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
-      <div class="tab" data-tab="slots" id="slotsTab">Kalendář <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
-      <div class="tab" data-tab="reviews" id="reviewsTab">Recenze <span id="reviewsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="slots" id="slotsTab">Calendar <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="reviews" id="reviewsTab">Reviews <span id="reviewsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
     </div>
 
     <div id="tab-portfolio">
@@ -258,18 +258,18 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div id="tab-reviews" style="display:none">
       <div id="reviewsHead" style="margin-bottom:18px;font-size:13px;color:var(--txt2);letter-spacing:0.04em"></div>
       <div class="review-list" id="reviews"></div>
-      <div class="empty" id="reviewsEmpty" style="display:none">Recenze se tu objeví po prvním dokončeném sezení.</div>
+      <div class="empty" id="reviewsEmpty" style="display:none">Reviews will appear here after the first completed session.</div>
     </div>
 
     <div id="similarBlock" style="display:none;margin-top:60px;border-top:1px solid var(--border);padding-top:32px">
-      <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:18px">Podobní tatéři</div>
+      <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.18em;color:var(--red2);margin-bottom:18px">Similar artists</div>
       <div id="similarList" class="similar-grid"></div>
     </div>
   </div>
 </div>
 
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
-  <button id="lightbox-close" onclick="closeLightbox()" aria-label="Zavřít">×</button>
+  <button id="lightbox-close" onclick="closeLightbox()" aria-label="Close">×</button>
   <button id="lb-prev" class="lb-arrow" onclick="lbPrev()" aria-label="Předchozí">◀</button>
   <img id="lightbox-img" src="">
   <button id="lb-next" class="lb-arrow" onclick="lbNext()" aria-label="Další">▶</button>
@@ -278,7 +278,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <div id="bookModal" onclick="if(event.target===this)closeBook()">
   <div class="book-card">
-    <h3>REZERVOVAT</h3>
+    <h3>BOOK</h3>
     <div class="when" id="bm-when"></div>
     <div class="price" id="bm-price"></div>
     <div id="bm-flash"></div>
@@ -308,8 +308,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
     <div class="deposit-info" id="bm-deposit"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeBook()">Zrušit</button>
-      <button class="btn" id="bm-submit" onclick="submitBook()">Potvrdit rezervaci</button>
+      <button class="btn muted" onclick="closeBook()">Cancel</button>
+      <button class="btn" id="bm-submit" onclick="submitBook()">Confirm rezervaci</button>
     </div>
   </div>
 </div>
@@ -392,7 +392,7 @@ async function load() {
 }
 
 function showBookFallback(messageHTML, item) {
-  // Plain overlay modal — vysvětlí proč to nešlo a nabídne "Napsat zprávu"
+  // Plain overlay modal — vysvětlí proč to nešlo a nabídne "Send message"
   const itemBlurb = item ? `<div style="margin:14px 0;padding:10px 12px;border:1px solid var(--border2);background:var(--bg3);font-size:11px;letter-spacing:0.04em;color:var(--txt2)"><b>${escapeHtml(item.caption || 'Sketch')}</b>${item.price_kc?` · ${(+item.price_kc).toLocaleString('cs-CZ')} Kč`:''}${item.estimated_hours?` · ${item.estimated_hours} h`:''}</div>` : '';
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,16,8,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'Helvetica Neue\',\'Helvetica\',\'Arial\',sans-serif';
@@ -402,8 +402,8 @@ function showBookFallback(messageHTML, item) {
       <div style="font-size:13px;color:var(--txt2);line-height:1.6">${messageHTML}</div>
       ${itemBlurb}
       <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
-        <button class="btn" data-act="msg" style="flex:1">Napsat zprávu</button>
-        <button class="btn" data-act="close" style="flex:1;background:transparent;border:1px solid var(--border3);color:var(--txt2)">Zavřít</button>
+        <button class="btn" data-act="msg" style="flex:1">Send message</button>
+        <button class="btn" data-act="close" style="flex:1;background:transparent;border:1px solid var(--border3);color:var(--txt2)">Close</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -499,15 +499,15 @@ function render() {
   const actions = document.getElementById('actions');
   actions.innerHTML = '';
   if (profile.is_own) {
-    let btns = `<a class="btn" href="/artist-setup">Editovat profil</a>`;
+    let btns = `<a class="btn" href="/artist-setup">Edit profile</a>`;
     if (profile.is_artist) {
-      btns += ` <button class="btn muted" type="button" onclick="shareMyLink('${profile.username.replace(/'/g, "\\'")}', this)">Sdílet odkaz</button>`;
+      btns += ` <button class="btn muted" type="button" onclick="shareMyLink('${profile.username.replace(/'/g, "\\'")}', this)">Share link</button>`;
     }
     actions.innerHTML = btns;
     document.getElementById('setupLink').style.display = 'flex';
   } else if (me) {
     actions.innerHTML = `
-      <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? 'Sleduješ' : 'Sledovat'}</button>
+      <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? 'Following' : 'Follow'}</button>
       <a class="btn muted" href="/messages?to=${encodeURIComponent(profile.username)}">Zpráva</a>
     `;
   } else {
@@ -533,7 +533,7 @@ function render() {
         <div class="tile-overlay">
           <div class="tile-meta">${escapeHtml(p.caption || '')}</div>
         </div>
-        ${canBookThis ? `<button class="tile-bookbtn" onclick="event.stopPropagation();bookPortfolioItem(${p.id})">Rezervovat tento návrh</button>` : ''}
+        ${canBookThis ? `<button class="tile-bookbtn" onclick="event.stopPropagation();bookPortfolioItem(${p.id})">Book tento návrh</button>` : ''}
       </div>`;
     }).join('');
   }
@@ -564,8 +564,8 @@ function render() {
         </div>
         <div class="slot-book">
           ${profile.is_own
-            ? `<button class="btn muted" onclick="deleteSlot(${s.id})">Smazat</button>`
-            : `<button class="btn" ${(profile.can_book || true) && !isFull ? '' : 'disabled'} ${isFull?'title="Blok je plně obsazený"':''} onclick="bookSlot(${s.id})">${isFull ? 'Obsazeno' : 'Rezervovat'}</button>`}
+            ? `<button class="btn muted" onclick="deleteSlot(${s.id})">Delete</button>`
+            : `<button class="btn" ${(profile.can_book || true) && !isFull ? '' : 'disabled'} ${isFull?'title="Blok je plně obsazený"':''} onclick="bookSlot(${s.id})">${isFull ? 'Obsazeno' : 'Book'}</button>`}
         </div>
       </div>`;
     }).join('');
@@ -693,7 +693,7 @@ async function reportReview(rid, btn) {
       btn.style.color = 'var(--txt3)';
     } else {
       btn.disabled = false;
-      alert(d.error || 'Nepodařilo se nahlásit.');
+      alert(d.error || 'Failed nahlásit.');
     }
   } catch {
     btn.disabled = false;
@@ -754,15 +754,15 @@ async function toggleFollow() {
   const r = await fetch(`/api/follow/${profile.id}`, {method:'POST'}).then(r=>r.json()).catch(()=>null);
   if (r) {
     profile.is_following = r.following;
-    document.getElementById('followBtn').textContent = r.following ? 'Sleduješ' : 'Sledovat';
+    document.getElementById('followBtn').textContent = r.following ? 'Following' : 'Follow';
   }
 }
 
 async function deleteSlot(id) {
-  if (!confirm('Smazat termín?')) return;
+  if (!confirm('Delete termín?')) return;
   const r = await fetch(`/api/slots/${id}`, {method:'DELETE'});
   if (r.ok) { profile.slots = profile.slots.filter(s => s.id !== id); render(); }
-  else { alert((await r.json()).error || 'Nepodařilo se smazat'); }
+  else { alert((await r.json()).error || 'Failed smazat'); }
 }
 
 let pendingSlot = null;
@@ -810,7 +810,7 @@ function freeStartTimes(slot, durationH) {
 }
 
 function freeHoursTotal(slot) {
-  // hrubý odhad zbývajících hodin v bloku (pro UI badge)
+  // hrubý odhad zbývajících hours v bloku (pro UI badge)
   const total = (new Date(slot.end_at) - new Date(slot.start_at)) / 36e5;
   const occ = (slot.occupied || []).reduce((sum, o) =>
     sum + (new Date(o.end_at) - new Date(o.start_at)) / 36e5, 0);
@@ -849,9 +849,9 @@ async function bookSlot(id, portfolioItem = null) {
       <div style="grid-column:1/-1;padding:14px;border:1px solid var(--red2);background:var(--bg3);font-size:12px;color:var(--txt);letter-spacing:0.04em;line-height:1.5">
         <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.15em;color:var(--red2);margin-bottom:6px">📌 REZERVUJEŠ KONKRÉTNÍ NÁVRH</div>
         <b>${escapeHtml(portfolioItem.caption || 'Návrh')}</b><br>
-        Délka: <b>${lockedH} h</b> · Cena: <b>${(+portfolioItem.price_kc).toLocaleString('cs-CZ')} Kč fixně</b> (přepíše hodinovou sazbu)
+        Délka: <b>${lockedH} h</b> · Cena: <b>${(+portfolioItem.price_kc).toLocaleString('cs-CZ')} Kč fixně</b> (přepíše hoursovou sazbu)
       </div>`;
-    document.getElementById('bm-note').value = `Rezervace na návrh: ${portfolioItem.caption || ''}\n\n`;
+    document.getElementById('bm-note').value = `Booking na návrh: ${portfolioItem.caption || ''}\n\n`;
     if (lockedH > free + 0.01) {
       document.getElementById('bm-starts').innerHTML = '<span class="no-slots">Pro tento návrh není v bloku dost volného místa.</span>';
     } else {
@@ -1071,7 +1071,7 @@ async function submitBook() {
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    const msg = escapeHtml(j.error || 'Rezervace selhala');
+    const msg = escapeHtml(j.error || 'Booking selhala');
     const username = profile && profile.username ? escapeHtml(profile.username) : '';
     document.getElementById('bm-flash').innerHTML =
       `<div class="flash-modal err" style="line-height:1.6">
@@ -1086,13 +1086,13 @@ async function submitBook() {
   // Live mode with deposit PI ready → redirect to Stripe Elements page
   if (j.payment && j.payment.mode === 'live' && j.payment.payment_url) {
     document.getElementById('bm-flash').innerHTML =
-      `<div class="flash-modal ok">Rezervace vytvořena ✓ Přesměrovávám na platbu…</div>`;
+      `<div class="flash-modal ok">Booking vytvořena ✓ Přesměrovávám na platbu…</div>`;
     setTimeout(() => location.href = j.payment.payment_url, 600);
     return;
   }
   // Demo mode or live without PI (legacy)
   document.getElementById('bm-flash').innerHTML =
-    `<div class="flash-modal ok">Rezervace vytvořena ✓ ${j.demo_mode ? '(demo režim — bez reálné platby)' : ''}</div>`;
+    `<div class="flash-modal ok">Booking vytvořena ✓ ${j.demo_mode ? '(demo režim — bez reálné platby)' : ''}</div>`;
   setTimeout(() => location.href = '/my-bookings', 900);
 }
 

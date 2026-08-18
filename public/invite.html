@@ -48,7 +48,7 @@ nav{background:rgba(250,248,243,0.92);border-bottom:1px solid var(--border);disp
 </nav>
 
 <div class="center" id="root">
-  <div style="color:var(--txt3)" data-i18n="invite.loading">Načítám pozvánku…</div>
+  <div style="color:var(--txt3)" data-i18n="invite.loading">Loading pozvánku…</div>
 </div>
 
 <script src="/i18n.js?v=1"></script>
@@ -78,7 +78,7 @@ async function load(){
     const data = await r.json();
     render(data);
   } catch(e){
-    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.loadError">Nepodařilo se načíst pozvánku.</div></div>`;
+    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.loadError">Failed načíst pozvánku.</div></div>`;
     window.applyI18n && window.applyI18n();
   }
 }
