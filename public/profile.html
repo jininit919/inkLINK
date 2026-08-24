@@ -363,7 +363,7 @@ async function load() {
       // Sketch nemá kompletní data → nemůžeme rezervovat, ale dáme možnost napsat tatérovi
       const missing = !item.price_kc ? 'cena' : 'odhad času';
       showBookFallback(
-        `Tento sketch zatím nemá vyplněný <b>${missing}</b>, takže ho nelze rezervovat přímo. Napiš tatérovi a domluvte se na detailech.`,
+        `Tento sketch zatím nemá vyplněný <b>${missing}</b>, takže ho nelze rezervovat přímo. Message the artist a domluvte se na detailech.`,
         item
       );
     } else {
@@ -896,7 +896,7 @@ function bookPortfolioItem(itemId) {
   if (!item) return;
   if (!item.price_kc || !item.estimated_hours) {
     const missing = !item.price_kc ? 'cena' : 'odhad času';
-    showBookFallback(`Tento sketch zatím nemá vyplněný <b>${missing}</b>. Napiš tatérovi a domluvte se na detailech.`, item);
+    showBookFallback(`Tento sketch zatím nemá vyplněný <b>${missing}</b>. Message the artist a domluvte se na detailech.`, item);
     return;
   }
   // najdi blok s dostatečným volným časem
@@ -1050,7 +1050,7 @@ async function submitBook() {
     document.getElementById('bm-flash').innerHTML = '<div class="flash-modal err">Vyber čas začátku.</div>'; return;
   }
   if (!note) {
-    document.getElementById('bm-flash').innerHTML = '<div class="flash-modal err">Napiš tatérovi co chceš.</div>'; return;
+    document.getElementById('bm-flash').innerHTML = '<div class="flash-modal err">Message the artist co chceš.</div>'; return;
   }
   const btn = document.getElementById('bm-submit');
   btn.disabled = true;

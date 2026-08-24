@@ -79,31 +79,31 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-back" href="/"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:5px"><use href="#i-arrow-left"/></svg>zpět</a>
+  <a class="nav-back" href="/"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:5px"><use href="#i-arrow-left"/></svg>back</a>
 </nav>
 
 <div class="wrap">
   <div id="content" style="display:none">
     <div class="head">
       <h1 class="title">Admin</h1>
-      <span class="sub">InkLink ovládací panel</span>
+      <span class="sub">InkLink control panel</span>
     </div>
 
     <div class="kpi-grid" id="kpiGrid"></div>
 
     <div class="section">
-      <div class="section-title">Top tatéři podle revenue</div>
+      <div class="section-title">Top artists by revenue</div>
       <div class="tbl" id="topArtists"></div>
     </div>
 
     <div class="section">
-      <div class="section-title">Posledních 10 rezervací</div>
+      <div class="section-title">Last 10 bookings</div>
       <div class="tbl" id="recentBookings"></div>
     </div>
 
     <div class="section">
       <div class="section-title">
-        Nahlášené recenze
+        Reported reviews
         <span class="sub" id="reportsCount"></span>
       </div>
       <div id="reportsList"></div>
@@ -113,19 +113,19 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div class="section" id="pricingSection">
       <div class="section-title">
         Pricing engine — KPIs
-        <span class="sub" id="kpiRangeLabel">posledních 30 dní</span>
+        <span class="sub" id="kpiRangeLabel">last 30 days</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
         <label>Od <input type="date" id="kpiStart" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px"></label>
         <label>Do <input type="date" id="kpiEnd" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px"></label>
         <label>Tier
           <select id="kpiTier" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px">
-            <option value="">vše</option>
+            <option value="">all</option>
             <option value="founding">founding</option>
             <option value="standard">standard</option>
           </select>
         </label>
-        <button onclick="loadKpis()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">Načíst</button>
+        <button onclick="loadKpis()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">Load</button>
       </div>
       <div class="kpi-grid" id="kpiPricingGrid"></div>
     </div>
@@ -134,9 +134,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div class="section">
       <div class="section-title">Discount kódy (MANUAL_PROMO)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
-        <input type="text" id="newCode" placeholder="KÓD (např. SPRING25)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;text-transform:uppercase">
+        <input type="text" id="newCode" placeholder="CODE (e.g. SPRING25)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;text-transform:uppercase">
         <input type="number" id="newAmount" placeholder="Kč" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:90px">
-        <input type="number" id="newMaxUses" placeholder="max použití" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:120px">
+        <input type="number" id="newMaxUses" placeholder="max uses" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:120px">
         <input type="date" id="newExpires" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px">
         <button onclick="createCode()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">+ Vytvořit</button>
       </div>
@@ -151,22 +151,22 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
     <!-- ── Referrals leaderboard ───────────────────────────────────────── -->
     <div class="section">
-      <div class="section-title">Referrals — top pozvávači</div>
+      <div class="section-title">Referrals — top inviters</div>
       <div class="tbl" id="referralsLeaderboard"></div>
     </div>
 
     <!-- ── Telemetry events feed ──────────────────────────────────────── -->
     <div class="section">
-      <div class="section-title">Telemetry events <span class="sub">posledních 50</span></div>
+      <div class="section-title">Telemetry events <span class="sub">last 50</span></div>
       <div class="tbl" id="telemetryFeed"></div>
     </div>
   </div>
 
   <div id="needAdmin" style="display:none">
     <div class="empty">
-      <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:24px;letter-spacing:0.16em;color:var(--bad);margin-bottom:10px">PŘÍSTUP ZAMÍTNUT</div>
-      Tato stránka je jen pro adminy.<br>
-      <a href="/" style="color:var(--red2);text-decoration:underline">Zpět na feed</a>
+      <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:24px;letter-spacing:0.16em;color:var(--bad);margin-bottom:10px">ACCESS DENIED</div>
+      This page is admin-only.<br>
+      <a href="/" style="color:var(--red2);text-decoration:underline">Back to feed</a>
     </div>
   </div>
 
@@ -453,7 +453,7 @@ async function loadCodes(){
           <td style="text-align:center">${c.used_count}${c.max_uses ? '/'+c.max_uses : ''}</td>
           <td style="text-align:center">${c.expires_at ? fmtDate(c.expires_at) : '—'}</td>
           <td style="text-align:center">${c.active ? '<span style="color:#7fd391">aktivní</span>' : '<span style="color:var(--txt3)">deaktivován</span>'}</td>
-          <td style="text-align:right">${c.active ? `<button onclick="deactivateCode(${c.id})" style="background:none;border:1px solid var(--border2);color:var(--txt2);padding:4px 8px;cursor:pointer;font-size:11px;border-radius:5px">deaktivovat</button>` : ''}</td>
+          <td style="text-align:right">${c.active ? `<button onclick="deactivateCode(${c.id})" style="background:none;border:1px solid var(--border2);color:var(--txt2);padding:4px 8px;cursor:pointer;font-size:11px;border-radius:5px">deactivate</button>` : ''}</td>
         </tr>
       `).join('')}
       </tbody>
