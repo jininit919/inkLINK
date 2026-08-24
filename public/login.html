@@ -14,10 +14,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <link rel="preload" href="/theme.css" as="style">
 <link rel="preload" href="/img/inklink-logo.png" as="image">
-<title>InkLink — Přihlášení</title>
-<meta name="description" content="Přihlaš se nebo si založ účet na InkLinku — najdi tatéra, rezervuj termín, plať bezpečně.">
+<title>InkLink — Sign in</title>
+<meta name="description" content="Sign in or create your InkLink account — find an artist, book an appointment, pay safely.">
 <meta property="og:title" content="InkLink — Tattoo Booking Network">
-<meta property="og:description" content="Najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.">
+<meta property="og:description" content="Find an artist, browse portfolios, book with a deposit.">
 <meta property="og:image" content="https://inklink.app/icons/icon-512.png">
 <meta name="robots" content="noindex">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
@@ -173,7 +173,7 @@ async function doLogin(e) {
   hideError('loginError');
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
-  btn.textContent = 'PŘIHLAŠUJI…';
+  btn.textContent = 'SIGNING IN…';
 
   const res = await fetch('/api/login', {
     method: 'POST',
@@ -188,9 +188,9 @@ async function doLogin(e) {
   if (data.ok) {
     window.location.href = '/';
   } else {
-    showError('loginError', data.error || 'Přihlášení selhalo');
+    showError('loginError', data.error || 'Sign in failed');
     btn.disabled = false;
-    btn.textContent = 'PŘIHLÁSIT';
+    btn.textContent = 'SIGN IN';
   }
 }
 
@@ -199,7 +199,7 @@ async function doRegister(e) {
   hideError('registerError');
   const btn = document.getElementById('registerBtn');
   btn.disabled = true;
-  btn.textContent = 'VYTVÁŘÍM ÚČET…';
+  btn.textContent = 'CREATING…';
 
   const res = await fetch('/api/register', {
     method: 'POST',
@@ -222,7 +222,7 @@ async function doRegister(e) {
   } else {
     showError('registerError', data.error || 'Registrace selhala');
     btn.disabled = false;
-    btn.textContent = 'VYTVOŘIT ÚČET';
+    btn.textContent = 'CREATE ACCOUNT';
   }
 }
 </script>

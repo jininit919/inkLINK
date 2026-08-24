@@ -126,7 +126,7 @@ async function loadStudio(){
     render();
   } catch(e){
     console.error(e);
-    root.innerHTML = `<div class="empty-state" data-i18n="studioAdmin.loadError">Failed načíst studio.</div>`;
+    root.innerHTML = `<div class="empty-state" data-i18n="studioAdmin.loadError">Failed to load studio.</div>`;
     window.applyI18n && window.applyI18n();
   }
 }
@@ -138,11 +138,11 @@ function renderMember(m){
   const isMe = false; // we don't know own id here, but admin can remove anyone except themselves (handled server-side)
   const rolePill = m.role==='admin'
     ? `<span class="role-pill" data-i18n="studio.adminBadge">Admin</span>`
-    : `<span class="role-pill gray" data-i18n="studio.memberBadge">Člen</span>`;
+    : `<span class="role-pill gray" data-i18n="studio.memberBadge">Member</span>`;
   let actions = '';
   if(isAdmin){
     if(m.role !== 'admin'){
-      actions += `<button class="btn ghost sm" onclick="transferAdmin(${m.id})" data-i18n="studioAdmin.makeAdmin">Předat admin</button>`;
+      actions += `<button class="btn ghost sm" onclick="transferAdmin(${m.id})" data-i18n="studioAdmin.makeAdmin">Transfer admin</button>`;
       actions += `<button class="btn danger sm" onclick="removeMember(${m.id}, '${esc(m.display_name||m.username)}')" data-i18n="studioAdmin.remove">Odebrat</button>`;
     }
   }
@@ -165,7 +165,7 @@ function renderInvite(inv){
     <div class="invite-row">
       <i data-lucide="mail" style="width:14px;height:14px;color:var(--txt3);flex-shrink:0"></i>
       <span class="invite-email">${esc(inv.email)}</span>
-      <span class="invite-exp" data-i18n="studioAdmin.expires" data-i18n-args="${exp}">Vyprší ${exp}</span>
+      <span class="invite-exp" data-i18n="studioAdmin.expires" data-i18n-args="${exp}">Expires ${exp}</span>
       <button class="btn ghost sm" onclick="cancelInvite(${inv.id})" data-i18n="studioAdmin.cancel">Cancel</button>
     </div>
   `;
@@ -179,17 +179,17 @@ function render(){
 
   let html = `
     <div class="page-title">${esc(s.name)}</div>
-    <div class="page-sub" data-i18n="studioAdmin.subtitle">Správa studia — členové, pozvánky a profil</div>
+    <div class="page-sub" data-i18n="studioAdmin.subtitle">Studio management — members, invites and profile</div>
     <a class="public-link" href="/studio/${esc(s.slug)}" target="_blank">
       <i data-lucide="external-link" style="width:13px;height:13px"></i>
-      <span data-i18n="studioAdmin.viewPublic">Zobrazit veřejnou stránku</span>
+      <span data-i18n="studioAdmin.viewPublic">View public page</span>
     </a>
   `;
 
   // Members
   html += `
     <div class="card">
-      <h3><span data-i18n="studioAdmin.team">Tým</span> · ${members.length}</h3>
+      <h3><span data-i18n="studioAdmin.team">Team</span> · ${members.length}</h3>
       <div class="members-list">${members.map(renderMember).join('')}</div>
     </div>
   `;
@@ -198,13 +198,13 @@ function render(){
     // Pending invites
     html += `
       <div class="card">
-        <h3 data-i18n="studioAdmin.pendingInvites">Čekající pozvánky</h3>
+        <h3 data-i18n="studioAdmin.pendingInvites">Pending invites</h3>
         ${invites.length ? `<div class="invites-list">${invites.map(renderInvite).join('')}</div>` : `<div style="color:var(--txt3);font-size:12px;letter-spacing:0.04em" data-i18n="studioAdmin.noPending">Žádné čekající pozvánky.</div>`}
 
-        <h3 style="margin-top:24px" data-i18n="studioAdmin.inviteHeading">Pozvat nového tatéra</h3>
+        <h3 style="margin-top:24px" data-i18n="studioAdmin.inviteHeading">Invite new artist</h3>
         <form class="invite-form" onsubmit="sendInvite(event)">
           <div class="field">
-            <label data-i18n="studioAdmin.inviteEmail">E-mail tatéra</label>
+            <label data-i18n="studioAdmin.inviteEmail">Artist's email</label>
             <input type="email" id="inviteEmail" required placeholder="jana@example.com">
           </div>
           <button class="btn" type="submit" data-i18n="studioAdmin.sendInvite">Send</button>
@@ -219,7 +219,7 @@ function render(){
         <form onsubmit="saveProfile(event)">
           <div class="row">
             <div class="field full">
-              <label data-i18n="studioAdmin.name">Název</label>
+              <label data-i18n="studioAdmin.name">Name</label>
               <input id="f_name" value="${esc(s.name)}" maxlength="80" required>
             </div>
             <div class="field full">
@@ -231,11 +231,11 @@ function render(){
               <input id="f_address" value="${esc(s.address||'')}" maxlength="200">
             </div>
             <div class="field">
-              <label data-i18n="studioAdmin.city">Město</label>
+              <label data-i18n="studioAdmin.city">City</label>
               <input id="f_city" value="${esc(s.city||'')}" maxlength="80">
             </div>
             <div class="field">
-              <label data-i18n="studioAdmin.country">Země</label>
+              <label data-i18n="studioAdmin.country">Country</label>
               <input id="f_country" value="${esc(s.country||'')}" maxlength="80">
             </div>
             <div class="field">
@@ -259,7 +259,7 @@ function render(){
               <input id="f_logo" value="${esc(s.logo||'')}" maxlength="300" placeholder="https://...">
             </div>
           </div>
-          <button class="btn" type="submit" data-i18n="studioAdmin.save">Save změny</button>
+          <button class="btn" type="submit" data-i18n="studioAdmin.save">Save changes</button>
         </form>
       </div>
     `;

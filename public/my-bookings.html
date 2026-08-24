@@ -424,14 +424,14 @@ function renderRow(b, view) {
   if (rr) {
     const amt = fmtKc(rr.amount_cents);
     if (rr.status === 'pending') {
-      refundBlock = `<div class="b-money" style="color:#e8c87f">⏳ Žádost o refund ${amt} — čeká na vyjádření tatéra</div>`;
+      refundBlock = `<div class="b-money" style="color:#e8c87f">⏳ Refund request ${amt} — awaiting artist decision</div>`;
       if (view === 'artist') {
         refundCta = `
           <button class="btn" onclick="decideRefund(${rr.id}, 'approve')">Approve refund</button>
           <button class="btn danger" onclick="decideRefund(${rr.id}, 'reject')">Reject</button>`;
       }
     } else if (rr.status === 'approved') {
-      refundBlock = `<div class="b-money" style="color:#7fd391">✓ Refund ${amt} schválen${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
+      refundBlock = `<div class="b-money" style="color:#7fd391">✓ Refund ${amt} approved${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
     } else if (rr.status === 'rejected') {
       refundBlock = `<div class="b-money" style="color:#e58787">✗ Refund zamítnut${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
     }
@@ -657,7 +657,7 @@ function renderReviewBlock(review, view, bookingId) {
     <div>${starsHtml(review.rating)} <b>${review.rating}/5</b> <span style="color:var(--txt3);font-size:10px;letter-spacing:0.05em">${escapeHtml(date)}</span></div>`;
   if (review.text) html += `<div style="margin-top:6px">${escapeHtml(review.text)}</div>`;
   if (review.response) {
-    html += `<div class="resp"><b>Odpověď tatéra:</b> ${escapeHtml(review.response)}</div>`;
+    html += `<div class="resp"><b>Artist reply:</b> ${escapeHtml(review.response)}</div>`;
   }
   html += '</div>';
   return html;

@@ -282,7 +282,7 @@ function filterConvs(q) {
         const existingIds = new Set(localMatches.map(c => c.user_id));
         const newOnes = users.filter(u => !existingIds.has(u.id));
         renderConvsWithSuggestions(localMatches, newOnes);
-      } catch (e) { /* tichý fail */ }
+      } catch (e) { /* silent fail */ }
     }, 220);
   }
 }

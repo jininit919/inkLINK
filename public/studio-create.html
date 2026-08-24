@@ -79,9 +79,9 @@ async function init(){
     }
     if(!me.is_artist){
       root.innerHTML = `
-        <div class="page-title" data-i18n="studioCreate.notArtistTitle">Nejprve se staň tatérem</div>
-        <div class="lede" data-i18n="studioCreate.notArtistBody">Studio může založit jen tatér. Vytvoř si profil tatéra a vrať se sem.</div>
-        <a class="btn" href="/artist-setup" data-i18n="studioCreate.becomeArtist">Stát se tatérem</a>
+        <div class="page-title" data-i18n="studioCreate.notArtistTitle">Become an artist first</div>
+        <div class="lede" data-i18n="studioCreate.notArtistBody">Only artists can create studios. Create an artist profile and come back.</div>
+        <a class="btn" href="/artist-setup" data-i18n="studioCreate.becomeArtist">Become an artist</a>
       `;
       window.applyI18n && window.applyI18n();
       return;
@@ -102,11 +102,11 @@ async function init(){
 function renderForm(){
   root.innerHTML = `
     <div class="page-title" data-i18n="studioCreate.title">Create studio</div>
-    <div class="lede" data-i18n="studioCreate.lede">Studio seskupuje tvůj tým tatérů pod jednu značku. Jako zakladatel(ka) jsi admin — pozveš ostatní e-mailem.</div>
+    <div class="lede" data-i18n="studioCreate.lede">A studio groups your team of artists under one brand. As founder you're admin — invite others by email.</div>
 
     <div class="info-box">
-      <b data-i18n="studioCreate.infoTitle">Co se nemění:</b>
-      <span data-i18n="studioCreate.infoBody">Stripe účet, payouts a rezervace zůstávají u každého tatéra zvlášť. Studio jen seskupuje portfolio a má veřejnou stránku.</span>
+      <b data-i18n="studioCreate.infoTitle">What stays the same:</b>
+      <span data-i18n="studioCreate.infoBody">Each artist keeps their Stripe account, payouts and bookings. The studio just groups portfolios and has a public page.</span>
     </div>
 
     <div class="card">
@@ -117,17 +117,17 @@ function renderForm(){
           <input id="f_name" required minlength="2" maxlength="80" placeholder="Black Rose Tattoo">
         </div>
         <div class="field">
-          <label data-i18n="studioCreate.description">Krátký popis</label>
-          <textarea id="f_description" maxlength="2000" placeholder="O studiu, atmosféře, čem se věnujete…"></textarea>
+          <label data-i18n="studioCreate.description">Short description</label>
+          <textarea id="f_description" maxlength="2000" placeholder="About the studio, atmosphere, what you do…"></textarea>
         </div>
         <div class="row">
           <div class="field">
-            <label data-i18n="studioCreate.city">Město</label>
+            <label data-i18n="studioCreate.city">City</label>
             <input id="f_city" maxlength="80" placeholder="Praha">
           </div>
           <div class="field">
-            <label data-i18n="studioCreate.country">Země</label>
-            <input id="f_country" maxlength="80" placeholder="Česko">
+            <label data-i18n="studioCreate.country">Country</label>
+            <input id="f_country" maxlength="80" placeholder="Czechia">
           </div>
         </div>
         <div class="field">
@@ -178,7 +178,7 @@ async function submitForm(e){
       btn.disabled = false;
     }
   } catch(e){
-    errBox.innerHTML = `<div class="err">Chyba sítě.</div>`;
+    errBox.innerHTML = `<div class="err">Network error.</div>`;
     btn.disabled = false;
   }
 }

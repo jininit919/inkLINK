@@ -199,8 +199,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <div class="wrap">
-  <h1>NASTAVENÍ TATÉRA</h1>
-  <div class="sub">Veřejný profil, portfolio, kalendář volných termínů a platby.</div>
+  <h1>ARTIST SETTINGS</h1>
+  <div class="sub">Public profile, portfolio, available slots and payments.</div>
 
   <div id="checklist" style="display:none"></div>
   <div id="flash"></div>
@@ -208,14 +208,14 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <div class="tabs">
     <div class="tab active" data-tab="profile">Profile</div>
     <div class="tab" data-tab="payments">Payments</div>
-    <div class="tab" data-tab="ical">Kalendář-feed</div>
-    <div class="tab" data-tab="account">Účet</div>
+    <div class="tab" data-tab="ical">Calendar feed</div>
+    <div class="tab" data-tab="account">Account</div>
   </div>
   <p style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin:8px 0 0">
-    Portfolio přidáš z <a href="/" style="color:var(--red2);border-bottom:1px solid currentColor">feedu (+)</a>,
-    termíny v <a href="/calendar" style="color:var(--red2);border-bottom:1px solid currentColor">kalendáři</a>,
-    výdělky a měsíční reporty ve <a href="/earnings" style="color:var(--red2);border-bottom:1px solid currentColor">výdělcích</a>,
-    týmovou stránku ve <a id="studioLink" href="/studio-create" style="color:var(--red2);border-bottom:1px solid currentColor">studiu</a>.
+    Add portfolio from the <a href="/" style="color:var(--red2);border-bottom:1px solid currentColor">feed (+)</a>,
+    slots in the <a href="/calendar" style="color:var(--red2);border-bottom:1px solid currentColor">calendar</a>,
+    earnings and monthly reports in <a href="/earnings" style="color:var(--red2);border-bottom:1px solid currentColor">earnings</a>,
+    team page in the <a id="studioLink" href="/studio-create" style="color:var(--red2);border-bottom:1px solid currentColor">studio</a>.
   </p>
   <script>
     // Pokud už tatér ve studiu je, link vede na admin dashboard
@@ -227,12 +227,12 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <!-- ── PROFILE TAB ── -->
   <div id="tab-profile">
     <div class="card">
-      <h2>VEŘEJNÝ PROFIL</h2>
-      <p class="hint">Tyto informace uvidí klienti na tvém profilu. Po uložení se automaticky staneš tatérem (artist).</p>
+      <h2>PUBLIC PROFILE</h2>
+      <p class="hint">This info is visible to clients on your profile. Once saved you'll be listed as an artist.</p>
       <form id="profileForm">
         <div class="row">
           <div class="field">
-            <label>Jméno (display)</label>
+            <label>Display name</label>
             <input type="text" name="display_name" id="display_name" maxlength="60" required>
           </div>
           <div class="field">
@@ -242,7 +242,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         </div>
         <div class="row">
           <div class="field">
-            <label>Město</label>
+            <label>City</label>
             <input type="text" name="city" id="city" maxlength="80" placeholder="Praha">
           </div>
           <div class="field">
@@ -252,7 +252,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         </div>
         <div class="field">
           <label>Bio</label>
-          <textarea name="bio" id="bio" maxlength="500" placeholder="Co tě baví, jaké máš zkušenosti, co dělá tvůj styl unikátní…"></textarea>
+          <textarea name="bio" id="bio" maxlength="500" placeholder="What you love, your experience, what makes your style unique…"></textarea>
         </div>
         <div class="field">
           <label>Styly (vyber max 6)</label>
@@ -260,11 +260,11 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         </div>
         <div class="row">
           <div class="field">
-            <label>Hodinová sazba od (Kč/h)</label>
+            <label>Hourly rate from (CZK/h)</label>
             <input type="number" name="hourly_rate_min" id="hourly_rate_min" min="0" placeholder="1200">
           </div>
           <div class="field">
-            <label>Hodinová sazba do (Kč/h)</label>
+            <label>Hourly rate to (CZK/h)</label>
             <input type="number" name="hourly_rate_max" id="hourly_rate_max" min="0" placeholder="1800">
           </div>
         </div>
@@ -287,9 +287,31 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
           <input type="file" name="avatar" id="avatar" accept="image/jpeg,image/png,image/webp">
         </div>
         <p class="hint" style="margin:0 0 14px;color:var(--txt3);font-size:11px">
-          Sazba a záloha se předvyplní v každém novém bloku dostupnosti. Platební režim se předvybere v rezervačním modalu klienta — pokud volíš <b>plnou platbu předem</b>, klient zaplatí celé přes InkLink a na místě už nic neřešíš.
+          The rate and deposit prefill every new availability block. The payment mode is preselected in the client's booking modal — if you choose <b>full payment upfront</b>, the client pays everything through InkLink and there's nothing to settle on-site.
         </p>
-        <button class="btn" type="submit">Save profil</button>
+
+        <!-- Artist liability consent — required before is_artist activates -->
+        <div id="artistTermsBox" style="margin:18px 0 14px;padding:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px">
+          <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:10px">Artist responsibility</div>
+          <div style="font-size:12px;color:var(--txt2);line-height:1.65;letter-spacing:0.01em">
+            InkLink is only a booking platform — it is <b>not a party to the tattoo agreement</b> between you and your client. By using InkLink as an artist, you confirm that you:
+            <ul style="margin:8px 0 8px 18px;padding:0;line-height:1.7">
+              <li>hold all licenses, permits and insurance required in your jurisdiction to perform tattoo work;</li>
+              <li>are solely responsible for hygiene, safety, aftercare instructions, and the quality of every tattoo you deliver;</li>
+              <li>obtain informed consent from each client and comply with age and health restrictions;</li>
+              <li>handle any complaint, medical incident, or dispute related to the tattoo itself directly with the client — InkLink is not liable for the artistic result or physical outcome of a session;</li>
+              <li>are responsible for taxes, invoicing, and reporting on income received via the platform.</li>
+            </ul>
+            InkLink only provides the booking, payment escrow, messaging, and refund-request infrastructure. See the <a href="/terms" target="_blank" style="color:var(--red2);border-bottom:1px solid currentColor">terms</a> for the full agreement.
+          </div>
+          <label id="artistTermsLabel" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer;font-size:12px;color:var(--txt);line-height:1.5">
+            <input type="checkbox" id="artistTermsCheckbox" name="artist_terms_accepted" value="1" style="width:auto;margin-top:3px;accent-color:var(--red2);flex-shrink:0">
+            <span>I confirm I have read the above and take full responsibility for the tattoo work I offer through InkLink.</span>
+          </label>
+          <div id="artistTermsAccepted" style="display:none;font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:8px">✓ Accepted <span id="artistTermsAcceptedAt"></span></div>
+        </div>
+
+        <button class="btn" type="submit">Save profile</button>
       </form>
     </div>
 
@@ -347,7 +369,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
       <ul style="margin-top:10px;padding-left:18px;font-size:12px;line-height:1.8;color:var(--txt2);letter-spacing:0.02em">
         <li>Potvrzené rezervace (klient + studio + popis)</li>
         <li>Pending payment (jako TENTATIVE — nepřekáží jiným meetingům)</li>
-        <li>Volné termíny v kalendáři (TRANSPARENT — počítají se jako available)</li>
+        <li>Available slots v kalendáři (TRANSPARENT — počítají se jako available)</li>
         <li>Storno-vané rezervace se z feedu zmizí automaticky</li>
       </ul>
 
@@ -454,7 +476,7 @@ async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
   if (!me) {
     document.querySelector('.wrap').innerHTML = `
-      <h1>NASTAVENÍ TATÉRA</h1>
+      <h1>ARTIST SETTINGS</h1>
       <div class="sub">Pro úpravu profilu se musíš přihlásit.</div>
       <div style="margin-top:24px;display:flex;gap:8px">
         <a class="btn" href="/login">Sign in / register</a>
@@ -480,6 +502,22 @@ async function init() {
   document.getElementById('hourly_rate_min').value = me.hourly_rate_min ?? '';
   document.getElementById('hourly_rate_max').value = me.hourly_rate_max ?? '';
   document.getElementById('default_payment_mode').value = me.default_payment_mode || 'deposit';
+
+  // Artist liability consent — if already accepted, show timestamp and skip checkbox.
+  const termsBox = document.getElementById('artistTermsBox');
+  const termsLabel = document.getElementById('artistTermsLabel');
+  const termsAccepted = document.getElementById('artistTermsAccepted');
+  if (me.artist_terms_accepted_at) {
+    termsLabel.style.display = 'none';
+    termsAccepted.style.display = 'block';
+    // Pre-check the checkbox so it still submits (server treats it as no-op).
+    document.getElementById('artistTermsCheckbox').checked = true;
+    try {
+      const d = new Date(me.artist_terms_accepted_at);
+      document.getElementById('artistTermsAcceptedAt').textContent =
+        `on ${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    } catch {}
+  }
 
   const profile = await fetch('/api/profile/' + me.username).then(r => r.json()).catch(() => null);
   if (profile) document.getElementById('bio').value = profile.bio || '';
@@ -845,14 +883,24 @@ function readStyles(id){return Array.from(document.querySelectorAll('#'+id+' .st
 
 document.getElementById('profileForm').addEventListener('submit', async e => {
   e.preventDefault();
+  // Client-side guard for artist liability consent.
+  const termsCheckbox = document.getElementById('artistTermsCheckbox');
+  const alreadyAccepted = !!(me && me.artist_terms_accepted_at);
+  if (!alreadyAccepted && !termsCheckbox.checked) {
+    flash('Please accept the artist responsibility statement before saving.', 'err');
+    termsCheckbox.focus();
+    return;
+  }
   const fd = new FormData(e.target);
   fd.set('styles', readStyles('stylesGrid'));
+  // FormData omits unchecked checkboxes; force the field when already accepted.
+  if (alreadyAccepted) fd.set('artist_terms_accepted', '1');
   const r = await fetch('/api/profile/update', {method:'POST', body: fd});
   if (r.ok) {
-    flash('Profil uložen ✓');
+    flash('Profile saved ✓');
     me = await fetch('/api/me').then(r => r.json());
   } else {
-    flash((await r.json()).error || 'Failed uložit', 'err');
+    flash((await r.json()).error || 'Failed to save', 'err');
   }
 });
 
@@ -863,7 +911,7 @@ async function loadPortfolio() {
   if (!items.length) { g.innerHTML=''; document.getElementById('galleryEmpty').style.display='block'; return; }
   document.getElementById('galleryEmpty').style.display='none';
   g.innerHTML = items.map(p => {
-    const priceTxt = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč` : '';
+    const priceTxt = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
     const hoursTxt = p.estimated_hours ? `${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '';
     const meta = [priceTxt, hoursTxt].filter(Boolean).join(' · ');
     return `
@@ -1002,7 +1050,7 @@ async function loadSlots() {
     return `
       <div class="slot-item">
         <div class="slot-item-date">${fmtDate(s.start_at)}<div style="font-size:10px;color:var(--txt3);letter-spacing:0.1em;margin-top:3px">${totalH} H BLOK</div></div>
-        <div class="slot-item-price">${priceTxt}${s.deposit_pct?` · záloha ${s.deposit_pct}%`:''}${s.note?` · ${escapeHtml(s.note)}`:''}</div>
+        <div class="slot-item-price">${priceTxt}${s.deposit_pct?` · deposit ${s.deposit_pct}%`:''}${s.note?` · ${escapeHtml(s.note)}`:''}</div>
         <span class="slot-item-status ${status}">${status === 'booked' ? 'REZERVOVÁNO' : status === 'blocked' ? 'BLOKOVÁNO' : 'VOLNÝ'}</span>
         <div class="slot-item-actions">
           <button class="btn danger" style="padding:5px 10px;font-size:11px" onclick="delSlot(${s.id}, '${status}')">Delete</button>

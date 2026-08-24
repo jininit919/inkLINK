@@ -7,7 +7,7 @@
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf8f3">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mapa tatérů — InkLink</title>
+<title>Artist map — InkLink</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
@@ -90,7 +90,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   </div>
 </nav>
 
-<div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText">Loading tatéry…</span></div>
+<div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText">Loading artists…</span></div>
 <div id="geoBar">
   <select id="geoRadius" aria-label="Okruh">
     <option value="5">5 km</option>
@@ -98,7 +98,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <option value="50">50 km</option>
     <option value="100">100 km</option>
   </select>
-  <button id="geoBtn" type="button" onclick="toggleGeo()">📍 V mém okolí</button>
+  <button id="geoBtn" type="button" onclick="toggleGeo()">📍 Near me</button>
 </div>
 <div id="map"></div>
 
@@ -148,11 +148,11 @@ function buildPopup(a) {
   const avHtml = a.avatar_url
     ? `<img src="${escapeHtml(a.avatar_url)}" alt="">`
     : escapeHtml(a.initials || '?');
-  const meta = [a.studio, a.city].filter(Boolean).map(escapeHtml).join(' · ') || 'tatér';
+  const meta = [a.studio, a.city].filter(Boolean).map(escapeHtml).join(' · ') || 'artist';
   const styles = (a.styles || '').split(',').filter(Boolean).slice(0, 4)
     .map(s => `<span class="artist-pop-style-chip">${escapeHtml(s.trim())}</span>`).join('');
   const rating = a.rating_count > 0
-    ? `<div class="artist-pop-rating">★ ${a.rating_avg.toFixed(1)} <span style="color:var(--txt3)">(${a.rating_count} ${a.rating_count === 1 ? 'recenze' : (a.rating_count < 5 ? 'recenze' : 'recenzí')})</span></div>`
+    ? `<div class="artist-pop-rating">★ ${a.rating_avg.toFixed(1)} <span style="color:var(--txt3)">(${a.rating_count} ${a.rating_count === 1 ? 'review' : (a.rating_count < 5 ? 'review' : 'reviews')})</span></div>`
     : '';
   return `
     <div class="artist-pop">
@@ -165,18 +165,18 @@ function buildPopup(a) {
       </div>
       ${rating}
       ${styles ? `<div class="artist-pop-styles">${styles}</div>` : ''}
-      <a class="artist-pop-cta" href="/profile/${escapeHtml(a.username)}">Otevřít profil →</a>
+      <a class="artist-pop-cta" href="/profile/${escapeHtml(a.username)}">Open profile →</a>
     </div>
   `;
 }
 
 let mapInstance = null;
-let allArtists = [];           // všechny tatéři z /api/artists/map
+let allArtists = [];           // all artists from /api/artists/map
 let artistMarkers = new Map(); // id → Leaflet marker
 let geoState = { active: false, lat: null, lng: null, marker: null, circle: null };
 
 function countLabel(n) {
-  return `${n} ${n === 1 ? 'tatér' : (n < 5 ? 'tatéři' : 'tatérů')}`;
+  return `${n} ${n === 1 ? 'artist' : (n < 5 ? 'tatéři' : 'tatérů')}`;
 }
 
 function setMapInfo(text, busy=false) {
@@ -228,11 +228,11 @@ async function toggleGeo() {
     return;
   }
   if (!navigator.geolocation) {
-    alert('Geolokace není v tomto prohlížeči dostupná.');
+    alert('Geolocation not available in this browser.');
     return;
   }
   bar.classList.add('busy');
-  btn.textContent = '⏳ Hledám polohu…';
+  btn.textContent = '⏳ Finding location…';
   navigator.geolocation.getCurrentPosition(
     pos => {
       bar.classList.remove('busy');
@@ -244,8 +244,8 @@ async function toggleGeo() {
       bar.classList.remove('busy');
       btn.textContent = '📍 V mém okolí';
       const msg = err && err.code === err.PERMISSION_DENIED
-        ? 'Nepovolil jsi přístup k poloze. Můžeš to změnit v nastavení prohlížeče.'
-        : 'Failed získat polohu.';
+        ? 'You didn\'t allow location access. Change this in your browser settings.'
+        : 'Failed to get location.';
       alert(msg);
     },
     { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
@@ -308,7 +308,7 @@ async function init() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     allArtists = await r.json();
     if (!allArtists.length) {
-      setMapInfo('Žádní tatéři na mapě zatím nejsou.');
+      setMapInfo('No artists on the map yet.');
       return;
     }
     const bounds = [];

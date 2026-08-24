@@ -231,7 +231,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
     <a class="nav-link" href="/">Feed</a>
     <a class="nav-link active" href="/events">Eventy</a>
     <a class="nav-link" href="/my-bookings">Booking</a>
-    <a class="nav-link" href="/artist-setup">Pro tatéry</a>
+    <a class="nav-link" href="/artist-setup">For artists</a>
   </div>
   <div class="nav-icons">
     <a class="nav-icon" href="/messages" title="Messages" id="msgIcon" style="position:relative">
@@ -353,35 +353,35 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
         </div>
       </div>
       <div class="mfield">
-        <label>Místo na mapě</label>
+        <label>Location on map</label>
         <div class="picker-map-wrap">
           <div id="pickerMap"></div>
-          <div class="picker-hint">Klikni na mapu pro připnutí přesné polohy — nebo vyber město výš</div>
+          <div class="picker-hint">Click the map to pin the exact location — or pick a city above</div>
         </div>
         <input type="hidden" id="aLat">
         <input type="hidden" id="aLng">
       </div>
       <div class="mfield">
         <label>Typ akce</label>
-        <input type="text" id="aGenre" placeholder="Konvence · Guest spot · Workshop · Otevřený den">
+        <input type="text" id="aGenre" placeholder="Convention · Guest spot · Workshop · Open day">
       </div>
       <div class="mfield">
         <label>Description</label>
-        <textarea id="aDesc" placeholder="Krátký popis eventu..."></textarea>
+        <textarea id="aDesc" placeholder="Short event description..."></textarea>
       </div>
       <div class="mfield">
         <label>Link (FB event, tickets...)</label>
         <input type="url" id="aLink" placeholder="https://...">
       </div>
       <div class="mfield">
-        <label>Fotky / plakát <span style="color:var(--txt3)">(max 5)</span></label>
+        <label>Photos / poster <span style="color:var(--txt3)">(max 5)</span></label>
         <label class="photo-upload-area" id="photoUploadArea">
           <input type="file" id="aPhotos" accept="image/*" multiple onchange="previewPhotos(this)">
           <span id="photoUploadHint">＋ Add fotky</span>
         </label>
         <div class="photo-preview-strip" id="photoPreviewStrip"></div>
       </div>
-      <button class="msave" type="submit" id="aSave">PŘIDAT EVENT</button>
+      <button class="msave" type="submit" id="aSave">ADD EVENT</button>
     </form>
   </div>
 </div>

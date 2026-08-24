@@ -135,10 +135,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       <div class="section-title">Discount kódy (MANUAL_PROMO)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
         <input type="text" id="newCode" placeholder="CODE (e.g. SPRING25)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;text-transform:uppercase">
-        <input type="number" id="newAmount" placeholder="Kč" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:90px">
+        <input type="number" id="newAmount" placeholder="CZK" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:90px">
         <input type="number" id="newMaxUses" placeholder="max uses" min="1" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px;width:120px">
         <input type="date" id="newExpires" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;font-family:inherit;border-radius:6px;font-size:12px">
-        <button onclick="createCode()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">+ Vytvořit</button>
+        <button onclick="createCode()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">+ Crevořit</button>
       </div>
       <div class="tbl" id="discountCodesList"></div>
     </div>
@@ -175,15 +175,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <script>
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-function fmtKc(c){return (c||0)?(Math.round(c/100)).toLocaleString('cs-CZ') + ' Kč':'0 Kč';}
+function fmtKc(c){return (c||0)?(Math.round(c/100)).toLocaleString('cs-CZ') + ' CZK':'0 CZK';}
 function fmtDate(iso){try{return new Date(iso).toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'2-digit'});}catch{return iso||'';}}
 
 const REASON_LABEL = {
-  spam: 'Spam', offensive: 'Urážlivé', false: 'Nepravdivé', private: 'Soukromé', other: 'Jiné'
+  spam: 'Spam', offensive: 'Offensive', false: 'False', private: 'Private', other: 'Other'
 };
 const STATUS_LABEL = {
-  pending_payment:'Čeká platbu', confirmed:'Potvrzeno', completed:'Hotovo',
-  cancelled_client:'Zrušil klient', cancelled_artist:'Zrušil tatér'
+  pending_payment:'Awaiting payment', confirmed:'Confirmed', completed:'Completed',
+  cancelled_client:'Cancelled by client', cancelled_artist:'Cancelled by artist'
 };
 
 async function init() {
@@ -200,7 +200,7 @@ async function init() {
     stats = await r.json();
   } catch (e) {
     document.getElementById('loading').innerHTML = `<div class="il-error-banner">
-      <span>Failed načíst stats (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <span>Failed to load stats (${escapeHtml(e.message || 'network error')}).</span>
       <button onclick="location.reload()">Try again</button>
     </div>`;
     return;
@@ -212,24 +212,24 @@ async function init() {
   // KPIs
   const kpiHtml = `
     <div class="kpi">
-      <div class="kpi-label">Uživatelé</div>
+      <div class="kpi-label">Users</div>
       <div class="kpi-value">${stats.users.total.toLocaleString('cs-CZ')}</div>
-      <div class="kpi-sub">${stats.users.artists} tatérů · +${stats.users.new_this_month} tento měsíc</div>
+      <div class="kpi-sub">${stats.users.artists} artists · +${stats.users.new_this_month} this month</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Booking</div>
       <div class="kpi-value">${stats.bookings.total.toLocaleString('cs-CZ')}</div>
-      <div class="kpi-sub">${stats.bookings.confirmed} potvrzených · +${stats.bookings.this_month} tento měsíc</div>
+      <div class="kpi-sub">${stats.bookings.confirmed} confirmed · +${stats.bookings.this_month} this month</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Provize platformy</div>
       <div class="kpi-value">${fmtKc(stats.platform_fee_cents.total)}</div>
-      <div class="kpi-sub">${fmtKc(stats.platform_fee_cents.this_month)} tento měsíc</div>
+      <div class="kpi-sub">${fmtKc(stats.platform_fee_cents.this_month)} this month</div>
     </div>
     <div class="kpi ${stats.reports_open ? 'alert' : ''}">
-      <div class="kpi-label">Otevřené reporty</div>
+      <div class="kpi-label">Open reports</div>
       <div class="kpi-value">${stats.reports_open}</div>
-      <div class="kpi-sub">${stats.reviews_total} recenzí · ${stats.portfolio_total} portfolio items</div>
+      <div class="kpi-sub">${stats.reviews_total} reviews · ${stats.portfolio_total} portfolio items</div>
     </div>
   `;
   document.getElementById('kpiGrid').innerHTML = kpiHtml;
@@ -237,11 +237,11 @@ async function init() {
   // Top artists
   const taEl = document.getElementById('topArtists');
   if (!stats.top_artists.length) {
-    taEl.innerHTML = '<div class="empty">Zatím žádní tatéři.</div>';
+    taEl.innerHTML = '<div class="empty">No artists yet.</div>';
   } else {
     taEl.innerHTML = `
       <div class="tbl-row h">
-        <div>#</div><div>Tatér</div><div>Username</div><div>Rezervací</div><div>Revenue</div>
+        <div>#</div><div>Artist</div><div>Username</div><div>Bookings</div><div>Revenue</div>
       </div>` + stats.top_artists.map((a, i) => `
       <div class="tbl-row">
         <div class="mono" style="color:var(--txt3)">${i + 1}.</div>
