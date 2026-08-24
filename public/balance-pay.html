@@ -5,9 +5,9 @@
 <style>html,body{background:#faf8f3;margin:0}</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#faf8f3">
-<meta name="apple-mobile-web-app-title" content="InkLink — Doplatek">
+<meta name="apple-mobile-web-app-title" content="InkLink — Balance">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Doplatek za tetování — InkLink</title>
+<title>Tattoo balance — InkLink</title>
 <meta name="robots" content="noindex">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
@@ -62,20 +62,20 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 <body>
 
 <img class="brand" src="/img/inklink-logo.png" alt="inklink">
-<div class="brand-sub">Doplatek za tetování</div>
+<div class="brand-sub">Tattoo balance</div>
 
 <div class="card" id="card">
-  <div class="il-loading-row"><span class="il-spinner"></span> Loading detaily…</div>
+  <div class="il-loading-row"><span class="il-spinner"></span> Loading details…</div>
 </div>
 
 <div class="foot-link">
-  <a href="/"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:5px"><use href="#i-arrow-left"/></svg>Zpět na InkLink</a>
+  <a href="/"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:5px"><use href="#i-arrow-left"/></svg>Back to InkLink</a>
 </div>
 
 <script>
 const bid = parseInt(location.pathname.replace(/^\/balance-pay\//, '').split('/')[0] || '0');
 
-function fmtKc(c) { return c ? `${(c/100).toLocaleString('cs-CZ')} Kč` : '0 Kč'; }
+function fmtKc(c) { return c ? `${(c/100).toLocaleString('cs-CZ')} CZK` : '0 CZK'; }
 function fmtDt(iso){
   try { const d = new Date(iso);
     return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'})
@@ -85,11 +85,11 @@ function fmtDt(iso){
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 async function load() {
-  if (!bid) return showError('Chybí ID rezervace.');
+  if (!bid) return showError('Missing booking ID.');
   const r = await fetch('/api/balance-pay/' + bid);
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    return showError(j.error || 'Doplatek nenalezen.');
+    return showError(j.error || 'Balance not found.');
   }
   const d = await r.json();
   render(d);
@@ -106,7 +106,7 @@ function render(d) {
 
   const isPaid = d.already_paid_in_full;
   const amount = isPaid ? d.paid_cents : d.amount_cents;
-  const headLabel = isPaid ? 'DOPLATEK ZAPLACEN' : 'DOPLATEK ZA TETOVÁNÍ';
+  const headLabel = isPaid ? 'BALANCE PAID' : 'TATTOO BALANCE';
 
   document.getElementById('card').innerHTML = `
     <div class="card-head">
@@ -118,19 +118,19 @@ function render(d) {
         <div class="avatar">${ava}</div>
         <div class="who-info">
           <div class="n">${escapeHtml(d.artist_name || '')}</div>
-          <div class="s">${escapeHtml(d.artist_studio || 'tatér')}</div>
+          <div class="s">${escapeHtml(d.artist_studio || 'artist')}</div>
         </div>
       </div>
-      <div class="kv"><span class="k">Termín</span><span class="v">${fmtDt(d.when)}</span></div>
+      <div class="kv"><span class="k">Date</span><span class="v">${fmtDt(d.when)}</span></div>
       ${d.design_note ? `<div class="note">${escapeHtml(d.design_note)}</div>` : ''}
       <div class="amount">${fmtKc(amount)}</div>
       ${isPaid
-        ? `<div class="success-banner">✓ Doplatek je již zaplacen. Děkujeme!</div>
-           <a href="/my-bookings" class="btn" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid var(--border2);color:var(--txt2)">Moje rezervace</a>`
-        : `<button class="btn" id="payBtn" onclick="pay()">${d.is_demo ? 'Confirm (demo režim)' : 'Zaplatit kartou'}</button>
+        ? `<div class="success-banner">✓ Balance already paid. Thank you!</div>
+           <a href="/my-bookings" class="btn" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid var(--border2);color:var(--txt2)">My bookings</a>`
+        : `<button class="btn" id="payBtn" onclick="pay()">${d.is_demo ? 'Confirm (demo mode)' : 'Pay by card'}</button>
            ${d.is_demo
-             ? `<div class="demo-banner">⚠ Demo režim — Stripe není propojen. Klik jen označí doplatek jako zaplacený, žádné peníze se nestrhnou.</div>`
-             : `<div class="demo-banner" style="background:rgba(232,232,232,0.04);border-color:var(--border2);color:var(--txt3)">Stripe Elements platba se zde renderuje (M2). Po zaplacení se balance v reportu tatéra automaticky zaktualizuje přes webhook.</div>`}
+             ? `<div class="demo-banner">⚠ Demo mode — Stripe not connected. Click just marks the balance as paid, no real money is charged.</div>`
+             : `<div class="demo-banner" style="background:rgba(232,232,232,0.04);border-color:var(--border2);color:var(--txt3)">Stripe Elements checkout renders here (M2). After payment, the balance in the artist report is automatically updated via webhook.</div>`}
         `}
     </div>
   `;
@@ -138,7 +138,7 @@ function render(d) {
 
 async function pay() {
   const btn = document.getElementById('payBtn');
-  btn.disabled = true; btn.textContent = 'Zpracovávám…';
+  btn.disabled = true; btn.textContent = 'Processing…';
   const r = await fetch(`/api/balance-pay/${bid}/demo-confirm`, {method:'POST'});
   if (r.ok) {
     location.reload();  // znovunačte → success state

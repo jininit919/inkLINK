@@ -5,7 +5,7 @@
 <style>html,body{background:#faf8f3;margin:0}</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#faf8f3">
-<meta name="apple-mobile-web-app-title" content="InkLink — Záloha">
+<meta name="apple-mobile-web-app-title" content="InkLink — Deposit">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Pay deposit — InkLink</title>
 <meta name="robots" content="noindex">
@@ -73,14 +73,14 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 <body>
 
 <img class="brand" src="/img/inklink-logo.png" alt="inklink">
-<div class="brand-sub">Záloha za rezervaci</div>
+<div class="brand-sub">Booking deposit</div>
 
 <div class="card" id="card">
   <div class="il-loading-row" style="padding:24px"><span class="il-spinner"></span> Loading…</div>
 </div>
 
 <div class="foot-link">
-  <a href="/"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:5px"><use href="#i-arrow-left"/></svg>Zpět na InkLink</a>
+  <a href="/"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:5px"><use href="#i-arrow-left"/></svg>Back to InkLink</a>
 </div>
 
 <script src="https://js.stripe.com/v3/"></script>
@@ -90,7 +90,7 @@ let stripe = null;
 let cardElement = null;
 let clientSecret = null;
 
-function fmtKc(c) { return c ? `${(c/100).toLocaleString('cs-CZ')} Kč` : '0 Kč'; }
+function fmtKc(c) { return c ? `${(c/100).toLocaleString('cs-CZ')} CZK` : '0 CZK'; }
 function fmtDt(iso){
   try { const d = new Date(iso);
     return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'})
@@ -100,21 +100,21 @@ function fmtDt(iso){
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 async function load() {
-  if (!bid) return showError('Chybí ID rezervace v URL.');
+  if (!bid) return showError('Missing booking ID in URL.');
   let r;
   try { r = await fetch('/api/pay/' + bid); }
-  catch { return showError('Síťová chyba — zkus to znovu.'); }
+  catch { return showError('Network error — please try again.'); }
   if (r.status === 410) {
     document.getElementById('card').innerHTML = `
       <div class="card-body">
-        <div class="success-banner">✓ Booking už byla zaplacena nebo zrušena.</div>
-        <a href="/my-bookings" class="btn" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid var(--border2);color:var(--txt2)">Moje rezervace</a>
+        <div class="success-banner">✓ Booking already paid or cancelled.</div>
+        <a href="/my-bookings" class="btn" style="display:block;text-align:center;text-decoration:none;background:transparent;border:1px solid var(--border2);color:var(--txt2)">My bookings</a>
       </div>`;
     return;
   }
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    return showError(j.error || 'Nelze načíst detaily.');
+    return showError(j.error || 'Failed to load details.');
   }
   const d = await r.json();
   render(d);
@@ -126,10 +126,10 @@ function showError(msg) {
 
 function render(d) {
   if (!d.publishable_key) {
-    return showError('Stripe není správně nakonfigurovaný (chybí publishable key). Kontaktuj podporu.');
+    return showError('Stripe is not configured (missing publishable key). Contact support.');
   }
   if (!d.client_secret) {
-    return showError('Platba ještě není připravená. Zavolej Retry nebo kontaktuj tatéra.');
+    return showError('Payment not ready. Click retry or contact the artist.');
   }
   clientSecret = d.client_secret;
 
@@ -139,7 +139,7 @@ function render(d) {
 
   document.getElementById('card').innerHTML = `
     <div class="card-head">
-      <h1>ZAPLATIT ZÁLOHU</h1>
+      <h1>PAY DEPOSIT</h1>
       <div class="sub">Booking #${d.id}${d.payment_attempts > 1 ? ' · pokus ' + d.payment_attempts : ''}</div>
     </div>
     <div class="card-body">
@@ -147,13 +147,13 @@ function render(d) {
         <div class="avatar">${ava}</div>
         <div class="who-info">
           <div class="n">${escapeHtml(d.artist_name || '')}</div>
-          <div class="s">${escapeHtml(d.artist_studio || 'tatér')}</div>
+          <div class="s">${escapeHtml(d.artist_studio || 'artist')}</div>
         </div>
       </div>
-      <div class="kv"><span class="k">Termín</span><span class="v">${fmtDt(d.when)}</span></div>
+      <div class="kv"><span class="k">Date</span><span class="v">${fmtDt(d.when)}</span></div>
       ${d.design_note ? `<div class="note">${escapeHtml(d.design_note)}</div>` : ''}
       <div class="amount">${fmtKc(d.amount_cents)}</div>
-      <div class="amount-sub">ZÁLOHA · CHRÁNĚNO STRIPE</div>
+      <div class="amount-sub">DEPOSIT · SECURED BY STRIPE</div>
 
       <form id="payForm" onsubmit="pay(event)">
         <div id="card-element" class="element-wrap"></div>
@@ -163,7 +163,7 @@ function render(d) {
       <div id="flash"></div>
 
       <div class="terms-hint">
-        Záloha je nevratná podle <a href="/terms" target="_blank">pravidel storna</a>: 100 % refund nad 96 h před termínem, 50 % do 48 h, žádný refund po 48 h.
+        Deposit is non-refundable per <a href="/terms" target="_blank">cancellation policy</a>: 100% refund more than 96 h before appointment, 50% within 48 h, no refund after 48 h.
       </div>
     </div>
   `;
@@ -201,7 +201,7 @@ async function pay(ev) {
   const btn = document.getElementById('payBtn');
   const flash = document.getElementById('flash');
   btn.disabled = true;
-  btn.textContent = 'Zpracovávám…';
+  btn.textContent = 'Processing…';
   flash.innerHTML = '';
 
   const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
@@ -214,15 +214,15 @@ async function pay(ev) {
     btn.textContent = 'Try again';
     // Offer retry endpoint if PI is in unrecoverable state
     if (error.payment_intent && ['requires_payment_method', 'canceled'].includes(error.payment_intent.status)) {
-      flash.innerHTML += `<button class="btn" style="margin-top:10px;background:transparent;border:1px solid var(--border2);color:var(--txt2)" onclick="retryPayment()">Vytvořit novou platbu</button>`;
+      flash.innerHTML += `<button class="btn" style="margin-top:10px;background:transparent;border:1px solid var(--border2);color:var(--txt2)" onclick="retryPayment()">Create new payment</button>`;
     }
     return;
   }
   if (paymentIntent && paymentIntent.status === 'succeeded') {
-    flash.innerHTML = `<div class="flash ok">✓ Záloha zaplacena. Přesměrovávám…</div>`;
+    flash.innerHTML = `<div class="flash ok">✓ Deposit paid. Redirecting…</div>`;
     setTimeout(() => location.href = '/my-bookings?paid=' + bid, 1200);
   } else {
-    flash.innerHTML = `<div class="flash err">Stav platby: ${paymentIntent ? paymentIntent.status : 'neznámý'}. Zkus to znovu nebo kontaktuj podporu.</div>`;
+    flash.innerHTML = `<div class="flash err">Payment status: ${paymentIntent ? paymentIntent.status : 'unknown'}. Try again or contact support.</div>`;
     btn.disabled = false;
     btn.textContent = 'Try again';
   }
@@ -230,7 +230,7 @@ async function pay(ev) {
 
 async function retryPayment() {
   const flash = document.getElementById('flash');
-  flash.innerHTML = `<div class="flash">Vytvářím novou platbu…</div>`;
+  flash.innerHTML = `<div class="flash">Creating new payment…</div>`;
   const r = await fetch(`/api/bookings/${bid}/retry-payment-intent`, { method: 'POST' });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
