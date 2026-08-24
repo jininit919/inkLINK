@@ -199,8 +199,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <div class="wrap">
-  <h1>NASTAVENÍ TATÉRA</h1>
-  <div class="sub">Veřejný profil, portfolio, kalendář volných termínů a platby.</div>
+  <h1>ARTIST SETTINGS</h1>
+  <div class="sub">Public profile, portfolio, available slots and payments.</div>
 
   <div id="checklist" style="display:none"></div>
   <div id="flash"></div>
@@ -208,14 +208,14 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <div class="tabs">
     <div class="tab active" data-tab="profile">Profile</div>
     <div class="tab" data-tab="payments">Payments</div>
-    <div class="tab" data-tab="ical">Kalendář-feed</div>
-    <div class="tab" data-tab="account">Účet</div>
+    <div class="tab" data-tab="ical">Calendar feed</div>
+    <div class="tab" data-tab="account">Account</div>
   </div>
   <p style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin:8px 0 0">
-    Portfolio přidáš z <a href="/" style="color:var(--red2);border-bottom:1px solid currentColor">feedu (+)</a>,
-    termíny v <a href="/calendar" style="color:var(--red2);border-bottom:1px solid currentColor">kalendáři</a>,
-    výdělky a měsíční reporty ve <a href="/earnings" style="color:var(--red2);border-bottom:1px solid currentColor">výdělcích</a>,
-    týmovou stránku ve <a id="studioLink" href="/studio-create" style="color:var(--red2);border-bottom:1px solid currentColor">studiu</a>.
+    Add portfolio from the <a href="/" style="color:var(--red2);border-bottom:1px solid currentColor">feed (+)</a>,
+    slots in the <a href="/calendar" style="color:var(--red2);border-bottom:1px solid currentColor">calendar</a>,
+    earnings and monthly reports in <a href="/earnings" style="color:var(--red2);border-bottom:1px solid currentColor">earnings</a>,
+    team page in the <a id="studioLink" href="/studio-create" style="color:var(--red2);border-bottom:1px solid currentColor">studio</a>.
   </p>
   <script>
     // Pokud už tatér ve studiu je, link vede na admin dashboard
@@ -227,12 +227,12 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <!-- ── PROFILE TAB ── -->
   <div id="tab-profile">
     <div class="card">
-      <h2>VEŘEJNÝ PROFIL</h2>
-      <p class="hint">Tyto informace uvidí klienti na tvém profilu. Po uložení se automaticky staneš tatérem (artist).</p>
+      <h2>PUBLIC PROFILE</h2>
+      <p class="hint">This info is visible to clients on your profile. Once saved you'll be listed as an artist.</p>
       <form id="profileForm">
         <div class="row">
           <div class="field">
-            <label>Jméno (display)</label>
+            <label>Display name</label>
             <input type="text" name="display_name" id="display_name" maxlength="60" required>
           </div>
           <div class="field">
@@ -242,7 +242,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         </div>
         <div class="row">
           <div class="field">
-            <label>Město</label>
+            <label>City</label>
             <input type="text" name="city" id="city" maxlength="80" placeholder="Praha">
           </div>
           <div class="field">
@@ -252,7 +252,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         </div>
         <div class="field">
           <label>Bio</label>
-          <textarea name="bio" id="bio" maxlength="500" placeholder="Co tě baví, jaké máš zkušenosti, co dělá tvůj styl unikátní…"></textarea>
+          <textarea name="bio" id="bio" maxlength="500" placeholder="What you love, your experience, what makes your style unique…"></textarea>
         </div>
         <div class="field">
           <label>Styly (vyber max 6)</label>
@@ -260,11 +260,11 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
         </div>
         <div class="row">
           <div class="field">
-            <label>Hodinová sazba od (Kč/h)</label>
+            <label>Hourly rate from (CZK/h)</label>
             <input type="number" name="hourly_rate_min" id="hourly_rate_min" min="0" placeholder="1200">
           </div>
           <div class="field">
-            <label>Hodinová sazba do (Kč/h)</label>
+            <label>Hourly rate to (CZK/h)</label>
             <input type="number" name="hourly_rate_max" id="hourly_rate_max" min="0" placeholder="1800">
           </div>
         </div>
@@ -347,7 +347,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
       <ul style="margin-top:10px;padding-left:18px;font-size:12px;line-height:1.8;color:var(--txt2);letter-spacing:0.02em">
         <li>Potvrzené rezervace (klient + studio + popis)</li>
         <li>Pending payment (jako TENTATIVE — nepřekáží jiným meetingům)</li>
-        <li>Volné termíny v kalendáři (TRANSPARENT — počítají se jako available)</li>
+        <li>Available slots v kalendáři (TRANSPARENT — počítají se jako available)</li>
         <li>Storno-vané rezervace se z feedu zmizí automaticky</li>
       </ul>
 
@@ -454,7 +454,7 @@ async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
   if (!me) {
     document.querySelector('.wrap').innerHTML = `
-      <h1>NASTAVENÍ TATÉRA</h1>
+      <h1>ARTIST SETTINGS</h1>
       <div class="sub">Pro úpravu profilu se musíš přihlásit.</div>
       <div style="margin-top:24px;display:flex;gap:8px">
         <a class="btn" href="/login">Sign in / register</a>
@@ -863,7 +863,7 @@ async function loadPortfolio() {
   if (!items.length) { g.innerHTML=''; document.getElementById('galleryEmpty').style.display='block'; return; }
   document.getElementById('galleryEmpty').style.display='none';
   g.innerHTML = items.map(p => {
-    const priceTxt = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč` : '';
+    const priceTxt = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
     const hoursTxt = p.estimated_hours ? `${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '';
     const meta = [priceTxt, hoursTxt].filter(Boolean).join(' · ');
     return `
@@ -1002,7 +1002,7 @@ async function loadSlots() {
     return `
       <div class="slot-item">
         <div class="slot-item-date">${fmtDate(s.start_at)}<div style="font-size:10px;color:var(--txt3);letter-spacing:0.1em;margin-top:3px">${totalH} H BLOK</div></div>
-        <div class="slot-item-price">${priceTxt}${s.deposit_pct?` · záloha ${s.deposit_pct}%`:''}${s.note?` · ${escapeHtml(s.note)}`:''}</div>
+        <div class="slot-item-price">${priceTxt}${s.deposit_pct?` · deposit ${s.deposit_pct}%`:''}${s.note?` · ${escapeHtml(s.note)}`:''}</div>
         <span class="slot-item-status ${status}">${status === 'booked' ? 'REZERVOVÁNO' : status === 'blocked' ? 'BLOKOVÁNO' : 'VOLNÝ'}</span>
         <div class="slot-item-actions">
           <button class="btn danger" style="padding:5px 10px;font-size:11px" onclick="delSlot(${s.id}, '${status}')">Delete</button>

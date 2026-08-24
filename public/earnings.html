@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#faf8f3">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Výdělky — InkLink</title>
+<title>Earnings — InkLink</title>
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
 <style>
@@ -125,17 +125,17 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   <div id="content" style="display:none">
     <div class="page-head">
       <h1 class="page-title">Earnings</h1>
-      <span class="page-sub">Online platby přes InkLink (Stripe)</span>
+      <span class="page-sub">Online payments via InkLink (Stripe)</span>
     </div>
 
     <div class="kpi-grid">
       <div class="kpi primary">
-        <div class="kpi-label">Tento měsíc</div>
+        <div class="kpi-label">This month</div>
         <div class="kpi-value" id="kpiThisMonth">—</div>
         <div class="kpi-sub" id="kpiThisMonthSub"></div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Minulý měsíc</div>
+        <div class="kpi-label">Last month</div>
         <div class="kpi-value" id="kpiLastMonth">—</div>
         <div class="kpi-sub" id="kpiLastMonthSub"></div>
       </div>
@@ -145,30 +145,30 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
         <div class="kpi-sub" id="kpiTotalSub"></div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Čekající</div>
+        <div class="kpi-label">Pending</div>
         <div class="kpi-value" id="kpiPending">—</div>
-        <div class="kpi-sub" id="kpiPendingSub">zatím nezaplacené zálohy</div>
+        <div class="kpi-sub" id="kpiPendingSub">unpaid deposits so far</div>
       </div>
     </div>
 
     <div class="report-card">
-      <h3><svg class="icon"><use href="#i-credit-card"/></svg> Měsíční report</h3>
+      <h3><svg class="icon"><use href="#i-credit-card"/></svg> Monthly report</h3>
       <p>
-        Stáhni si <b style="color:var(--txt)">PDF report</b> za vybraný měsíc — obsahuje
-        všechny rezervace, zaplacené zálohy, hotovost na místě, provize InkLinku
-        a čistý příjem. Vhodné pro daňovou evidenci.
+        Download the <b style="color:var(--txt)">PDF report</b> for the selected month — includes
+        all bookings, paid deposits, on-site cash, InkLink commission
+        and net income. Suitable for tax records.
       </p>
       <form id="reportForm" onsubmit="downloadReport(event)">
         <div class="report-row">
           <div class="fld">
-            <label>Měsíc</label>
+            <label>Month</label>
             <input type="month" id="reportMonth" required>
           </div>
           <button class="report-btn primary" type="submit">
-            <svg class="icon"><use href="#i-arrow-right"/></svg> Stáhnout PDF
+            <svg class="icon"><use href="#i-arrow-right"/></svg> Download PDF
           </button>
           <button class="report-btn" type="button" onclick="previewReport()">
-            <svg class="icon"><use href="#i-eye"/></svg> Náhled (JSON)
+            <svg class="icon"><use href="#i-eye"/></svg> Preview (JSON)
           </button>
         </div>
       </form>
@@ -177,14 +177,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
 
     <div class="section-head">
-      <h2 class="section-title">Posledních 30 transakcí</h2>
-      <a class="section-sub" href="/my-bookings" style="text-decoration:underline">Všechny rezervace →</a>
+      <h2 class="section-title">Last 30 transactions</h2>
+      <a class="section-sub" href="/my-bookings" style="text-decoration:underline">All bookings →</a>
     </div>
     <div id="txList" class="tx-table"></div>
     <div id="txEmpty" class="empty" style="display:none">
       <span class="b">ZATÍM ŽÁDNÉ TRANSAKCE</span>
       <span>Až ti někdo zarezervuje termín, uvidíš zde výdělek.<br>
-      <a href="/artist-setup#slots">Přidej volné termíny</a> aby tě klienti našli.</span>
+      <a href="/artist-setup#slots">Add available slots</a> aby tě klienti našli.</span>
     </div>
 
     <div class="disclaimer">
@@ -206,7 +206,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div class="empty">
       <span class="b">JEN PRO TATÉRY</span>
       <span>Výdělky vidí jen tatéři.<br>
-      <a href="/artist-setup">Stát se tatérem →</a></span>
+      <a href="/artist-setup">Become an artist →</a></span>
     </div>
   </div>
 
@@ -289,7 +289,7 @@ async function init() {
     data = await r.json();
   } catch (e) {
     document.getElementById('loading').innerHTML = `<div class="il-error-banner">
-      <span>Failed načíst výdělky (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <span>Failed načíst výdělky (${escapeHtml(e.message || 'network error')}).</span>
       <button onclick="location.reload()">Try again</button>
     </div>`;
     return;

@@ -137,7 +137,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <div class="wrap">
   <div class="hero" id="hero">
-    <div class="skeleton">NAČÍTÁM…</div>
+    <div class="skeleton">LOADING…</div>
   </div>
   <div class="hero-thumbs" id="heroThumbs"></div>
 
@@ -211,13 +211,13 @@ function render() {
   const av = u.avatar
     ? `<img src="${escapeHtml(u.avatar)}" alt="">`
     : escapeHtml(u.initials || '?');
-  const studioCity = [u.studio, u.city].filter(Boolean).join(' · ') || 'tatér';
+  const studioCity = [u.studio, u.city].filter(Boolean).join(' · ') || 'artist';
   const styles = (p.styles || u.styles || '').trim();
 
   const priceBlock = priced
     ? `<div class="price-block">
          <div class="price-main">${priceTxt}</div>
-         <div class="price-meta">${isSketch ? 'Cena za <b>celý sketch</b> včetně realizace' : 'Healed — referenční cena'}</div>
+         <div class="price-meta">${isSketch ? 'Price for <b>the whole sketch</b> including the tattoo' : 'Healed — reference price'}</div>
        </div>`
     : '';
 
@@ -245,9 +245,9 @@ function render() {
     <div id="slotsMount"></div>
 
     <div class="actions">
-      <button class="btn-icon ${p.liked?'liked':''}" id="likeBtn" onclick="toggleLike()" title="${p.liked?'Odebrat z lajků':'Lajknout'}"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:3px"><use href="#i-heart"/></svg><span class="cnt" id="likeCnt">${p.like_count}</span></button>
-      <button class="btn-icon" onclick="shareSketch()" title="Sdílet odkaz">↗</button>
-      <button class="btn-icon" id="storyBtn" onclick="shareStory()" title="Sdílet jako Instagram Story">▢</button>
+      <button class="btn-icon ${p.liked?'liked':''}" id="likeBtn" onclick="toggleLike()" title="${p.liked?'Unlike':'Like'}"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:3px"><use href="#i-heart"/></svg><span class="cnt" id="likeCnt">${p.like_count}</span></button>
+      <button class="btn-icon" onclick="shareSketch()" title="Share link">↗</button>
+      <button class="btn-icon" id="storyBtn" onclick="shareStory()" title="Share as Instagram Story">▢</button>
     </div>
   `;
 
@@ -263,7 +263,7 @@ function fmtDate(iso) {
 }
 
 function fmtPrice(min, max, unit) {
-  const suffix = unit === 'flat' ? ' Kč' : ' Kč/h';
+  const suffix = unit === 'flat' ? ' CZK' : ' CZK/h';
   if (!min && !max) return 'cena dle dohody';
   if (min && max && min !== max) return `${min.toLocaleString('cs-CZ')}–${max.toLocaleString('cs-CZ')}${suffix}`;
   return `${(min||max).toLocaleString('cs-CZ')}${suffix}`;
@@ -290,8 +290,8 @@ async function loadSlots(username) {
   if (!slots.length) {
     mount.innerHTML = `
       <div class="slots-empty">
-        Tatér zatím nemá vypsané volné termíny.<br>
-        <a href="/profile/${escapeHtml(u.username)}" style="color:var(--red2);text-decoration:underline">Jdi na profil tatéra</a> a napiš mu zprávu.
+        Artist hasn't posted any slots yet.<br>
+        <a href="/profile/${escapeHtml(u.username)}" style="color:var(--red2);text-decoration:underline">Go to artist profile</a> and send them a message.
       </div>`;
     return;
   }
@@ -304,7 +304,7 @@ async function loadSlots(username) {
   mount.innerHTML = `
     <div class="slots-block">
       <div class="slots-head">
-        <span class="label">Volné termíny</span>
+        <span class="label">Available slots</span>
         <span class="cnt">${slots.length} ${slots.length === 1 ? 'termín' : (slots.length < 5 ? 'termíny' : 'termínů')}</span>
       </div>
       ${visible.map(s => {
@@ -313,14 +313,14 @@ async function loadSlots(username) {
         <a class="slot-row" href="/profile/${escapeHtml(u.username)}${bookHash}">
           <div class="slot-date">${fmtDate(s.start_at)}</div>
           <div class="slot-meta">
-            <span class="price">${fmtPrice(s.price_min, s.price_max, s.price_unit)} · záloha ${s.deposit_pct}%</span>
+            <span class="price">${fmtPrice(s.price_min, s.price_max, s.price_unit)} · deposit ${s.deposit_pct}%</span>
             <span class="dep">${totalH.toFixed(1).replace(/\.0$/,'')} h blok</span>
             ${s.note ? `<span class="dep">${escapeHtml(s.note)}</span>` : ''}
           </div>
           <span class="slot-cta">${canBook ? 'Book →' : 'Detail →'}</span>
         </a>`;
       }).join('')}
-      ${more > 0 ? `<a class="slot-more" href="/profile/${escapeHtml(u.username)}">+ ${more} dalších termínů na profilu →</a>` : ''}
+      ${more > 0 ? `<a class="slot-more" href="/profile/${escapeHtml(u.username)}">+ ${more} more slots on profile →</a>` : ''}
     </div>
   `;
 }
@@ -411,7 +411,7 @@ async function shareSketch() {
   }
   try {
     await navigator.clipboard.writeText(url);
-    showToast('Odkaz zkopírován');
+    showToast('Link copied');
   } catch {
     showToast('Zkopíruj URL z adresního řádku');
   }

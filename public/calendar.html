@@ -8,7 +8,7 @@
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf8f3">
 <meta name="robots" content="noindex">
-<title>Kalendář — InkLink</title>
+<title>Calendar — InkLink</title>
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
 <style>
@@ -167,21 +167,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 <div class="wrap">
 
   <div id="gate" class="gate-msg" style="display:none">
-    Tato stránka je jen pro tatéry.<br>
-    <a href="/artist-setup">Staň se tatérem →</a>
+    This page is artist-only.<br>
+    <a href="/artist-setup">Become an artist →</a>
   </div>
 
   <div id="cal" style="display:none">
     <div class="cal-hero">
       <div>
-        <h1>MŮJ KALENDÁŘ</h1>
+        <h1>MY CALENDAR</h1>
         <div class="sub" id="weekRange">Loading…</div>
       </div>
       <div class="week-nav">
-        <button onclick="shiftWeek(-1)" title="Předchozí týden"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
-        <span class="label" id="weekLabel">Týden</span>
+        <button onclick="shiftWeek(-1)" title="Previous week"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
+        <span class="label" id="weekLabel">Week</span>
         <button class="today" onclick="goToToday()">Dnes</button>
-        <button onclick="shiftWeek(1)" title="Další týden"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+        <button onclick="shiftWeek(1)" title="Next week"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
       </div>
     </div>
 
@@ -189,20 +189,20 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
     <div id="emptyHint" class="empty-state" style="display:none">
       <svg class="icon icon-xl" style="width:32px;height:32px"><use href="#i-calendar"/></svg>
-      <h3>ŽÁDNÉ TERMÍNY</h3>
-      <p>V tomto týdnu nejsou volné bloky. Klikni na <b style="color:var(--accent)">+</b> dole vpravo a přidej.</p>
+      <h3>NO SLOTS</h3>
+      <p>No open blocks this week. Click the <b style="color:var(--accent)">+</b> at bottom right to add one.</p>
     </div>
   </div>
 </div>
 
-<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Add termín" aria-label="Add volný termín"><span>+</span></button>
+<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Add slot" aria-label="Add available slot"><span>+</span></button>
 
 <!-- Sheet Modal — Apple-style -->
 <div id="slotSheet" onclick="if(event.target===this)closeSlotSheet()">
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>
     <div class="sheet-head">
-      <h3>NOVÝ TERMÍN</h3>
+      <h3>NEW SLOT</h3>
       <button class="sheet-close" type="button" onclick="closeSlotSheet()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form id="slotSheetForm" class="sheet-body">
@@ -225,17 +225,17 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
       <div class="quick-row">
         <button type="button" class="quick-btn" onclick="setTimes('09:00','13:00')">Dopoledne</button>
         <button type="button" class="quick-btn" onclick="setTimes('13:00','18:00')">Odpoledne</button>
-        <button type="button" class="quick-btn" onclick="setTimes('09:00','18:00')">Celý den</button>
-        <button type="button" class="quick-btn" onclick="setTimes('17:00','21:00')">Večer</button>
+        <button type="button" class="quick-btn" onclick="setTimes('09:00','18:00')">All day</button>
+        <button type="button" class="quick-btn" onclick="setTimes('17:00','21:00')">Evening</button>
       </div>
 
       <div class="row2">
         <div class="fld">
-          <label>Sazba od (Kč/h)</label>
+          <label>Rate from (CZK/h)</label>
           <input type="number" id="ssPriceMin" min="0" placeholder="1200">
         </div>
         <div class="fld">
-          <label>Sazba do (Kč/h)</label>
+          <label>Rate to (CZK/h)</label>
           <input type="number" id="ssPriceMax" min="0" placeholder="1800">
         </div>
       </div>
@@ -394,7 +394,7 @@ function render() {
           ? daySlots.map(s => `
               <div class="slot-pill ${s.status==='booked'?'booked':''}">
                 <span class="t">${fmtTime(s.start_at)}–${fmtTime(s.end_at)}</span>
-                <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} Kč/h` : 'cena dohodou'}</span>
+                <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} CZK/h` : 'cena dohodou'}</span>
                 ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="Delete">×</button>` : ''}
               </div>`).join('')
           : (isPast

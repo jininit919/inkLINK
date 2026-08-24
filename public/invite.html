@@ -5,7 +5,7 @@
 <style>html,body{background:#faf8f3;margin:0}</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title data-i18n="invite.pageTitle">Pozvánka do studia — InkLink</title>
+<title data-i18n="invite.pageTitle">Studio invite — InkLink</title>
 <meta name="robots" content="noindex">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
@@ -48,7 +48,7 @@ nav{background:rgba(250,248,243,0.92);border-bottom:1px solid var(--border);disp
 </nav>
 
 <div class="center" id="root">
-  <div style="color:var(--txt3)" data-i18n="invite.loading">Loading pozvánku…</div>
+  <div style="color:var(--txt3)" data-i18n="invite.loading">Loading invite…</div>
 </div>
 
 <script src="/i18n.js?v=1"></script>
@@ -60,7 +60,7 @@ function esc(s){return (s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':
 
 async function load(){
   if(!token){
-    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.notFound">Pozvánka nenalezena.</div></div>`;
+    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.notFound">Invite not found.</div></div>`;
     window.applyI18n && window.applyI18n();
     return;
   }
@@ -68,17 +68,17 @@ async function load(){
     const r = await fetch(`/api/studios/invites/${encodeURIComponent(token)}`);
     if(!r.ok){
       const d = await r.json();
-      const msg = d.status==='accepted' ? 'Pozvánka už byla přijata.' :
-                  d.status==='declined' ? 'Pozvánka byla odmítnuta.' :
-                  d.status==='expired'  ? 'Pozvánka vypršela.' :
-                  'Pozvánka nenalezena.';
+      const msg = d.status==='accepted' ? 'Invite already accepted.' :
+                  d.status==='declined' ? 'Invite declined.' :
+                  d.status==='expired'  ? 'Invite expired.' :
+                  'Invite not found.';
       root.innerHTML = `<div class="card"><div class="err">${esc(msg)}</div></div>`;
       return;
     }
     const data = await r.json();
     render(data);
   } catch(e){
-    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.loadError">Failed načíst pozvánku.</div></div>`;
+    root.innerHTML = `<div class="card"><div class="err" data-i18n="invite.loadError">Failed to load invite.</div></div>`;
     window.applyI18n && window.applyI18n();
   }
 }
@@ -90,20 +90,20 @@ function render(data){
   const city = s.city || '';
   root.innerHTML = `
     <div class="card">
-      <div class="label" data-i18n="invite.heading">Pozvánka do studia</div>
+      <div class="label" data-i18n="invite.heading">Studio invite</div>
       <div class="logo">${logo}</div>
       <div class="studio-name">${esc(s.name)}</div>
       ${city ? `<div class="studio-city">${esc(city)}</div>`:''}
       <div class="inviter">
-        <b>${esc(data.inviter_name||'Admin')}</b> <span data-i18n="invite.invitesYou">tě zve, ať se přidáš do týmu.</span><br>
-        <span style="font-size:11px;color:var(--txt3);letter-spacing:0.06em" data-i18n="invite.emailTarget">Adresát:</span>
+        <b>${esc(data.inviter_name||'Admin')}</b> <span data-i18n="invite.invitesYou">is inviting you to join the team.</span><br>
+        <span style="font-size:11px;color:var(--txt3);letter-spacing:0.06em" data-i18n="invite.emailTarget">Recipient:</span>
         <span style="font-size:11px;color:var(--txt2);letter-spacing:0.06em">${esc(data.email)}</span>
       </div>
       <div class="actions">
-        <button class="btn" onclick="accept()" data-i18n="invite.accept">Přijmout</button>
-        <button class="btn ghost" onclick="decline()" data-i18n="invite.decline">Odmítnout</button>
+        <button class="btn" onclick="accept()" data-i18n="invite.accept">Accept</button>
+        <button class="btn ghost" onclick="decline()" data-i18n="invite.decline">Decline</button>
       </div>
-      <div class="note" data-i18n="invite.note">Tvůj Stripe účet, payouts a rezervace zůstávají tvé. Studio jen seskupuje portfolio a má veřejnou stránku.</div>
+      <div class="note" data-i18n="invite.note">Your Stripe account, payouts and bookings stay yours. The studio just groups portfolios and has a public page.</div>
     </div>
   `;
   window.applyI18n && window.applyI18n();
@@ -117,7 +117,7 @@ async function accept(){
     return;
   }
   if(!me.is_artist){
-    alert('Pozvánku může přijmout jen tatér. Nejdřív si vytvoř tatérský profil.');
+    alert('Only artists can accept invites. Create an artist profile first.');
     location.href = '/artist-setup';
     return;
   }

@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#faf8f3">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Lajknuté — InkLink</title>
+<title>Liked — InkLink</title>
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
 <style>
@@ -103,19 +103,19 @@ main{padding:24px 24px 80px;min-width:0}
   <main>
     <div class="page-head">
       <h1 class="page-title"><svg class="icon icon-lg" style="vertical-align:-3px;margin-right:6px"><use href="#i-heart"/></svg> Lajknuté</h1>
-      <div class="page-sub">Tvoje uložené položky</div>
+      <div class="page-sub">Your saved items</div>
     </div>
 
     <div class="feed-tabs">
-      <div class="feed-tab active" data-kind="">Vše <span class="tab-hint" id="cntAll"></span></div>
+      <div class="feed-tab active" data-kind="">All <span class="tab-hint" id="cntAll"></span></div>
       <div class="feed-tab" data-kind="sketch">Sketch <span class="tab-hint" id="cntSketch"></span></div>
       <div class="feed-tab" data-kind="done">Healed <span class="tab-hint" id="cntDone"></span></div>
     </div>
 
     <div id="feed" class="feed-grid"></div>
     <div id="emptyState" class="empty" style="display:none">
-      <span class="b">ZATÍM ŽÁDNÉ LAJKY</span>
-      <span>Projdi si <a href="/">feed</a> a klikni na ♥ u skic a prací,<br>které tě baví — najdeš je tady kdykoli zpátky.</span>
+      <span class="b">NO LIKES YET</span>
+      <span>Browse the <a href="/">feed</a> and tap ♥ on sketches and work you like,<br>you'll find them back here anytime.</span>
     </div>
   </main>
 
@@ -150,7 +150,7 @@ async function init() {
 
 async function loadLiked() {
   const grid = document.getElementById('feed');
-  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Loading lajknuté…</div>';
+  grid.innerHTML = '<div class="il-loading-row"><span class="il-spinner"></span> Loading likes…</div>';
   try {
     const r = await fetch('/api/liked');
     if (r.status === 401) { location.href = '/login'; return; }
@@ -160,7 +160,7 @@ async function loadLiked() {
   } catch (e) {
     items = [];
     grid.innerHTML = `<div class="il-error-banner">
-      <span>Failed načíst lajknuté (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <span>Failed to load likes (${escapeHtml(e.message || 'network error')}).</span>
       <button onclick="loadLiked()">Try again</button>
     </div>`;
     document.getElementById('emptyState').style.display = 'none';
@@ -236,9 +236,9 @@ async function shareSketch(id) {
   }
   try {
     await navigator.clipboard.writeText(url);
-    showToast('Odkaz zkopírován');
+    showToast('Link copied');
   } catch {
-    showToast('Zkopíruj URL: ' + url);
+    showToast('Copy URL: ' + url);
   }
 }
 

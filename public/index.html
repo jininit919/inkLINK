@@ -13,11 +13,11 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>InkLink — Tattoo Booking Network</title>
-<meta name="description" content="InkLink: najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.">
+<meta name="description" content="InkLink: find an artist, browse portfolios, book with a deposit.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.inklink.club/">
 <meta property="og:title" content="InkLink — Tattoo Booking Network">
-<meta property="og:description" content="Najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.">
+<meta property="og:description" content="Find an artist, browse portfolios, book with a deposit.">
 <meta property="og:image" content="https://www.inklink.club/icons/icon-512.png">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
@@ -163,7 +163,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .search-close{background:transparent;border:none;color:var(--txt3);cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:background 0.12s,color 0.12s}
 .search-close:hover{background:var(--bg3);color:var(--txt)}
 .search-drop-inner{flex:1;overflow-y:auto}
-.search-drop-inner:empty::before{content:'Začni psát aspoň 2 znaky…';display:block;padding:24px;text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.06em}
+.search-drop-inner:empty::before{content:'Start typing at least 2 characters…';display:block;padding:24px;text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.06em}
 
 #filterModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:400;padding:60px 16px 16px;-webkit-tap-highlight-color:transparent}
 #filterModal.show{display:flex}
@@ -417,21 +417,21 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     <button class="welcome-close" onclick="closeWelcome()" aria-label="Close">×</button>
     <div id="welcomeStep1">
       <div class="welcome-brand">INKLINK</div>
-      <h2 class="welcome-title">Vítej v InkLinku</h2>
-      <p class="welcome-sub">Tattoo booking network — najdi tatéra, prohlédni portfolio, rezervuj termín se zálohou.<br>Co tě sem přivádí?</p>
+      <h2 class="welcome-title">Welcome to InkLink</h2>
+      <p class="welcome-sub">Tattoo booking network — find an artist, browse portfolios, book with a deposit.<br>What brings you here?</p>
       <div class="welcome-role-grid">
         <button class="welcome-role" onclick="welcomeRole('client')">
           <div class="welcome-role-icon"><svg class="icon icon-2xl"><use href="#i-user"/></svg></div>
           <div class="welcome-role-title">Jsem klient</div>
-          <div class="welcome-role-sub">Hledám tatéra</div>
+          <div class="welcome-role-sub">Looking for an artist</div>
         </button>
         <button class="welcome-role" onclick="welcomeRole('artist')">
           <div class="welcome-role-icon"><svg class="icon icon-2xl"><use href="#i-edit"/></svg></div>
-          <div class="welcome-role-title">Jsem tatér</div>
-          <div class="welcome-role-sub">Nabízím termíny</div>
+          <div class="welcome-role-title">I'm an artist</div>
+          <div class="welcome-role-sub">I offer sessions</div>
         </button>
       </div>
-      <button class="welcome-cta-muted" onclick="closeWelcome()">Přeskočit</button>
+      <button class="welcome-cta-muted" onclick="closeWelcome()">Skip</button>
     </div>
 
     <div id="welcomeStep2Client" style="display:none">
@@ -440,15 +440,15 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       <div class="welcome-step">
         <div class="welcome-step-num">1</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Prohlédni feed skic a hotových prací</div>
-          <div class="welcome-step-sub">Filtruj podle města, stylu, nebo se podívej na <a href="/map" style="color:var(--red2);text-decoration:underline">mapu tatérů</a>.</div>
+          <div class="welcome-step-title">Browse the feed of sketches and healed work</div>
+          <div class="welcome-step-sub">Filter by city, style, or check the <a href="/map" style="color:var(--red2);text-decoration:underline">artist map</a>.</div>
         </div>
       </div>
       <div class="welcome-step">
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
           <div class="welcome-step-title">Like ♥ what you enjoy</div>
-          <div class="welcome-step-sub">You will find sketches later in <a href="/liked" style="color:var(--red2);text-decoration:underline">Lajknuté</a>.</div>
+          <div class="welcome-step-sub">You will find sketches later in <a href="/liked" style="color:var(--red2);text-decoration:underline">Liked</a>.</div>
         </div>
       </div>
       <div class="welcome-step">
@@ -475,14 +475,14 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
           <div class="welcome-step-title">Upload portfolio</div>
-          <div class="welcome-step-sub">Sketch s cenou se zobrazí klientům jako "Book tento návrh →". Healed ukazuje tvůj styl.</div>
+          <div class="welcome-step-sub">Sketches with a price show to clients as "Book this design →". Healed shows your style.</div>
         </div>
       </div>
       <div class="welcome-step">
         <div class="welcome-step-num">3</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Přidej volné termíny</div>
-          <div class="welcome-step-sub">Bloky dostupnosti se zobrazí v tvém kalendáři. Klienti si vyberou velikost a čas.</div>
+          <div class="welcome-step-title">Add available slots</div>
+          <div class="welcome-step-sub">Availability blocks appear in your calendar. Clients pick a size and time.</div>
         </div>
       </div>
       <div class="welcome-step">
@@ -493,7 +493,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
         </div>
       </div>
       <a class="welcome-cta" href="/artist-setup">Otevřít nastavení tatéra →</a>
-      <button class="welcome-cta-muted" onclick="closeWelcome()">Přeskočit</button>
+      <button class="welcome-cta-muted" onclick="closeWelcome()">Skip</button>
     </div>
   </div>
 </div>
@@ -524,7 +524,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       </div>
     </div>
     <div class="filter-section">
-      <div class="filter-section-label">Město</div>
+      <div class="filter-section-label">City</div>
       <div class="filter-chips" id="filterCitiesChips"></div>
     </div>
     <div class="filter-section">
@@ -912,7 +912,7 @@ async function loadFeed() {
   } catch (e) {
     items = [];
     grid.innerHTML = `<div class="il-error-banner">
-      <span>Failed načíst feed (${escapeHtml(e.message || 'chyba sítě')}).</span>
+      <span>Failed načíst feed (${escapeHtml(e.message || 'network error')}).</span>
       <button onclick="loadFeed()">Try again</button>
     </div>`;
     document.getElementById('emptyState').style.display = 'none';
@@ -1006,7 +1006,7 @@ async function doSearch() {
   if (d.portfolio?.length) {
     html += '<div class="sd-section"><div class="sd-label">SKICY / PRÁCE</div>';
     html += d.portfolio.map(p => {
-      const price = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč` : '';
+      const price = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
       return `<a class="sd-item" href="/profile/${escapeHtml(p.username)}#book-${p.id}">
         <div class="sd-img"><img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy"></div>
         <div class="sd-body"><div class="n">${escapeHtml(p.caption || (p.kind==='sketch'?'Sketch':'Healed'))}</div>
@@ -1075,9 +1075,9 @@ async function shareSketch(id) {
   }
   try {
     await navigator.clipboard.writeText(url);
-    showToast('Odkaz zkopírován');
+    showToast('Link copied');
   } catch {
-    showToast('Zkopíruj URL: ' + url);
+    showToast('Copy URL: ' + url);
   }
 }
 

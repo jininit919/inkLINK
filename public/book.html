@@ -120,7 +120,7 @@ section{margin-top:44px}
 
 <nav>
   <a href="/" class="nav-logo">inklink</a>
-  <a class="nav-icon" href="/profile/{{USERNAME}}" title="Plný profil"><svg class="icon"><use href="#i-user"/></svg></a>
+  <a class="nav-icon" href="/profile/{{USERNAME}}" title="Full profile"><svg class="icon"><use href="#i-user"/></svg></a>
 </nav>
 
 <div class="wrap" id="root">
@@ -133,7 +133,7 @@ const USERNAME = "{{USERNAME}}";
 function esc(s){return (s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
 function fmtMonth(iso){
   const m = new Date(iso).getMonth();
-  return ['LED','ÚNO','BŘE','DUB','KVĚ','ČVN','ČVC','SRP','ZÁŘ','ŘÍJ','LIS','PRO'][m] || '';
+  return ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][m] || '';
 }
 function fmtDay(iso){ return new Date(iso).getDate(); }
 function fmtTime(iso){
@@ -142,8 +142,8 @@ function fmtTime(iso){
 }
 function fmtPrice(min, max){
   if (!min) return '';
-  if (max && max !== min) return `${min}–${max} Kč/h`;
-  return `${min} Kč/h`;
+  if (max && max !== min) return `${min}–${max} CZK/h`;
+  return `${min} CZK/h`;
 }
 
 async function load() {
@@ -151,12 +151,12 @@ async function load() {
   try {
     const r = await fetch(`/api/profile/${encodeURIComponent(USERNAME)}`);
     if (!r.ok) {
-      document.getElementById('root').innerHTML = '<div class="empty">Tatér nenalezen.</div>';
+      document.getElementById('root').innerHTML = '<div class="empty">Artist not found.</div>';
       return;
     }
     p = await r.json();
   } catch (e) {
-    document.getElementById('root').innerHTML = '<div class="empty">Chyba načítání.</div>';
+    document.getElementById('root').innerHTML = '<div class="empty">Loading error.</div>';
     return;
   }
 
@@ -186,7 +186,7 @@ async function load() {
   if (firstSlot) {
     ctaHtml = `<a class="btn" href="/profile/${esc(p.username)}#slots"><svg class="ico"><use href="#i-calendar"/></svg>Book — od ${fmtDay(firstSlot.start_at)}. ${fmtMonth(firstSlot.start_at).toLowerCase()}${rateTxt ? ` · ${rateTxt}` : ''}</a>`;
   } else {
-    ctaHtml = `<button class="btn unavailable" disabled>Žádné volné termíny${rateTxt ? ` · ${rateTxt}` : ''}</button>`;
+    ctaHtml = `<button class="btn unavailable" disabled>No available slots${rateTxt ? ` · ${rateTxt}` : ''}</button>`;
   }
 
   // Portfolio carousel
@@ -197,7 +197,7 @@ async function load() {
       <div class="portfolio-scroll">
         ${port.map(item => {
           const badge = item.kind === 'sketch' ? '<span class="badge">Sketch</span>' : '<span class="badge">Healed</span>';
-          const price = item.price_kc ? `${(+item.price_kc).toLocaleString('cs-CZ')} Kč` : '';
+          const price = item.price_kc ? `${(+item.price_kc).toLocaleString('cs-CZ')} CZK` : '';
           const cap = esc(item.caption || '');
           return `<a class="port-tile" href="/sketch/${item.id}">
             <div class="img"><img src="/uploads/${esc(item.image)}" alt="" loading="lazy"></div>
@@ -215,7 +215,7 @@ async function load() {
   // Slots list (next 5)
   const slotsHtml = slots.length ? `
     <section>
-      <h2 class="section-title">Volné termíny <span class="count">${slots.length}</span></h2>
+      <h2 class="section-title">Available slots <span class="count">${slots.length}</span></h2>
       <div class="slots-list">
         ${slots.slice(0, 5).map(s => {
           const start = new Date(s.start_at);
@@ -252,13 +252,13 @@ async function load() {
     ${slotsHtml}
 
     <div class="foot">
-      <a href="/profile/${esc(p.username)}">Zobrazit plný profil → recenze, kontakt, fotky</a>
-      <div style="margin-top:14px;opacity:0.6">tetování přes <a href="/" style="color:var(--ink)">inklink</a></div>
+      <a href="/profile/${esc(p.username)}">View full profile → reviews, contact, photos</a>
+      <div style="margin-top:14px;opacity:0.6">tattoo via <a href="/" style="color:var(--ink)">inklink</a></div>
     </div>
   `;
 
   // Update document title with name (browser tab)
-  document.title = `Tetování u ${p.display_name || p.username} — InkLink`;
+  document.title = `Tattoo at ${p.display_name || p.username} — InkLink`;
 }
 
 load();

@@ -247,12 +247,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
     <div id="tab-portfolio">
       <div class="grid" id="grid"></div>
-      <div class="empty" id="portfolioEmpty" style="display:none">Žádné položky portfolia.</div>
+      <div class="empty" id="portfolioEmpty" style="display:none">No portfolio items.</div>
     </div>
 
     <div id="tab-slots" style="display:none">
       <div class="slots-list" id="slots"></div>
-      <div class="empty" id="slotsEmpty" style="display:none">Žádné volné termíny.</div>
+      <div class="empty" id="slotsEmpty" style="display:none">No available slots.</div>
     </div>
 
     <div id="tab-reviews" style="display:none">
@@ -270,9 +270,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <button id="lightbox-close" onclick="closeLightbox()" aria-label="Close">×</button>
-  <button id="lb-prev" class="lb-arrow" onclick="lbPrev()" aria-label="Předchozí">◀</button>
+  <button id="lb-prev" class="lb-arrow" onclick="lbPrev()" aria-label="Previous">◀</button>
   <img id="lightbox-img" src="">
-  <button id="lb-next" class="lb-arrow" onclick="lbNext()" aria-label="Další">▶</button>
+  <button id="lb-next" class="lb-arrow" onclick="lbNext()" aria-label="Next">▶</button>
   <div id="lb-counter"></div>
 </div>
 
@@ -283,26 +283,26 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div class="price" id="bm-price"></div>
     <div id="bm-flash"></div>
 
-    <label>Velikost tetování *</label>
+    <label>Tattoo size *</label>
     <div class="size-grid" id="bm-sizes"></div>
 
-    <label>Začátek *</label>
+    <label>Start *</label>
     <div class="start-options" id="bm-starts"></div>
 
-    <label>Popis tetování *</label>
-    <textarea id="bm-note" placeholder="Lokace na těle, motiv, velikost (cca cm), reference / inspirace, kdy ses naposled tetoval(a)…"></textarea>
+    <label>Tattoo description *</label>
+    <textarea id="bm-note" placeholder="Placement on body, motif, size (approx cm), references / inspiration, last tattoo date…"></textarea>
 
     <label style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;text-transform:none;letter-spacing:0.04em;color:var(--txt2);font-size:12px;cursor:pointer">
       <input type="checkbox" id="bm-payfull" style="margin-top:2px;width:auto;accent-color:var(--red2)" onchange="refreshDeposit()">
-      <span><b style="color:var(--txt)">Zaplatit celou částku teď</b> — na místě už nic.<br>
-      <span style="color:var(--txt3);font-size:11px">Jinak platíš jen zálohu, zbytek dohodnete na místě (hotově / kartou) nebo ti tatér po sezení pošle link na doplatek přes InkLink.</span></span>
+      <span><b style="color:var(--txt)">Pay in full now</b> — nothing on-site.<br>
+      <span style="color:var(--txt3);font-size:11px">Otherwise pay just the deposit — settle the rest on-site (cash/card) or the artist sends a balance payment link via InkLink after the session.</span></span>
     </label>
 
-    <!-- Promo kód — volitelné. Live preview validation přes /api/discounts/preview -->
-    <label style="margin-top:14px">Promo kód <span style="color:var(--txt3);font-weight:400;letter-spacing:0.02em;text-transform:none">(volitelně)</span></label>
+    <!-- Promo code — volitelné. Live preview validation přes /api/discounts/preview -->
+    <label style="margin-top:14px">Promo code <span style="color:var(--txt3);font-weight:400;letter-spacing:0.02em;text-transform:none">(optional)</span></label>
     <div style="display:flex;gap:8px;align-items:stretch">
-      <input type="text" id="bm-discount" placeholder="např. WELCOME" style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:10px 12px;outline:none;text-transform:uppercase;letter-spacing:0.04em">
-      <button type="button" class="btn muted" id="bm-discount-apply" onclick="applyDiscountPreview()" style="padding:0 18px">Ověřit</button>
+      <input type="text" id="bm-discount" placeholder="e.g. WELCOME" style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:10px 12px;outline:none;text-transform:uppercase;letter-spacing:0.04em">
+      <button type="button" class="btn muted" id="bm-discount-apply" onclick="applyDiscountPreview()" style="padding:0 18px">Apply</button>
     </div>
     <div id="bm-discount-msg" style="font-size:11px;letter-spacing:0.04em;margin-top:6px;min-height:14px"></div>
 
@@ -324,7 +324,7 @@ function fmtDate(iso) {
   catch { return iso; }
 }
 function fmtPrice(min, max, unit) {
-  const suffix = unit === 'flat' ? ' Kč' : ' Kč/h';
+  const suffix = unit === 'flat' ? ' CZK' : ' CZK/h';
   if (!min && !max) return 'cena se domluví s tatérem';
   if (min && max && min !== max) return `${min.toLocaleString('cs-CZ')}–${max.toLocaleString('cs-CZ')}${suffix}`;
   return `${(min||max).toLocaleString('cs-CZ')}${suffix}`;
@@ -520,7 +520,7 @@ function render() {
     document.getElementById('portfolioEmpty').style.display = 'block';
   } else {
     grid.innerHTML = profile.portfolio.map((p, i) => {
-      const fixedPrice = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} Kč` : '';
+      const fixedPrice = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
       const hoursTxt = p.estimated_hours ? ` · ~${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '';
       const canBookThis = !profile.is_own && p.price_kc && p.estimated_hours && profile.slots.length > 0;
       const imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
@@ -558,7 +558,7 @@ function render() {
       <div class="slot-row">
         <div class="slot-date">${fmtDate(s.start_at)}</div>
         <div class="slot-meta">
-          <span class="slot-price">${fmtPrice(s.price_min, s.price_max, s.price_unit)} · záloha ${s.deposit_pct}%</span>
+          <span class="slot-price">${fmtPrice(s.price_min, s.price_max, s.price_unit)} · deposit ${s.deposit_pct}%</span>
           ${occBadge}
           ${s.note ? `<span class="slot-note">${escapeHtml(s.note)}</span>` : ''}
         </div>
@@ -593,7 +593,7 @@ async function loadSimilar(username) {
       const av = a.avatar_url
         ? `<img src="${escapeHtml(a.avatar_url)}" alt="">`
         : escapeHtml(a.initials || '?');
-      const meta = [a.studio, a.city].filter(Boolean).map(escapeHtml).join(' · ') || 'tatér';
+      const meta = [a.studio, a.city].filter(Boolean).map(escapeHtml).join(' · ') || 'artist';
       const rating = a.rating_count > 0
         ? `<div class="similar-rating">★ ${a.rating_avg.toFixed(1)} <span style="color:var(--txt3)">(${a.rating_count})</span></div>`
         : '';
@@ -655,7 +655,7 @@ async function loadReviews() {
           <div class="review-rating">${renderStarsStatic(rv.rating)} <b style="color:var(--txt);margin-left:4px">${rv.rating}/5</b></div>
         </div>
         ${rv.text ? `<div class="review-text">${escapeHtml(rv.text)}</div>` : ''}
-        ${rv.response ? `<div class="review-resp"><b>Odpověď tatéra:</b> ${escapeHtml(rv.response)}</div>` : ''}
+        ${rv.response ? `<div class="review-resp"><b>Artist reply:</b> ${escapeHtml(rv.response)}</div>` : ''}
         ${canReport ? `<button class="review-report-btn" onclick="reportReview(${rv.id}, this)" title="Nahlásit nevhodný obsah">⚐ Nahlásit</button>` : ''}
       </div>
     `;
@@ -1035,7 +1035,7 @@ async function applyDiscountPreview() {
       msg.innerHTML = `<span style="color:#e58787">${escapeHtml(human)}</span>`;
     }
   } catch (e) {
-    msg.innerHTML = '<span style="color:#e58787">Chyba sítě.</span>';
+    msg.innerHTML = '<span style="color:#e58787">Network error.</span>';
   } finally {
     btn.disabled = false;
   }

@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title data-i18n="studio.pageTitle">Studio — InkLink</title>
-<meta name="description" data-i18n-attr="content" data-i18n="studio.metaDesc" content="Tetovací studio na InkLinku">
+<meta name="description" data-i18n-attr="content" data-i18n="studio.metaDesc" content="Tattoo studio on InkLink">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
 <style>
@@ -135,7 +135,7 @@ async function load(){
 
     let metaHtml = '';
     if(s.address) metaHtml += `<span><b data-i18n="studio.address">Adresa:</b> ${esc(s.address)}</span>`;
-    if(locParts) metaHtml += `<span><b data-i18n="studio.city">Město:</b> ${esc(locParts)}</span>`;
+    if(locParts) metaHtml += `<span><b data-i18n="studio.city">City:</b> ${esc(locParts)}</span>`;
     if(igUrl) metaHtml += `<span><b>Instagram:</b> <a href="${igUrl}" target="_blank" rel="noopener">@${esc(s.instagram.replace(/^@/, ''))}</a></span>`;
     if(s.website) metaHtml += `<span><b data-i18n="studio.website">Web:</b> <a href="${esc(s.website)}" target="_blank" rel="noopener">${esc(s.website.replace(/^https?:\/\//,''))}</a></span>`;
     if(s.phone) metaHtml += `<span><b data-i18n="studio.phone">Tel:</b> ${esc(s.phone)}</span>`;
@@ -148,9 +148,9 @@ async function load(){
 
     const members = s.members||[];
     const membersHtml = members.length ? `
-      <h2 class="section-title"><span data-i18n="studio.team">Tým</span> <span style="color:var(--txt3);font-size:14px;letter-spacing:0.08em;">· ${members.length}</span></h2>
+      <h2 class="section-title"><span data-i18n="studio.team">Team</span> <span style="color:var(--txt3);font-size:14px;letter-spacing:0.08em;">· ${members.length}</span></h2>
       <div class="members">${members.map(renderMember).join('')}</div>
-    ` : `<div class="empty" data-i18n="studio.noMembers">Studio nemá zatím žádné členy.</div>`;
+    ` : `<div class="empty" data-i18n="studio.noMembers">The studio has no members yet.</div>`;
 
     root.innerHTML = `
       <div class="hero">
@@ -169,7 +169,7 @@ async function load(){
     if(window.lucide) window.lucide.createIcons();
   } catch(e){
     console.error(e);
-    root.innerHTML = `<div class="error" data-i18n="studio.loadError">Failed načíst studio.</div>`;
+    root.innerHTML = `<div class="error" data-i18n="studio.loadError">Failed to load studio.</div>`;
     window.applyI18n && window.applyI18n();
   }
 }
