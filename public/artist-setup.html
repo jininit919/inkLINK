@@ -287,9 +287,31 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
           <input type="file" name="avatar" id="avatar" accept="image/jpeg,image/png,image/webp">
         </div>
         <p class="hint" style="margin:0 0 14px;color:var(--txt3);font-size:11px">
-          Sazba a záloha se předvyplní v každém novém bloku dostupnosti. Platební režim se předvybere v rezervačním modalu klienta — pokud volíš <b>plnou platbu předem</b>, klient zaplatí celé přes InkLink a na místě už nic neřešíš.
+          The rate and deposit prefill every new availability block. The payment mode is preselected in the client's booking modal — if you choose <b>full payment upfront</b>, the client pays everything through InkLink and there's nothing to settle on-site.
         </p>
-        <button class="btn" type="submit">Save profil</button>
+
+        <!-- Artist liability consent — required before is_artist activates -->
+        <div id="artistTermsBox" style="margin:18px 0 14px;padding:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px">
+          <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:10px">Artist responsibility</div>
+          <div style="font-size:12px;color:var(--txt2);line-height:1.65;letter-spacing:0.01em">
+            InkLink is only a booking platform — it is <b>not a party to the tattoo agreement</b> between you and your client. By using InkLink as an artist, you confirm that you:
+            <ul style="margin:8px 0 8px 18px;padding:0;line-height:1.7">
+              <li>hold all licenses, permits and insurance required in your jurisdiction to perform tattoo work;</li>
+              <li>are solely responsible for hygiene, safety, aftercare instructions, and the quality of every tattoo you deliver;</li>
+              <li>obtain informed consent from each client and comply with age and health restrictions;</li>
+              <li>handle any complaint, medical incident, or dispute related to the tattoo itself directly with the client — InkLink is not liable for the artistic result or physical outcome of a session;</li>
+              <li>are responsible for taxes, invoicing, and reporting on income received via the platform.</li>
+            </ul>
+            InkLink only provides the booking, payment escrow, messaging, and refund-request infrastructure. See the <a href="/terms" target="_blank" style="color:var(--red2);border-bottom:1px solid currentColor">terms</a> for the full agreement.
+          </div>
+          <label id="artistTermsLabel" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer;font-size:12px;color:var(--txt);line-height:1.5">
+            <input type="checkbox" id="artistTermsCheckbox" name="artist_terms_accepted" value="1" style="width:auto;margin-top:3px;accent-color:var(--red2);flex-shrink:0">
+            <span>I confirm I have read the above and take full responsibility for the tattoo work I offer through InkLink.</span>
+          </label>
+          <div id="artistTermsAccepted" style="display:none;font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:8px">✓ Accepted <span id="artistTermsAcceptedAt"></span></div>
+        </div>
+
+        <button class="btn" type="submit">Save profile</button>
       </form>
     </div>
 
@@ -480,6 +502,22 @@ async function init() {
   document.getElementById('hourly_rate_min').value = me.hourly_rate_min ?? '';
   document.getElementById('hourly_rate_max').value = me.hourly_rate_max ?? '';
   document.getElementById('default_payment_mode').value = me.default_payment_mode || 'deposit';
+
+  // Artist liability consent — if already accepted, show timestamp and skip checkbox.
+  const termsBox = document.getElementById('artistTermsBox');
+  const termsLabel = document.getElementById('artistTermsLabel');
+  const termsAccepted = document.getElementById('artistTermsAccepted');
+  if (me.artist_terms_accepted_at) {
+    termsLabel.style.display = 'none';
+    termsAccepted.style.display = 'block';
+    // Pre-check the checkbox so it still submits (server treats it as no-op).
+    document.getElementById('artistTermsCheckbox').checked = true;
+    try {
+      const d = new Date(me.artist_terms_accepted_at);
+      document.getElementById('artistTermsAcceptedAt').textContent =
+        `on ${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    } catch {}
+  }
 
   const profile = await fetch('/api/profile/' + me.username).then(r => r.json()).catch(() => null);
   if (profile) document.getElementById('bio').value = profile.bio || '';
@@ -845,14 +883,24 @@ function readStyles(id){return Array.from(document.querySelectorAll('#'+id+' .st
 
 document.getElementById('profileForm').addEventListener('submit', async e => {
   e.preventDefault();
+  // Client-side guard for artist liability consent.
+  const termsCheckbox = document.getElementById('artistTermsCheckbox');
+  const alreadyAccepted = !!(me && me.artist_terms_accepted_at);
+  if (!alreadyAccepted && !termsCheckbox.checked) {
+    flash('Please accept the artist responsibility statement before saving.', 'err');
+    termsCheckbox.focus();
+    return;
+  }
   const fd = new FormData(e.target);
   fd.set('styles', readStyles('stylesGrid'));
+  // FormData omits unchecked checkboxes; force the field when already accepted.
+  if (alreadyAccepted) fd.set('artist_terms_accepted', '1');
   const r = await fetch('/api/profile/update', {method:'POST', body: fd});
   if (r.ok) {
-    flash('Profil uložen ✓');
+    flash('Profile saved ✓');
     me = await fetch('/api/me').then(r => r.json());
   } else {
-    flash((await r.json()).error || 'Failed uložit', 'err');
+    flash((await r.json()).error || 'Failed to save', 'err');
   }
 });
 

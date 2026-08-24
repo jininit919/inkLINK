@@ -643,7 +643,11 @@ def init_db():
                 # Accounting data (bookings, economics_snapshots) is preserved
                 # by FK; only the user row is anonymized.
                 'deletion_requested_at TEXT DEFAULT NULL',
-                'deleted_at TEXT DEFAULT NULL'):
+                'deleted_at TEXT DEFAULT NULL',
+                # Artist liability consent — must be accepted before profile
+                # save switches the account into is_artist=1. Stores ISO
+                # timestamp of acceptance (NULL = not accepted).
+                'artist_terms_accepted_at TEXT DEFAULT NULL'):
         add_col('users', col)
     conn.commit()
 
@@ -1992,7 +1996,8 @@ def me():
                                   default_payment_mode,
                                   stripe_account_id, stripe_charges_enabled,
                                   stripe_payouts_enabled, stripe_details_submitted,
-                                  deletion_requested_at
+                                  deletion_requested_at,
+                                  artist_terms_accepted_at
                            FROM users WHERE id = ?''',
                         (session['user_id'],)).fetchone()
     push_n = conn.execute('SELECT COUNT(*) FROM push_subscriptions WHERE user_id=?',
@@ -3050,6 +3055,23 @@ def update_profile():
     studio       = request.form.get('studio', '').strip()
     instagram    = request.form.get('instagram', '').strip().lstrip('@')
     styles_raw   = request.form.get('styles', '').strip()
+
+    # Artist liability consent — must be accepted (once) before profile save
+    # can activate is_artist. Existing artists are grandfathered by an already-
+    # set artist_terms_accepted_at.
+    conn_check = get_db()
+    current = conn_check.execute(
+        'SELECT is_artist, artist_terms_accepted_at FROM users WHERE id=?',
+        (session['user_id'],)
+    ).fetchone()
+    conn_check.close()
+    already_accepted = bool(current and current['artist_terms_accepted_at'])
+    consent_now = (request.form.get('artist_terms_accepted', '').strip() in ('1', 'true', 'on'))
+    if not already_accepted and not consent_now:
+        return jsonify({
+            'error': 'Před uložením musíš odsouhlasit odpovědnostní podmínky tatéra.',
+            'code': 'artist_terms_required'
+        }), 400
     try:
         deposit_pct = int(request.form.get('deposit_pct_default', '30'))
     except (ValueError, TypeError):
@@ -3094,6 +3116,12 @@ def update_profile():
     styles = ','.join(chosen)
 
     conn = get_db()
+    # Stamp consent on first acceptance (idempotent — later saves don't overwrite).
+    if not already_accepted and consent_now:
+        conn.execute(
+            'UPDATE users SET artist_terms_accepted_at=? WHERE id=? AND artist_terms_accepted_at IS NULL',
+            (datetime.utcnow().isoformat() + 'Z', session['user_id'])
+        )
     if lat is not None and lng is not None:
         conn.execute('''UPDATE users SET display_name=?, city=?, bio=?, studio=?, instagram=?,
                                           styles=?, deposit_pct_default=?,
@@ -3168,11 +3196,32 @@ def become_artist():
     err = require_login()
     if err: return err
     conn = get_db()
-    u = conn.execute('SELECT username, display_name, is_artist, artist_slug FROM users WHERE id=?',
-                     (session['user_id'],)).fetchone()
+    u = conn.execute(
+        'SELECT username, display_name, is_artist, artist_slug, artist_terms_accepted_at FROM users WHERE id=?',
+        (session['user_id'],)
+    ).fetchone()
     if u['is_artist']:
         conn.close()
         return jsonify({'ok': True, 'artist_slug': u['artist_slug']})
+    # Consent required unless already accepted previously.
+    body = request.get_json(silent=True) if request.is_json else None
+    consent_raw = ''
+    if body and 'artist_terms_accepted' in body:
+        consent_raw = str(body.get('artist_terms_accepted', '')).lower()
+    else:
+        consent_raw = request.form.get('artist_terms_accepted', '').strip().lower()
+    consent_now = consent_raw in ('1', 'true', 'on')
+    if not u['artist_terms_accepted_at'] and not consent_now:
+        conn.close()
+        return jsonify({
+            'error': 'Před aktivací tatérského profilu musíš odsouhlasit odpovědnostní podmínky.',
+            'code': 'artist_terms_required'
+        }), 400
+    if not u['artist_terms_accepted_at']:
+        conn.execute(
+            'UPDATE users SET artist_terms_accepted_at=? WHERE id=?',
+            (datetime.utcnow().isoformat() + 'Z', session['user_id'])
+        )
     base = _slugify(u['display_name'] or u['username'])
     slug = base
     n = 1
