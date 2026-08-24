@@ -5,7 +5,7 @@
 <style>html,body{background:#faf8f3;margin:0}</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title data-i18n="studioCreate.pageTitle">Založit studio — InkLink</title>
+<title data-i18n="studioCreate.pageTitle">Create studio — InkLink</title>
 <meta name="robots" content="noindex">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
@@ -101,7 +101,7 @@ async function init(){
 
 function renderForm(){
   root.innerHTML = `
-    <div class="page-title" data-i18n="studioCreate.title">Založit studio</div>
+    <div class="page-title" data-i18n="studioCreate.title">Create studio</div>
     <div class="lede" data-i18n="studioCreate.lede">Studio seskupuje tvůj tým tatérů pod jednu značku. Jako zakladatel(ka) jsi admin — pozveš ostatní e-mailem.</div>
 
     <div class="info-box">
@@ -113,7 +113,7 @@ function renderForm(){
       <div id="formErr"></div>
       <form onsubmit="submitForm(event)">
         <div class="field">
-          <label data-i18n="studioCreate.name">Název studia *</label>
+          <label data-i18n="studioCreate.name">Studio name *</label>
           <input id="f_name" required minlength="2" maxlength="80" placeholder="Black Rose Tattoo">
         </div>
         <div class="field">
@@ -144,7 +144,7 @@ function renderForm(){
             <input id="f_website" maxlength="200" placeholder="https://">
           </div>
         </div>
-        <button class="btn" type="submit" data-i18n="studioCreate.submit">Založit studio</button>
+        <button class="btn" type="submit" data-i18n="studioCreate.submit">Create studio</button>
       </form>
     </div>
   `;

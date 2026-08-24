@@ -458,7 +458,7 @@ async function init() {
       <div class="sub">Pro úpravu profilu se musíš přihlásit.</div>
       <div style="margin-top:24px;display:flex;gap:8px">
         <a class="btn" href="/login">Sign in / register</a>
-        <a class="btn muted" href="/">Zpět na feed</a>
+        <a class="btn muted" href="/">Back to feed</a>
       </div>`;
     return;
   }
@@ -793,7 +793,7 @@ async function loadStripeStatus() {
     dot.classList.add('ready');
     txt.textContent = 'Stripe propojen ✓ Můžeš přijímat rezervace a vyplácet si peníze.';
     actions.innerHTML = `
-      <button class="btn" onclick="openDashboard()">Otevřít Stripe dashboard</button>
+      <button class="btn" onclick="openDashboard()">Open Stripe dashboard</button>
       <button class="btn muted" onclick="loadStripeStatus()">Obnovit stav</button>`;
     return;
   }

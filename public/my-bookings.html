@@ -411,7 +411,7 @@ function renderRow(b, view) {
     }
   }
 
-  // Klient: pending_payment booking se Stripe PI → Zaplatit zálohu
+  // Klient: pending_payment booking se Stripe PI → Pay deposit
   if (view === 'client' && b.status === 'pending_payment' && b.stripe_payment_intent_id) {
     const depAmount = b.payment_mode === 'full' ? (b.total_price_cents || b.deposit_cents) : b.deposit_cents;
     payCta = `<a class="btn" href="/pay/${b.id}" style="background:var(--red2);color:var(--bg);text-decoration:none">Pay deposit ${fmtKc(depAmount)}</a>` + (payCta ? ' ' + payCta : '');
