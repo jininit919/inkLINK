@@ -292,23 +292,39 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
         <!-- Artist liability consent — required before is_artist activates -->
         <div id="artistTermsBox" style="margin:18px 0 14px;padding:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px">
-          <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:10px">Artist responsibility</div>
+          <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:10px">Artist responsibility — declaration</div>
           <div style="font-size:12px;color:var(--txt2);line-height:1.65;letter-spacing:0.01em">
-            InkLink is only a booking platform — it is <b>not a party to the tattoo agreement</b> between you and your client. By using InkLink as an artist, you confirm that you:
+            I, <b><span id="artistTermsName" style="color:var(--txt)">[fill in your name above]</span></b>, hereby declare that InkLink is only a booking platform and is <b>not a party to the tattoo agreement</b> between me and my client. I declare that:
             <ul style="margin:8px 0 8px 18px;padding:0;line-height:1.7">
-              <li>hold all licenses, permits and insurance required in your jurisdiction to perform tattoo work;</li>
-              <li>are solely responsible for hygiene, safety, aftercare instructions, and the quality of every tattoo you deliver;</li>
-              <li>obtain informed consent from each client and comply with age and health restrictions;</li>
-              <li>handle any complaint, medical incident, or dispute related to the tattoo itself directly with the client — InkLink is not liable for the artistic result or physical outcome of a session;</li>
-              <li>are responsible for taxes, invoicing, and reporting on income received via the platform.</li>
+              <li>I hold all licenses, permits and insurance required in my jurisdiction to perform tattoo work;</li>
+              <li>I am solely responsible for hygiene, safety, aftercare instructions, and the quality of every tattoo I deliver;</li>
+              <li>I obtain informed consent from each client and comply with age and health restrictions;</li>
+              <li>I handle any complaint, medical incident, or dispute related to the tattoo itself directly with the client — InkLink is not liable for the artistic result or physical outcome of a session;</li>
+              <li>I am responsible for taxes, invoicing, and reporting on income received via the platform.</li>
             </ul>
             InkLink only provides the booking, payment escrow, messaging, and refund-request infrastructure. See the <a href="/terms" target="_blank" style="color:var(--red2);border-bottom:1px solid currentColor">terms</a> for the full agreement.
           </div>
+
+          <details style="margin-top:12px;font-size:12px;color:var(--txt2);line-height:1.65;letter-spacing:0.01em">
+            <summary style="cursor:pointer;color:var(--txt);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:4px 0">🇨🇿 Česká verze</summary>
+            <div style="margin-top:10px">
+              Já, <b><span id="artistTermsNameCz" style="color:var(--txt)">[doplň své jméno výše]</span></b>, tímto prohlašuji, že InkLink je pouze rezervační platforma a <b>není smluvní stranou dohody o tetování</b> mezi mnou a mým klientem. Prohlašuji, že:
+              <ul style="margin:8px 0 8px 18px;padding:0;line-height:1.7">
+                <li>mám všechna oprávnění, živnostenské listy, hygienické průkazy a pojištění vyžadované v ČR pro provozování tetování;</li>
+                <li>nesu výhradní odpovědnost za hygienu, bezpečnost, poučení o pooperační péči a kvalitu každého tetování, které vytvořím;</li>
+                <li>od každého klienta získávám informovaný souhlas a dodržuji věkové a zdravotní omezení;</li>
+                <li>jakoukoliv stížnost, zdravotní komplikaci nebo spor týkající se samotného tetování řeším přímo s klientem — InkLink neručí za umělecký výsledek ani fyzické následky sezení;</li>
+                <li>nesu odpovědnost za daně, vystavování dokladů a vykazování příjmu získaného přes platformu.</li>
+              </ul>
+              InkLink poskytuje jen infrastrukturu pro rezervace, escrow plateb, zprávy a žádosti o refund. Plné znění najdeš v <a href="/terms" target="_blank" style="color:var(--red2);border-bottom:1px solid currentColor">obchodních podmínkách</a>.
+            </div>
+          </details>
+
           <label id="artistTermsLabel" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer;font-size:12px;color:var(--txt);line-height:1.5">
             <input type="checkbox" id="artistTermsCheckbox" name="artist_terms_accepted" value="1" style="width:auto;margin-top:3px;accent-color:var(--red2);flex-shrink:0">
-            <span>I confirm I have read the above and take full responsibility for the tattoo work I offer through InkLink.</span>
+            <span>I confirm and sign the above declaration in my own name. <span style="color:var(--txt3);font-size:11px">/ Potvrzuji a podepisuji výše uvedené prohlášení svým jménem.</span></span>
           </label>
-          <div id="artistTermsAccepted" style="display:none;font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:8px">✓ Accepted <span id="artistTermsAcceptedAt"></span></div>
+          <div id="artistTermsAccepted" style="display:none;font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:8px">✓ Signed <span id="artistTermsAcceptedAt"></span></div>
         </div>
 
         <button class="btn" type="submit">Save profile</button>
@@ -503,10 +519,20 @@ async function init() {
   document.getElementById('hourly_rate_max').value = me.hourly_rate_max ?? '';
   document.getElementById('default_payment_mode').value = me.default_payment_mode || 'deposit';
 
-  // Artist liability consent — if already accepted, show timestamp and skip checkbox.
+  // Artist liability consent — live-sync display name into declaration text.
   const termsBox = document.getElementById('artistTermsBox');
   const termsLabel = document.getElementById('artistTermsLabel');
   const termsAccepted = document.getElementById('artistTermsAccepted');
+  const nameEnEl = document.getElementById('artistTermsName');
+  const nameCzEl = document.getElementById('artistTermsNameCz');
+  const displayInput = document.getElementById('display_name');
+  function syncDeclarationName() {
+    const n = (displayInput.value || '').trim();
+    if (nameEnEl) nameEnEl.textContent = n || '[fill in your name above]';
+    if (nameCzEl) nameCzEl.textContent = n || '[doplň své jméno výše]';
+  }
+  syncDeclarationName();
+  displayInput.addEventListener('input', syncDeclarationName);
   if (me.artist_terms_accepted_at) {
     termsLabel.style.display = 'none';
     termsAccepted.style.display = 'block';
