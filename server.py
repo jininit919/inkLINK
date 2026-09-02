@@ -2139,6 +2139,7 @@ def me():
                                   is_artist, artist_slug, studio, instagram, styles,
                                   deposit_pct_default, hourly_rate_min, hourly_rate_max,
                                   default_payment_mode,
+                                  cancel_refund_full_hours, cancel_refund_half_hours,
                                   stripe_account_id, stripe_charges_enabled,
                                   stripe_payouts_enabled, stripe_details_submitted,
                                   deletion_requested_at,
@@ -3233,6 +3234,11 @@ def update_profile():
             return None
     hourly_min = _opt_int('hourly_rate_min')
     hourly_max = _opt_int('hourly_rate_max')
+    # Storno lhůty: prázdné pole = None = platformní default (96/48).
+    cancel_full = _opt_int('cancel_refund_full_hours')
+    cancel_half = _opt_int('cancel_refund_half_hours')
+    if cancel_full is not None and cancel_half is not None and cancel_half > cancel_full:
+        return jsonify({'error': 'Lhůta pro poloviční refund musí být kratší než pro plný.'}), 400
     pay_mode = (request.form.get('default_payment_mode', '') or 'deposit').strip().lower()
     if pay_mode not in ('deposit', 'full', 'client_choice'):
         pay_mode = 'deposit'
@@ -3272,19 +3278,21 @@ def update_profile():
                                           styles=?, deposit_pct_default=?,
                                           hourly_rate_min=?, hourly_rate_max=?,
                                           default_payment_mode=?,
+                                          cancel_refund_full_hours=?, cancel_refund_half_hours=?,
                                           lat=?, lng=?
                         WHERE id=?''',
                      (display_name, city, bio, studio, instagram, styles, deposit_pct,
-                      hourly_min, hourly_max, pay_mode, lat, lng,
+                      hourly_min, hourly_max, pay_mode, cancel_full, cancel_half, lat, lng,
                       session['user_id']))
     else:
         conn.execute('''UPDATE users SET display_name=?, city=?, bio=?, studio=?, instagram=?,
                                           styles=?, deposit_pct_default=?,
                                           hourly_rate_min=?, hourly_rate_max=?,
-                                          default_payment_mode=?
+                                          default_payment_mode=?,
+                                          cancel_refund_full_hours=?, cancel_refund_half_hours=?
                         WHERE id=?''',
                      (display_name, city, bio, studio, instagram, styles, deposit_pct,
-                      hourly_min, hourly_max, pay_mode,
+                      hourly_min, hourly_max, pay_mode, cancel_full, cancel_half,
                       session['user_id']))
 
     f = request.files.get('avatar')

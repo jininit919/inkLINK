@@ -76,8 +76,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 .demo-banner{background:rgba(232,200,127,0.08);border:1px solid rgba(232,200,127,0.3);padding:10px 14px;color:#e8c87f;font-size:12px;letter-spacing:0.04em;margin-bottom:18px;line-height:1.5}
 
-#completeModal,#reviewModal,#respondModal,#refundModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-#completeModal.show,#reviewModal.show,#respondModal.show,#refundModal.show{display:flex}
+#completeModal,#reviewModal,#respondModal,#refundModal,#editBookModal,#rescheduleModal,#followUpModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#completeModal.show,#reviewModal.show,#respondModal.show,#refundModal.show,#editBookModal.show,#rescheduleModal.show,#followUpModal.show{display:flex}
 .cm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
 .cm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
 .cm-card p{color:var(--txt2);font-size:12px;line-height:1.5;margin-bottom:14px;letter-spacing:0.04em}
@@ -201,21 +201,49 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <div id="editBookModal" onclick="if(event.target===this)closeEditBook()">
   <div class="cm-card">
     <h3 id="ebmTitle">UPRAVIT REZERVACI</h3>
-    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Change the tattoo description. Only the artist can change the time and duration.</p>
-    <div id="ebmTimeFields" style="display:none">
-      <label>Start</label>
-      <input type="datetime-local" id="ebmStart">
-      <label>Duration (hours)</label>
-      <select id="ebmSize">
-        <option value="">— ponechat ${'$'}{currentDuration} h —</option>
-      </select>
-    </div>
+    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Uprav popis tetování. Termín se přesouvá tlačítkem „Přesunout".</p>
     <label>Tattoo description</label>
     <textarea id="ebmNote" maxlength="1000"></textarea>
     <div id="ebmFlash" style="margin-top:10px"></div>
     <div class="actions">
       <button class="btn muted" onclick="closeEditBook()">Cancel</button>
       <button class="btn" onclick="submitEditBook()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Přesun rezervace: klient ≥48 h předem hned, jinak žádost tatérovi -->
+<div id="rescheduleModal" onclick="if(event.target===this)closeReschedule()">
+  <div class="cm-card">
+    <h3 id="rsTitle">PŘESUNOUT REZERVACI</h3>
+    <p id="rsHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px"></p>
+    <label>Volný blok tatéra</label>
+    <select id="rsSlot" onchange="renderRescheduleStarts()"></select>
+    <label>Začátek</label>
+    <select id="rsStart"></select>
+    <div id="rsFlash" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn muted" onclick="closeReschedule()">Zpět</button>
+      <button class="btn" id="rsSubmit" onclick="submitReschedule()">Přesunout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tatér plánuje navazující sezení -->
+<div id="followUpModal" onclick="if(event.target===this)closeFollowUp()">
+  <div class="cm-card">
+    <h3>DALŠÍ SEZENÍ</h3>
+    <p class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Naváže na stávající rezervaci jako další sezení. Záloha se neplatí znovu.</p>
+    <label>Volný blok</label>
+    <select id="fuSlot" onchange="renderFollowUpStarts()"></select>
+    <label>Začátek</label>
+    <select id="fuStart"></select>
+    <label>Délka (h)</label>
+    <input type="number" id="fuDuration" min="1" max="12" step="0.5" value="2">
+    <div id="fuFlash" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn muted" onclick="closeFollowUp()">Zpět</button>
+      <button class="btn" id="fuSubmit" onclick="submitFollowUp()">Naplánovat</button>
     </div>
   </div>
 </div>
@@ -257,6 +285,9 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 let me = null, completingId = null, demoMode = false;
 let refundByBooking = {}; // booking_id → latest refund_request (or null)
 let refundingBookingId = null, refundingMaxKc = 0;
+let rescheduleByBooking = {}; // booking_id → latest pending reschedule request
+let rsBooking = null, rsSlots = [];   // stav modalu pro přesun
+let fuBooking = null, fuSlots = [];   // stav modalu pro další sezení
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
@@ -292,8 +323,20 @@ async function init() {
     banner.textContent = '⚠ Demo mode — Stripe not yet connected, bookings are just recorded, no real deposit is charged.';
     document.getElementById('content').insertBefore(banner, document.querySelector('.tabs'));
   }
-  await loadRefundRequests();
+  await Promise.all([loadRefundRequests(), loadRescheduleRequests()]);
   await Promise.all([loadClient(), loadArtist()]);
+}
+
+async function loadRescheduleRequests() {
+  rescheduleByBooking = {};
+  try {
+    const rows = await fetch('/api/reschedule-requests').then(r => r.ok ? r.json() : []);
+    for (const rr of rows) {
+      if (rr.status !== 'pending') continue;   // zajímá nás jen čekající
+      const prev = rescheduleByBooking[rr.booking_id];
+      if (!prev || rr.id > prev.id) rescheduleByBooking[rr.booking_id] = rr;
+    }
+  } catch {}
 }
 
 async function loadRefundRequests() {
@@ -417,6 +460,18 @@ function renderRow(b, view) {
     payCta = `<a class="btn" href="/pay/${b.id}" style="background:var(--red2);color:var(--bg);text-decoration:none">Pay deposit ${fmtKc(depAmount)}</a>` + (payCta ? ' ' + payCta : '');
   }
 
+  // ── ŽÁDOST O PŘESUN (čeká na tatéra) ──────────────────────────────────
+  const rs = rescheduleByBooking[b.id];
+  let rescheduleHint = '';
+  if (rs && rs.status === 'pending') {
+    const when = fmtDate(rs.new_booking_start_at);
+    rescheduleHint = `<div class="b-money" style="color:#e8c87f">⏳ Žádost o přesun na ${escapeHtml(when)}${
+      view === 'artist'
+        ? ` <button class="btn" style="margin-left:8px" onclick="decideReschedule(${rs.id},'approve')">Schválit</button>
+            <button class="btn danger" onclick="decideReschedule(${rs.id},'reject')">Zamítnout</button>`
+        : ' — čeká na tatéra'}</div>`;
+  }
+
   // ── REFUND REQUEST block + button ─────────────────────────────────────
   const rr = refundByBooking[b.id];
   let refundBlock = '';
@@ -462,6 +517,8 @@ function renderRow(b, view) {
           <span><b>${escapeHtml(other.display_name)}</b><span style="color:var(--txt3)"> · @${escapeHtml(other.username)}</span></span>
         </a>
         ${b.design_note ? `<div class="b-note">${escapeHtml(b.design_note)}</div>` : ''}
+        ${(b.session_number || 1) > 1 ? `<div style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px">Sezení ${b.session_number}${b.parent_booking_id?` · navazuje na #${b.parent_booking_id}`:''}</div>` : ''}
+        ${rescheduleHint}
         <div class="b-money">${b.payment_mode === 'full' ? 'Full payment' : 'Deposit'} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · provize ${fmtKc(b.platform_fee_cents)}`:''}</div>
         ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${refundBlock}${reviewBlock}
       </div>
@@ -469,6 +526,8 @@ function renderRow(b, view) {
         <span class="b-status ${b.status}">${statusLabel(b.status)}</span>
         ${payCta}
         ${isEditable ? `<button class="btn muted" onclick='openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>Edit</button>` : ''}
+        ${isCancellable ? `<button class="btn muted" onclick='openReschedule(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>Přesunout</button>` : ''}
+        ${view === 'artist' && ['confirmed','completed'].includes(b.status) ? `<button class="btn muted" onclick='openFollowUp(${JSON.stringify(b).replace(/'/g, "&#39;")})'>+ Další sezení</button>` : ''}
         ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">Cancel</button>` : ''}
         ${canComplete ? `<button class="btn" onclick="openComplete(${b.id})">Mark completed</button>` : ''}
         ${reviewCta}
@@ -582,31 +641,9 @@ let editingView = 'client';
 function openEditBook(booking, view) {
   editingBookingId = booking.id;
   editingView = view;
-  const isArtist = view === 'artist';
-  document.getElementById('ebmTitle').textContent = isArtist ? 'UPRAVIT REZERVACI' : 'UPRAVIT POPIS';
-  document.getElementById('ebmHint').innerHTML = isArtist
-    ? 'You can move the appointment within your slot, change duration or edit description. Client will be notified.'
-    : 'Clients can only edit the <b>tattoo description</b>. To move the appointment, message the artist — only they can change the time.';
+  document.getElementById('ebmTitle').textContent = 'UPRAVIT POPIS';
   document.getElementById('ebmNote').value = booking.design_note || '';
   document.getElementById('ebmFlash').innerHTML = '';
-
-  const tf = document.getElementById('ebmTimeFields');
-  if (isArtist) {
-    tf.style.display = 'block';
-    // start_at v naive local formátu (datetime-local input)
-    const start = booking.booking_start_at || booking.slot.start_at || '';
-    document.getElementById('ebmStart').value = start.slice(0, 16);
-    // duration select
-    const sizeSel = document.getElementById('ebmSize');
-    const cur = booking.duration_hours || 1;
-    sizeSel.innerHTML = `<option value="">— ponechat ${cur} h —</option>`
-      + [{key:'mini',h:1,l:'Mini (1 h)'},{key:'small',h:2,l:'Small (2 h)'},
-         {key:'medium',h:3,l:'Medium (3 h)'},{key:'large',h:5,l:'Large (5 h)'},
-         {key:'xl',h:8,l:'Full day (8 h)'}]
-        .map(s => `<option value="${s.key}">${s.l}</option>`).join('');
-  } else {
-    tf.style.display = 'none';
-  }
   document.getElementById('editBookModal').classList.add('show');
 }
 
@@ -617,22 +654,13 @@ function closeEditBook() {
 
 async function submitEditBook() {
   if (!editingBookingId) return;
-  const isArtist = editingView === 'artist';
-  const body = { design_note: document.getElementById('ebmNote').value };
-  if (isArtist) {
-    const startVal = document.getElementById('ebmStart').value;
-    const sizeKey  = document.getElementById('ebmSize').value;
-    if (startVal) body.booking_start_at = startVal;
-    if (sizeKey)  body.size_label = sizeKey;
-  }
   const r = await fetch(`/api/bookings/${editingBookingId}`, {
     method: 'PATCH',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(body),
+    body: JSON.stringify({ design_note: document.getElementById('ebmNote').value }),
   });
   if (r.ok) {
     closeEditBook();
-    // refresh oba taby
     if (editingView === 'client') await loadClient();
     else await loadArtist();
   } else {
@@ -640,6 +668,169 @@ async function submitEditBook() {
       `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${(await r.json()).error || 'Selhalo'}</div>`;
   }
 }
+
+// ── PŘESUN REZERVACE ─────────────────────────────────────────────────────
+// Volné bloky tatéra bereme z jeho veřejného profilu — ten už vrací sloty
+// i s obsazenými sub-rangy, takže není potřeba nový read endpoint.
+
+async function artistFreeSlots(username) {
+  try {
+    const p = await fetch('/api/profile/' + encodeURIComponent(username)).then(r => r.json());
+    return (p.slots || []).filter(s => s.status !== 'booked');
+  } catch { return []; }
+}
+
+function slotOptionLabel(s) {
+  const d = new Date(s.start_at);
+  return `${d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short'})} · `
+       + `${s.start_at.slice(11,16)}–${s.end_at.slice(11,16)}`;
+}
+
+function startOptionsFor(slot, durationH) {
+  // Půlhodinové kroky od začátku bloku, poslední možný start = konec − délka.
+  const out = [];
+  const start = new Date(slot.start_at), end = new Date(slot.end_at);
+  const last = new Date(end.getTime() - durationH * 3600 * 1000);
+  for (let t = new Date(start); t <= last; t = new Date(t.getTime() + 30*60*1000)) {
+    const iso = new Date(t.getTime() - t.getTimezoneOffset()*60000).toISOString().slice(0,19);
+    out.push({ iso, label: iso.slice(11,16) });
+  }
+  return out;
+}
+
+async function openReschedule(booking, view) {
+  rsBooking = booking;
+  const other = view === 'client' ? booking.artist : booking.client;
+  const username = (view === 'client' ? booking.artist : booking.client).username;
+  document.getElementById('rsFlash').innerHTML = '';
+  document.getElementById('rsHint').textContent = view === 'artist'
+    ? 'Jako tatér přesouváš rovnou — klientovi přijde upozornění.'
+    : 'Do 48 h před termínem musí přesun schválit tatér.';
+  rsSlots = await artistFreeSlots(view === 'client' ? username : me.username);
+  const sel = document.getElementById('rsSlot');
+  sel.innerHTML = rsSlots.map((s,i) => `<option value="${i}">${escapeHtml(slotOptionLabel(s))}</option>`).join('')
+                  || '<option value="">Žádné volné bloky</option>';
+  renderRescheduleStarts();
+  document.getElementById('rescheduleModal').classList.add('show');
+}
+
+function renderRescheduleStarts() {
+  const idx = document.getElementById('rsSlot').value;
+  const slot = rsSlots[idx];
+  const sel = document.getElementById('rsStart');
+  if (!slot) { sel.innerHTML = ''; return; }
+  const dur = rsBooking?.duration_hours || 1;
+  sel.innerHTML = startOptionsFor(slot, dur)
+    .map(o => `<option value="${o.iso}">${o.label}</option>`).join('')
+    || '<option value="">Blok je pro tuhle délku krátký</option>';
+}
+
+function closeReschedule() {
+  document.getElementById('rescheduleModal').classList.remove('show');
+  rsBooking = null;
+}
+
+async function submitReschedule() {
+  if (!rsBooking) return;
+  const idx = document.getElementById('rsSlot').value;
+  const slot = rsSlots[idx];
+  const start = document.getElementById('rsStart').value;
+  if (!slot || !start) {
+    document.getElementById('rsFlash').innerHTML =
+      '<div style="color:#e58787;font-size:11px">Vyber blok a čas</div>'; return;
+  }
+  const btn = document.getElementById('rsSubmit');
+  btn.disabled = true; btn.textContent = 'Odesílám…';
+  const r = await fetch(`/api/bookings/${rsBooking.id}/reschedule`, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ new_slot_id: slot.id, booking_start_at: start }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) {
+    document.getElementById('rsFlash').innerHTML = j.applied
+      ? '<div style="color:#7fd391;font-size:11px">Přesunuto ✓</div>'
+      : '<div style="color:#e8c87f;font-size:11px">Žádost odeslána — čeká na tatéra</div>';
+    setTimeout(async () => {
+      closeReschedule();
+      await loadRescheduleRequests();
+      await Promise.all([loadClient(), loadArtist()]);
+    }, 900);
+  } else {
+    document.getElementById('rsFlash').innerHTML =
+      `<div style="color:#e58787;font-size:11px">${escapeHtml(j.error || 'Přesun selhal')}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Přesunout';
+}
+
+async function decideReschedule(rid, decision) {
+  const r = await fetch(`/api/reschedule-requests/${rid}/decide`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ decision }),
+  });
+  if (!r.ok) { alert((await r.json().catch(() => ({}))).error || 'Nepodařilo se'); return; }
+  await loadRescheduleRequests();
+  await Promise.all([loadClient(), loadArtist()]);
+}
+
+// ── DALŠÍ SEZENÍ (multi-session) ─────────────────────────────────────────
+
+async function openFollowUp(booking) {
+  fuBooking = booking;
+  document.getElementById('fuFlash').innerHTML = '';
+  document.getElementById('fuDuration').value = booking.duration_hours || 2;
+  fuSlots = await artistFreeSlots(me.username);
+  const sel = document.getElementById('fuSlot');
+  sel.innerHTML = fuSlots.map((s,i) => `<option value="${i}">${escapeHtml(slotOptionLabel(s))}</option>`).join('')
+                  || '<option value="">Žádné volné bloky — nejdřív si přidej termín</option>';
+  renderFollowUpStarts();
+  document.getElementById('followUpModal').classList.add('show');
+}
+
+function renderFollowUpStarts() {
+  const slot = fuSlots[document.getElementById('fuSlot').value];
+  const sel = document.getElementById('fuStart');
+  if (!slot) { sel.innerHTML = ''; return; }
+  const dur = parseFloat(document.getElementById('fuDuration').value) || 1;
+  sel.innerHTML = startOptionsFor(slot, dur)
+    .map(o => `<option value="${o.iso}">${o.label}</option>`).join('')
+    || '<option value="">Blok je pro tuhle délku krátký</option>';
+}
+
+function closeFollowUp() {
+  document.getElementById('followUpModal').classList.remove('show');
+  fuBooking = null;
+}
+
+async function submitFollowUp() {
+  if (!fuBooking) return;
+  const slot = fuSlots[document.getElementById('fuSlot').value];
+  const start = document.getElementById('fuStart').value;
+  if (!slot || !start) {
+    document.getElementById('fuFlash').innerHTML =
+      '<div style="color:#e58787;font-size:11px">Vyber blok a čas</div>'; return;
+  }
+  const btn = document.getElementById('fuSubmit');
+  btn.disabled = true; btn.textContent = 'Ukládám…';
+  const r = await fetch(`/api/bookings/${fuBooking.id}/follow-up`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      new_slot_id: slot.id, booking_start_at: start,
+      duration_hours: document.getElementById('fuDuration').value,
+    }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) {
+    document.getElementById('fuFlash').innerHTML =
+      `<div style="color:#7fd391;font-size:11px">Sezení ${j.session_number} naplánováno ✓</div>`;
+    setTimeout(async () => { closeFollowUp(); await Promise.all([loadClient(), loadArtist()]); }, 900);
+  } else {
+    document.getElementById('fuFlash').innerHTML =
+      `<div style="color:#e58787;font-size:11px">${escapeHtml(j.error || 'Nepodařilo se')}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Naplánovat';
+}
+
+document.getElementById('fuDuration')?.addEventListener('change', renderFollowUpStarts);
 
 // ── REVIEWS ──────────────────────────────────────────────────────────────
 function starsHtml(rating) {

@@ -282,6 +282,20 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
             </select>
           </div>
         </div>
+        <div class="row">
+          <div class="field">
+            <label>Plný refund od (h před termínem)</label>
+            <input type="number" name="cancel_refund_full_hours" id="cancel_refund_full_hours" min="0" max="2000" placeholder="96">
+          </div>
+          <div class="field">
+            <label>Poloviční refund od (h před termínem)</label>
+            <input type="number" name="cancel_refund_half_hours" id="cancel_refund_half_hours" min="0" max="2000" placeholder="48">
+          </div>
+        </div>
+        <p class="hint" style="margin:-6px 0 14px;color:var(--txt3);font-size:11px">
+          Storno pravidla pro klienty. Nech prázdné = platformní default (96 h plný / 48 h poloviční refund).
+        </p>
+
         <div class="field">
           <label>Avatar (volitelné)</label>
           <input type="file" name="avatar" id="avatar" accept="image/jpeg,image/png,image/webp">
@@ -429,20 +443,6 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 </div>
 
-<div id="slotDetailModal" onclick="if(event.target===this)closeSlotDetail()">
-  <div class="sdm-card">
-    <h3>BLOK DOSTUPNOSTI</h3>
-    <div class="sdm-when" id="sdmWhen"></div>
-    <div class="sdm-meta" id="sdmMeta"></div>
-    <h4>REZERVACE V TOMTO BLOKU</h4>
-    <div class="sdm-bookings" id="sdmBookings"></div>
-    <div class="sdm-actions">
-      <button class="btn muted" onclick="closeSlotDetail()">Close</button>
-      <a class="btn" href="/calendar">Edit v kalendáři</a>
-      <button class="btn danger" id="sdmDel" onclick="sdmDelete()">Delete blok</button>
-    </div>
-  </div>
-</div>
 
 <div id="editPortModal" onclick="if(event.target===this)closePortEdit()">
   <div class="epm-card">
@@ -516,6 +516,8 @@ async function init() {
   document.getElementById('deposit_pct_default').value = me.deposit_pct_default ?? 30;
   document.getElementById('hourly_rate_min').value = me.hourly_rate_min ?? '';
   document.getElementById('hourly_rate_max').value = me.hourly_rate_max ?? '';
+  document.getElementById('cancel_refund_full_hours').value = me.cancel_refund_full_hours ?? '';
+  document.getElementById('cancel_refund_half_hours').value = me.cancel_refund_half_hours ?? '';
   document.getElementById('default_payment_mode').value = me.default_payment_mode || 'deposit';
 
   // Artist liability consent — live-sync display name into declaration text.
@@ -547,19 +549,8 @@ async function init() {
   const profile = await fetch('/api/profile/' + me.username).then(r => r.json()).catch(() => null);
   if (profile) document.getElementById('bio').value = profile.bio || '';
 
-  // pre-fill slot form z user defaults
-  // Portfolio / sloty / reporty teď žijí na jiných stránkách (feed FAB / /calendar / /earnings)
-  // Volání jsou guardována ať neselžou na missing DOM elementech
-  if (document.getElementById('sPriceMin')) {
-    if (me.hourly_rate_min) document.getElementById('sPriceMin').placeholder = me.hourly_rate_min;
-    if (me.hourly_rate_max) document.getElementById('sPriceMax').placeholder = me.hourly_rate_max;
-    if (me.deposit_pct_default) document.getElementById('sDeposit').placeholder = me.deposit_pct_default;
-    document.getElementById('sPriceMin').value = me.hourly_rate_min ?? '';
-    document.getElementById('sPriceMax').value = me.hourly_rate_max ?? '';
-  }
-
+  // Portfolio / sloty / reporty žijí na jiných stránkách (feed FAB / /calendar / /earnings).
   if (document.getElementById('gallery')) await loadPortfolio();
-  if (document.getElementById('slotList')) await loadSlots();
   await loadStripeStatus();
   await loadChecklist();
   await loadPushStatus();
@@ -1060,295 +1051,6 @@ async function delPortfolio(id) {
   else flash('Failed smazat', 'err');
 }
 
-async function loadSlots() {
-  const items = await fetch('/api/me/slots').then(r => r.json()).catch(() => []);
-  const list = document.getElementById('slotList');
-  if (!items.length) { list.innerHTML=''; document.getElementById('slotsEmpty').style.display='block'; return; }
-  document.getElementById('slotsEmpty').style.display='none';
-  list.innerHTML = items.map(s => {
-    const status = s.status || 'free';
-    const totalH = ((new Date(s.end_at) - new Date(s.start_at)) / 36e5).toFixed(1).replace(/\.0$/,'');
-    const unit = (s.price_unit || 'hour') === 'hour' ? 'Kč/h' : 'Kč';
-    const priceTxt = (s.price_min||s.price_max)
-      ? `${(s.price_min||0).toLocaleString('cs-CZ')}–${(s.price_max||0).toLocaleString('cs-CZ')} ${unit}`
-      : 'cena dle dohody';
-    return `
-      <div class="slot-item">
-        <div class="slot-item-date">${fmtDate(s.start_at)}<div style="font-size:10px;color:var(--txt3);letter-spacing:0.1em;margin-top:3px">${totalH} H BLOK</div></div>
-        <div class="slot-item-price">${priceTxt}${s.deposit_pct?` · deposit ${s.deposit_pct}%`:''}${s.note?` · ${escapeHtml(s.note)}`:''}</div>
-        <span class="slot-item-status ${status}">${status === 'booked' ? 'REZERVOVÁNO' : status === 'blocked' ? 'BLOKOVÁNO' : 'VOLNÝ'}</span>
-        <div class="slot-item-actions">
-          <button class="btn danger" style="padding:5px 10px;font-size:11px" onclick="delSlot(${s.id}, '${status}')">Delete</button>
-        </div>
-      </div>`;
-  }).join('');
-  // load calendar week view too
-  loadCalendar();
-}
-
-// ── Calendar week view ────────────────────────────────────────────────────────
-const DAY_NAMES = ['PO','ÚT','ST','ČT','PÁ','SO','NE'];
-const CAL_HOUR_START = 8;
-const CAL_HOUR_END   = 22;     // exclusive — last row is 21:00-22:00
-let calWeekStart = null;       // pondělí 00:00 lokálního času
-let calData = null;
-
-function startOfWeek(d) {
-  const x = new Date(d);
-  x.setHours(0,0,0,0);
-  const dow = (x.getDay() + 6) % 7;  // 0 = pondělí
-  x.setDate(x.getDate() - dow);
-  return x;
-}
-function isoLocal(d) {
-  const pad = n => String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-}
-function isoLocalDate(d) {
-  const pad = n => String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-}
-function sameDay(a, b) {
-  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
-}
-
-async function loadCalendar() {
-  if (!calWeekStart) calWeekStart = startOfWeek(new Date());
-  const r = await fetch('/api/me/calendar?from=' + isoLocalDate(calWeekStart));
-  calData = r.ok ? await r.json() : { slots: [] };
-  renderCalendar();
-}
-
-function renderCalendar() {
-  const grid = document.getElementById('calGrid');
-  if (!grid) return;
-  const today = new Date();
-  // label "12. – 18. 5. 2026"
-  const we = new Date(calWeekStart); we.setDate(we.getDate() + 6);
-  document.getElementById('calLabel').textContent =
-    `${calWeekStart.getDate()}. ${calWeekStart.getMonth()+1}. – ${we.getDate()}. ${we.getMonth()+1}. ${we.getFullYear()}`;
-
-  // header row
-  let html = '<div class="cal-head"><div class="h-cell"></div>';
-  for (let d = 0; d < 7; d++) {
-    const day = new Date(calWeekStart); day.setDate(day.getDate() + d);
-    const isToday = sameDay(day, today);
-    html += `<div class="h-cell${isToday?' today':''}">${DAY_NAMES[d]}<span class="num">${day.getDate()}</span></div>`;
-  }
-  html += '</div>';
-
-  // body — pro každý den jeden sloupec, hoursy vlevo opakovaně
-  // Strategie: vykreslit sloupec hours (slévá se s gridem), pak 7 day-cols jako relativní kontejnery s absolutními sloty
-  // Pro CSS grid jednoduchost: row per hour, 8 cols (1 hour + 7 days), cells jsou clickable
-  for (let h = CAL_HOUR_START; h < CAL_HOUR_END; h++) {
-    html += `<div class="cal-hour">${h}:00</div>`;
-    for (let d = 0; d < 7; d++) {
-      const day = new Date(calWeekStart); day.setDate(day.getDate() + d);
-      const isToday = sameDay(day, today);
-      html += `<div class="cal-cell${isToday?' is-today':''}" data-day="${d}" data-hour="${h}"></div>`;
-    }
-  }
-  grid.innerHTML = html;
-
-  // bind click on empty cells → prefill form
-  grid.querySelectorAll('.cal-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      const day = parseInt(cell.dataset.day);
-      const hour = parseInt(cell.dataset.hour);
-      const start = new Date(calWeekStart);
-      start.setDate(start.getDate() + day);
-      start.setHours(hour, 0, 0, 0);
-      const end = new Date(start); end.setHours(hour + 2);  // default 2h block
-      document.getElementById('sStart').value = isoLocal(start).slice(0,16);
-      document.getElementById('sEnd').value   = isoLocal(end).slice(0,16);
-      document.getElementById('sStart').scrollIntoView({behavior:'smooth', block:'center'});
-      flash(`Předvyplněno: ${start.toLocaleString('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}. Doplň cenu a uložte.`);
-    });
-  });
-
-  // pozicovat sloty + bookings absolutně přes day kolony
-  const slots = calData?.slots || [];
-  // protože používáme čistý CSS grid, slot block "překrýt" buňky musíme overlay-em.
-  // Nejjednodušší: vykreslit slot bloky jako absolute v rámci celého gridu, který je position:relative.
-  grid.style.position = 'relative';
-  const blocks = document.createElement('div');
-  blocks.style.cssText = 'position:absolute;inset:0;pointer-events:none';
-
-  // získat geometry: po prvním render získáme rozměry buněk
-  requestAnimationFrame(() => {
-    const firstHour = grid.querySelector('.cal-cell[data-hour="' + CAL_HOUR_START + '"][data-day="0"]');
-    if (!firstHour) return;
-    const cellRect = firstHour.getBoundingClientRect();
-    const gridRect = grid.getBoundingClientRect();
-    const cellH = cellRect.height;
-    const cellW = cellRect.width;
-    const colLeft = cellRect.left - gridRect.left;
-    const topOffset = cellRect.top - gridRect.top;
-
-    let layered = '';
-    for (const s of slots) {
-      const startD = new Date(s.start_at);
-      const endD   = new Date(s.end_at);
-      // den index v týdnu
-      const diff = (startD - calWeekStart) / 86400000;
-      const day = Math.floor(diff);
-      if (day < 0 || day > 6) continue;
-      const startHour = startD.getHours() + startD.getMinutes()/60;
-      const endHour   = endD.getHours()   + endD.getMinutes()/60;
-      // pokud blok zasahuje do dalšího dne, zkrátíme na konec dne (zjednodušení MVP)
-      const visibleStart = Math.max(startHour, CAL_HOUR_START);
-      const visibleEnd   = Math.min(endHour, CAL_HOUR_END);
-      if (visibleEnd <= visibleStart) continue;
-
-      const top = topOffset + (visibleStart - CAL_HOUR_START) * cellH;
-      const height = (visibleEnd - visibleStart) * cellH - 2;
-      const left = colLeft + day * cellW + 1;
-      const width = cellW - 4;
-
-      const totalH = ((endD - startD)/36e5).toFixed(1).replace(/\.0$/,'');
-      const unit = (s.price_unit || 'hour') === 'hour' ? '/h' : '';
-      const rate = (s.price_min||s.price_max)
-        ? `${(s.price_min||0)}${(s.price_max&&s.price_max!==s.price_min)?'–'+s.price_max:''} Kč${unit}`
-        : 'dohodou';
-
-      layered += `<div class="cal-slot" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px;pointer-events:auto"
-                       data-slot-id="${s.id}">
-        <div class="s-time">${startD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–${endD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</div>
-        <div class="s-rate">${rate} · ${totalH}h</div>
-      </div>`;
-
-      // bookings overlay uvnitř slot-block
-      for (const b of s.bookings) {
-        const bs = new Date(b.start_at), be = new Date(b.end_at);
-        const bsh = bs.getHours()+bs.getMinutes()/60;
-        const beh = be.getHours()+be.getMinutes()/60;
-        const bvs = Math.max(bsh, CAL_HOUR_START);
-        const bve = Math.min(beh, CAL_HOUR_END);
-        if (bve <= bvs) continue;
-        const btop = topOffset + (bvs - CAL_HOUR_START) * cellH;
-        const bheight = (bve - bvs) * cellH - 2;
-        const cls = b.status === 'completed' ? 'completed' : (b.payment_mode === 'full' ? 'full' : '');
-        const name = (b.client.display_name || b.client.username || '?').slice(0,12);
-        layered += `<div class="cal-booking ${cls}" style="left:${left+12}px;top:${btop}px;width:${width-12}px;height:${bheight}px;pointer-events:auto"
-                         data-slot-id="${s.id}">
-          <div class="b-name">${name}</div>
-          <div>${b.duration_h}h${b.size_label?' · '+b.size_label:''}</div>
-        </div>`;
-      }
-    }
-    blocks.innerHTML = layered;
-    grid.appendChild(blocks);
-    blocks.querySelectorAll('.cal-slot, .cal-booking').forEach(el => {
-      el.addEventListener('click', e => {
-        e.stopPropagation();
-        openSlotDetail(parseInt(el.dataset.slotId));
-      });
-    });
-  });
-}
-
-function openSlotDetail(slotId) {
-  const s = (calData?.slots || []).find(x => x.id === slotId);
-  if (!s) return;
-  const startD = new Date(s.start_at), endD = new Date(s.end_at);
-  document.getElementById('sdmWhen').textContent =
-    `${startD.toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'})} · `
-    + `${startD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–`
-    + `${endD.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
-
-  const totalH = ((endD - startD)/36e5).toFixed(1).replace(/\.0$/,'');
-  const unit = (s.price_unit || 'hour') === 'hour' ? 'Kč/h' : 'Kč';
-  const rate = (s.price_min||s.price_max)
-    ? `${(s.price_min||0).toLocaleString('cs-CZ')}–${(s.price_max||0).toLocaleString('cs-CZ')} ${unit}`
-    : 'cena dohodou';
-  document.getElementById('sdmMeta').innerHTML =
-    `<span><b>${totalH} h</b> blok</span>`
-    + `<span><b>${escapeHtml(rate)}</b></span>`
-    + (s.deposit_pct ? `<span>záloha <b>${s.deposit_pct}%</b></span>` : '')
-    + (s.min_duration_hours > 1 ? `<span>min <b>${s.min_duration_hours} h</b></span>` : '')
-    + (s.note ? `<span style="width:100%;font-style:italic;color:var(--txt2);margin-top:6px">${escapeHtml(s.note)}</span>` : '');
-
-  const bx = document.getElementById('sdmBookings');
-  if (!s.bookings?.length) {
-    bx.innerHTML = '<div class="sdm-empty">Žádné rezervace v tomto bloku.</div>';
-    document.getElementById('sdmDel').disabled = false;
-  } else {
-    bx.innerHTML = s.bookings.map(b => {
-      const bs = new Date(b.start_at);
-      const cls = b.status === 'completed' ? 'completed' : '';
-      return `<div class="sdm-booking ${cls}">
-        <span style="min-width:90px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;color:var(--txt)">${bs.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</span>
-        <span style="flex:1"><b style="color:var(--txt)">${escapeHtml(b.client.display_name||b.client.username||'?')}</b> · ${b.duration_h}h${b.size_label?' · '+escapeHtml(b.size_label):''}</span>
-        <span style="font-size:9px;letter-spacing:0.1em;padding:2px 6px;border:1px solid var(--border2);color:${b.status==='completed'?'#7fd391':'#e8c87f'}">${b.status.replace('_',' ').toUpperCase()}</span>
-      </div>`;
-    }).join('');
-    document.getElementById('sdmDel').disabled = true;  // má aktivní rezervace
-    document.getElementById('sdmDel').title = 'Nelze smazat — blok má aktivní rezervaci';
-  }
-  document.getElementById('sdmDel').dataset.slotId = slotId;
-  document.getElementById('slotDetailModal').classList.add('show');
-}
-
-function closeSlotDetail() {
-  document.getElementById('slotDetailModal').classList.remove('show');
-}
-
-async function sdmDelete() {
-  const id = parseInt(document.getElementById('sdmDel').dataset.slotId);
-  if (!confirm('Delete tento blok dostupnosti?')) return;
-  const r = await fetch('/api/slots/' + id, {method:'DELETE'});
-  if (r.ok) { closeSlotDetail(); flash('Blok smazán'); await loadSlots(); }
-  else flash((await r.json()).error || 'Selhalo', 'err');
-}
-
-// "Edit blok" formulář byl odstraněn — slot management žije v /calendar.
-// Share link funkce byla přesunuta na /profile/<username> (button "Sdílet odkaz")
-
-document.addEventListener('DOMContentLoaded', () => {
-  const prev = document.getElementById('calPrev');
-  const next = document.getElementById('calNext');
-  const tdy  = document.getElementById('calToday');
-  if (prev) prev.addEventListener('click', () => { calWeekStart = new Date(calWeekStart); calWeekStart.setDate(calWeekStart.getDate() - 7); loadCalendar(); });
-  if (next) next.addEventListener('click', () => { calWeekStart = new Date(calWeekStart); calWeekStart.setDate(calWeekStart.getDate() + 7); loadCalendar(); });
-  if (tdy)  tdy.addEventListener('click',  () => { calWeekStart = startOfWeek(new Date()); loadCalendar(); });
-  // re-render při resize (recompute pixel positions)
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { if (calData) renderCalendar(); }, 150);
-  });
-});
-
-document.getElementById('slotForm')?.addEventListener('submit', async e => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  // datetime-local doesn't include timezone — keep as-is, server interprets local then we normalize
-  const body = {
-    start_at: fd.get('start_at'),
-    end_at:   fd.get('end_at'),
-    price_min: fd.get('price_min') || 0,
-    price_max: fd.get('price_max') || 0,
-    deposit_pct: fd.get('deposit_pct') || null,
-    min_duration_hours: fd.get('min_duration_hours') || 1,
-    price_unit: 'hour',
-    note: fd.get('note') || '',
-  };
-  const r = await fetch('/api/slots', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(body),
-  });
-  if (r.ok) { flash('Termín přidán ✓'); e.target.reset(); await loadSlots(); }
-  else flash((await r.json()).error || 'Failed přidat', 'err');
-});
-
-async function delSlot(id, status) {
-  if (status === 'booked') { flash('Termín má aktivní rezervaci — nejdřív ji zruš.', 'err'); return; }
-  if (!confirm('Delete termín?')) return;
-  const r = await fetch('/api/slots/' + id, {method:'DELETE'});
-  if (r.ok) { await loadSlots(); flash('Smazáno'); }
-  else flash((await r.json()).error || 'Failed', 'err');
-}
 
 init();
 </script>

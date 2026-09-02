@@ -202,10 +202,20 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>
     <div class="sheet-head">
-      <h3>NEW SLOT</h3>
+      <h3 id="ssTitle">NOVÝ TERMÍN</h3>
       <button class="sheet-close" type="button" onclick="closeSlotSheet()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form id="slotSheetForm" class="sheet-body">
+      <!-- Termín = tady se dá rezervovat. Blokace = tady nejsem. -->
+      <div class="fld">
+        <div class="segmented" data-count="2">
+          <input type="radio" name="sheetMode" id="modeSlot" value="slot" checked>
+          <label for="modeSlot">Volný termín</label>
+          <input type="radio" name="sheetMode" id="modeBlock" value="block">
+          <label for="modeBlock">Blokace volna</label>
+        </div>
+      </div>
+
       <div class="fld">
         <label>Date</label>
         <input type="date" id="ssDate" required>
@@ -229,6 +239,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
         <button type="button" class="quick-btn" onclick="setTimes('17:00','21:00')">Evening</button>
       </div>
 
+      <!-- Blokace: jen důvod, žádné ceny ani opakování -->
+      <div id="blockOnlyFields" style="display:none">
+        <div class="fld">
+          <label>Důvod <span class="hint">— volitelně, vidíš jen ty</span></label>
+          <input type="text" id="ssBlockReason" maxlength="200" placeholder="Dovolená, doktor, soukromé">
+        </div>
+      </div>
+
+      <div id="slotOnlyFields">
       <div class="row2">
         <div class="fld">
           <label>Rate from (CZK/h)</label>
@@ -291,6 +310,22 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
         </div>
       </div>
 
+      <details style="margin-top:2px">
+        <summary style="cursor:pointer;font-size:12px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase">Pokročilé</summary>
+        <div class="row2" style="margin-top:12px">
+          <div class="fld">
+            <label>Buffer před (min)</label>
+            <input type="number" id="ssBufBefore" min="0" max="240" value="0">
+          </div>
+          <div class="fld">
+            <label>Buffer po (min)</label>
+            <input type="number" id="ssBufAfter" min="0" max="240" value="0">
+          </div>
+        </div>
+        <div class="hint" style="margin-top:-6px">Odstup mezi rezervacemi — čas na úklid a přípravu.</div>
+      </details>
+      </div><!-- /slotOnlyFields -->
+
       <div id="ssFlash"></div>
     </form>
 
@@ -305,6 +340,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 let me = null;
 let weekStart = startOfWeek(new Date());  // monday
 let slotsData = [];
+let blocksData = [];
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -317,7 +353,13 @@ function startOfWeek(d){
   return dt;
 }
 function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
-function fmtDate(d){ return d.toISOString().slice(0,10); }
+function fmtDate(d){
+  // Lokální datum, ne UTC: toISOString() převede lokální půlnoc na UTC a
+  // u kladného offsetu (Praha +1/+2) vrátí předchozí den — týdenní mřížka
+  // pak řadila termíny o sloupec vedle a "dnes" se po 22:00 předvyplnilo na včerejšek.
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
 function fmtDayNum(d){ return d.getDate().toString().padStart(2,'0'); }
 function dayName(d){ return ['NE','PO','ÚT','ST','ČT','PÁ','SO'][d.getDay()]; }
 function csMonth(d){ return ['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'][d.getMonth()]; }
@@ -352,8 +394,12 @@ async function init() {
 }
 
 async function loadWeek() {
-  const r = await fetch('/api/me/slots');
-  slotsData = r.ok ? await r.json() : [];
+  const [rSlots, rBlocks] = await Promise.all([
+    fetch('/api/me/slots'),
+    fetch('/api/me/blocked-time'),
+  ]);
+  slotsData = rSlots.ok ? await rSlots.json() : [];
+  blocksData = rBlocks.ok ? await rBlocks.json() : [];
   render();
 }
 
@@ -370,6 +416,11 @@ function render() {
     const dayKey = s.start_at.slice(0,10);
     (slotsByDay[dayKey] = slotsByDay[dayKey] || []).push(s);
   }
+  const blocksByDay = {};
+  for (const b of blocksData) {
+    const dayKey = b.start_at.slice(0,10);
+    (blocksByDay[dayKey] = blocksByDay[dayKey] || []).push(b);
+  }
 
   grid.innerHTML = '';
   let totalSlots = 0;
@@ -379,13 +430,21 @@ function render() {
     const isToday = d.getTime() === today.getTime();
     const isPast = d < today;
     const daySlots = (slotsByDay[key] || []).sort((a,b) => a.start_at.localeCompare(b.start_at));
+    const dayBlocks = (blocksByDay[key] || []).sort((a,b) => a.start_at.localeCompare(b.start_at));
     totalSlots += daySlots.length;
+    const blockPills = dayBlocks.map(b => `
+              <div class="slot-pill blocked" style="opacity:0.72;border-style:dashed">
+                <span class="t">${fmtTime(b.start_at)}–${fmtTime(b.end_at)}</span>
+                <span class="p">${b.reason ? escapeHtml(b.reason) : 'blokace'}</span>
+                <button class="del" onclick="event.stopPropagation();delBlock(${b.id})" title="Smazat blokaci">×</button>
+              </div>`).join('');
     grid.innerHTML += `
       <div class="day-col${isToday ? ' today' : ''}${isPast ? ' past' : ''}">
         <div class="day-head">
           <div class="day-name">${dayName(d)}</div>
           <div class="day-num">${fmtDayNum(d)}</div>
         </div>
+        ${blockPills}
         ${daySlots.length
           ? daySlots.map(s => `
               <div class="slot-pill ${s.status==='booked'?'booked':''}">
@@ -393,9 +452,9 @@ function render() {
                 <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} CZK/h` : 'cena dohodou'}</span>
                 ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="Delete">×</button>` : ''}
               </div>`).join('')
-          : (isPast
+          : (dayBlocks.length ? '' : (isPast
               ? '<div style="color:var(--txt4);font-size:10px;text-align:center;padding:8px 0;letter-spacing:0.06em">—</div>'
-              : `<div class="empty-day" onclick="openSlotSheetForDay('${key}')">+ Termín</div>`)
+              : `<div class="empty-day" onclick="openSlotSheetForDay('${key}')">+ Termín</div>`))
         }
       </div>`;
   }
@@ -436,6 +495,19 @@ function setRecurDays(arr) {
   });
 }
 
+function currentSheetMode() {
+  const el = document.querySelector('input[name="sheetMode"]:checked');
+  return el ? el.value : 'slot';
+}
+
+function applySheetMode() {
+  const isBlock = currentSheetMode() === 'block';
+  document.getElementById('slotOnlyFields').style.display = isBlock ? 'none' : '';
+  document.getElementById('blockOnlyFields').style.display = isBlock ? '' : 'none';
+  document.getElementById('ssTitle').textContent = isBlock ? 'BLOKACE VOLNA' : 'NOVÝ TERMÍN';
+  document.getElementById('ssSubmit').textContent = isBlock ? 'Uložit blokaci' : 'Save termín';
+}
+
 async function submitSlot() {
   const flash = document.getElementById('ssFlash');
   const btn = document.getElementById('ssSubmit');
@@ -448,6 +520,7 @@ async function submitSlot() {
   if (from >= to) {
     flash.innerHTML = '<div class="flash err">Konec musí být po začátku</div>'; return;
   }
+  if (currentSheetMode() === 'block') { return submitBlock(); }
 
   btn.disabled = true; btn.textContent = 'Ukládám…';
   const start_at = `${date}T${from}:00`;
@@ -461,6 +534,8 @@ async function submitSlot() {
     min_duration_hours: document.getElementById('ssMinDur').value || 1,
     price_unit: 'hour',
     note: document.getElementById('ssNote').value || '',
+    buffer_before_minutes: document.getElementById('ssBufBefore').value || 0,
+    buffer_after_minutes: document.getElementById('ssBufAfter').value || 0,
   };
 
   // Recurrence
@@ -484,7 +559,11 @@ async function submitSlot() {
     });
     if (r.ok) {
       const j = await r.json();
-      flash.innerHTML = `<div class="flash ok">Vytvořeno ${j.created || 1} termín${(j.created||1)>1?'ů':'u'} ✓</div>`;
+      const warns = j.holiday_warnings || [];
+      const warnTxt = warns.length
+        ? `<div class="flash" style="margin-top:6px">Pozor: ${warns.map(w => escapeHtml(w.name)).join(', ')} — termín je i tak vytvořený.</div>`
+        : '';
+      flash.innerHTML = `<div class="flash ok">Vytvořeno ${j.created || 1} termín${(j.created||1)>1?'ů':'u'} ✓</div>${warnTxt}`;
       setTimeout(() => {
         closeSlotSheet();
         // Reset
@@ -493,7 +572,7 @@ async function submitSlot() {
         document.querySelectorAll('#recurDays button.on').forEach(b => b.classList.remove('on'));
         document.getElementById('ssNote').value = '';
         loadWeek();
-      }, 700);
+      }, warns.length ? 2600 : 700);  // varování o svátku si musí stihnout přečíst
     } else {
       const j = await r.json().catch(() => ({}));
       flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || 'Failed uložit')}</div>`;
@@ -504,12 +583,59 @@ async function submitSlot() {
   btn.disabled = false; btn.textContent = 'Save termín';
 }
 
+async function submitBlock() {
+  const flash = document.getElementById('ssFlash');
+  const btn = document.getElementById('ssSubmit');
+  const date = document.getElementById('ssDate').value;
+  const from = document.getElementById('ssFrom').value;
+  const to = document.getElementById('ssTo').value;
+
+  btn.disabled = true; btn.textContent = 'Ukládám…';
+  try {
+    const r = await fetch('/api/blocked-time', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        start_at: `${date}T${from}:00`,
+        end_at: `${date}T${to}:00`,
+        reason: document.getElementById('ssBlockReason').value || '',
+      }),
+    });
+    if (r.ok) {
+      flash.innerHTML = '<div class="flash ok">Blokace uložena ✓</div>';
+      setTimeout(() => {
+        closeSlotSheet();
+        document.getElementById('ssBlockReason').value = '';
+        loadWeek();
+      }, 700);
+    } else {
+      const j = await r.json().catch(() => ({}));
+      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || 'Blokaci se nepodařilo uložit')}</div>`;
+    }
+  } catch {
+    flash.innerHTML = '<div class="flash err">Chyba sítě</div>';
+  }
+  btn.disabled = false;
+  applySheetMode();
+}
+
 async function delSlot(id) {
   if (!confirm('Delete tento termín?')) return;
   const r = await fetch('/api/slots/' + id, {method:'DELETE'});
   if (r.ok) await loadWeek();
   else alert((await r.json()).error || 'Failed smazat');
 }
+
+async function delBlock(id) {
+  if (!confirm('Zrušit tuhle blokaci volna?')) return;
+  const r = await fetch('/api/blocked-time/' + id, {method:'DELETE'});
+  if (r.ok) await loadWeek();
+  else alert((await r.json().catch(() => ({}))).error || 'Nepodařilo se smazat');
+}
+
+document.querySelectorAll('input[name="sheetMode"]').forEach(el => {
+  el.addEventListener('change', applySheetMode);
+});
 
 init();
 </script>
