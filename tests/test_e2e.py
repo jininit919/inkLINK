@@ -17,6 +17,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -906,6 +907,379 @@ class CronGuardTests(unittest.TestCase):
         r = self.client.get('/api/cron/reconcile',
                             headers={'X-Cron-Token': 'test-token'})
         self.assertEqual(r.status_code, 200)
+
+
+# ── Sprint 2: booking system + calendar ──────────────────────────────────────
+
+class _Sprint2Base(unittest.TestCase):
+    """Sdílený setup: tatér (id 1) + klient (id 2, přihlášený).
+
+    Časy se počítají ze `server._prague_now_naive()`, ne z `datetime.now()` —
+    server proti pražskému wall-clocku validuje "termín není v minulosti",
+    takže test musí počítat ze stejné osy, ať běží na jakémkoli stroji.
+    """
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+            "VALUES ('artist1','Artist One','x','a@t.cz',1)")
+        conn.commit()
+        conn.close()
+        _register(self.client, 'client1')  # user id 2, zůstává přihlášený
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    # — pomocníci —
+
+    def _now(self):
+        import server
+        return server._prague_now_naive()
+
+    def _day_at(self, days_ahead, hour, minute=0):
+        base = self._now() + timedelta(days=days_ahead)
+        return base.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    def _mk_slot(self, start, end, buf_before=0, buf_after=0, min_dur=1, artist_id=1):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max, "
+            "price_unit, min_duration_hours, buffer_before_minutes, buffer_after_minutes) "
+            "VALUES (?,?,?,'free',1000,1000,'hour',?,?,?)",
+            (artist_id, start.isoformat(), end.isoformat(), min_dur, buf_before, buf_after))
+        conn.commit()
+        sid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return sid
+
+    def _mk_block(self, start, end, artist_id=1, reason='dovolená'):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO artist_blocked_time (artist_id, start_at, end_at, reason) VALUES (?,?,?,?)',
+            (artist_id, start.isoformat(), end.isoformat(), reason))
+        conn.commit()
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return bid
+
+    def _book(self, slot_id, start, duration_hours=2, note='Vlk na předloktí'):
+        return self.client.post('/api/bookings', json={
+            'slot_id': slot_id, 'booking_start_at': start.isoformat(),
+            'duration_hours': duration_hours, 'design_note': note,
+        })
+
+    def _as_artist(self):
+        with self.client.session_transaction() as s:
+            s['user_id'] = 1
+
+    def _as_client(self):
+        with self.client.session_transaction() as s:
+            s['user_id'] = 2
+
+    def _booking_row(self, bid):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+
+class BufferCollisionTests(_Sprint2Base):
+    """Buffer = odstup mezi rezervacemi (úklid/příprava)."""
+
+    def test_booking_inside_buffer_rejected(self):
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18), buf_after=30)
+        r1 = self._book(slot, self._day_at(5, 12))          # 12:00–14:00
+        self.assertEqual(r1.status_code, 200, r1.data[:300])
+        r2 = self._book(slot, self._day_at(5, 14, 15))      # 14:15 — uvnitř 30min bufferu
+        self.assertEqual(r2.status_code, 409, r2.data[:300])
+
+    def test_booking_after_buffer_allowed(self):
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18), buf_after=30)
+        self._book(slot, self._day_at(5, 12))               # 12:00–14:00
+        r2 = self._book(slot, self._day_at(5, 14, 30))      # přesně na hraně bufferu
+        self.assertEqual(r2.status_code, 200, r2.data[:300])
+
+    def test_buffers_snapshotted_onto_booking(self):
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18), buf_before=15, buf_after=30)
+        r = self._book(slot, self._day_at(5, 12))
+        bid = r.get_json()['id']
+        row = self._booking_row(bid)
+        self.assertEqual(row['buffer_before_minutes'], 15)
+        self.assertEqual(row['buffer_after_minutes'], 30)
+
+
+class BlockedTimeTests(_Sprint2Base):
+    """Blokace volna platí napříč všemi sloty tatéra."""
+
+    def test_booking_into_blocked_window_rejected(self):
+        self._mk_block(self._day_at(6, 10), self._day_at(6, 12))
+        slot = self._mk_slot(self._day_at(6, 9), self._day_at(6, 18))
+        r = self._book(slot, self._day_at(6, 11))  # zasahuje do blokace
+        self.assertEqual(r.status_code, 409, r.data[:300])
+
+    def test_booking_outside_blocked_window_allowed(self):
+        self._mk_block(self._day_at(6, 10), self._day_at(6, 12))
+        slot = self._mk_slot(self._day_at(6, 9), self._day_at(6, 18))
+        r = self._book(slot, self._day_at(6, 13))
+        self.assertEqual(r.status_code, 200, r.data[:300])
+
+    def test_block_rejected_when_active_booking_in_window(self):
+        slot = self._mk_slot(self._day_at(7, 10), self._day_at(7, 18))
+        self._book(slot, self._day_at(7, 12))
+        self._as_artist()
+        r = self.client.post('/api/blocked-time', json={
+            'start_at': self._day_at(7, 11).isoformat(),
+            'end_at': self._day_at(7, 15).isoformat(),
+        })
+        self.assertEqual(r.status_code, 409, r.data[:300])
+
+    def test_delete_blocked_time_is_owner_only(self):
+        block_id = self._mk_block(self._day_at(8, 10), self._day_at(8, 12))
+        self._as_client()  # klient (id 2) není vlastník
+        r = self.client.delete(f'/api/blocked-time/{block_id}')
+        self.assertEqual(r.status_code, 404)
+        self._as_artist()
+        r = self.client.delete(f'/api/blocked-time/{block_id}')
+        self.assertEqual(r.status_code, 200)
+
+
+class ReschedulePolicyTests(_Sprint2Base):
+
+    def _mk_confirmed_booking(self, days_ahead, hour):
+        slot = self._mk_slot(self._day_at(days_ahead, 9), self._day_at(days_ahead, 18))
+        r = self._book(slot, self._day_at(days_ahead, hour))
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        return r.get_json()['id']
+
+    def test_client_reschedule_far_ahead_applies_immediately(self):
+        bid = self._mk_confirmed_booking(10, 12)
+        target = self._mk_slot(self._day_at(11, 9), self._day_at(11, 18))
+        r = self.client.patch(f'/api/bookings/{bid}/reschedule', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(11, 14).isoformat(),
+        })
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertTrue(r.get_json()['applied'])
+        self.assertTrue(self._booking_row(bid)['booking_start_at'].startswith(
+            self._day_at(11, 14).isoformat()[:13]))
+
+    def test_client_reschedule_late_creates_pending_request(self):
+        bid = self._mk_confirmed_booking(1, 12)  # < 48 h → pozdě
+        original_start = self._booking_row(bid)['booking_start_at']
+        target = self._mk_slot(self._day_at(2, 9), self._day_at(2, 18))
+        r = self.client.patch(f'/api/bookings/{bid}/reschedule', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(2, 14).isoformat(),
+        })
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        body = r.get_json()
+        self.assertFalse(body['applied'])
+        self.assertEqual(body['status'], 'pending')
+        # Časy rezervace se nesmí změnit, dokud tatér nerozhodne
+        self.assertEqual(self._booking_row(bid)['booking_start_at'], original_start)
+
+    def test_artist_reschedule_late_applies_immediately(self):
+        bid = self._mk_confirmed_booking(1, 12)
+        target = self._mk_slot(self._day_at(2, 9), self._day_at(2, 18))
+        self._as_artist()
+        r = self.client.patch(f'/api/bookings/{bid}/reschedule', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(2, 14).isoformat(),
+        })
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertTrue(r.get_json()['applied'])
+
+    def test_artist_approves_pending_request(self):
+        bid = self._mk_confirmed_booking(1, 12)
+        target = self._mk_slot(self._day_at(2, 9), self._day_at(2, 18))
+        r = self.client.patch(f'/api/bookings/{bid}/reschedule', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(2, 14).isoformat(),
+        })
+        rid = r.get_json()['request_id']
+        self._as_artist()
+        d = self.client.post(f'/api/reschedule-requests/{rid}/decide', json={'decision': 'approve'})
+        self.assertEqual(d.status_code, 200, d.data[:300])
+        self.assertTrue(self._booking_row(bid)['booking_start_at'].startswith(
+            self._day_at(2, 14).isoformat()[:13]))
+
+    def test_artist_rejects_pending_request_leaves_booking_alone(self):
+        bid = self._mk_confirmed_booking(1, 12)
+        original_start = self._booking_row(bid)['booking_start_at']
+        target = self._mk_slot(self._day_at(2, 9), self._day_at(2, 18))
+        r = self.client.patch(f'/api/bookings/{bid}/reschedule', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(2, 14).isoformat(),
+        })
+        rid = r.get_json()['request_id']
+        self._as_artist()
+        d = self.client.post(f'/api/reschedule-requests/{rid}/decide', json={'decision': 'reject'})
+        self.assertEqual(d.status_code, 200)
+        self.assertEqual(self._booking_row(bid)['booking_start_at'], original_start)
+
+    def test_reschedule_respects_blocked_time(self):
+        bid = self._mk_confirmed_booking(10, 12)
+        target = self._mk_slot(self._day_at(11, 9), self._day_at(11, 18))
+        self._mk_block(self._day_at(11, 13), self._day_at(11, 16))
+        r = self.client.patch(f'/api/bookings/{bid}/reschedule', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(11, 14).isoformat(),
+        })
+        self.assertEqual(r.status_code, 409, r.data[:300])
+
+    def test_duplicate_pending_request_rejected(self):
+        bid = self._mk_confirmed_booking(1, 12)
+        target = self._mk_slot(self._day_at(2, 9), self._day_at(2, 18))
+        payload = {'new_slot_id': target, 'booking_start_at': self._day_at(2, 14).isoformat()}
+        self.client.patch(f'/api/bookings/{bid}/reschedule', json=payload)
+        r2 = self.client.patch(f'/api/bookings/{bid}/reschedule', json=payload)
+        self.assertEqual(r2.status_code, 409, r2.data[:300])
+
+
+class MultiSessionTests(_Sprint2Base):
+
+    def _mk_parent(self):
+        slot = self._mk_slot(self._day_at(10, 9), self._day_at(10, 18))
+        r = self._book(slot, self._day_at(10, 12))
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        return r.get_json()['id']
+
+    def test_follow_up_is_artist_only(self):
+        parent = self._mk_parent()
+        target = self._mk_slot(self._day_at(20, 9), self._day_at(20, 18))
+        r = self.client.post(f'/api/bookings/{parent}/follow-up', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(20, 12).isoformat(),
+            'duration_hours': 2})
+        self.assertEqual(r.status_code, 403, r.data[:300])
+
+    def test_follow_up_links_series_with_zero_deposit(self):
+        parent = self._mk_parent()
+        target = self._mk_slot(self._day_at(20, 9), self._day_at(20, 18))
+        self._as_artist()
+        r = self.client.post(f'/api/bookings/{parent}/follow-up', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(20, 12).isoformat(),
+            'duration_hours': 2})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        child = self._booking_row(r.get_json()['id'])
+        self.assertEqual(child['parent_booking_id'], parent)
+        self.assertEqual(child['session_number'], 2)
+        self.assertEqual(child['deposit_cents'], 0)
+
+    def test_third_session_points_at_first_not_second(self):
+        parent = self._mk_parent()
+        self._as_artist()
+        s2 = self._mk_slot(self._day_at(20, 9), self._day_at(20, 18))
+        r2 = self.client.post(f'/api/bookings/{parent}/follow-up', json={
+            'new_slot_id': s2, 'booking_start_at': self._day_at(20, 12).isoformat(),
+            'duration_hours': 2})
+        child2 = r2.get_json()['id']
+        s3 = self._mk_slot(self._day_at(30, 9), self._day_at(30, 18))
+        r3 = self.client.post(f'/api/bookings/{child2}/follow-up', json={
+            'new_slot_id': s3, 'booking_start_at': self._day_at(30, 12).isoformat(),
+            'duration_hours': 2})
+        child3 = self._booking_row(r3.get_json()['id'])
+        self.assertEqual(child3['parent_booking_id'], parent)  # ne child2
+        self.assertEqual(child3['session_number'], 3)
+
+    def test_cancelling_child_refunds_nothing_and_leaves_parent(self):
+        parent = self._mk_parent()
+        target = self._mk_slot(self._day_at(20, 9), self._day_at(20, 18))
+        self._as_artist()
+        child_id = self.client.post(f'/api/bookings/{parent}/follow-up', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(20, 12).isoformat(),
+            'duration_hours': 2}).get_json()['id']
+        self._as_client()
+        r = self.client.post(f'/api/bookings/{child_id}/cancel')
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(r.get_json()['refund_cents'], 0)
+        self.assertEqual(self._booking_row(parent)['status'], 'confirmed')
+
+
+class CancellationPolicyOverrideTests(_Sprint2Base):
+    """Nejdůležitější regrese sprintu: tatér BEZ override musí dostat
+    přesně stávající chování ze Sprintu 1 (96 h / 48 h)."""
+
+    def _cancel_hours_before(self, hours, full=None, half=None):
+        if full is not None or half is not None:
+            import sqlite3
+            conn = sqlite3.connect(self.db)
+            conn.execute('UPDATE users SET cancel_refund_full_hours=?, cancel_refund_half_hours=? WHERE id=1',
+                         (full, half))
+            conn.commit()
+            conn.close()
+        start = self._now() + timedelta(hours=hours)
+        slot = self._mk_slot(start - timedelta(hours=1), start + timedelta(hours=6))
+        r = self._book(slot, start)
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        bid = r.get_json()['id']
+        c = self.client.post(f'/api/bookings/{bid}/cancel')
+        self.assertEqual(c.status_code, 200, c.data[:300])
+        return c.get_json()['refund_pct']
+
+    def test_default_policy_unchanged_from_sprint1(self):
+        self.assertEqual(self._cancel_hours_before(120), 100)  # > 96 h
+        self.assertEqual(self._cancel_hours_before(72), 50)    # 48–96 h
+        self.assertEqual(self._cancel_hours_before(10), 0)     # < 48 h
+
+    def test_artist_override_is_used(self):
+        # Přísnější tatér: plný refund až od 200 h, poloviční od 150 h
+        self.assertEqual(self._cancel_hours_before(120, full=200, half=150), 0)
+        self.assertEqual(self._cancel_hours_before(160, full=200, half=150), 50)
+        self.assertEqual(self._cancel_hours_before(220, full=200, half=150), 100)
+
+
+class CzechHolidayWarningTests(_Sprint2Base):
+
+    def test_holiday_slot_creates_but_warns(self):
+        import server
+        year = self._now().year + 1
+        self._as_artist()
+        r = self.client.post('/api/slots', json={
+            'start_at': f'{year}-01-01T10:00:00', 'end_at': f'{year}-01-01T18:00:00',
+            'price_min': 1000, 'price_max': 1500, 'price_unit': 'hour',
+        })
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        warnings = r.get_json().get('holiday_warnings') or []
+        self.assertTrue(any(w['date'] == f'{year}-01-01' for w in warnings), warnings)
+
+    def test_ordinary_day_has_no_warning(self):
+        year = self._now().year + 1
+        self._as_artist()
+        r = self.client.post('/api/slots', json={
+            'start_at': f'{year}-03-10T10:00:00', 'end_at': f'{year}-03-10T18:00:00',
+            'price_min': 1000, 'price_max': 1500, 'price_unit': 'hour',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json().get('holiday_warnings') or [], [])
+
+    def test_moving_easter_monday_detected(self):
+        import server
+        from datetime import date
+        # Velikonoční pondělí 2027 = 29. 3. — pohyblivý svátek, hardcoded
+        # seznam by ho nezvládl.
+        warns = server._cz_holiday_warnings([date(2027, 3, 29)])
+        self.assertEqual(len(warns), 1)
+        self.assertIn('pondělí', warns[0]['name'].lower())
+
+
+class PragueTimeTests(unittest.TestCase):
+    """Časy se v DB drží jako pražský wall-clock — porovnávat je proti
+    datetime.utcnow() posouvalo všechny 'kolik hodin před' kontroly."""
+
+    def test_prague_now_is_ahead_of_utc(self):
+        import server
+        from datetime import datetime as _dt
+        delta_h = (server._prague_now_naive() - _dt.utcnow()).total_seconds() / 3600.0
+        self.assertIn(round(delta_h), (1, 2))  # CET / CEST
+
+    def test_naive_dt_normalizes_offset_aware_input(self):
+        import server
+        naive = server._naive_dt('2027-06-01T12:00:00')
+        aware = server._naive_dt('2027-06-01T12:00:00Z')
+        self.assertIsNone(naive.tzinfo)
+        self.assertIsNone(aware.tzinfo)
+        self.assertEqual(naive, aware)
 
 
 if __name__ == '__main__':

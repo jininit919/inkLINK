@@ -21,6 +21,36 @@ import stripe
 import boto3
 from botocore.client import Config
 
+# ── Čas: jednočasová (CZ) platforma ──────────────────────────────────────────
+# Frontend posílá časy tak, jak je tatér napsal (pražský wall-clock, bez
+# offsetu) a DB je tak i ukládá. Porovnávat je proti datetime.utcnow() by
+# posunulo každou "kolik hodin před termínem" kontrolu o pražský offset
+# (+1 h zima / +2 h léto) ve prospěch klienta. Proto se wall-clock porovnává
+# s wall-clockem. Pokud InkLink někdy expanduje mimo jedno časové pásmo,
+# tohle je místo, které se musí přepsat na skutečné tz-aware ukládání.
+PLATFORM_TZ = 'Europe/Prague'
+
+
+def _prague_now_naive() -> datetime:
+    """'Teď' v pražském wall-clocku jako naive datetime (srovnatelné s DB)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo(PLATFORM_TZ)).replace(tzinfo=None)
+    except Exception:
+        # Chybějící tz databáze nesmí shodit booking flow — fallback na UTC
+        # je posunutý, ale funkční (a přesně to, co dělal kód předtím).
+        return datetime.utcnow()
+
+
+def _naive_dt(s: str) -> datetime:
+    """Naparsuje ISO 8601 na naive datetime (tz-aware vstup převede na UTC
+    a offset zahodí, aby šel porovnávat s naive hodnotami v DB).
+    Vyhodí ValueError na nesmyslný vstup — volající vrací 400."""
+    dt = datetime.fromisoformat((s or '').replace('Z', '+00:00'))
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
 # ── Sentry error monitoring ──────────────────────────────────────────────────
 # Init proběhne jen pokud je SENTRY_DSN nastavený (env var v Railway). Bez něj
 # se nic neimportuje a app jede dál.
@@ -620,6 +650,10 @@ def init_db():
                 'instagram TEXT DEFAULT ""',
                 'styles TEXT DEFAULT ""',
                 'deposit_pct_default INTEGER DEFAULT 30',
+                # Per-artist storno lhůty. NULL = použij globální
+                # CANCEL_REFUND_FULL_HOURS / CANCEL_REFUND_HALF_HOURS.
+                'cancel_refund_full_hours INTEGER DEFAULT NULL',
+                'cancel_refund_half_hours INTEGER DEFAULT NULL',
                 'stripe_account_id TEXT DEFAULT NULL',
                 'stripe_charges_enabled INTEGER DEFAULT 0',
                 'stripe_payouts_enabled INTEGER DEFAULT 0',
@@ -796,6 +830,25 @@ def init_db():
     )''')
     add_col('slots', "price_unit TEXT DEFAULT 'hour'")
     add_col('slots', 'min_duration_hours INTEGER DEFAULT 1')
+    # Buffer = odstup mezi rezervacemi (úklid, příprava). Platí jen na
+    # rozestup mezi rezervacemi/blokacemi, nemusí se vejít do slotu samotného.
+    add_col('slots', 'buffer_before_minutes INTEGER DEFAULT 0')
+    add_col('slots', 'buffer_after_minutes INTEGER DEFAULT 0')
+
+    # ── Blokace volna (dovolená, nemoc, jednorázové "tady nejsem") ─────────
+    # Vlastní tabulka, ne status na slots: kontrola překryvů je tu v rozsahu
+    # tatéra (napříč všemi jeho sloty), ne v rámci jednoho slot_id, a slots
+    # nese 5 sloupců o ceně, které pro blokaci nedávají smysl.
+    c.execute('''CREATE TABLE IF NOT EXISTS artist_blocked_time (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        artist_id   INTEGER NOT NULL,
+        start_at    TEXT NOT NULL,
+        end_at      TEXT NOT NULL,
+        reason      TEXT DEFAULT '',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (artist_id) REFERENCES users(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_blocked_artist ON artist_blocked_time(artist_id)')
 
     # ── InkLink-specific: bookings ──────────────────────────────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS bookings (
@@ -843,6 +896,16 @@ def init_db():
     # Sprint 1 LITE: track deposit PI retry attempts. Used to rotate
     # idempotency_key on retry (otherwise Stripe returns the same failed PI).
     add_col('bookings', 'payment_attempts INTEGER DEFAULT 0')
+    # Sprint 2: multi-session série. parent_booking_id ukazuje vždy na první
+    # sezení (řetěz se plochý, nezanořuje se), session_number je 1-based.
+    add_col('bookings', 'parent_booking_id INTEGER DEFAULT NULL')
+    add_col('bookings', 'session_number INTEGER NOT NULL DEFAULT 1')
+    # Snapshot bufferů ze slotu v okamžiku rezervace — pozdější změna slotu
+    # nesmí retroaktivně měnit kolizní pravidla už existujících rezervací.
+    add_col('bookings', 'buffer_before_minutes INTEGER NOT NULL DEFAULT 0')
+    add_col('bookings', 'buffer_after_minutes INTEGER NOT NULL DEFAULT 0')
+    add_col('bookings', "internal_note TEXT DEFAULT ''")  # jen pro tatéra, klient nevidí
+    c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_parent ON bookings(parent_booking_id)')
 
     # ── InkLink: reviews (klient hodnotí dokončené sezení) ──────────────────
     c.execute('''CREATE TABLE IF NOT EXISTS reviews (
@@ -1084,6 +1147,27 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_refund_booking ON refund_requests(booking_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_refund_status ON refund_requests(status)')
+
+    # ── Reschedule requests — klient chce přesunout pozdě (< RESCHEDULE_FREE_HOURS) ──
+    # Stejný tvar jako refund_requests schválně: obojí je "žádost čekající na
+    # rozhodnutí tatéra" a bookings.status se u ní nemění (přesun je ortogonální
+    # k platebnímu/plnícímu stavu — confirmed rezervace s čekající žádostí je
+    # pořád confirmed).
+    c.execute('''CREATE TABLE IF NOT EXISTS booking_reschedule_requests (
+        id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id           INTEGER NOT NULL,
+        requested_by         INTEGER NOT NULL,
+        new_slot_id          INTEGER NOT NULL,
+        new_booking_start_at TEXT    NOT NULL,
+        new_booking_end_at   TEXT    NOT NULL,
+        status               TEXT    NOT NULL DEFAULT 'pending',
+        decision_by          INTEGER,
+        decision_note        TEXT    DEFAULT '',
+        created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at          TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_reschedule_booking ON booking_reschedule_requests(booking_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_reschedule_status ON booking_reschedule_requests(status)')
 
     conn.commit()
     conn.close()
@@ -3504,7 +3588,7 @@ def create_slot():
         return jsonify({'error': 'Špatný formát datumu (použij ISO 8601)'}), 400
     if e_dt <= s_dt:
         return jsonify({'error': 'Konec termínu musí být po startu'}), 400
-    if s_dt < datetime.utcnow() - timedelta(minutes=5):
+    if s_dt < _prague_now_naive() - timedelta(minutes=5):
         return jsonify({'error': 'Termín nemůže být v minulosti'}), 400
 
     try:
@@ -3529,6 +3613,14 @@ def create_slot():
     except (ValueError, TypeError):
         min_dur = 1
     min_dur = max(1, min(24, min_dur))
+
+    def _opt_buffer(name):
+        try:
+            return max(0, min(240, int(data.get(name) or 0)))
+        except (ValueError, TypeError):
+            return 0
+    buf_before = _opt_buffer('buffer_before_minutes')
+    buf_after  = _opt_buffer('buffer_after_minutes')
 
     # ── Recurrence ────────────────────────────────────────────────────
     # Volitelný shape: {"days": [0..6, ...], "until": "YYYY-MM-DD"}
@@ -3573,10 +3665,12 @@ def create_slot():
     created_ids = []
     for ns, ne in occurrences:
         conn.execute('''INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max,
-                                           deposit_pct, note, price_unit, min_duration_hours)
-                        VALUES (?,?,?,'free',?,?,?,?,?,?)''',
+                                           deposit_pct, note, price_unit, min_duration_hours,
+                                           buffer_before_minutes, buffer_after_minutes)
+                        VALUES (?,?,?,'free',?,?,?,?,?,?,?,?)''',
                      (session['user_id'], ns.isoformat(), ne.isoformat(),
-                      price_min, price_max, deposit_pct, note, price_unit, min_dur))
+                      price_min, price_max, deposit_pct, note, price_unit, min_dur,
+                      buf_before, buf_after))
         if not conn._pg:
             sid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
         else:
@@ -3597,7 +3691,9 @@ def create_slot():
     conn.commit()
     conn.close()
     return jsonify({'ok': True, 'id': created_ids[0] if created_ids else None,
-                    'created': len(created_ids), 'ids': created_ids})
+                    'created': len(created_ids), 'ids': created_ids,
+                    # Informativní, ne blokující — viz _cz_holiday_warnings.
+                    'holiday_warnings': _cz_holiday_warnings([ns.date() for ns, _ in occurrences])})
 
 
 @app.route('/api/slots/<int:slot_id>', methods=['DELETE'])
@@ -3620,6 +3716,83 @@ def delete_slot(slot_id):
         conn.close()
         return jsonify({'error': 'Blok má aktivní rezervace — nejprve je vyřeš.'}), 409
     conn.execute('DELETE FROM slots WHERE id=?', (slot_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+# ── Blokace volna (dovolená, nemoc, „tady prostě nejsem") ────────────────────
+# Oddělené od slotů: slot = „tady se dá rezervovat", blokace = „tady nejsem",
+# a blokace platí napříč VŠEMI sloty tatéra, ne jen v jednom.
+
+@app.route('/api/blocked-time', methods=['POST'])
+def create_blocked_time():
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or request.form
+    start_at = (data.get('start_at') or '').strip()
+    end_at   = (data.get('end_at') or '').strip()
+    if not start_at or not end_at:
+        return jsonify({'error': 'Vyplň začátek a konec blokace'}), 400
+    try:
+        s_dt = _naive_dt(start_at)
+        e_dt = _naive_dt(end_at)
+    except ValueError:
+        return jsonify({'error': 'Špatný formát datumu (použij ISO 8601)'}), 400
+    if e_dt <= s_dt:
+        return jsonify({'error': 'Konec blokace musí být po začátku'}), 400
+    reason = (data.get('reason') or '').strip()[:200]
+
+    conn = get_db()
+    # Blokace přes už rezervovaný čas by tiše lhala oběma stranám — rezervace
+    # by dál existovala, ale tatér by si myslel, že má volno.
+    clash = conn.execute(
+        '''SELECT b.id FROM bookings b
+           WHERE b.artist_id = ? AND b.status IN ('pending_payment','confirmed')
+                 AND b.booking_start_at IS NOT NULL AND b.booking_end_at IS NOT NULL
+                 AND b.booking_start_at < ? AND b.booking_end_at > ? LIMIT 1''',
+        (session['user_id'], e_dt.isoformat(), s_dt.isoformat())
+    ).fetchone()
+    if clash:
+        conn.close()
+        return jsonify({'error': 'V tomhle čase máš aktivní rezervaci — nejdřív ji vyřeš.',
+                        'booking_id': clash['id']}), 409
+
+    conn.execute('''INSERT INTO artist_blocked_time (artist_id, start_at, end_at, reason)
+                    VALUES (?,?,?,?)''',
+                 (session['user_id'], s_dt.isoformat(), e_dt.isoformat(), reason))
+    conn.commit()
+    if not conn._pg:
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    else:
+        bid = conn.execute('SELECT lastval()').fetchone()[0]
+    conn.close()
+    return jsonify({'ok': True, 'id': bid})
+
+
+@app.route('/api/me/blocked-time')
+def my_blocked_time():
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT id, start_at, end_at, reason FROM artist_blocked_time
+           WHERE artist_id = ? ORDER BY start_at''', (session['user_id'],)
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/blocked-time/<int:block_id>', methods=['DELETE'])
+def delete_blocked_time(block_id):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = conn.execute('SELECT artist_id FROM artist_blocked_time WHERE id=?', (block_id,)).fetchone()
+    if not row or row['artist_id'] != session['user_id']:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    conn.execute('DELETE FROM artist_blocked_time WHERE id=?', (block_id,))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
@@ -5153,19 +5326,82 @@ SIZE_PRESETS = {
 }
 
 
-def _slot_active_bookings(conn, slot_id):
-    """Vrátí seznam (start, end) obsazených sub-rangů (v ISO) pro daný slot.
-    Bere v úvahu jen pending_payment + confirmed (zrušené/dokončené nepřekáží)."""
-    rows = conn.execute('''SELECT booking_start_at, booking_end_at, status
-                           FROM bookings
-                           WHERE slot_id = ? AND status IN ('pending_payment','confirmed')
-                                 AND booking_start_at IS NOT NULL
-                                 AND booking_end_at IS NOT NULL''', (slot_id,)).fetchall()
-    return [(r['booking_start_at'], r['booking_end_at']) for r in rows]
+def _slot_active_bookings(conn, slot_id, exclude_booking_id=None):
+    """Obsazené sub-rangy slotu jako (start_iso, end_iso, buf_before, buf_after).
+    Bere v úvahu jen pending_payment + confirmed (zrušené/dokončené nepřekáží).
+    `exclude_booking_id` vynechá jednu rezervaci — potřeba při přesunu, aby
+    rezervace nekolidovala sama se sebou."""
+    sql = '''SELECT id, booking_start_at, booking_end_at,
+                    buffer_before_minutes, buffer_after_minutes
+             FROM bookings
+             WHERE slot_id = ? AND status IN ('pending_payment','confirmed')
+                   AND booking_start_at IS NOT NULL
+                   AND booking_end_at IS NOT NULL'''
+    params = [slot_id]
+    if exclude_booking_id is not None:
+        sql += ' AND id != ?'
+        params.append(exclude_booking_id)
+    rows = conn.execute(sql, tuple(params)).fetchall()
+    return [(r['booking_start_at'], r['booking_end_at'],
+             r['buffer_before_minutes'] or 0, r['buffer_after_minutes'] or 0) for r in rows]
 
 
 def _ranges_overlap(a_start, a_end, b_start, b_end) -> bool:
     return a_start < b_end and b_start < a_end
+
+
+def _padded_overlap(a_start, a_end, a_buf_before, a_buf_after,
+                    b_start, b_end, b_buf_before, b_buf_after) -> bool:
+    """Překryv dvou rezervací včetně bufferů (na vstupu datetime, ne ISO).
+    Buffer se schválně smí přetáhnout přes hranice slotu — jinak by úklidový
+    buffer potichu ukrajoval tatérovi poslední rezervovatelný čas dne."""
+    a_s = a_start - timedelta(minutes=a_buf_before or 0)
+    a_e = a_end + timedelta(minutes=a_buf_after or 0)
+    b_s = b_start - timedelta(minutes=b_buf_before or 0)
+    b_e = b_end + timedelta(minutes=b_buf_after or 0)
+    return a_s < b_e and b_s < a_e
+
+
+def _artist_blocked_overlap(conn, artist_id, start_dt, end_dt) -> bool:
+    """True, pokud rozsah zasahuje do blokace volna daného tatéra.
+    Kontrola je v rozsahu tatéra (napříč všemi jeho sloty), ne jednoho slotu."""
+    row = conn.execute(
+        '''SELECT 1 FROM artist_blocked_time
+           WHERE artist_id = ? AND start_at < ? AND end_at > ? LIMIT 1''',
+        (artist_id, end_dt.isoformat(), start_dt.isoformat())
+    ).fetchone()
+    return bool(row)
+
+
+def _resolve_cancel_policy(conn, artist_id):
+    """(full_hours, half_hours) — per-tatér override, jinak globální default."""
+    row = conn.execute(
+        'SELECT cancel_refund_full_hours, cancel_refund_half_hours FROM users WHERE id=?',
+        (artist_id,)
+    ).fetchone()
+    full = (row['cancel_refund_full_hours'] if row else None) or CANCEL_REFUND_FULL_HOURS
+    half = (row['cancel_refund_half_hours'] if row else None) or CANCEL_REFUND_HALF_HOURS
+    return full, half
+
+
+def _cz_holiday_warnings(dates):
+    """[{date, name}] pro data padající na český státní svátek.
+    Varujeme, neblokujeme: tatéři nemají povinnost mít o svátku zavřeno a
+    část jich naopak o svátcích chce termíny navíc (klienti mají volno).
+    Import je líný a chyba se polyká — chybějící balíček nesmí shodit
+    zakládání termínů, jen přijdeme o varování."""
+    try:
+        import holidays as _holidays
+    except Exception:
+        return []
+    try:
+        years = sorted({d.year for d in dates})
+        cz = _holidays.country_holidays('CZ', years=years)
+        return [{'date': d.isoformat(), 'name': cz.get(d)}
+                for d in sorted(set(dates)) if cz.get(d)]
+    except Exception as e:
+        print(f'[holidays] lookup failed: {e}')
+        return []
 
 
 @app.route('/api/bookings', methods=['POST'])
@@ -5216,18 +5452,14 @@ def create_booking():
         if not portfolio_item or portfolio_item['user_id'] != slot['user_id']:
             conn.close(); return jsonify({'error': 'Portfolio návrh nepatří k tomuto tatérovi.'}), 400
 
-    def _naive(s):
-        """Parse ISO; pokud je tz-aware, převeď na naive UTC (matchuje DB-style naive)."""
-        dt = datetime.fromisoformat(s.replace('Z', '+00:00'))
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-        return dt
     try:
-        slot_start = _naive(slot['start_at'])
-        slot_end   = _naive(slot['end_at'])
+        slot_start = _naive_dt(slot['start_at'])
+        slot_end   = _naive_dt(slot['end_at'])
     except Exception:
         conn.close()
         return jsonify({'error': 'Termín má vadný čas.'}), 500
+    slot_buf_before = slot['buffer_before_minutes'] if 'buffer_before_minutes' in slot.keys() else 0
+    slot_buf_after  = slot['buffer_after_minutes'] if 'buffer_after_minutes' in slot.keys() else 0
     slot_total_hours = (slot_end - slot_start).total_seconds() / 3600.0
 
     # --- větev podle price_unit ----------------------------------------------
@@ -5267,7 +5499,7 @@ def create_booking():
         # 2) Parse booking_start_at; pokud chybí, dej 1. volný okamžik
         if booking_start_raw:
             try:
-                booking_start = _naive(booking_start_raw)
+                booking_start = _naive_dt(booking_start_raw)
             except ValueError:
                 conn.close()
                 return jsonify({'error': 'Špatný formát začátku rezervace.'}), 400
@@ -5282,10 +5514,10 @@ def create_booking():
             conn.close()
             return jsonify({'error': 'Konec rezervace je za koncem bloku.'}), 400
 
-        # 3) Kontrola kolize s existujícími rezervacemi
-        existing = _slot_active_bookings(conn, slot_id)
-        for s_iso, e_iso in existing:
-            if _ranges_overlap(booking_start.isoformat(), booking_end.isoformat(), s_iso, e_iso):
+        # 3) Kontrola kolize s existujícími rezervacemi (včetně bufferů obou stran)
+        for s_iso, e_iso, ex_before, ex_after in _slot_active_bookings(conn, slot_id):
+            if _padded_overlap(booking_start, booking_end, slot_buf_before, slot_buf_after,
+                               _naive_dt(s_iso), _naive_dt(e_iso), ex_before, ex_after):
                 conn.close()
                 return jsonify({'error': 'Tento čas se kryje s jinou rezervací — vyber jiný začátek.'}), 409
 
@@ -5295,6 +5527,12 @@ def create_booking():
         else:
             total_price = avg_hourly * duration_hours
         deposit_cents = int(round(total_price * deposit_pct / 100)) * 100
+
+    # Blokace volna platí napříč všemi sloty tatéra, takže se kontroluje až tady,
+    # kde už mají obě větve (flat i hodinová) spočítané booking_start/end.
+    if _artist_blocked_overlap(conn, slot['user_id'], booking_start, booking_end):
+        conn.close()
+        return jsonify({'error': 'Tatér má v tomhle čase blokované volno — vyber jiný termín.'}), 409
 
     # Celková cena (pro report a balance) — total_price je v Kč, převést na cents
     total_price_cents = int(round(total_price)) * 100
@@ -5436,14 +5674,16 @@ def create_booking():
         (slot_id, artist_id, client_id, status, deposit_cents, platform_fee_cents,
          design_note, confirmed_at,
          booking_start_at, booking_end_at, duration_hours, size_label, portfolio_item_id,
-         payment_mode, total_price_cents, balance_due_cents)
-        VALUES (?,?,?,?,?,?,?, ?, ?,?,?,?,?, ?,?,?)''',
+         payment_mode, total_price_cents, balance_due_cents,
+         buffer_before_minutes, buffer_after_minutes)
+        VALUES (?,?,?,?,?,?,?, ?, ?,?,?,?,?, ?,?,?, ?,?)''',
         (slot_id, slot['user_id'], session['user_id'], init_status,
          deposit_cents, platform_fee_cents, design_note,
          datetime.utcnow().isoformat() if init_status == 'confirmed' else None,
          booking_start.isoformat(), booking_end.isoformat(), duration_hours, size_label,
          portfolio_item['id'] if portfolio_item else None,
-         payment_mode, total_price_cents, balance_due_cents))
+         payment_mode, total_price_cents, balance_due_cents,
+         slot_buf_before, slot_buf_after))
 
     if price_unit == 'flat':
         # legacy: zablokuj slot
@@ -5658,7 +5898,7 @@ def update_booking(bid):
             conn.close(); return jsonify({'error': 'Špatný formát začátku'}), 400
         new_end = new_start + timedelta(hours=duration_h)
 
-        if new_start < datetime.utcnow() - timedelta(minutes=5):
+        if new_start < _prague_now_naive() - timedelta(minutes=5):
             conn.close(); return jsonify({'error': 'Nový termín nemůže být v minulosti'}), 400
 
         # validace vůči slotu
@@ -5666,10 +5906,8 @@ def update_booking(bid):
         if not slot:
             conn.close(); return jsonify({'error': 'Slot rezervace neexistuje'}), 500
         try:
-            slot_start = datetime.fromisoformat(slot['start_at'].replace('Z', '+00:00'))
-            slot_end   = datetime.fromisoformat(slot['end_at'].replace('Z', '+00:00'))
-            for d in (slot_start, slot_end):
-                pass
+            slot_start = _naive_dt(slot['start_at'])
+            slot_end   = _naive_dt(slot['end_at'])
         except Exception:
             conn.close(); return jsonify({'error': 'Slot má vadný čas'}), 500
         if new_start < slot_start - timedelta(minutes=1) or new_end > slot_end + timedelta(minutes=1):
@@ -5677,15 +5915,16 @@ def update_booking(bid):
                                            + slot_start.strftime('%H:%M') + '–'
                                            + slot_end.strftime('%H:%M') + ').'}), 400
 
-        # overlap s jinými aktivními bookings (vyjma self)
-        others = conn.execute('''SELECT booking_start_at, booking_end_at FROM bookings
-                                 WHERE slot_id=? AND id<>?
-                                       AND status IN ('pending_payment','confirmed')
-                                       AND booking_start_at IS NOT NULL''',
-                              (b['slot_id'], bid)).fetchall()
-        for r in others:
-            if _ranges_overlap(new_start.isoformat(), new_end.isoformat(),
-                               r['booking_start_at'], r['booking_end_at']):
+        if _artist_blocked_overlap(conn, b['artist_id'], new_start, new_end):
+            conn.close()
+            return jsonify({'error': 'V tomhle čase máš blokované volno.'}), 409
+
+        # overlap s jinými aktivními bookings (vyjma self), včetně bufferů
+        my_before = b['buffer_before_minutes'] if 'buffer_before_minutes' in b.keys() else 0
+        my_after  = b['buffer_after_minutes'] if 'buffer_after_minutes' in b.keys() else 0
+        for s_iso, e_iso, ex_before, ex_after in _slot_active_bookings(conn, b['slot_id'], exclude_booking_id=bid):
+            if _padded_overlap(new_start, new_end, my_before, my_after,
+                               _naive_dt(s_iso), _naive_dt(e_iso), ex_before, ex_after):
                 conn.close()
                 return jsonify({'error': 'Nový termín se kryje s jinou rezervací v bloku.'}), 409
 
@@ -5767,6 +6006,9 @@ def list_my_bookings(role):
             'balance_paid_cents':  r['balance_paid_cents'] or 0,
             'balance_payment_intent_id': r['balance_payment_intent_id'],
             'balance_charge_cents': r['balance_charge_cents'] or 0,
+            'session_number':      r['session_number'] or 1,
+            'parent_booking_id':   r['parent_booking_id'],
+            'internal_note':       (r['internal_note'] or '') if role == 'artist' else '',
             'review': ({
                 'id':         r['review_id'],
                 'rating':     r['review_rating'],
@@ -5792,13 +6034,17 @@ def list_my_bookings(role):
     return jsonify(out)
 
 
-def _cancellation_refund_pct(hours_before: float, actor: str) -> int:
-    """Vrátí % refundu podle pravidel storna."""
+def _cancellation_refund_pct(hours_before: float, actor: str,
+                             full_hours: int = None, half_hours: int = None) -> int:
+    """Vrátí % refundu podle pravidel storna.
+    `full_hours`/`half_hours` umožňují per-tatér override; None = globální default."""
     if actor == 'artist':
         return 100
-    if hours_before >= CANCEL_REFUND_FULL_HOURS:
+    full = full_hours if full_hours is not None else CANCEL_REFUND_FULL_HOURS
+    half = half_hours if half_hours is not None else CANCEL_REFUND_HALF_HOURS
+    if hours_before >= full:
         return 100
-    if hours_before >= CANCEL_REFUND_HALF_HOURS:
+    if hours_before >= half:
         return 50
     return 0
 
@@ -5822,12 +6068,15 @@ def cancel_booking(bid):
 
     actor = 'artist' if uid == b['artist_id'] else 'client'
     slot  = conn.execute('SELECT * FROM slots WHERE id=?', (b['slot_id'],)).fetchone()
+    # Přesnější než start slotu: rezervace může začínat uprostřed bloku.
+    start_raw = b['booking_start_at'] or (slot['start_at'] if slot else None)
     try:
-        start_dt = datetime.fromisoformat(slot['start_at'].replace('Z', '+00:00'))
+        start_dt = _naive_dt(start_raw)
     except Exception:
-        start_dt = datetime.utcnow() + timedelta(days=7)
-    hours_before = (start_dt - datetime.utcnow()).total_seconds() / 3600.0
-    refund_pct   = _cancellation_refund_pct(hours_before, actor)
+        start_dt = _prague_now_naive() + timedelta(days=7)
+    hours_before = (start_dt - _prague_now_naive()).total_seconds() / 3600.0
+    full_h, half_h = _resolve_cancel_policy(conn, b['artist_id'])
+    refund_pct   = _cancellation_refund_pct(hours_before, actor, full_h, half_h)
     refund_cents = int(round(b['deposit_cents'] * refund_pct / 100))
     new_status   = 'cancelled_artist' if actor == 'artist' else 'cancelled_client'
 
@@ -5891,6 +6140,295 @@ def cancel_booking(bid):
         'refund_pct': refund_pct,
         'refund_cents': refund_cents,
     })
+
+
+# ── Přesun rezervace (reschedule) ────────────────────────────────────────────
+# Tatér přesouvá vždy hned (rozšíření důvěry, kterou už má přes PATCH
+# /api/bookings/<id>). Klient hned jen ≥ RESCHEDULE_FREE_HOURS předem, jinak
+# vznikne žádost čekající na tatéra. Kolize se validují VŽDY, bez ohledu na
+# aktéra i lhůtu. bookings.status se přesunem nemění — „čeká na přesun" je
+# ortogonální k platebnímu stavu, stejně jako u refund_requests.
+
+RESCHEDULE_FREE_HOURS = 48
+
+
+def _validate_reschedule_target(conn, b, new_slot_id, start_raw, duration_raw, size_label):
+    """Společná validace pro přesun i follow-up.
+    Vrací (payload_dict, None) nebo (None, (error_json, status_code))."""
+    slot = conn.execute('SELECT * FROM slots WHERE id=?', (new_slot_id,)).fetchone()
+    if not slot:
+        return None, ({'error': 'Cílový termín neexistuje.'}, 404)
+    if slot['user_id'] != b['artist_id']:
+        return None, ({'error': 'Cílový termín patří jinému tatérovi.'}, 400)
+
+    try:
+        slot_start = _naive_dt(slot['start_at'])
+        slot_end   = _naive_dt(slot['end_at'])
+    except Exception:
+        return None, ({'error': 'Cílový termín má vadný čas.'}, 500)
+
+    # Délka: explicitní > z velikosti > původní rezervace
+    duration_h = None
+    if duration_raw not in (None, ''):
+        try:
+            duration_h = float(duration_raw)
+        except (ValueError, TypeError):
+            return None, ({'error': 'Špatná délka.'}, 400)
+    elif size_label and size_label in SIZE_PRESETS:
+        duration_h = float(SIZE_PRESETS[size_label][0])
+    else:
+        duration_h = float(b['duration_hours'] or 0)
+    if duration_h <= 0:
+        return None, ({'error': 'Chybí délka rezervace.'}, 400)
+
+    min_dur = slot['min_duration_hours'] if 'min_duration_hours' in slot.keys() else 1
+    if duration_h < (min_dur or 1):
+        return None, ({'error': f'Tatér přijímá min. {min_dur} h sezení.'}, 400)
+
+    try:
+        new_start = _naive_dt(start_raw) if start_raw else slot_start
+    except ValueError:
+        return None, ({'error': 'Špatný formát začátku.'}, 400)
+    new_end = new_start + timedelta(hours=duration_h)
+
+    if new_start < _prague_now_naive() - timedelta(minutes=5):
+        return None, ({'error': 'Nový termín nemůže být v minulosti.'}, 400)
+    if new_start < slot_start - timedelta(minutes=1) or new_end > slot_end + timedelta(minutes=1):
+        return None, ({'error': 'Nový čas nesedí do vybraného bloku ('
+                                + slot_start.strftime('%H:%M') + '–'
+                                + slot_end.strftime('%H:%M') + ').'}, 400)
+
+    if _artist_blocked_overlap(conn, b['artist_id'], new_start, new_end):
+        return None, ({'error': 'Tatér má v tomhle čase blokované volno.'}, 409)
+
+    buf_before = slot['buffer_before_minutes'] if 'buffer_before_minutes' in slot.keys() else 0
+    buf_after  = slot['buffer_after_minutes'] if 'buffer_after_minutes' in slot.keys() else 0
+    for s_iso, e_iso, ex_before, ex_after in _slot_active_bookings(conn, new_slot_id,
+                                                                   exclude_booking_id=b['id']):
+        if _padded_overlap(new_start, new_end, buf_before, buf_after,
+                           _naive_dt(s_iso), _naive_dt(e_iso), ex_before, ex_after):
+            return None, ({'error': 'Vybraný čas se kryje s jinou rezervací.'}, 409)
+
+    return {'slot_id': new_slot_id, 'start': new_start, 'end': new_end,
+            'duration_h': duration_h, 'buf_before': buf_before, 'buf_after': buf_after,
+            'size_label': size_label or (b['size_label'] or '')}, None
+
+
+@app.route('/api/bookings/<int:bid>/reschedule', methods=['PATCH'])
+def reschedule_booking(bid):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or request.form
+
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if uid not in (b['client_id'], b['artist_id']):
+        conn.close(); return jsonify({'error': 'forbidden'}), 403
+    if b['status'] in ('completed', 'cancelled_client', 'cancelled_artist', 'no_show'):
+        conn.close(); return jsonify({'error': f'Rezervaci ve stavu {b["status"]} nelze přesunout.'}), 409
+
+    new_slot_id = data.get('new_slot_id') or b['slot_id']
+    try:
+        new_slot_id = int(new_slot_id)
+    except (ValueError, TypeError):
+        conn.close(); return jsonify({'error': 'Špatné new_slot_id.'}), 400
+
+    target, verr = _validate_reschedule_target(
+        conn, b, new_slot_id, (data.get('booking_start_at') or '').strip(),
+        data.get('duration_hours'), (data.get('size_label') or '').strip().lower())
+    if verr:
+        conn.close(); return jsonify(verr[0]), verr[1]
+
+    is_artist = (uid == b['artist_id'])
+    try:
+        cur_start = _naive_dt(b['booking_start_at']) if b['booking_start_at'] else None
+    except Exception:
+        cur_start = None
+    hours_before = ((cur_start - _prague_now_naive()).total_seconds() / 3600.0
+                    if cur_start else 9999)
+
+    # Klient pozdě → žádost místo okamžitého přesunu.
+    if not is_artist and hours_before < RESCHEDULE_FREE_HOURS:
+        dupe = conn.execute(
+            "SELECT id FROM booking_reschedule_requests WHERE booking_id=? AND status='pending'",
+            (bid,)).fetchone()
+        if dupe:
+            conn.close()
+            return jsonify({'error': 'Pro tuhle rezervaci už čeká žádost o přesun.',
+                            'request_id': dupe['id']}), 409
+        conn.execute('''INSERT INTO booking_reschedule_requests
+                        (booking_id, requested_by, new_slot_id,
+                         new_booking_start_at, new_booking_end_at)
+                        VALUES (?,?,?,?,?)''',
+                     (bid, uid, target['slot_id'],
+                      target['start'].isoformat(), target['end'].isoformat()))
+        conn.commit()
+        rid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+               else conn.execute('SELECT lastval()').fetchone()[0])
+        push_notif(conn, b['artist_id'], uid, 'reschedule_requested', bid, 'booking',
+                   f'Klient žádá o přesun rezervace na {target["start"].strftime("%d.%m. %H:%M")}.')
+        conn.commit()
+        conn.close()
+        return jsonify({'ok': True, 'applied': False, 'status': 'pending',
+                        'request_id': rid, 'hours_before': round(hours_before, 1)})
+
+    _apply_reschedule(conn, bid, target)
+    conn.commit()
+    other_id = b['artist_id'] if uid == b['client_id'] else b['client_id']
+    push_notif(conn, other_id, uid, 'booking_rescheduled', bid, 'booking',
+               f'Rezervace přesunuta na {target["start"].strftime("%d.%m. %H:%M")}.')
+    conn.commit()
+    updated = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'applied': True, 'booking': dict(updated)})
+
+
+def _apply_reschedule(conn, bid, target):
+    """Zapíše nový čas na rezervaci. Cena se schválně nemění — přesun mění
+    KDY, ne ZA KOLIK."""
+    conn.execute('''UPDATE bookings
+                    SET slot_id=?, booking_start_at=?, booking_end_at=?, duration_hours=?,
+                        size_label=?, buffer_before_minutes=?, buffer_after_minutes=?
+                    WHERE id=?''',
+                 (target['slot_id'], target['start'].isoformat(), target['end'].isoformat(),
+                  target['duration_h'], target['size_label'],
+                  target['buf_before'], target['buf_after'], bid))
+
+
+@app.route('/api/reschedule-requests')
+def list_reschedule_requests():
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT rr.*, b.artist_id, b.client_id, b.booking_start_at AS current_start_at,
+               uc.display_name AS client_name, ua.display_name AS artist_name
+        FROM booking_reschedule_requests rr
+        JOIN bookings b ON rr.booking_id = b.id
+        JOIN users uc ON b.client_id = uc.id
+        JOIN users ua ON b.artist_id = ua.id
+        WHERE b.client_id = ? OR b.artist_id = ?
+        ORDER BY rr.created_at DESC LIMIT 100
+    ''', (uid, uid)).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/reschedule-requests/<int:rid>/decide', methods=['POST'])
+def decide_reschedule_request(rid):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or request.form
+    decision = (data.get('decision') or '').strip().lower()
+    note = (data.get('note') or '').strip()[:500]
+    if decision not in ('approve', 'reject'):
+        return jsonify({'error': 'decision musí být approve|reject'}), 400
+
+    conn = get_db()
+    rr = conn.execute('SELECT * FROM booking_reschedule_requests WHERE id=?', (rid,)).fetchone()
+    if not rr:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if rr['status'] != 'pending':
+        conn.close(); return jsonify({'error': 'Žádost už byla vyřešena.'}), 409
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (rr['booking_id'],)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'Rezervace neexistuje.'}), 404
+    if uid != b['artist_id'] and not is_admin_user(uid):
+        conn.close(); return jsonify({'error': 'Rozhodnout může jen tatér nebo admin.'}), 403
+
+    if decision == 'approve':
+        # Znovu validovat — mezi podáním žádosti a rozhodnutím se cílový čas
+        # mohl obsadit nebo zablokovat.
+        target, verr = _validate_reschedule_target(
+            conn, b, rr['new_slot_id'], rr['new_booking_start_at'], None, b['size_label'] or '')
+        if verr:
+            conn.close()
+            return jsonify({'error': f'Termín už nelze potvrdit: {verr[0]["error"]}'}), verr[1]
+        _apply_reschedule(conn, b['id'], target)
+
+    conn.execute('''UPDATE booking_reschedule_requests
+                    SET status=?, decision_by=?, decision_note=?, resolved_at=CURRENT_TIMESTAMP
+                    WHERE id=?''',
+                 ('approved' if decision == 'approve' else 'rejected', uid, note, rid))
+    conn.commit()
+    push_notif(conn, rr['requested_by'], uid,
+               'reschedule_' + ('approved' if decision == 'approve' else 'rejected'),
+               b['id'], 'booking',
+               'Přesun rezervace schválen.' if decision == 'approve'
+               else 'Tatér přesun rezervace zamítl.')
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'status': 'approved' if decision == 'approve' else 'rejected'})
+
+
+@app.route('/api/bookings/<int:bid>/follow-up', methods=['POST'])
+def create_follow_up_booking(bid):
+    """Tatér naplánuje další sezení navazující na existující rezervaci.
+    Dítě série nemá zálohu (ta se platila u prvního sezení) — doplatek se
+    řeší stávající cestou přes /complete."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or request.form
+
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if uid != b['artist_id']:
+        conn.close(); return jsonify({'error': 'Další sezení může naplánovat jen tatér.'}), 403
+
+    new_slot_id = data.get('new_slot_id') or b['slot_id']
+    try:
+        new_slot_id = int(new_slot_id)
+    except (ValueError, TypeError):
+        conn.close(); return jsonify({'error': 'Špatné new_slot_id.'}), 400
+
+    target, verr = _validate_reschedule_target(
+        conn, b, new_slot_id, (data.get('booking_start_at') or '').strip(),
+        data.get('duration_hours'), (data.get('size_label') or '').strip().lower())
+    if verr:
+        conn.close(); return jsonify(verr[0]), verr[1]
+
+    # Řetěz se plochý: dítě ukazuje vždy na první sezení série.
+    root_id = b['parent_booking_id'] or b['id']
+    next_num = (conn.execute(
+        'SELECT MAX(session_number) AS m FROM bookings WHERE id=? OR parent_booking_id=?',
+        (root_id, root_id)).fetchone()['m'] or 1) + 1
+
+    total_price_cents = 0
+    try:
+        total_price_cents = int(data.get('total_price_cents') or 0)
+    except (ValueError, TypeError):
+        total_price_cents = 0
+
+    conn.execute('''INSERT INTO bookings
+        (slot_id, artist_id, client_id, status, deposit_cents, platform_fee_cents,
+         design_note, confirmed_at, booking_start_at, booking_end_at, duration_hours,
+         size_label, payment_mode, total_price_cents, balance_due_cents,
+         buffer_before_minutes, buffer_after_minutes, parent_booking_id, session_number)
+        VALUES (?,?,?,'confirmed',0,0,?,?,?,?,?,?,'deposit',?,?,?,?,?,?)''',
+        (target['slot_id'], b['artist_id'], b['client_id'],
+         (data.get('design_note') or b['design_note'] or '').strip()[:1000],
+         datetime.utcnow().isoformat(),
+         target['start'].isoformat(), target['end'].isoformat(), target['duration_h'],
+         target['size_label'], total_price_cents, total_price_cents,
+         target['buf_before'], target['buf_after'], root_id, next_num))
+    conn.commit()
+    child_id = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+                else conn.execute('SELECT lastval()').fetchone()[0])
+    push_notif(conn, b['client_id'], uid, 'follow_up_scheduled', child_id, 'booking',
+               f'Tatér naplánoval další sezení na {target["start"].strftime("%d.%m. %H:%M")}.')
+    conn.commit()
+    child = conn.execute('SELECT * FROM bookings WHERE id=?', (child_id,)).fetchone()
+    conn.close()
+    return jsonify({'ok': True, 'id': child_id, 'session_number': next_num,
+                    'booking': dict(child)})
 
 
 @app.route('/api/bookings/<int:bid>/mark-no-show', methods=['POST'])
