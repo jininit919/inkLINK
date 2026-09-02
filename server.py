@@ -536,6 +536,9 @@ class DBCursor:
     @property
     def lastrowid(self): return self._cur.lastrowid
 
+    @property
+    def rowcount(self): return self._cur.rowcount
+
 
 class DBConn:
     """Unified connection wrapper — SQLite for local dev, PostgreSQL in prod."""
@@ -895,6 +898,11 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_studios_city ON studios(city)')
 
+    # subscription_tier: B2B plán studia — 'free' | 'studio' | 'studio_pro'.
+    # Nesouvisí s pricing/admin.py `tier` (founding vs standard artist,
+    # per-artist komisní program) — jiná osa, schválně jiný název sloupce.
+    add_col('studios', "subscription_tier TEXT NOT NULL DEFAULT 'free'")
+
     # studio_members: vazba tatér ↔ studio. UNIQUE artist_id znamená,
     # že tatér může být jen v jednom studiu zároveň (MVP).
     c.execute('''CREATE TABLE IF NOT EXISTS studio_members (
@@ -907,6 +915,16 @@ def init_db():
         FOREIGN KEY (artist_id) REFERENCES users(id) ON DELETE CASCADE
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_studio_members_studio ON studio_members(studio_id)')
+
+    # studio_id denormalization on bookings — avoids a 3-way join through
+    # studio_members on every studio-scoped query in Sprint 2+. artist_id is
+    # UNIQUE on studio_members, so the backfill is an unambiguous 1:1 lookup.
+    # Nullable: most bookings are solo artists with no studio.
+    add_col('bookings', 'studio_id INTEGER DEFAULT NULL')
+    c.execute('''UPDATE bookings SET studio_id = (
+        SELECT sm.studio_id FROM studio_members sm WHERE sm.artist_id = bookings.artist_id
+    ) WHERE studio_id IS NULL''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_studio ON bookings(studio_id)')
 
     c.execute('''CREATE TABLE IF NOT EXISTS studio_invites (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -972,6 +990,20 @@ def init_db():
         event_type   TEXT NOT NULL,
         processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+
+    # ── Booking state machine audit trail ──────────────────────────────────
+    # One row per successful transition_booking() call. `from_status` is
+    # best-effort (read just before the guarded UPDATE, not part of the same
+    # atomic statement) — fine for an audit trail, not used for any guard.
+    c.execute('''CREATE TABLE IF NOT EXISTS booking_status_log (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id   INTEGER NOT NULL,
+        from_status  TEXT,
+        to_status    TEXT NOT NULL,
+        changed_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_booking_status_log_booking ON booking_status_log(booking_id)')
 
     # ── Referrals — referrer ↔ referred client mapping ─────────────────────
     # The referrer's bonus credit is granted only when the referred client
@@ -1299,6 +1331,35 @@ def require_admin():
     if err: return err
     if not is_admin_user(session.get('user_id')):
         return jsonify({'error': 'Admin only'}), 403
+    return None
+
+
+SUBSCRIPTION_TIER_RANK = {'free': 0, 'studio': 1, 'studio_pro': 2}
+
+
+def require_tier(min_tier, studio_id=None):
+    """Guard for future B2B endpoints: caller must belong to a studio whose
+    subscription_tier is >= min_tier. Not wired to any route yet — this lands
+    the primitive ahead of Sprint 2's first studio-scoped endpoints, which
+    will call it the same way cancel_booking calls require_login(). Resolves
+    the studio from the logged-in user's studio_members row when `studio_id`
+    isn't passed explicitly (a user belongs to at most one studio, per the
+    UNIQUE constraint on studio_members.artist_id)."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    if studio_id is None:
+        sm = conn.execute('SELECT studio_id FROM studio_members WHERE artist_id=?',
+                           (session['user_id'],)).fetchone()
+        studio_id = sm['studio_id'] if sm else None
+    if not studio_id:
+        conn.close()
+        return jsonify({'error': 'Not part of a studio'}), 403
+    studio = conn.execute('SELECT subscription_tier FROM studios WHERE id=?', (studio_id,)).fetchone()
+    conn.close()
+    current = studio['subscription_tier'] if studio else 'free'
+    if SUBSCRIPTION_TIER_RANK.get(current, 0) < SUBSCRIPTION_TIER_RANK.get(min_tier, 0):
+        return jsonify({'error': f'Vyžaduje tarif {min_tier} nebo vyšší (aktuálně {current}).'}), 403
     return None
 
 
@@ -4961,6 +5022,74 @@ def list_sizes():
 
 # ── InkLink: Bookings ─────────────────────────────────────────────────────────
 
+# ── Booking state machine ──────────────────────────────────────────────────
+# Formalizes the 9 status strings that were previously set ad-hoc across ~7
+# call sites (cancel_booking, complete_booking, mark_no_show, and 4 webhook
+# handlers). Each entry maps a status to the set of statuses reachable FROM
+# it — derived by cross-checking every pre-existing guard in those call
+# sites, so this preserves current behavior rather than silently narrowing
+# it. 'disputed' is intentionally reachable from every other status (a
+# chargeback can land on a charge regardless of the booking's current
+# status, and Stripe's response deadline makes silently dropping that
+# update the worse failure mode). cancelled_client/cancelled_artist are
+# terminal except for that dispute path.
+BOOKING_STATUSES = {
+    'pending_payment', 'confirmed', 'payment_failed', 'completed',
+    'cancelled_client', 'cancelled_artist', 'refunded', 'disputed', 'no_show',
+}
+
+BOOKING_TRANSITIONS = {
+    'pending_payment':   {'confirmed', 'payment_failed', 'completed', 'disputed', 'cancelled_client', 'cancelled_artist'},
+    'payment_failed':    {'disputed', 'cancelled_client', 'cancelled_artist'},
+    'confirmed':         {'completed', 'disputed', 'no_show', 'refunded', 'cancelled_client', 'cancelled_artist'},
+    'completed':         {'disputed', 'refunded', 'cancelled_client', 'cancelled_artist'},
+    'no_show':           {'disputed', 'refunded', 'cancelled_client', 'cancelled_artist'},
+    'refunded':          {'disputed', 'cancelled_client', 'cancelled_artist'},
+    'disputed':          {'refunded', 'completed', 'cancelled_client', 'cancelled_artist'},
+    'cancelled_client':  {'disputed'},
+    'cancelled_artist':  {'disputed'},
+}
+
+
+def transition_booking(conn, bid, to_state, extra_set_sql='', extra_params=()):
+    """Move booking `bid` to `to_state`, atomically, iff its current status is
+    a legal predecessor per BOOKING_TRANSITIONS (one UPDATE with a
+    WHERE status IN (...) clause — the guard is race-safe, not a separate
+    SELECT-then-UPDATE). Returns True if the row changed, False if the
+    booking doesn't exist or the transition isn't legal from its current
+    status. Callers should treat False as a safe no-op (e.g. an out-of-order
+    or replayed webhook), not necessarily an error.
+
+    `extra_set_sql` adds more 'col=?, col2=?' fragments to the same UPDATE
+    (e.g. 'confirmed_at=?'); `extra_params` supplies their values, in order,
+    before `bid`.
+    """
+    if to_state not in BOOKING_STATUSES:
+        raise ValueError(f'unknown booking status {to_state!r}')
+    from_states = [s for s, nexts in BOOKING_TRANSITIONS.items() if to_state in nexts]
+    if not from_states:
+        return False
+    prior = conn.execute('SELECT status FROM bookings WHERE id=?', (bid,)).fetchone()
+    placeholders = ', '.join('?' for _ in from_states)
+    sets = 'status=?' + (', ' + extra_set_sql if extra_set_sql else '')
+    params = (to_state,) + tuple(extra_params) + tuple(from_states) + (bid,)
+    cur = conn.execute(
+        f'UPDATE bookings SET {sets} WHERE status IN ({placeholders}) AND id=?',
+        params
+    )
+    if cur.rowcount == 0:
+        return False
+    try:
+        conn.execute(
+            'INSERT INTO booking_status_log (booking_id, from_status, to_status, changed_at) '
+            'VALUES (?, ?, ?, ?)',
+            (bid, prior['status'] if prior else None, to_state, datetime.utcnow().isoformat())
+        )
+    except Exception:
+        pass
+    return True
+
+
 CANCEL_REFUND_FULL_HOURS = 96   # >= 96 h → 100% refund
 CANCEL_REFUND_HALF_HOURS = 48   # 48–96 h → 50% refund
                                 # < 48 h  → 0% (záloha propadá)
@@ -5706,15 +5835,28 @@ def cancel_booking(bid):
                 reason='requested_by_customer',
                 idempotency_key=f'cancel-{bid}-{actor}',
                 metadata={'inklink_booking_id': str(bid), 'inklink_actor': actor},
+                # Destination charge: bez tohohle by InkLink refundovala z vlastního
+                # balance a nechala si komisi i po vrácení peněz klientovi.
+                reverse_transfer=True,
+                refund_application_fee=True,
             )
         except Exception as e:
             conn.close()
             app.logger.error(f'[cancel] stripe refund failed for booking {bid}: {e}')
             return jsonify({'error': f'Refund se nepodařilo zpracovat: {e}'}), 502
 
-    conn.execute('''UPDATE bookings SET status=?, cancelled_at=?, cancellation_actor=?, refund_cents=?
-                    WHERE id=?''',
-                 (new_status, datetime.utcnow().isoformat(), actor, refund_cents, bid))
+    moved = transition_booking(
+        conn, bid, new_status,
+        extra_set_sql='cancelled_at=?, cancellation_actor=?, refund_cents=?',
+        extra_params=(datetime.utcnow().isoformat(), actor, refund_cents),
+    )
+    if not moved:
+        # Status changed concurrently between the guard above and here (e.g. a
+        # webhook landed mid-request). Refund, if any, already went through —
+        # don't also claim the booking as cancelled when it may no longer be.
+        conn.commit()
+        conn.close()
+        return jsonify({'error': 'Stav rezervace se mezitím změnil, zkus to prosím znovu.'}), 409
     conn.execute("UPDATE slots SET status='free' WHERE id=?", (b['slot_id'],))
     conn.commit()
 
@@ -5741,6 +5883,45 @@ def cancel_booking(bid):
         'refund_pct': refund_pct,
         'refund_cents': refund_cents,
     })
+
+
+@app.route('/api/bookings/<int:bid>/mark-no-show', methods=['POST'])
+def mark_no_show(bid):
+    """Tatér (nebo admin) označí, že klient na potvrzenou rezervaci nedorazil.
+    Záloha propadá (žádný refund) — lze označit až po proběhlém termínu."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if uid != b['artist_id'] and not is_admin_user(uid):
+        conn.close()
+        return jsonify({'error': 'forbidden'}), 403
+    if b['status'] != 'confirmed':
+        conn.close()
+        return jsonify({'error': 'Jen potvrzenou rezervaci lze označit jako no-show.'}), 409
+
+    slot = conn.execute('SELECT * FROM slots WHERE id=?', (b['slot_id'],)).fetchone()
+    try:
+        start_dt = datetime.fromisoformat(slot['start_at'].replace('Z', '+00:00'))
+    except Exception:
+        start_dt = None
+    if start_dt and start_dt > datetime.utcnow():
+        conn.close()
+        return jsonify({'error': 'Termín ještě neproběhl.'}), 409
+
+    if not transition_booking(conn, bid, 'no_show'):
+        conn.close()
+        return jsonify({'error': 'Stav rezervace se mezitím změnil, zkus to prosím znovu.'}), 409
+    conn.commit()
+    push_notif(conn, b['client_id'], uid, 'booking_no_show', bid, 'booking',
+               'Rezervace označena jako no-show — záloha propadá.')
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'status': 'no_show'})
 
 
 @app.route('/api/me/export', methods=['GET'])
@@ -6441,6 +6622,8 @@ def decide_refund_request(rid):
                     'inklink_booking_id': str(rr['booking_id']),
                     'decided_by': str(uid),
                 },
+                reverse_transfer=True,
+                refund_application_fee=True,
             )
             refund_id = refund.id
         except Exception as e:
@@ -6512,9 +6695,15 @@ def complete_booking(bid):
             conn.close()
             return jsonify({'error': f"Doplatek selhal: {balance_result['error']}"}), 400
 
-    conn.execute('''UPDATE bookings SET status='completed', completed_at=?, onsite_amount_cents=?
-                    WHERE id=?''',
-                 (datetime.utcnow().isoformat(), onsite_cents, bid))
+    moved = transition_booking(
+        conn, bid, 'completed',
+        extra_set_sql='completed_at=?, onsite_amount_cents=?',
+        extra_params=(datetime.utcnow().isoformat(), onsite_cents),
+    )
+    if not moved:
+        conn.commit()  # keep any balance charge created above
+        conn.close()
+        return jsonify({'error': 'Stav rezervace se mezitím změnil, zkus to prosím znovu.'}), 409
     conn.commit()
 
     # Founding-artist clock start: pokud je tatér v programu a ještě nemá
@@ -7898,7 +8087,10 @@ def connect_dashboard():
     if not u or not u['stripe_account_id']:
         return jsonify({'error': 'Stripe účet ještě nemáš.'}), 400
     try:
-        link = stripe.Account.create_login_link(u['stripe_account_id'])
+        link = stripe.Account.create_login_link(
+            u['stripe_account_id'],
+            idempotency_key=f'connect-dashboard-{u["stripe_account_id"]}-{int(time.time() // 60)}',
+        )
     except stripe.error.StripeError as e:
         return jsonify({'error': str(e)}), 400
     return jsonify({'url': link.url})
@@ -7981,6 +8173,9 @@ def diag_stripe_connect():
                     'transfers': {'requested': True},
                 }
                 kwargs['business_type'] = 'individual'
+            # Minute-bucketed: repeated diag calls within the same minute reuse
+            # the same test account instead of piling up orphan Connect accounts.
+            kwargs['idempotency_key'] = f'diag-{acct_type}-{int(time.time() // 60)}'
             test_acct = stripe.Account.create(**kwargs)
             out[f'create_{acct_type}_ok'] = True
             out[f'create_{acct_type}_id'] = test_acct.id
@@ -8015,6 +8210,79 @@ def diag_set_stripe_account():
     conn.commit()
     conn.close()
     return jsonify({'ok': True, 'user_id': u['id'], 'username': u['username'], 'stripe_account_id': acct_id})
+
+
+# EU + Iceland, Liechtenstein, Norway — matches pricing/config.py's comment
+# ("CZ/EEA codes = card_eea, anything else = card_non_eea").
+EEA_COUNTRY_CODES = {
+    'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
+    'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK',
+    'SI', 'ES', 'SE', 'IS', 'LI', 'NO',
+}
+
+
+def _reconcile_card_country(conn, booking_id, pi_obj):
+    """Re-snapshot economics with the actual card country from a succeeded
+    PaymentIntent. The pre-payment estimate always assumes 'card_eea'
+    (pricing/config.py); this corrects the stripe_fee/inklink_net figures
+    for reporting once we know the real card. Doesn't touch anything already
+    charged — the Stripe application_fee_amount was fixed at PI creation.
+    No-op if the booking has no 'initial' snapshot (legacy flat-fee path) or
+    the country can't be read.
+    """
+    try:
+        charges = pi_obj.get('charges') if isinstance(pi_obj, dict) else pi_obj.charges
+        charge_list = (charges.get('data') if isinstance(charges, dict) else getattr(charges, 'data', None)) or []
+        if not charge_list:
+            return
+        first = charge_list[0]
+        pmd = first.get('payment_method_details') if isinstance(first, dict) else first.payment_method_details
+        card = (pmd.get('card') if isinstance(pmd, dict) else getattr(pmd, 'card', None)) if pmd else None
+        country = (card.get('country') if isinstance(card, dict) else getattr(card, 'country', None)) if card else None
+        if not country:
+            return
+        card_type = 'card_eea' if country.upper() in EEA_COUNTRY_CODES else 'card_non_eea'
+
+        row = conn.execute(
+            "SELECT snapshot FROM economics_snapshots WHERE booking_id=? AND kind='initial' "
+            "ORDER BY id DESC LIMIT 1", (booking_id,)
+        ).fetchone()
+        if not row:
+            return
+        import json as _json_cc
+        prev = _json_cc.loads(row['snapshot'])
+        if card_type == 'card_eea':
+            return  # pre-payment estimate already assumed card_eea — nothing changed
+
+        from pricing import stripe_fee_for, emit_event as _emit_cc
+        from decimal import Decimal as _Dec
+        client_pays_total = _Dec(str(prev['client_pays_total']))
+        corrected_fee = stripe_fee_for(client_pays_total, card_type=card_type)
+        original_fee = _Dec(str(prev['stripe_fee']))
+        if corrected_fee == original_fee:
+            return
+        fee_delta = corrected_fee - original_fee
+        corrected_net = _Dec(str(prev['inklink_net'])) - fee_delta
+        snapshot = dict(prev)
+        snapshot['stripe_fee'] = float(corrected_fee)
+        snapshot['inklink_net'] = float(corrected_net)
+        snapshot['effective_take_rate'] = (
+            float(corrected_net / client_pays_total) if client_pays_total else 0.0
+        )
+        snapshot['card_country'] = country
+        snapshot['stripe_card_type'] = card_type
+        conn.execute(
+            "INSERT INTO economics_snapshots (booking_id, kind, snapshot) VALUES (?, 'adjust', ?)",
+            (booking_id, _json_cc.dumps(snapshot, ensure_ascii=False))
+        )
+        conn.commit()
+        _emit_cc('booking.card_country_reconciled', {
+            'booking_id': booking_id, 'card_country': country, 'card_type': card_type,
+            'fee_delta_czk': float(fee_delta),
+        }, conn=conn)
+        conn.commit()
+    except Exception as e:
+        print(f'[card-country] reconcile failed for booking {booking_id}: {e}')
 
 
 @app.route('/api/stripe/webhook', methods=['POST'])
@@ -8081,7 +8349,7 @@ def stripe_webhook():
 
     elif etype == 'payment_intent.succeeded':
         # Payment cleared → booking confirm + re-snapshot economics s actual
-        # card type (zatím jen card_eea fallback). Funds už tečou tatérovi
+        # card type (viz _reconcile_card_country). Funds už tečou tatérovi
         # přes destination charges (current architecture), takže žádný
         # manuální transfer.
         pi_id = obj.get('id') if isinstance(obj, dict) else obj.id
@@ -8103,11 +8371,10 @@ def stripe_webhook():
             conn.close()
         if booking_id:
             conn = get_db()
-            conn.execute(
-                "UPDATE bookings SET status='confirmed', confirmed_at=? WHERE id=? AND status='pending_payment'",
-                (datetime.utcnow().isoformat(), booking_id)
-            )
+            transition_booking(conn, booking_id, 'confirmed', extra_set_sql='confirmed_at=?',
+                                extra_params=(datetime.utcnow().isoformat(),))
             conn.commit()
+            _reconcile_card_country(conn, booking_id, obj)
             try:
                 from pricing import emit_event as _emit_pi
                 _emit_pi('booking.payment_succeeded', {
@@ -8126,9 +8393,7 @@ def stripe_webhook():
             (pi_id, pi_id)
         ).fetchone()
         if row:
-            conn.execute(
-                "UPDATE bookings SET status='payment_failed' WHERE id=?", (row['id'],)
-            )
+            transition_booking(conn, row['id'], 'payment_failed')
             conn.commit()
             try:
                 from pricing import emit_event as _emit_pf
@@ -8169,10 +8434,11 @@ def stripe_webhook():
                     "INSERT INTO economics_snapshots (booking_id, kind, snapshot) VALUES (?, 'refund', ?)",
                     (row['id'], _json_r.dumps(snapshot))
                 )
-                conn.execute(
-                    "UPDATE bookings SET status='refunded', refund_cents=? WHERE id=?",
-                    (int(amount_refunded or 0), row['id'])
-                )
+                # transition_booking's table excludes cancelled_client/cancelled_artist
+                # and 'refunded'/'disputed' as sources — protects against an
+                # out-of-order webhook stomping a more specific/serious status.
+                transition_booking(conn, row['id'], 'refunded', extra_set_sql='refund_cents=?',
+                                    extra_params=(int(amount_refunded or 0),))
                 conn.commit()
                 from pricing import emit_event as _emit_rf
                 _emit_rf('booking.refunded', {
@@ -8184,20 +8450,36 @@ def stripe_webhook():
         conn.close()
 
     elif etype == 'charge.dispute.created':
-        # Chargeback opened. Freeze any pending payout, mark booking disputed,
-        # alert admin. NEautomaticky neodpovídáme — admin to řeší z Stripe
-        # dashboardu.
+        # Chargeback opened. Freeze the artist's payouts (so InkLink isn't
+        # still paying them out while the dispute is live), mark booking
+        # disputed, alert admin. Neautomaticky neodpovídáme na spor samotný —
+        # admin to řeší z Stripe dashboardu; jen zastavíme peníze proudící ven.
         pi_id = obj.get('payment_intent') if isinstance(obj, dict) else obj.payment_intent
         dispute_reason = obj.get('reason') if isinstance(obj, dict) else obj.reason
         conn = get_db()
         row = conn.execute(
-            'SELECT id FROM bookings WHERE stripe_payment_intent_id = ?', (pi_id,)
+            'SELECT id, artist_id FROM bookings WHERE stripe_payment_intent_id = ?', (pi_id,)
         ).fetchone()
         if row:
-            conn.execute(
-                "UPDATE bookings SET status='disputed' WHERE id=?", (row['id'],)
-            )
+            # Guard: neposílat duplicitní admin alert/telemetry/freeze, pokud
+            # se stejný dispute event nějak zpracuje podruhé (dedup na
+            # event_id je primární obrana, tohle je defense-in-depth).
+            moved = transition_booking(conn, row['id'], 'disputed')
             conn.commit()
+            if not moved:
+                conn.close()
+                return '', 200
+            artist = conn.execute(
+                'SELECT stripe_account_id FROM users WHERE id=?', (row['artist_id'],)
+            ).fetchone()
+            if artist and artist['stripe_account_id']:
+                try:
+                    stripe.Account.modify(
+                        artist['stripe_account_id'],
+                        settings={'payouts': {'schedule': {'interval': 'manual'}}},
+                    )
+                except Exception as e:
+                    print(f'[dispute] payout freeze failed for {artist["stripe_account_id"]}: {e}')
             try:
                 from pricing import emit_event as _emit_dp
                 _emit_dp('booking.disputed', {
@@ -8207,6 +8489,46 @@ def stripe_webhook():
                 conn.commit()
             except Exception:
                 pass
+        conn.close()
+
+    elif etype == 'charge.dispute.closed':
+        # Dispute resolved (won/lost/warning_closed). Resume the artist's
+        # normal payout schedule and move the booking off 'disputed' — 'won'
+        # means InkLink/artist keep the funds (closest existing status:
+        # completed); anything else means the funds are gone via chargeback
+        # (closest existing status: refunded, same practical effect for the
+        # client as a voluntary refund).
+        pi_id = obj.get('payment_intent') if isinstance(obj, dict) else obj.payment_intent
+        dispute_status = obj.get('status') if isinstance(obj, dict) else obj.status
+        conn = get_db()
+        row = conn.execute(
+            'SELECT id, artist_id FROM bookings WHERE stripe_payment_intent_id = ?', (pi_id,)
+        ).fetchone()
+        if row:
+            to_state = 'completed' if dispute_status == 'won' else 'refunded'
+            moved = transition_booking(conn, row['id'], to_state)
+            conn.commit()
+            artist = conn.execute(
+                'SELECT stripe_account_id FROM users WHERE id=?', (row['artist_id'],)
+            ).fetchone()
+            if artist and artist['stripe_account_id']:
+                try:
+                    stripe.Account.modify(
+                        artist['stripe_account_id'],
+                        settings={'payouts': {'schedule': {'interval': 'daily'}}},
+                    )
+                except Exception as e:
+                    print(f'[dispute] payout resume failed for {artist["stripe_account_id"]}: {e}')
+            if moved:
+                try:
+                    from pricing import emit_event as _emit_dc
+                    _emit_dc('booking.dispute_closed', {
+                        'booking_id': row['id'], 'dispute_status': dispute_status,
+                        'payment_intent_id': pi_id,
+                    }, conn=conn)
+                    conn.commit()
+                except Exception:
+                    pass
         conn.close()
 
     return '', 200

@@ -2,7 +2,7 @@ flask
 flask-limiter
 werkzeug
 resend
-stripe
+stripe==15.6.1
 boto3
 gunicorn
 psycopg2-binary

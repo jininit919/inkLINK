@@ -238,6 +238,320 @@ class StripeDepositPITests(unittest.TestCase):
         self.assertIn(b'card-element', r.data)
 
 
+class StripeHardeningTests(unittest.TestCase):
+    """P0 hardening: webhook out-of-order guards, application-fee refund on
+    cancellation/refund, and the no-show endpoint."""
+
+    def setUp(self):
+        os.environ['ENABLE_DEPOSIT_PI'] = '1'
+        os.environ['STRIPE_SECRET_KEY'] = 'sk_test_dummy'
+        os.environ['STRIPE_PUBLIC_KEY'] = 'pk_test_dummy'
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO users (username, display_name, password_hash, email, '
+            'is_artist, stripe_account_id, stripe_charges_enabled) '
+            'VALUES (?, ?, ?, ?, 1, ?, 1)',
+            ('artist1', 'Artist One', 'x', 'a@t.cz', 'acct_test_artist')
+        )
+        from datetime import datetime, timedelta
+        future_start = (datetime.utcnow() + timedelta(days=10)).isoformat()
+        future_end = (datetime.utcnow() + timedelta(days=10, hours=4)).isoformat()
+        past_start = (datetime.utcnow() - timedelta(days=1)).isoformat()
+        past_end = (datetime.utcnow() - timedelta(hours=20)).isoformat()
+        for start, end, status in ((future_start, future_end, 'free'), (past_start, past_end, 'booked')):
+            conn.execute(
+                'INSERT INTO slots (user_id, start_at, end_at, status, '
+                'price_min, price_max, price_unit, min_duration_hours) '
+                'VALUES (1, ?, ?, ?, ?, ?, ?, ?)',
+                (start, end, status, 1500, 1500, 'hour', 1)
+            )
+        conn.commit()
+        conn.close()
+        _register(self.client, 'client1')  # becomes user id 2, session logged in
+
+    def tearDown(self):
+        os.unlink(self.db)
+        os.environ.pop('ENABLE_DEPOSIT_PI', None)
+        os.environ.pop('STRIPE_SECRET_KEY', None)
+        os.environ.pop('STRIPE_PUBLIC_KEY', None)
+
+    def _insert_booking(self, slot_id, status, pi_id, deposit_cents=15000):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO bookings (slot_id, artist_id, client_id, status, '
+            'deposit_cents, currency, stripe_payment_intent_id) '
+            'VALUES (?, 1, 2, ?, ?, ?, ?)',
+            (slot_id, status, deposit_cents, 'CZK', pi_id)
+        )
+        conn.commit()
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return bid
+
+    def _status_of(self, bid):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        status = conn.execute('SELECT status FROM bookings WHERE id=?', (bid,)).fetchone()[0]
+        conn.close()
+        return status
+
+    def _webhook(self, event_type, obj, event_id):
+        return self.client.post('/api/stripe/webhook', json={
+            'id': event_id, 'type': event_type, 'data': {'object': obj},
+        })
+
+    def test_refund_webhook_does_not_overwrite_cancelled(self):
+        # cancel_booking already recorded refund_cents synchronously with the
+        # more specific cancelled_client status — the resulting charge.refunded
+        # webhook shouldn't downgrade that to the generic 'refunded'.
+        bid = self._insert_booking(1, 'cancelled_client', pi_id='pi_guard_1')
+        r = self._webhook('charge.refunded', {
+            'id': 'ch_1', 'payment_intent': 'pi_guard_1', 'amount_refunded': 15000,
+        }, 'evt_refund_1')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._status_of(bid), 'cancelled_client')
+
+    def test_refund_webhook_resolves_dispute(self):
+        # A dispute resolved by refunding the client IS a legal transition —
+        # confirms the guard isn't over-broad.
+        bid = self._insert_booking(1, 'disputed', pi_id='pi_guard_1b')
+        r = self._webhook('charge.refunded', {
+            'id': 'ch_1b', 'payment_intent': 'pi_guard_1b', 'amount_refunded': 15000,
+        }, 'evt_refund_1b')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._status_of(bid), 'refunded')
+
+    def test_dispute_webhook_guard_on_replay_with_new_event_id(self):
+        from unittest.mock import patch
+        import server
+        bid = self._insert_booking(1, 'confirmed', pi_id='pi_guard_2')
+        with patch.object(server.stripe.Account, 'modify'):
+            r1 = self._webhook('charge.dispute.created', {
+                'id': 'dp_1', 'payment_intent': 'pi_guard_2', 'reason': 'fraudulent',
+            }, 'evt_dispute_1')
+            self.assertEqual(r1.status_code, 200)
+            self.assertEqual(self._status_of(bid), 'disputed')
+            # Same dispute, different event_id (bypasses the outer event_id dedup) —
+            # the status guard should still make this a no-op, not an error.
+            r2 = self._webhook('charge.dispute.created', {
+                'id': 'dp_1', 'payment_intent': 'pi_guard_2', 'reason': 'fraudulent',
+            }, 'evt_dispute_2')
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(self._status_of(bid), 'disputed')
+
+    def test_dispute_created_freezes_artist_payouts(self):
+        from unittest.mock import patch
+        import server
+        bid = self._insert_booking(1, 'confirmed', pi_id='pi_guard_freeze')
+        with patch.object(server.stripe.Account, 'modify') as m:
+            r = self._webhook('charge.dispute.created', {
+                'id': 'dp_2', 'payment_intent': 'pi_guard_freeze', 'reason': 'fraudulent',
+            }, 'evt_dispute_freeze')
+        self.assertEqual(r.status_code, 200)
+        m.assert_called_once_with(
+            'acct_test_artist', settings={'payouts': {'schedule': {'interval': 'manual'}}}
+        )
+
+    def test_dispute_closed_won_resumes_payouts_and_completes_booking(self):
+        from unittest.mock import patch
+        import server
+        bid = self._insert_booking(1, 'disputed', pi_id='pi_guard_won')
+        with patch.object(server.stripe.Account, 'modify') as m:
+            r = self._webhook('charge.dispute.closed', {
+                'id': 'dp_3', 'payment_intent': 'pi_guard_won', 'status': 'won',
+            }, 'evt_dispute_won')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._status_of(bid), 'completed')
+        m.assert_called_once_with(
+            'acct_test_artist', settings={'payouts': {'schedule': {'interval': 'daily'}}}
+        )
+
+    def test_dispute_closed_lost_marks_refunded(self):
+        from unittest.mock import patch
+        import server
+        bid = self._insert_booking(1, 'disputed', pi_id='pi_guard_lost')
+        with patch.object(server.stripe.Account, 'modify'):
+            r = self._webhook('charge.dispute.closed', {
+                'id': 'dp_4', 'payment_intent': 'pi_guard_lost', 'status': 'lost',
+            }, 'evt_dispute_lost')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._status_of(bid), 'refunded')
+
+    def _insert_initial_snapshot(self, bid, client_pays_total=1530.0):
+        import sqlite3, json
+        from decimal import Decimal
+        from pricing import stripe_fee_for
+        snapshot = {
+            'gross_price': 1500.0, 'client_service_fee': 30.0,
+            'client_pays_total': client_pays_total, 'artist_commission': 180.0,
+            'stripe_fee': float(stripe_fee_for(Decimal(str(client_pays_total)), card_type='card_eea')),
+            'discount_applied': 0.0, 'discount_source': '', 'artist_payout': 1350.0,
+            'inklink_net': 100.0, 'effective_take_rate': 0.065,
+            'founding_artist_status': 'none', 'founding_artist_day': None,
+        }
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO economics_snapshots (booking_id, kind, snapshot) VALUES (?, 'initial', ?)",
+            (bid, json.dumps(snapshot))
+        )
+        conn.commit()
+        conn.close()
+        return snapshot
+
+    def _adjust_snapshots(self, bid):
+        import sqlite3, json
+        conn = sqlite3.connect(self.db)
+        rows = conn.execute(
+            "SELECT snapshot FROM economics_snapshots WHERE booking_id=? AND kind='adjust'", (bid,)
+        ).fetchall()
+        conn.close()
+        return [json.loads(r[0]) for r in rows]
+
+    def test_card_country_reconciliation_on_non_eea_card(self):
+        from decimal import Decimal
+        from pricing import stripe_fee_for
+        bid = self._insert_booking(1, 'pending_payment', pi_id='pi_guard_cc')
+        self._insert_initial_snapshot(bid)
+        r = self._webhook('payment_intent.succeeded', {
+            'id': 'pi_guard_cc',
+            'metadata': {'inklink_booking_id': str(bid)},
+            'charges': {'data': [{'payment_method_details': {'card': {'country': 'US'}}}]},
+        }, 'evt_pi_cc')
+        self.assertEqual(r.status_code, 200)
+        adjusts = self._adjust_snapshots(bid)
+        self.assertEqual(len(adjusts), 1)
+        self.assertEqual(adjusts[0]['stripe_card_type'], 'card_non_eea')
+        self.assertEqual(adjusts[0]['card_country'], 'US')
+        expected_fee = float(stripe_fee_for(Decimal('1530'), card_type='card_non_eea'))
+        self.assertAlmostEqual(adjusts[0]['stripe_fee'], expected_fee, places=2)
+
+    def test_card_country_no_adjust_snapshot_for_eea_card(self):
+        bid = self._insert_booking(1, 'pending_payment', pi_id='pi_guard_cc2')
+        self._insert_initial_snapshot(bid)
+        r = self._webhook('payment_intent.succeeded', {
+            'id': 'pi_guard_cc2',
+            'metadata': {'inklink_booking_id': str(bid)},
+            'charges': {'data': [{'payment_method_details': {'card': {'country': 'CZ'}}}]},
+        }, 'evt_pi_cc2')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._adjust_snapshots(bid), [])
+
+    def test_cancel_refund_reverses_transfer_and_fee(self):
+        from unittest.mock import patch, MagicMock
+        import server
+        bid = self._insert_booking(1, 'confirmed', pi_id='pi_guard_3')
+        refund_mock = MagicMock()
+        refund_mock.id = 're_test_1'
+        captured = {}
+
+        def _create(*args, **kwargs):
+            captured.update(kwargs)
+            return refund_mock
+
+        _login(self.client, 'client1')
+        with patch.object(server.stripe.Refund, 'create', side_effect=_create):
+            r = self.client.post(f'/api/bookings/{bid}/cancel')
+        self.assertEqual(r.status_code, 200, f'{r.status_code} {r.data[:200]}')
+        self.assertTrue(captured.get('reverse_transfer'))
+        self.assertTrue(captured.get('refund_application_fee'))
+
+    def test_mark_no_show_success(self):
+        bid = self._insert_booking(2, 'confirmed', pi_id='pi_guard_4')  # slot 2 = past
+        with self.client.session_transaction() as s:
+            s['user_id'] = 1  # artist1
+        r = self.client.post(f'/api/bookings/{bid}/mark-no-show')
+        self.assertEqual(r.status_code, 200, f'{r.status_code} {r.data[:200]}')
+        self.assertEqual(self._status_of(bid), 'no_show')
+
+    def test_mark_no_show_rejected_before_slot_time(self):
+        bid = self._insert_booking(1, 'confirmed', pi_id='pi_guard_5')  # slot 1 = future
+        with self.client.session_transaction() as s:
+            s['user_id'] = 1
+        r = self.client.post(f'/api/bookings/{bid}/mark-no-show')
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(self._status_of(bid), 'confirmed')
+
+
+class StudioIdBackfillTests(unittest.TestCase):
+    """P1 item 7: bookings.studio_id denormalization + backfill."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_backfill_populates_studio_id_from_studio_members(self):
+        import sqlite3, server
+        from datetime import datetime, timedelta
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+            "VALUES ('artist1','Artist','x','a@t.cz',1)"
+        )
+        conn.execute(
+            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+            "VALUES ('client1','Client','x','c@t.cz',0)"
+        )
+        conn.execute("INSERT INTO studios (slug, name) VALUES ('studio1', 'Studio One')")
+        studio_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.execute('INSERT INTO studio_members (studio_id, artist_id) VALUES (?, 1)', (studio_id,))
+        start = (datetime.utcnow() + timedelta(days=1)).isoformat()
+        conn.execute(
+            "INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max, "
+            "price_unit, min_duration_hours) VALUES (1, ?, ?, 'free', 1500, 1500, 'hour', 1)",
+            (start, start)
+        )
+        conn.execute(
+            "INSERT INTO bookings (slot_id, artist_id, client_id, status, deposit_cents) "
+            "VALUES (1, 1, 2, 'confirmed', 15000)"
+        )
+        conn.commit()
+        conn.close()
+
+        server.init_db()  # backfill runs here, same as on process startup
+
+        conn = sqlite3.connect(self.db)
+        got = conn.execute('SELECT studio_id FROM bookings WHERE id=1').fetchone()[0]
+        conn.close()
+        self.assertEqual(got, studio_id)
+
+    def test_solo_artist_booking_studio_id_stays_null(self):
+        import sqlite3, server
+        from datetime import datetime, timedelta
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+            "VALUES ('solo1','Solo','x','s@t.cz',1)"
+        )
+        conn.execute(
+            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+            "VALUES ('client1','Client','x','c@t.cz',0)"
+        )
+        start = (datetime.utcnow() + timedelta(days=1)).isoformat()
+        conn.execute(
+            "INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max, "
+            "price_unit, min_duration_hours) VALUES (1, ?, ?, 'free', 1500, 1500, 'hour', 1)",
+            (start, start)
+        )
+        conn.execute(
+            "INSERT INTO bookings (slot_id, artist_id, client_id, status, deposit_cents) "
+            "VALUES (1, 1, 2, 'confirmed', 15000)"
+        )
+        conn.commit()
+        conn.close()
+
+        server.init_db()
+
+        conn = sqlite3.connect(self.db)
+        got = conn.execute('SELECT studio_id FROM bookings WHERE id=1').fetchone()[0]
+        conn.close()
+        self.assertIsNone(got)
+
+
 class ReferralTests(unittest.TestCase):
     def setUp(self):
         self.client, self.db = _fresh_client()
