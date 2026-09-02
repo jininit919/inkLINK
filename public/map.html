@@ -113,10 +113,8 @@ function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&
 
 async function initNav() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
-  // #navAvatar itself is owned by nav-avatar.js (InkLinkNavAvatar.init()) — don't touch it here.
-  if (me) {
-    document.getElementById('navLiked').style.display = 'flex';
-  }
+  // #navAvatar and #navLiked don't exist on this page — owned by nav-avatar.js
+  // / not present here respectively. Just populate `me` for goToProfile().
 }
 
 function goToProfile() {
