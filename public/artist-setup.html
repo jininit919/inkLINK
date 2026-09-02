@@ -508,7 +508,6 @@ async function init() {
   const styles = await fetch('/api/styles').then(r => r.json());
   ALLOWED_STYLEES.push(...styles);
   renderStylesGrid('stylesGrid', (me.styles||'').split(',').map(s=>s.trim()).filter(Boolean), 6);
-  renderStylesGrid('pStylesGrid', [], 4);
 
   document.getElementById('display_name').value = me.display_name || '';
   document.getElementById('studio').value = me.studio || '';

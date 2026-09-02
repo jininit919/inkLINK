@@ -590,9 +590,11 @@ async function init() {
     // Avatar dropdown items
     document.getElementById('amProfile').href = '/profile/' + me.username;
     document.getElementById('navLiked').style.display = 'flex';
-    // FAB pro přidání skicy/práce — viditelný pro tatéry (desktop)
+    // FAB pro přidání skicy/práce — pro každého přihlášeného (desktop). První
+    // upload z něj tě promuje na tatéra (server-side), proto to NENÍ za
+    // is_artist gate — jinak by se nový tatér neměl jak dostat k prvnímu uploadu.
+    document.getElementById('fabAdd').classList.add('visible');
     if (me.is_artist) {
-      document.getElementById('fabAdd').classList.add('visible');
       document.getElementById('amSetup').style.display = 'flex';
       document.getElementById('amEarnings').style.display = 'flex';
       // Pro tatéry kalendář vede na /calendar (slot management),
@@ -730,12 +732,9 @@ let _addpStylesLoaded = false;
 
 async function openAddPortfolio() {
   if (!me) { location.href = '/login'; return; }
-  if (!me.is_artist) {
-    // Klient nemůže přidávat portfolio — pošli ho do welcome modalu (artist role)
-    if (typeof openWelcome === 'function') openWelcome();
-    else location.href = '/artist-setup';
-    return;
-  }
+  // Nemusíš už být is_artist=1 — POST /api/portfolio tě na server sám
+  // promuje při prvním uploadu. Dřívější gate sem pustil jen existující
+  // tatéry, což byl slepý kruh: bez portfolia se is_artist nikdy nenastavilo.
   const modal = document.getElementById('addPortfolioModal');
   if (!modal) return;
   modal.classList.add('show');
@@ -938,12 +937,12 @@ function render() {
       document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ SKICY';
       document.getElementById('emptyText').innerHTML =
         'Nové sketche se tu objeví, jakmile je tatéři přidají.<br>'
-        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Přidej svůj první sketch</a> a klienti si tě najdou.';
+        + 'Jsi tatér? <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline">Přidej svůj první sketch</a> a klienti si tě najdou.';
     } else {
       document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ PRÁCE';
       document.getElementById('emptyText').innerHTML =
         'Galerie hotových tetování se brzy zaplní.<br>'
-        + 'Jsi tatér? <a href="/artist-setup#portfolio" style="color:var(--red2);text-decoration:underline">Sdílej svoji první práci</a>.';
+        + 'Jsi tatér? <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline">Sdílej svoji první práci</a>.';
     }
     return;
   }
