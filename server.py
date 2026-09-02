@@ -3492,6 +3492,14 @@ def create_slot():
     try:
         s_dt = datetime.fromisoformat(start_at.replace('Z', '+00:00'))
         e_dt = datetime.fromisoformat(end_at.replace('Z', '+00:00'))
+        # Rest of the file compares against naive datetime.utcnow() throughout —
+        # normalize an offset-aware input (e.g. a real 'Z'-suffixed ISO string,
+        # which the calendar form doesn't send today but a valid client could)
+        # down to naive UTC so it doesn't crash e_dt/s_dt comparisons below.
+        if s_dt.tzinfo is not None:
+            s_dt = s_dt.astimezone(timezone.utc).replace(tzinfo=None)
+        if e_dt.tzinfo is not None:
+            e_dt = e_dt.astimezone(timezone.utc).replace(tzinfo=None)
     except ValueError:
         return jsonify({'error': 'Špatný formát datumu (použij ISO 8601)'}), 400
     if e_dt <= s_dt:
