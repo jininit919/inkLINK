@@ -105,7 +105,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="/notifs.js?v=11"></script>
 <script src="/mobile-nav.js?v=14"></script>
-<script src="/cookie-banner.js?v=10"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <script>
@@ -114,13 +113,9 @@ function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&
 
 async function initNav() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
-  const navAvatar = document.getElementById('navAvatar');
+  // #navAvatar itself is owned by nav-avatar.js (InkLinkNavAvatar.init()) — don't touch it here.
   if (me) {
-    if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
-    else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
     document.getElementById('navLiked').style.display = 'flex';
-  } else {
-    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Sign in</a>';
   }
 }
 

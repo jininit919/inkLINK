@@ -96,7 +96,6 @@ main{padding:24px 24px 80px;min-width:0}
 </nav>
 <script src="/notifs.js?v=5"></script>
 <script src="/mobile-nav.js?v=14"></script>
-<script src="/cookie-banner.js?v=5"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <div class="layout">
@@ -131,12 +130,7 @@ function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&
 async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
   if (!me) { location.href = '/login'; return; }
-
-  const navAvatar = document.getElementById('navAvatar');
-  if (navAvatar) {
-    if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
-    else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
-  }
+  // #navAvatar itself is owned by nav-avatar.js (InkLinkNavAvatar.init()) — don't touch it here.
 
   document.querySelectorAll('.feed-tab').forEach(t => t.addEventListener('click', () => {
     document.querySelectorAll('.feed-tab').forEach(x => x.classList.remove('active'));

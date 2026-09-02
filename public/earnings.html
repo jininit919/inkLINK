@@ -215,7 +215,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <script src="/notifs.js?v=11"></script>
 <script src="/mobile-nav.js?v=14"></script>
-<script src="/cookie-banner.js?v=10"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <script>
@@ -264,15 +263,13 @@ function goToProfile() {
 async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
 
-  const navAvatar = document.getElementById('navAvatar');
+  // #navAvatar itself is owned by nav-avatar.js (InkLinkNavAvatar.init()) —
+  // don't touch it here, it used to race with that shared module and crash.
   if (me) {
-    if (me.avatar_url) navAvatar.innerHTML = `<img src="${escapeHtml(me.avatar_url)}" alt="">`;
-    else navAvatar.textContent = (me.display_name || me.username || '?').slice(0,2).toUpperCase();
     document.getElementById('navLiked').style.display = 'flex';
   } else {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('needLogin').style.display = 'block';
-    navAvatar.outerHTML = '<a href="/login" class="btn" style="margin-left:6px;font-size:11px;letter-spacing:0.08em;padding:7px 14px;border:1px solid var(--red2);color:var(--red2);text-transform:uppercase">Sign in</a>';
     return;
   }
 
