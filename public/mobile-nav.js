@@ -42,16 +42,26 @@
   .il-mnav-dot{position:absolute;top:8px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:var(--txt,#0a0a0a);border:1.5px solid var(--bg,#faf8f3);display:none}
   .il-mnav-dot.show{display:block}
 
-  #il-abar{position:fixed;top:0;left:0;right:0;z-index:9998;display:flex;gap:2px;justify-content:center;
-    background:rgba(250,248,243,0.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border,#d4cfbf);
-    padding:8px 16px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
-  #il-abar a{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:7px;
-    color:var(--txt3,#5a5a5a);text-decoration:none;font-size:12px;letter-spacing:0.05em;white-space:nowrap;
-    transition:background 0.15s,color 0.15s}
+  #il-abar{display:flex;gap:2px;align-items:center;margin-left:18px;
+    font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;flex-wrap:nowrap;min-width:0}
+  #il-abar a{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:7px;
+    color:var(--txt3,#5a5a5a);text-decoration:none;font-size:12px;letter-spacing:0.04em;
+    white-space:nowrap;transition:background 0.15s,color 0.15s}
   #il-abar a:hover{background:var(--bg3,#ede8db);color:var(--txt,#0a0a0a)}
   #il-abar a.active{background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3)}
   #il-abar svg{width:15px;height:15px;flex-shrink:0}
-  /* Původní horní nav stránky se posune pod lištu, ať se nepřekrývají. */
+  nav.il-has-abar > .nav-logo{flex:0 0 auto !important}
+  nav.il-has-abar > #il-abar{margin-right:auto}
+  /* Úzký desktop: popisky pryč, ikony zůstanou — jinak lišta vytlačí ikony
+     vpravo mimo obrazovku. */
+  @media(max-width:1180px){
+    #il-abar a span{display:none}
+    #il-abar a{padding:7px 9px}
+  }
+  /* Fallback pro stránku bez navu. */
+  #il-abar.standalone{position:fixed;top:0;left:0;right:0;z-index:9998;justify-content:center;
+    margin-left:0;background:rgba(250,248,243,0.96);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border,#d4cfbf);padding:8px 16px}
   body.has-abar nav{top:46px !important}
   body.has-abar{padding-top:46px}
   @media(max-width:768px){
@@ -221,14 +231,45 @@
 
   function injectArtistBar() {
     if (document.getElementById('il-abar')) return;
-    const bar = document.createElement('div');
+
+    var bar = document.createElement('div');
     bar.id = 'il-abar';
-    bar.innerHTML = ARTIST_LINKS().map(l => {
-      const active = isActive(l.href) ? ' class="active"' : '';
-      return `<a href="${l.href}"${active}>${svgIcon(l.ico)}<span>${l.lbl}</span></a>`;
+    bar.innerHTML = ARTIST_LINKS().map(function (l) {
+      var active = isActive(l.href) ? ' class="active"' : '';
+      return '<a href="' + l.href + '"' + active + '>' + svgIcon(l.ico) +
+             '<span>' + l.lbl + '</span></a>';
     }).join('');
-    document.body.appendChild(bar);
-    document.body.classList.add('has-abar');
+
+    // Lišta patří DO stávajícího navu, ne nad něj. První verze byla vlastní
+    // pruh nahoře, takže vznikly dva řádky navigace pod sebou a kalendář
+    // se objevil dvakrát — jednou jako popisek, jednou jako ikona vpravo.
+    var nav  = document.querySelector('nav');
+    var logo = nav && nav.querySelector('.nav-logo');
+    if (nav && logo && logo.nextSibling) {
+      nav.insertBefore(bar, logo.nextSibling);
+      // .nav-logo má flex:1 a jinak by lištu vytlačilo doprostřed navu.
+      // Značka na navu, ne inline styl — ať to jde přebít v CSS stránky.
+      nav.classList.add('il-has-abar');
+      hideDuplicateNavItems(nav);
+    } else {
+      // Stránka bez navu (nebo s jinou strukturou) dostane pruh nahoře.
+      bar.classList.add('standalone');
+      document.body.appendChild(bar);
+      document.body.classList.add('has-abar');
+    }
+  }
+
+  // Co je v liště, nemá smysl mít vedle ještě jako ikonu nebo položku menu.
+  function hideDuplicateNavItems(nav) {
+    var dupes = nav.querySelectorAll('#navCalendar, #amSetup, #amEarnings');
+    for (var i = 0; i < dupes.length; i++) dupes[i].style.display = 'none';
+    // Oddělovač v menu pod avatarem má smysl, jen když nad ním něco zbylo.
+    var menu = nav.querySelector('.avatar-menu');
+    if (menu) {
+      var kept = menu.querySelectorAll('a:not([style*="display: none"])');
+      var hr = menu.querySelector('hr.divider');
+      if (hr && kept.length <= 1) hr.style.display = 'none';
+    }
   }
 
   function renderNav(items) {

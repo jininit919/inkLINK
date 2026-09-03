@@ -62,11 +62,12 @@ body{
   flex:0 0 auto; width:50px;
   background:var(--txt); color:var(--bg);
   border:none; border-radius:8px;
-  font-family:inherit; font-size:18px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
   cursor:pointer;
   transition:opacity 0.15s, transform 0.15s;
   -webkit-appearance:none; appearance:none;
 }
+.wl-row button svg{width:21px;height:21px;display:block}
 .wl-row button:hover:not(:disabled){transform:translateY(-1px)}
 .wl-row button:disabled{opacity:0.45;cursor:not-allowed}
 
@@ -101,10 +102,12 @@ body{
 .unlock button{
   flex:0 0 auto; width:50px;
   background:transparent; border:1px solid var(--border2); color:var(--txt2);
-  border-radius:8px; font-family:inherit; font-size:16px; line-height:1;
+  border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
   cursor:pointer; transition:all 0.15s;
   -webkit-appearance:none; appearance:none;
 }
+.unlock button svg{width:18px;height:18px;display:block}
 .unlock button:hover:not(:disabled){border-color:var(--txt);color:var(--txt)}
 .unlock button:disabled{opacity:0.45;cursor:not-allowed}
 .unlock .msg{font-size:12px;margin-top:9px;min-height:16px;color:#b3261e}
@@ -120,7 +123,7 @@ body{
     <form class="wl-row" id="wlForm" novalidate>
       <input type="email" id="wlEmail" inputmode="email" autocomplete="email"
              placeholder="you@email.com" aria-label="Email" required>
-      <button type="submit" id="wlBtn" aria-label="Join the waitlist">→</button>
+      <button type="submit" id="wlBtn" aria-label="Join the waitlist"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
     <div class="wl-msg" id="wlMsg" role="status" aria-live="polite"></div>
   </div>
@@ -134,7 +137,7 @@ body{
     <form id="unlockForm" novalidate>
       <input type="password" id="unlockPwd" autocomplete="current-password"
              aria-label="Access password" placeholder="••••••••">
-      <button type="submit" id="unlockBtn" aria-label="Unlock">→</button>
+      <button type="submit" id="unlockBtn" aria-label="Unlock"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
     <div class="msg" id="unlockMsg" role="status" aria-live="polite"></div>
   </details>

@@ -10745,6 +10745,10 @@ def __health():
     curl https://www.inklink.club/__health"""
     return jsonify({
         'ok': True,
+        # Stav brány, ať se nemusí hádat, jestli proměnná v prostředí dosedla.
+        # Hodnotu tokenu nikdy neprozrazujeme, jen jestli vůbec je nastavený.
+        'coming_soon': COMING_SOON,
+        'coming_soon_token_set': bool(COMING_SOON_TOKEN),
         'commit': os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown'),
         'commit_short': (os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown') or 'unknown')[:7],
         'branch': os.environ.get('RAILWAY_GIT_BRANCH', 'unknown'),
