@@ -1891,7 +1891,11 @@ class WaitlistTests(unittest.TestCase):
         first  = self.client.post('/api/waitlist', json={'email': 'a@b.cz'})
         second = self.client.post('/api/waitlist', json={'email': 'a@b.cz'})
         self.assertEqual(first.status_code, second.status_code)
-        self.assertTrue(second.get_json()['ok'])
+        # Celé tělo, ne jen status. Původní verze porovnávala jen kód a 'ok',
+        # takže jí uniklo pole 'already', kterým šlo ověřit, jestli je adresa
+        # na seznamu — přesně ten únik, kterému má tenhle test bránit.
+        self.assertEqual(first.get_json(), second.get_json())
+        self.assertEqual(first.get_data(), second.get_data())
         self.assertEqual(self._count(), 1)
 
     def test_invalid_email_rejected(self):

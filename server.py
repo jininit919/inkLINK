@@ -8494,9 +8494,10 @@ def join_waitlist():
     existing = conn.execute('SELECT id FROM waitlist WHERE email=?', (email,)).fetchone()
     if existing:
         conn.close()
-        # Stejná odpověď jako u nového zápisu — opakované odeslání nesmí
-        # prozradit, kdo už na seznamu je.
-        return jsonify({'ok': True, 'already': True})
+        # Odpověď musí být BAJT PO BAJTU stejná jako u nového zápisu.
+        # Dřív se vracelo navíc 'already': True, což šlo použít k ověření,
+        # jestli je konkrétní adresa na seznamu.
+        return jsonify({'ok': True})
     try:
         conn.execute(
             'INSERT INTO waitlist (email, role, source, ip) VALUES (?,?,?,?)',
@@ -8511,7 +8512,7 @@ def join_waitlist():
         except Exception:
             pass
         conn.close()
-        return jsonify({'ok': True, 'already': True})
+        return jsonify({'ok': True})
     conn.close()
     return jsonify({'ok': True})
 
