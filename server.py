@@ -740,6 +740,9 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
 
+    # /events je veřejná (a v sitemapě) — filtr přes datum nesmí být full scan.
+    c.execute('CREATE INDEX IF NOT EXISTS idx_events_date ON events(date)')
+
     c.execute('''CREATE TABLE IF NOT EXISTS event_saves (
         user_id  INTEGER NOT NULL,
         event_id INTEGER NOT NULL,
@@ -979,15 +982,18 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_studio_members_studio ON studio_members(studio_id)')
 
-    # studio_id denormalization on bookings — avoids a 3-way join through
-    # studio_members on every studio-scoped query in Sprint 2+. artist_id is
-    # UNIQUE on studio_members, so the backfill is an unambiguous 1:1 lookup.
-    # Nullable: most bookings are solo artists with no studio.
+    # studio_id na bookings — snapshot studia, ve kterém rezervace vznikla.
+    # Vyplňuje se při INSERTu (create_booking / follow-up), NE backfillem:
+    # dřívější `UPDATE ... WHERE studio_id IS NULL` na každém startu procesu
+    # zpětně přepisoval historii tatéra, když vstoupil do studia, a nikdy ji
+    # neuklidil, když odešel. Účetnictví (Sprint 4/6) čte právě tenhle sloupec,
+    # takže musí zůstat tím, čím byl v okamžiku rezervace.
+    # Nullable: sólo tatér žádné studio nemá.
     add_col('bookings', 'studio_id INTEGER DEFAULT NULL')
-    c.execute('''UPDATE bookings SET studio_id = (
-        SELECT sm.studio_id FROM studio_members sm WHERE sm.artist_id = bookings.artist_id
-    ) WHERE studio_id IS NULL''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_studio ON bookings(studio_id)')
+    # CRM (Sprint 3) i historie klienta jezdí po obou těchhle sloupcích.
+    c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_artist ON bookings(artist_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_client ON bookings(client_id)')
 
     c.execute('''CREATE TABLE IF NOT EXISTS studio_invites (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -5441,7 +5447,10 @@ def create_booking():
         return jsonify({'error': 'Nemůžeš si rezervovat vlastní termín.'}), 400
 
     price_unit = (slot['price_unit'] if 'price_unit' in slot.keys() else None) or 'hour'
-    artist = conn.execute('''SELECT id, deposit_pct_default, stripe_charges_enabled, display_name
+    # studio_id se bere rovnou tady poddotazem — žádný round trip navíc.
+    artist = conn.execute('''SELECT id, deposit_pct_default, stripe_charges_enabled, display_name,
+                                    (SELECT studio_id FROM studio_members
+                                     WHERE artist_id = users.id) AS studio_id
                              FROM users WHERE id=?''', (slot['user_id'],)).fetchone()
     deposit_pct = slot['deposit_pct'] if slot['deposit_pct'] is not None else (artist['deposit_pct_default'] or 30)
     avg_price   = _slot_avg_price(slot)
@@ -5683,15 +5692,15 @@ def create_booking():
          design_note, confirmed_at,
          booking_start_at, booking_end_at, duration_hours, size_label, portfolio_item_id,
          payment_mode, total_price_cents, balance_due_cents,
-         buffer_before_minutes, buffer_after_minutes)
-        VALUES (?,?,?,?,?,?,?, ?, ?,?,?,?,?, ?,?,?, ?,?)''',
+         buffer_before_minutes, buffer_after_minutes, studio_id)
+        VALUES (?,?,?,?,?,?,?, ?, ?,?,?,?,?, ?,?,?, ?,?,?)''',
         (slot_id, slot['user_id'], session['user_id'], init_status,
          deposit_cents, platform_fee_cents, design_note,
          datetime.utcnow().isoformat() if init_status == 'confirmed' else None,
          booking_start.isoformat(), booking_end.isoformat(), duration_hours, size_label,
          portfolio_item['id'] if portfolio_item else None,
          payment_mode, total_price_cents, balance_due_cents,
-         slot_buf_before, slot_buf_after))
+         slot_buf_before, slot_buf_after, artist['studio_id']))
 
     if price_unit == 'flat':
         # legacy: zablokuj slot
@@ -5701,8 +5710,12 @@ def create_booking():
     # 'hour' bloky zůstávají 'free' — kapacitu řešíme přes booking_start/end overlap
 
     conn.commit()
-    bid = conn.execute('SELECT id FROM bookings WHERE client_id=? ORDER BY id DESC LIMIT 1',
-                       (session['user_id'],)).fetchone()['id']
+    # Ne "poslední řádek klienta" — to je závod, když si klient odešle dvě
+    # rezervace naráz. Stejný postup jako follow-up endpoint.
+    if not conn._pg:
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    else:
+        bid = conn.execute('SELECT lastval()').fetchone()[0]
 
     # Persist economics snapshot (immutable per-booking ledger entry).
     # kind='initial' = first snapshot at booking creation. Refunds/adjusts
@@ -6419,14 +6432,17 @@ def create_follow_up_booking(bid):
         (slot_id, artist_id, client_id, status, deposit_cents, platform_fee_cents,
          design_note, confirmed_at, booking_start_at, booking_end_at, duration_hours,
          size_label, payment_mode, total_price_cents, balance_due_cents,
-         buffer_before_minutes, buffer_after_minutes, parent_booking_id, session_number)
-        VALUES (?,?,?,'confirmed',0,0,?,?,?,?,?,?,'deposit',?,?,?,?,?,?)''',
+         buffer_before_minutes, buffer_after_minutes, parent_booking_id, session_number,
+         studio_id)
+        VALUES (?,?,?,'confirmed',0,0,?,?,?,?,?,?,'deposit',?,?,?,?,?,?,?)''',
         (target['slot_id'], b['artist_id'], b['client_id'],
          (data.get('design_note') or b['design_note'] or '').strip()[:1000],
          datetime.utcnow().isoformat(),
          target['start'].isoformat(), target['end'].isoformat(), target['duration_h'],
          target['size_label'], total_price_cents, total_price_cents,
-         target['buf_before'], target['buf_after'], root_id, next_num))
+         target['buf_before'], target['buf_after'], root_id, next_num,
+         # Série zůstane ve studiu, kde začala — tatér mohl mezitím přejít jinam.
+         b['studio_id']))
     conn.commit()
     child_id = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
                 else conn.execute('SELECT lastval()').fetchone()[0])

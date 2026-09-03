@@ -476,81 +476,8 @@ class StripeHardeningTests(unittest.TestCase):
         self.assertEqual(self._status_of(bid), 'confirmed')
 
 
-class StudioIdBackfillTests(unittest.TestCase):
-    """P1 item 7: bookings.studio_id denormalization + backfill."""
-
-    def setUp(self):
-        self.client, self.db = _fresh_client()
-
-    def tearDown(self):
-        os.unlink(self.db)
-
-    def test_backfill_populates_studio_id_from_studio_members(self):
-        import sqlite3, server
-        from datetime import datetime, timedelta
-        conn = sqlite3.connect(self.db)
-        conn.execute(
-            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
-            "VALUES ('artist1','Artist','x','a@t.cz',1)"
-        )
-        conn.execute(
-            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
-            "VALUES ('client1','Client','x','c@t.cz',0)"
-        )
-        conn.execute("INSERT INTO studios (slug, name) VALUES ('studio1', 'Studio One')")
-        studio_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-        conn.execute('INSERT INTO studio_members (studio_id, artist_id) VALUES (?, 1)', (studio_id,))
-        start = (datetime.utcnow() + timedelta(days=1)).isoformat()
-        conn.execute(
-            "INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max, "
-            "price_unit, min_duration_hours) VALUES (1, ?, ?, 'free', 1500, 1500, 'hour', 1)",
-            (start, start)
-        )
-        conn.execute(
-            "INSERT INTO bookings (slot_id, artist_id, client_id, status, deposit_cents) "
-            "VALUES (1, 1, 2, 'confirmed', 15000)"
-        )
-        conn.commit()
-        conn.close()
-
-        server.init_db()  # backfill runs here, same as on process startup
-
-        conn = sqlite3.connect(self.db)
-        got = conn.execute('SELECT studio_id FROM bookings WHERE id=1').fetchone()[0]
-        conn.close()
-        self.assertEqual(got, studio_id)
-
-    def test_solo_artist_booking_studio_id_stays_null(self):
-        import sqlite3, server
-        from datetime import datetime, timedelta
-        conn = sqlite3.connect(self.db)
-        conn.execute(
-            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
-            "VALUES ('solo1','Solo','x','s@t.cz',1)"
-        )
-        conn.execute(
-            "INSERT INTO users (username, display_name, password_hash, email, is_artist) "
-            "VALUES ('client1','Client','x','c@t.cz',0)"
-        )
-        start = (datetime.utcnow() + timedelta(days=1)).isoformat()
-        conn.execute(
-            "INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max, "
-            "price_unit, min_duration_hours) VALUES (1, ?, ?, 'free', 1500, 1500, 'hour', 1)",
-            (start, start)
-        )
-        conn.execute(
-            "INSERT INTO bookings (slot_id, artist_id, client_id, status, deposit_cents) "
-            "VALUES (1, 1, 2, 'confirmed', 15000)"
-        )
-        conn.commit()
-        conn.close()
-
-        server.init_db()
-
-        conn = sqlite3.connect(self.db)
-        got = conn.execute('SELECT studio_id FROM bookings WHERE id=1').fetchone()[0]
-        conn.close()
-        self.assertIsNone(got)
+# StudioIdInsertTests (dříve StudioIdBackfillTests) žijí u ostatních
+# booking testů na konci souboru — potřebují _Sprint2Base.
 
 
 class ReferralTests(unittest.TestCase):
@@ -1261,6 +1188,60 @@ class CzechHolidayWarningTests(_Sprint2Base):
         warns = server._cz_holiday_warnings([date(2027, 3, 29)])
         self.assertEqual(len(warns), 1)
         self.assertIn('pondělí', warns[0]['name'].lower())
+
+
+class StudioIdInsertTests(_Sprint2Base):
+    """bookings.studio_id se vyplňuje při INSERTu, ne backfillem.
+
+    Dřív to dělal `UPDATE ... WHERE studio_id IS NULL` na každém startu
+    procesu — nové rezervace tak měly NULL až do restartu a vstup tatéra do
+    studia zpětně přepsal celou jeho historii. Účetnictví ten sloupec čte,
+    takže musí zůstat snapshotem okamžiku rezervace.
+    """
+
+    def _put_artist_in_studio(self, artist_id=1, slug='studio1'):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO studios (slug, name) VALUES (?, 'Studio One')", (slug,))
+        studio_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.execute('INSERT INTO studio_members (studio_id, artist_id) VALUES (?,?)',
+                     (studio_id, artist_id))
+        conn.commit()
+        conn.close()
+        return studio_id
+
+    def test_studio_artist_booking_gets_studio_id_at_insert(self):
+        studio_id = self._put_artist_in_studio()
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18))
+        r = self._book(slot, self._day_at(5, 12))
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(self._booking_row(r.get_json()['id'])['studio_id'], studio_id)
+
+    def test_solo_artist_booking_studio_id_null(self):
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18))
+        r = self._book(slot, self._day_at(5, 12))
+        self.assertIsNone(self._booking_row(r.get_json()['id'])['studio_id'])
+
+    def test_follow_up_inherits_parent_studio_id(self):
+        studio_id = self._put_artist_in_studio()
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18))
+        parent = self._book(slot, self._day_at(5, 12)).get_json()['id']
+        target = self._mk_slot(self._day_at(20, 10), self._day_at(20, 18))
+        self._as_artist()
+        child = self.client.post(f'/api/bookings/{parent}/follow-up', json={
+            'new_slot_id': target, 'booking_start_at': self._day_at(20, 12).isoformat(),
+            'duration_hours': 2}).get_json()['id']
+        self.assertEqual(self._booking_row(child)['studio_id'], studio_id)
+
+    def test_joining_studio_later_does_not_rewrite_history(self):
+        import server
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18))
+        bid = self._book(slot, self._day_at(5, 12)).get_json()['id']
+        self.assertIsNone(self._booking_row(bid)['studio_id'])
+        self._put_artist_in_studio()
+        server.init_db()   # simuluje restart procesu
+        self.assertIsNone(self._booking_row(bid)['studio_id'],
+                          'rezervace z doby před vstupem do studia se nesmí přepsat')
 
 
 class PragueTimeTests(unittest.TestCase):
