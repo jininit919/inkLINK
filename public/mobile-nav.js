@@ -42,7 +42,22 @@
   .il-mnav-dot{position:absolute;top:8px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:var(--txt,#0a0a0a);border:1.5px solid var(--bg,#faf8f3);display:none}
   .il-mnav-dot.show{display:block}
 
+  #il-abar{position:fixed;top:0;left:0;right:0;z-index:9998;display:flex;gap:2px;justify-content:center;
+    background:rgba(250,248,243,0.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border,#d4cfbf);
+    padding:8px 16px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
+  #il-abar a{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:7px;
+    color:var(--txt3,#5a5a5a);text-decoration:none;font-size:12px;letter-spacing:0.05em;white-space:nowrap;
+    transition:background 0.15s,color 0.15s}
+  #il-abar a:hover{background:var(--bg3,#ede8db);color:var(--txt,#0a0a0a)}
+  #il-abar a.active{background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3)}
+  #il-abar svg{width:15px;height:15px;flex-shrink:0}
+  /* Původní horní nav stránky se posune pod lištu, ať se nepřekrývají. */
+  body.has-abar nav{top:46px !important}
+  body.has-abar{padding-top:46px}
   @media(max-width:768px){
+    #il-abar{display:none !important}
+    body.has-abar{padding-top:0}
+    body.has-abar nav{top:0 !important}
     .il-mnav{display:block}
     body{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
     nav .nav-icons,
@@ -146,28 +161,74 @@
     const profileHref = me ? `/profile/${me.username}` : '/login';
     const onFeed = location.pathname === '/' || location.pathname === '/feed';
 
-    // Center slot — role-aware primary CTA:
-    //   Artist: + Add    (opens add-portfolio modal on feed, else artist-setup)
-    //   Client: 🔍 Search (opens search overlay on feed, else deep-link /?search=1)
+    // Střední tlačítko podle role:
+    //   tatér:  + Přidat  (modal na feedu, jinak artist-setup)
+    //   klient: 🔍 Hledat
     let centerItem;
     if (isArtist) {
       const useAddModal = onFeed && typeof window.openAddPortfolio === 'function';
       centerItem = useAddModal
-        ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: 'Add', primary: true, aria: 'Add sketch or healed' }
-        : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: 'Add', primary: true, aria: 'Add sketch or healed' };
+        ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') }
+        : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') };
     } else {
       centerItem = onFeed && typeof window.openSearchOverlay === 'function'
-        ? { onclick: 'window.openSearchOverlay()', ico: 'i-search', lbl: 'Search', primary: true, aria: 'Search artists' }
-        : { href: '/?search=1',                   ico: 'i-search', lbl: 'Search', primary: true, aria: 'Search artists' };
+        ? { onclick: 'window.openSearchOverlay()', ico: 'i-search', lbl: T('mnav.search', 'Search'), primary: true, aria: T('mnav.search', 'Search') }
+        : { href: '/?search=1',                   ico: 'i-search', lbl: T('mnav.search', 'Search'), primary: true, aria: T('mnav.search', 'Search') };
+    }
+
+    // Lišta má pět míst a role je vyplňují jinak. Tatér tu dřív měl Feed
+    // a Oblíbené — obojí je prohlížení cizí práce, ne jeho vlastní. Jeho denní
+    // práce (rezervace, kalendář) přitom v liště nebyla vůbec: /calendar
+    // nebyl v žádné navigaci a k penězům se šlo jen přes rozbalovací menu
+    // pod avatarem. Feed a Oblíbené zůstávají tatérovi v horní liště.
+    if (isArtist) {
+      return [
+        { href: '/my-bookings', ico: 'i-home',     lbl: T('anav.bookings', 'Bookings') },
+        { href: '/calendar',    ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
+        centerItem,
+        { href: '/messages',    ico: 'i-message',  lbl: T('mnav.messages', 'Messages'), badgeId: 'il-mnav-msg-badge' },
+        { href: profileHref,    ico: 'i-user',     lbl: T('mnav.profile', 'Profile'), dotId: 'il-mnav-profile-dot' },
+      ];
     }
 
     return [
       { href: '/',         ico: 'i-home',    lbl: 'Feed' },
-      { href: '/liked',    ico: 'i-heart',   lbl: 'Liked' },
+      { href: '/liked',    ico: 'i-heart',   lbl: T('mnav.liked', 'Liked') },
       centerItem,
-      { href: '/messages', ico: 'i-message', lbl: 'Messages', badgeId: 'il-mnav-msg-badge' },
-      { href: profileHref, ico: 'i-user',    lbl: me ? 'Profile' : 'Sign in', dotId: 'il-mnav-profile-dot' },
+      { href: '/messages', ico: 'i-message', lbl: T('mnav.messages', 'Messages'), badgeId: 'il-mnav-msg-badge' },
+      { href: profileHref, ico: 'i-user',    lbl: me ? T('mnav.profile', 'Profile') : T('mnav.signIn', 'Sign in'), dotId: 'il-mnav-profile-dot' },
     ];
+  }
+
+
+  // ── Desktopová lišta tatéra ────────────────────────────────────────────────
+  // Spodní lišta je jen mobilní (max-width:768px), takže na desktopu se tatér
+  // dřív mezi svými stránkami neproklikal: /calendar a /artist-setup měly
+  // v horní liště jen "Back" a k penězům se šlo výhradně přes rozbalovací
+  // menu pod avatarem. Jedna definice tady místo pěti ručně psaných v HTML.
+  // Popisky přes i18n; bez načteného i18n.js padáme na anglický text,
+  // ať lišta funguje i na stránce, která překlady nenačítá.
+  const T = (key, fallback) =>
+    (window.InkLinkI18N && window.InkLinkI18N.t(key) !== key) ? window.InkLinkI18N.t(key) : fallback;
+
+  const ARTIST_LINKS = () => [
+    { href: '/my-bookings',  ico: 'i-home',     lbl: T('anav.bookings', 'Bookings') },
+    { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
+    { href: '/clients',      ico: 'i-users',    lbl: T('anav.clients',  'Clients') },
+    { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
+    { href: '/artist-setup', ico: 'i-settings', lbl: T('anav.profile',  'Profile & portfolio') },
+  ];
+
+  function injectArtistBar() {
+    if (document.getElementById('il-abar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'il-abar';
+    bar.innerHTML = ARTIST_LINKS().map(l => {
+      const active = isActive(l.href) ? ' class="active"' : '';
+      return `<a href="${l.href}"${active}>${svgIcon(l.ico)}<span>${l.lbl}</span></a>`;
+    }).join('');
+    document.body.appendChild(bar);
+    document.body.classList.add('has-abar');
   }
 
   function renderNav(items) {
@@ -212,6 +273,14 @@
       try {
         const me = await getMe();
         renderNav(buildItems(me));
+        if (me && me.is_artist) injectArtistBar();
+        // Přepnutí jazyka musí přepsat i navigaci, ne jen obsah stránky.
+        document.addEventListener('il-i18n-applied', () => {
+          const bar = document.getElementById('il-abar');
+          if (bar) bar.remove();
+          renderNav(buildItems(me));
+          if (me && me.is_artist) injectArtistBar();
+        });
         console && console.log && console.log('[il-mnav] re-rendered', { isArtist: !!(me && me.is_artist), hasMe: !!me });
         if (me) {
           await refreshBadge();

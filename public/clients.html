@@ -5,7 +5,7 @@
 <style>html,body{background:#faf8f3;margin:0}</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Klienti — InkLink</title>
+<title>Clients — InkLink</title>
 <meta name="robots" content="noindex">
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
@@ -96,21 +96,28 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <nav>
   <a href="/" class="nav-logo">inklink</a>
-  <a href="/my-bookings" class="nav-icon" title="Zpět na rezervace">←</a>
+  <a href="/my-bookings" class="nav-icon" data-i18n-attr="clients.backToList:title" title="Back">←</a>
 </nav>
 
 <div class="wrap" id="root">
-  <div class="empty-state">Načítám…</div>
+  <div class="empty-state" data-i18n="clients.loading">Loading…</div>
 </div>
 
-<button class="fab" id="fab" onclick="openNew()" title="Nový klient" style="display:none">+</button>
+<button class="fab" id="fab" onclick="openNew()" data-i18n-attr="clients.newClient:title" title="New client" style="display:none">+</button>
 <div id="toast" class="toast"></div>
 
+<script src="/i18n.js"></script>
 <script src="/mobile-nav.js"></script>
+<script>InkLinkMobileNav.init();</script>
 <script>
 const root  = document.getElementById('root');
 const toast = document.getElementById('toast');
 let me = null, listCache = null;
+
+const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+// Stránka se skládá v JS, takže data-i18n atributy ji nepokryjí —
+// po přepnutí jazyka se musí překreslit ručně.
+document.addEventListener('il-i18n-applied', () => { if (me) route(); });
 
 function esc(s){return (s==null?'':String(s)).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
 function showToast(msg, isErr){
@@ -119,28 +126,32 @@ function showToast(msg, isErr){
   setTimeout(() => { toast.className = 'toast'; }, 3200);
 }
 function initials(n){return (n||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()}
-function czk(cents){return ((cents||0)/100).toLocaleString('cs-CZ',{maximumFractionDigits:0}) + ' Kč'}
+// Měna je vždycky koruna (platforma je česká), formát čísla se ale řídí
+// jazykem UI — anglicky se tisíce oddělují jinak než česky.
+function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
+function czk(cents){return ((cents||0)/100).toLocaleString(locale(),{maximumFractionDigits:0}) + ' CZK'}
 // Česká trojice: 1 klient, 2–4 klienti, 0 a 5+ klientů.
 function plural(n, one, few, many){return n === 1 ? one : (n >= 2 && n <= 4 ? few : many)}
 
-// 'YYYY-MM-DD' po složkách. new Date('2027-02-01') je UTC půlnoc a v našem
-// kladném offsetu by ukázala 31. 1.
-const MON = ['led','úno','bře','dub','kvě','čvn','čvc','srp','zář','říj','lis','pro'];
+// 'YYYY-MM-DD' se skládá po složkách. new Date('2027-02-01') je UTC půlnoc
+// a v našem kladném offsetu by ukázala předchozí den.
 function fmtDay(d){
   const [y,m,dd] = String(d||'').slice(0,10).split('-').map(Number);
-  return y ? `${dd}. ${MON[m-1]} ${y}` : '—';
+  if (!y) return '—';
+  return new Date(y, m-1, dd).toLocaleDateString(locale(),
+    {day:'numeric', month:'short', year:'numeric'});
 }
 function fmtStamp(s){
   if (!s) return '—';
   const d = new Date(String(s).replace(' ', 'T'));
-  return isNaN(d) ? String(s).slice(0,10) : d.toLocaleDateString('cs-CZ');
+  return isNaN(d) ? String(s).slice(0,10) : d.toLocaleDateString(locale());
 }
 
 async function api(url, opts){
   const r = await fetch(url, opts);
   let body = null;
   try { body = await r.json(); } catch(_) {}
-  if (!r.ok) throw new Error((body && body.error) || 'Něco se pokazilo.');
+  if (!r.ok) throw new Error((body && body.error) || t('clients.genericError'));
   return body;
 }
 
@@ -167,65 +178,65 @@ async function renderList(){
     <div class="client-row" onclick="location.hash='#/klient/${c.id}'">
       <div class="c-av">${c.avatar_url ? `<img src="${esc(c.avatar_url)}" alt="">` : esc(initials(c.name))}</div>
       <div class="c-meta">
-        <div class="c-name">${esc(c.name || 'Bez jména')}
-          ${c.contact_source === 'user' ? '<span class="pill acct">účet</span>' : ''}
-          ${c.anonymized_at ? '<span class="pill gone">vymazán</span>' : ''}
+        <div class="c-name">${esc(c.name || t('clients.noName'))}
+          ${c.contact_source === 'user' ? `<span class="pill acct">${esc(t('clients.pillAccount'))}</span>` : ''}
+          ${c.anonymized_at ? `<span class="pill gone">${esc(t('clients.pillErased'))}</span>` : ''}
         </div>
-        <div class="c-sub">${esc([c.phone, c.email, c.tags].filter(Boolean).join(' · ')) || 'bez kontaktu'}</div>
+        <div class="c-sub">${esc([c.phone, c.email, c.tags].filter(Boolean).join(' · ')) || esc(t('clients.noContact'))}</div>
       </div>
       <div style="color:var(--txt3);font-size:18px">›</div>
     </div>`).join('');
 
   root.innerHTML = `
-    <div class="page-title">KLIENTI</div>
-    <div class="page-sub">${data.total} ${plural(data.total, 'klient', 'klienti', 'klientů')}</div>
+    <div class="page-title">${esc(t('clients.title')).toUpperCase()}</div>
+    <div class="page-sub">${data.total} ${plural(data.total, t('clients.one'), t('clients.few'), t('clients.many'))}</div>
     <div class="toolbar">
-      <input id="q" placeholder="Hledat jméno, telefon, e-mail…" value="${esc(q)}">
+      <input id="q" placeholder="${esc(t('clients.search'))}" value="${esc(q)}">
       <select id="sort">
-        <option value="recent">Naposledy upravení</option>
-        <option value="created">Nejnovější</option>
-        <option value="name">Podle jména</option>
+        <option value="recent">${esc(t('clients.sortRecent'))}</option>
+        <option value="created">${esc(t('clients.sortCreated'))}</option>
+        <option value="name">${esc(t('clients.sortName'))}</option>
       </select>
     </div>
-    ${rows || `<div class="empty-state">Zatím žádní klienti.<br>Založ prvního tlačítkem <b>+</b> vpravo dole —<br>nebo se přidají sami, jakmile ti někdo potvrdí rezervaci.</div>`}`;
+    ${rows || `<div class="empty-state">${esc(t('clients.emptyTitle'))}<br>${esc(t('clients.emptyBody'))}</div>`}`;
 
   const qi = document.getElementById('q');
   document.getElementById('sort').value = sort;
-  let t;
-  qi.oninput = () => { clearTimeout(t); t = setTimeout(() => { q = qi.value.trim(); renderList(); }, 280); };
+  let debounce;
+  qi.oninput = () => { clearTimeout(debounce); debounce = setTimeout(() => { q = qi.value.trim(); renderList(); }, 280); };
   document.getElementById('sort').onchange = e => { sort = e.target.value; renderList(); };
 }
 
 function openNew(){
   root.innerHTML = `
-    <button class="back" onclick="location.hash=''">← Zpět na seznam</button>
-    <div class="page-title">NOVÝ KLIENT</div>
-    <div class="page-sub">Pro klienty bez účtu na InkLinku — walk-in, doporučení, telefon.</div>
+    <button class="back" onclick="location.hash=''">${esc(t('clients.backToList'))}</button>
+    <div class="page-title">${esc(t('clients.newTitle')).toUpperCase()}</div>
+    <div class="page-sub">${esc(t('clients.newSub'))}</div>
     <div class="card">
-      <div class="field"><label>Jméno *</label><input id="fName" maxlength="120" placeholder="Jana Nováková"></div>
+      <div class="field"><label>${esc(t('clients.fName'))}</label><input id="fName" maxlength="120" placeholder="Jane Doe"></div>
       <div class="row2">
-        <div class="field"><label>Telefon</label><input id="fPhone" maxlength="40" placeholder="+420…"></div>
-        <div class="field"><label>E-mail</label><input id="fEmail" maxlength="120" placeholder="jana@…"></div>
+        <div class="field"><label>${esc(t('clients.fPhone'))}</label><input id="fPhone" maxlength="40" placeholder="+420…"></div>
+        <div class="field"><label>${esc(t('clients.fEmail'))}</label><input id="fEmail" maxlength="120" placeholder="jane@…"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>Štítky</label><input id="fTags" maxlength="200" placeholder="blackwork, stálá klientka"></div>
-        <div class="field"><label>Odkud přišel(a)</label>
+        <div class="field"><label>${esc(t('clients.fTags'))}</label><input id="fTags" maxlength="200" placeholder="${esc(t('clients.fTagsPh'))}"></div>
+        <div class="field"><label>${esc(t('clients.fSource'))}</label>
           <select id="fSrc">
-            <option value="manual">Ručně</option>
-            <option value="walk_in">Walk-in</option>
-            <option value="instagram">Instagram</option>
-            <option value="referral">Doporučení</option>
-            <option value="other">Jinak</option>
+            <option value="manual">${esc(t('clients.srcManual'))}</option>
+            <option value="walk_in">${esc(t('clients.srcWalkIn'))}</option>
+            <option value="instagram">${esc(t('clients.srcInstagram'))}</option>
+            <option value="referral">${esc(t('clients.srcReferral'))}</option>
+            <option value="other">${esc(t('clients.srcOther'))}</option>
           </select>
         </div>
       </div>
-      <div class="field"><label>Poznámka</label><textarea id="fNote" maxlength="1000" placeholder="Krátká připnutá poznámka…"></textarea></div>
-      <button class="btn" id="saveNew">Založit klienta</button>
+      <div class="field"><label>${esc(t('clients.fNote'))}</label><textarea id="fNote" maxlength="1000" placeholder="${esc(t('clients.fNotePh'))}"></textarea></div>
+      <button class="btn" id="saveNew">${esc(t('clients.create'))}</button>
     </div>`;
   document.getElementById('fab').style.display = 'none';
   document.getElementById('saveNew').onclick = async (e) => {
     const name = document.getElementById('fName').value.trim();
-    if (!name) return showToast('Jméno je povinné.', true);
+    if (!name) return showToast(t('clients.nameRequired'), true);
     e.target.disabled = true;
     try {
       const r = await api('/api/clients', {
@@ -252,82 +263,79 @@ async function renderDetail(id){
   const notes = c.notes.map(n => `
     <div class="item">${esc(n.body)}
       <div class="meta"><span>${esc(n.author_name || '—')} · ${esc(fmtStamp(n.created_at))}</span>
-        <button onclick="delNote(${n.id},${id})">smazat</button></div>
-    </div>`).join('') || '<div style="color:var(--txt3);font-size:12px">Zatím nic.</div>';
+        <button onclick="delNote(${n.id},${id})">${esc(t('clients.delete'))}</button></div>
+    </div>`).join('') || `<div style="color:var(--txt3);font-size:12px">${esc(t('clients.nothingYet'))}</div>`;
 
-  const recs = c.tattoo_records.map(t => `
+  const recs = c.tattoo_records.map(r => `
     <div class="item rec">
-      <b>${esc(fmtDay(t.session_date))}</b>${t.style ? ' · ' + esc(t.style) : ''}
-      ${t.body_location ? '<br>' + esc(t.body_location) : ''}
-      ${t.description ? '<br>' + esc(t.description) : ''}
-      ${t.healed_photo ? `<img class="heal" src="${esc(t.healed_photo)}" alt="Zhojené tetování">` : ''}
+      <b>${esc(fmtDay(r.session_date))}</b>${r.style ? ' · ' + esc(r.style) : ''}
+      ${r.body_location ? '<br>' + esc(r.body_location) : ''}
+      ${r.description ? '<br>' + esc(r.description) : ''}
+      ${r.healed_photo ? `<img class="heal" src="${esc(r.healed_photo)}" alt="${esc(t('clients.rPhoto'))}">` : ''}
       <div class="meta">
-        <span>${t.price_czk != null ? esc(t.price_czk) + ' Kč' : 'bez ceny'}${t.anonymized ? ' · anonymizováno' : ''}</span>
-        ${t.anonymized ? '' : `<button onclick="delRecord(${t.id},${id})">smazat</button>`}
+        <span>${r.price_czk != null ? esc(r.price_czk) + ' CZK' : esc(t('clients.noPrice'))}${r.anonymized ? ' · ' + esc(t('clients.anonymized')) : ''}</span>
+        ${r.anonymized ? '' : `<button onclick="delRecord(${r.id},${id})">${esc(t('clients.delete'))}</button>`}
       </div>
-    </div>`).join('') || '<div style="color:var(--txt3);font-size:12px">Zatím nic.</div>';
+    </div>`).join('') || `<div style="color:var(--txt3);font-size:12px">${esc(t('clients.nothingYet'))}</div>`;
 
   const bookings = (c.bookings || []).slice(0, 8).map(b => `
     <div class="kv"><span>${esc(fmtStamp(b.booking_start_at))}</span>
       <span>${esc(b.status)} · ${czk(b.total_price_cents)}</span></div>`).join('')
-    || '<div style="color:var(--txt3);font-size:12px">Žádné rezervace.</div>';
+    || `<div style="color:var(--txt3);font-size:12px">${esc(t('clients.noBookings'))}</div>`;
 
   root.innerHTML = `
-    <button class="back" onclick="location.hash=''">← Zpět na seznam</button>
-    <div class="page-title">${esc(c.name || 'Bez jména')}</div>
+    <button class="back" onclick="location.hash=''">${esc(t('clients.backToList'))}</button>
+    <div class="page-title">${esc(c.name || t('clients.noName'))}</div>
     <div class="page-sub">
-      ${c.contact_source === 'user' ? 'Napojeno na účet @' + esc(c.username || '') : 'Klient bez účtu'}
-      ${c.anonymized_at ? ' · <b>vymazáno ' + esc(fmtStamp(c.anonymized_at)) + '</b>' : ''}
+      ${c.contact_source === 'user'
+          ? esc(t('clients.linkedAccount')) + ' @' + esc(c.username || '')
+          : esc(t('clients.noAccount'))}
+      ${c.anonymized_at ? ` · <b>${esc(t('clients.erasedOn'))} ${esc(fmtStamp(c.anonymized_at))}</b>` : ''}
     </div>
 
     <div class="card">
-      <h3>Přehled</h3>
-      <div class="kv"><span>Telefon</span><span>${esc(c.phone) || '—'}</span></div>
-      <div class="kv"><span>E-mail</span><span>${esc(c.email) || '—'}</span></div>
-      <div class="kv"><span>Štítky</span><span>${esc(c.tags) || '—'}</span></div>
-      <div class="kv"><span>Odkud</span><span>${esc(c.acquisition_source) || '—'}</span></div>
-      <div class="kv"><span>Utraceno celkem</span><span>${czk(c.lifetime_value_cents)}</span></div>
-      ${c.note ? `<div class="kv"><span>Poznámka</span><span>${esc(c.note)}</span></div>` : ''}
+      <h3>${esc(t('clients.overview'))}</h3>
+      <div class="kv"><span>${esc(t('clients.fPhone'))}</span><span>${esc(c.phone) || '—'}</span></div>
+      <div class="kv"><span>${esc(t('clients.fEmail'))}</span><span>${esc(c.email) || '—'}</span></div>
+      <div class="kv"><span>${esc(t('clients.fTags'))}</span><span>${esc(c.tags) || '—'}</span></div>
+      <div class="kv"><span>${esc(t('clients.source'))}</span><span>${esc(c.acquisition_source) || '—'}</span></div>
+      <div class="kv"><span>${esc(t('clients.lifetime'))}</span><span>${czk(c.lifetime_value_cents)}</span></div>
+      ${c.note ? `<div class="kv"><span>${esc(t('clients.fNote'))}</span><span>${esc(c.note)}</span></div>` : ''}
     </div>
 
     <div class="card">
-      <h3>Rezervace</h3>
+      <h3>${esc(t('clients.bookings'))}</h3>
       ${bookings}
     </div>
 
     <div class="card">
-      <h3>Záznamy o tetováních</h3>
+      <h3>${esc(t('clients.records'))}</h3>
       ${recs}
       <div class="row2" style="margin-top:14px">
-        <div class="field"><label>Datum sezení *</label><input id="rDate" type="date"></div>
-        <div class="field"><label>Styl</label><input id="rStyle" placeholder="blackwork"></div>
+        <div class="field"><label>${esc(t('clients.rDate'))}</label><input id="rDate" type="date"></div>
+        <div class="field"><label>${esc(t('clients.rStyle'))}</label><input id="rStyle" placeholder="blackwork"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>Místo na těle</label><input id="rLoc" placeholder="levé předloktí"></div>
-        <div class="field"><label>Cena (Kč)</label><input id="rPrice" type="number" min="0"></div>
+        <div class="field"><label>${esc(t('clients.rLoc'))}</label><input id="rLoc" placeholder="left forearm"></div>
+        <div class="field"><label>${esc(t('clients.rPrice'))}</label><input id="rPrice" type="number" min="0"></div>
       </div>
-      <div class="field"><label>Popis</label><textarea id="rDesc" placeholder="Co se dělalo…"></textarea></div>
-      <div class="field"><label>Fotka zhojení</label><input id="rPhoto" type="file" accept="image/*"></div>
-      <button class="btn sm" onclick="addRecord(${id})">Přidat záznam</button>
+      <div class="field"><label>${esc(t('clients.rDesc'))}</label><textarea id="rDesc" placeholder="${esc(t('clients.rDescPh'))}"></textarea></div>
+      <div class="field"><label>${esc(t('clients.rPhoto'))}</label><input id="rPhoto" type="file" accept="image/*"></div>
+      <button class="btn sm" onclick="addRecord(${id})">${esc(t('clients.addRecord'))}</button>
     </div>
 
     <div class="card">
-      <h3>Poznámky</h3>
+      <h3>${esc(t('clients.notes'))}</h3>
       ${notes}
-      <div class="field" style="margin-top:12px"><textarea id="nBody" placeholder="Nová poznámka…"></textarea></div>
-      <button class="btn sm" onclick="addNote(${id})">Přidat poznámku</button>
+      <div class="field" style="margin-top:12px"><textarea id="nBody" placeholder="${esc(t('clients.notePh'))}"></textarea></div>
+      <button class="btn sm" onclick="addNote(${id})">${esc(t('clients.addNote'))}</button>
     </div>
 
     <div class="danger-zone">
-      <h4>Nevratné operace</h4>
-      <p>
-        <b>Export</b> stáhne všechna data klienta v JSON.<br>
-        <b>Výmaz</b> odstraní jméno, kontakt, poznámky a popisy tetování.
-        Rezervace, ceny a účetní záznamy zůstávají — ty musíme ze zákona
-        držet 10 let. Vrátit to nejde.
-      </p>
-      <button class="btn ghost sm" onclick="exportClient(${id})">Stáhnout export</button>
-      ${c.anonymized_at ? '' : `<button class="btn danger sm" onclick="eraseClient(${id})">Vymazat klienta</button>`}
+      <h4>${esc(t('clients.dangerTitle'))}</h4>
+      <p>${t('clients.dangerBody')}</p>
+      <button class="btn ghost sm" onclick="exportClient(${id})">${esc(t('clients.export'))}</button>
+      ${c.anonymized_at ? '' : `<button class="btn danger sm" onclick="eraseClient(${id})">${esc(t('clients.erase'))}</button>`}
     </div>`;
 }
 
@@ -335,7 +343,7 @@ async function renderDetail(id){
 async function addNote(id){
   const el = document.getElementById('nBody');
   const body = el.value.trim();
-  if (!body) return showToast('Poznámka je prázdná.', true);
+  if (!body) return showToast(t('clients.noteEmpty'), true);
   try { await api(`/api/clients/${id}/notes`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({body}) });
@@ -344,14 +352,14 @@ async function addNote(id){
 }
 
 async function delNote(nid, id){
-  if (!confirm('Smazat poznámku?')) return;
+  if (!confirm(t('clients.confirmDelNote'))) return;
   try { await api(`/api/client-notes/${nid}`, {method: 'DELETE'}); renderDetail(id); }
   catch(e){ showToast(e.message, true); }
 }
 
 async function addRecord(id){
   const date = document.getElementById('rDate').value;
-  if (!date) return showToast('Datum sezení je povinné.', true);
+  if (!date) return showToast(t('clients.dateRequired'), true);
   // Multipart kvůli fotce; endpoint bere JSON i formulář.
   const fd = new FormData();
   fd.append('session_date', date);
@@ -367,7 +375,7 @@ async function addRecord(id){
 }
 
 async function delRecord(rid, id){
-  if (!confirm('Smazat záznam? Smaže se i fotka zhojení.')) return;
+  if (!confirm(t('clients.confirmDelRec'))) return;
   try { await api(`/api/tattoo-records/${rid}`, {method: 'DELETE'}); renderDetail(id); }
   catch(e){ showToast(e.message, true); }
 }
@@ -378,22 +386,22 @@ async function exportClient(id){
     const url = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)],
                                              {type: 'application/json'}));
     const a = document.createElement('a');
-    a.href = url; a.download = `klient-${id}.json`;
+    a.href = url; a.download = `client-${id}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    showToast('Export stažen.');
+    showToast(t('clients.exported'));
   } catch(e){ showToast(e.message, true); }
 }
 
 async function eraseClient(id){
-  if (!confirm('Opravdu vymazat všechna osobní data tohoto klienta? Nejde to vrátit.')) return;
-  const typed = prompt('Pro potvrzení napiš VYMAZAT:');
+  if (!confirm(t('clients.confirmErase'))) return;
+  const typed = prompt(t('clients.erasePrompt'));
   if (typed === null) return;
   try {
     await api(`/api/clients/${id}/erase`, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({confirm: typed.trim()}) });
-    showToast('Klient vymazán.');
+    showToast(t('clients.erased'));
     renderDetail(id);
   } catch(e){ showToast(e.message, true); }
 }
@@ -406,8 +414,8 @@ async function eraseClient(id){
   } catch(_) {}
   if (!me) { location.href = '/login'; return; }
   if (!me.is_artist) {
-    root.innerHTML = '<div class="empty-state">Klientská databáze je pro tatéry.<br>' +
-                     '<a href="/artist-setup" style="text-decoration:underline">Nastav si profil tatéra</a></div>';
+    root.innerHTML = `<div class="empty-state">${esc(t('clients.artistsOnly'))}<br>` +
+      `<a href="/artist-setup" style="text-decoration:underline">${esc(t('clients.setupProfile'))}</a></div>`;
     return;
   }
   route();

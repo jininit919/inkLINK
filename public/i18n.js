@@ -258,6 +258,96 @@
       'invite.note':         'Tvůj Stripe účet, payouts a rezervace zůstávají tvé. Studio jen seskupuje portfolio a má veřejnou stránku.',
       'invite.declined':     'Pozvánka odmítnuta.',
       'invite.goHome':       'Domů',
+
+      // ── ARTIST NAV ──────────────────────────────────────────────────────────
+      'anav.bookings':  'Rezervace',
+      'anav.calendar':  'Kalendář',
+      'anav.clients':   'Klienti',
+      'anav.earnings':  'Výdělky',
+      'anav.profile':   'Profil a portfolio',
+      'mnav.feed':      'Feed',
+      'mnav.liked':     'Oblíbené',
+      'mnav.messages':  'Zprávy',
+      'mnav.profile':   'Profil',
+      'mnav.signIn':    'Přihlásit',
+      'mnav.add':       'Přidat',
+      'mnav.search':    'Hledat',
+
+      // ── CLIENTS (CRM) ───────────────────────────────────────────────────────
+      'clients.title':          'Klienti',
+      'clients.loading':        'Načítám…',
+      'clients.one':            'klient',
+      'clients.few':            'klienti',
+      'clients.many':           'klientů',
+      'clients.search':         'Hledat jméno, telefon, e-mail…',
+      'clients.sortRecent':     'Naposledy upravení',
+      'clients.sortCreated':    'Nejnovější',
+      'clients.sortName':       'Podle jména',
+      'clients.emptyTitle':     'Zatím žádní klienti.',
+      'clients.emptyBody':      'Založ prvního tlačítkem + vpravo dole — nebo se přidají sami, jakmile ti někdo potvrdí rezervaci.',
+      'clients.noName':         'Bez jména',
+      'clients.noContact':      'bez kontaktu',
+      'clients.pillAccount':    'účet',
+      'clients.pillErased':     'vymazán',
+      'clients.backToList':     '← Zpět na seznam',
+      'clients.newTitle':       'Nový klient',
+      'clients.newSub':         'Pro klienty bez účtu na InkLinku — walk-in, doporučení, telefon.',
+      'clients.fName':          'Jméno *',
+      'clients.fPhone':         'Telefon',
+      'clients.fEmail':         'E-mail',
+      'clients.fTags':          'Štítky',
+      'clients.fTagsPh':        'blackwork, stálá klientka',
+      'clients.fSource':        'Odkud přišel(a)',
+      'clients.srcManual':      'Ručně',
+      'clients.srcWalkIn':      'Walk-in',
+      'clients.srcInstagram':   'Instagram',
+      'clients.srcReferral':    'Doporučení',
+      'clients.srcOther':       'Jinak',
+      'clients.fNote':          'Poznámka',
+      'clients.fNotePh':        'Krátká připnutá poznámka…',
+      'clients.create':         'Založit klienta',
+      'clients.nameRequired':   'Jméno je povinné.',
+      'clients.linkedAccount':  'Napojeno na účet',
+      'clients.noAccount':      'Klient bez účtu',
+      'clients.erasedOn':       'vymazáno',
+      'clients.overview':       'Přehled',
+      'clients.source':         'Odkud',
+      'clients.lifetime':       'Utraceno celkem',
+      'clients.bookings':       'Rezervace',
+      'clients.noBookings':     'Žádné rezervace.',
+      'clients.records':        'Záznamy o tetováních',
+      'clients.nothingYet':     'Zatím nic.',
+      'clients.rDate':          'Datum sezení *',
+      'clients.rStyle':         'Styl',
+      'clients.rLoc':           'Místo na těle',
+      'clients.rPrice':         'Cena (Kč)',
+      'clients.rDesc':          'Popis',
+      'clients.rDescPh':        'Co se dělalo…',
+      'clients.rPhoto':         'Fotka zhojení',
+      'clients.addRecord':      'Přidat záznam',
+      'clients.dateRequired':   'Datum sezení je povinné.',
+      'clients.noPrice':        'bez ceny',
+      'clients.anonymized':     'anonymizováno',
+      'clients.delete':         'smazat',
+      'clients.notes':          'Poznámky',
+      'clients.notePh':         'Nová poznámka…',
+      'clients.addNote':        'Přidat poznámku',
+      'clients.noteEmpty':      'Poznámka je prázdná.',
+      'clients.confirmDelNote': 'Smazat poznámku?',
+      'clients.confirmDelRec':  'Smazat záznam? Smaže se i fotka zhojení.',
+      'clients.dangerTitle':    'Nevratné operace',
+      'clients.dangerBody':     '<b>Export</b> stáhne všechna data klienta v JSON.<br><b>Výmaz</b> odstraní jméno, kontakt, poznámky a popisy tetování. Rezervace, ceny a účetní záznamy zůstávají — ty musíme ze zákona držet 10 let. Vrátit to nejde.',
+      'clients.export':         'Stáhnout export',
+      'clients.erase':          'Vymazat klienta',
+      'clients.exported':       'Export stažen.',
+      'clients.confirmErase':   'Opravdu vymazat všechna osobní data tohoto klienta? Nejde to vrátit.',
+      'clients.erasePrompt':    'Pro potvrzení napiš VYMAZAT:',
+      'clients.eraseWord':      'VYMAZAT',
+      'clients.erased':         'Klient vymazán.',
+      'clients.artistsOnly':    'Klientská databáze je pro tatéry.',
+      'clients.setupProfile':   'Nastav si profil tatéra',
+      'clients.genericError':   'Něco se pokazilo.',
+      'clients.newClient':      'Nový klient',
     },
 
     en: {
@@ -506,6 +596,96 @@
       'invite.note':         'Your Stripe account, payouts and bookings stay yours. The studio just groups portfolios and has a public page.',
       'invite.declined':     'Invite declined.',
       'invite.goHome':       'Home',
+
+      // ── ARTIST NAV ──────────────────────────────────────────────────────────
+      'anav.bookings':  'Bookings',
+      'anav.calendar':  'Calendar',
+      'anav.clients':   'Clients',
+      'anav.earnings':  'Earnings',
+      'anav.profile':   'Profile & portfolio',
+      'mnav.feed':      'Feed',
+      'mnav.liked':     'Liked',
+      'mnav.messages':  'Messages',
+      'mnav.profile':   'Profile',
+      'mnav.signIn':    'Sign in',
+      'mnav.add':       'Add',
+      'mnav.search':    'Search',
+
+      // ── CLIENTS (CRM) ───────────────────────────────────────────────────────
+      'clients.title':          'Clients',
+      'clients.loading':        'Loading…',
+      'clients.one':            'client',
+      'clients.few':            'clients',
+      'clients.many':           'clients',
+      'clients.search':         'Search name, phone, email…',
+      'clients.sortRecent':     'Recently updated',
+      'clients.sortCreated':    'Newest first',
+      'clients.sortName':       'By name',
+      'clients.emptyTitle':     'No clients yet.',
+      'clients.emptyBody':      'Add your first one with the + button — or they appear on their own once someone books with you.',
+      'clients.noName':         'Unnamed',
+      'clients.noContact':      'no contact details',
+      'clients.pillAccount':    'account',
+      'clients.pillErased':     'erased',
+      'clients.backToList':     '← Back to list',
+      'clients.newTitle':       'New client',
+      'clients.newSub':         'For clients without an InkLink account — walk-ins, referrals, phone bookings.',
+      'clients.fName':          'Name *',
+      'clients.fPhone':         'Phone',
+      'clients.fEmail':         'Email',
+      'clients.fTags':          'Tags',
+      'clients.fTagsPh':        'blackwork, regular',
+      'clients.fSource':        'How they found you',
+      'clients.srcManual':      'Added manually',
+      'clients.srcWalkIn':      'Walk-in',
+      'clients.srcInstagram':   'Instagram',
+      'clients.srcReferral':    'Referral',
+      'clients.srcOther':       'Other',
+      'clients.fNote':          'Note',
+      'clients.fNotePh':        'A short pinned note…',
+      'clients.create':         'Create client',
+      'clients.nameRequired':   'Name is required.',
+      'clients.linkedAccount':  'Linked to account',
+      'clients.noAccount':      'Client without an account',
+      'clients.erasedOn':       'erased',
+      'clients.overview':       'Overview',
+      'clients.source':         'Source',
+      'clients.lifetime':       'Total spent',
+      'clients.bookings':       'Bookings',
+      'clients.noBookings':     'No bookings.',
+      'clients.records':        'Tattoo records',
+      'clients.nothingYet':     'Nothing yet.',
+      'clients.rDate':          'Session date *',
+      'clients.rStyle':         'Style',
+      'clients.rLoc':           'Body location',
+      'clients.rPrice':         'Price (CZK)',
+      'clients.rDesc':          'Description',
+      'clients.rDescPh':        'What was done…',
+      'clients.rPhoto':         'Healed photo',
+      'clients.addRecord':      'Add record',
+      'clients.dateRequired':   'Session date is required.',
+      'clients.noPrice':        'no price',
+      'clients.anonymized':     'anonymized',
+      'clients.delete':         'delete',
+      'clients.notes':          'Notes',
+      'clients.notePh':         'New note…',
+      'clients.addNote':        'Add note',
+      'clients.noteEmpty':      'The note is empty.',
+      'clients.confirmDelNote': 'Delete this note?',
+      'clients.confirmDelRec':  'Delete this record? The healed photo goes with it.',
+      'clients.dangerTitle':    'Irreversible actions',
+      'clients.dangerBody':     '<b>Export</b> downloads all of this client\'s data as JSON.<br><b>Erase</b> removes the name, contact details, notes and tattoo descriptions. Bookings, prices and accounting records stay — we are legally required to keep those for 10 years. This cannot be undone.',
+      'clients.export':         'Download export',
+      'clients.erase':          'Erase client',
+      'clients.exported':       'Export downloaded.',
+      'clients.confirmErase':   'Really erase all personal data for this client? This cannot be undone.',
+      'clients.erasePrompt':    'Type ERASE to confirm:',
+      'clients.eraseWord':      'ERASE',
+      'clients.erased':         'Client erased.',
+      'clients.artistsOnly':    'The client database is for artists.',
+      'clients.setupProfile':   'Set up your artist profile',
+      'clients.genericError':   'Something went wrong.',
+      'clients.newClient':      'New client',
     },
   };
 
@@ -567,10 +747,58 @@
 
   window.InkLinkI18N = { t, set, get, apply, supported: SUPPORTED };
 
+  // ── Language switcher ────────────────────────────────────────────────────────
+  // Systém uměl přepínat jazyk od začátku, ale žádná stránka ovládání
+  // nevykreslila — čeština šla zapnout jen ručním zápisem do localStorage.
+  // Injektuje se tady, aby ji dostala každá stránka, co načte i18n.js,
+  // místo aby se stejný přepínač psal do každé šablony zvlášť.
+  const LANG_LABEL = { en: 'EN', cs: 'CZ' };
+
+  function injectSwitcher() {
+    if (document.getElementById('il-lang')) return;
+    // Stránka si může přepínač umístit sama přes [data-i18n-switch];
+    // pak jí do layoutu nelezeme.
+    if (document.querySelector('[data-i18n-switch]')) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #il-lang{position:fixed;left:14px;bottom:14px;z-index:9997;display:flex;gap:1px;
+        background:var(--bg2,#f5f1e8);border:1px solid var(--border2,#a8a399);border-radius:999px;
+        padding:2px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;
+        box-shadow:0 2px 10px rgba(20,16,8,0.10)}
+      #il-lang button{border:none;background:transparent;color:var(--txt3,#5a5a5a);cursor:pointer;
+        font-family:inherit;font-size:10px;letter-spacing:0.1em;padding:5px 10px;border-radius:999px;
+        line-height:1;transition:background 0.15s,color 0.15s}
+      #il-lang button:hover{color:var(--txt,#0a0a0a)}
+      #il-lang button.active{background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3)}
+      /* Nad spodní lištu na mobilu, ať ji nepřekrývá. */
+      @media(max-width:768px){#il-lang{bottom:calc(74px + env(safe-area-inset-bottom));left:12px}}
+      @media print{#il-lang{display:none}}
+    `;
+    document.head.appendChild(style);
+
+    const box = document.createElement('div');
+    box.id = 'il-lang';
+    box.setAttribute('aria-label', 'Language');
+    box.innerHTML = SUPPORTED.map(l =>
+      `<button type="button" data-i18n-switch="${l}" lang="${l}">${LANG_LABEL[l] || l.toUpperCase()}</button>`
+    ).join('');
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button[data-i18n-switch]');
+      if (b) set(b.getAttribute('data-i18n-switch'));
+    });
+    document.body.appendChild(box);
+  }
+
+  function boot() {
+    injectSwitcher();
+    apply();
+  }
+
   // Apply on DOM ready (or immediately if already loaded)
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', apply);
+    document.addEventListener('DOMContentLoaded', boot);
   } else {
-    apply();
+    boot();
   }
 })();
