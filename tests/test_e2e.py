@@ -1574,6 +1574,261 @@ class MedicalNotesNoKeyTests(_CrmBase):
         self.assertEqual(n, 0)
 
 
+class TattooRecordTests(_CrmBase):
+    """Záznam o tetování je historie práce. Autorizace jde vždy přes klienta;
+    booking_id je jinak volný ukazatel do cizích rezervací."""
+
+    def setUp(self):
+        super().setUp()
+        self.cid = self._mk_client_for(1, user_id=5)
+        self._as(1)
+
+    def _mk(self, **kw):
+        payload = {'session_date': '2027-03-04', 'body_location': 'předloktí',
+                   'style': 'blackwork', 'price_czk': 4500}
+        payload.update(kw)
+        return self.client.post(f'/api/clients/{self.cid}/tattoo-records', json=payload)
+
+    def test_create_and_read_back_in_detail(self):
+        r = self._mk()
+        self.assertEqual(r.status_code, 200)
+        detail = self.client.get(f'/api/clients/{self.cid}').get_json()
+        self.assertEqual(len(detail['tattoo_records']), 1)
+        rec = detail['tattoo_records'][0]
+        self.assertEqual(rec['body_location'], 'předloktí')
+        self.assertEqual(rec['price_czk'], 4500)
+        self.assertEqual(rec['artist_id'], 1)
+
+    def test_record_without_booking_is_allowed(self):
+        # Práce z doby před InkLinkem — hlavní důvod, proč je booking_id NULLable.
+        self.assertEqual(self._mk(booking_id=None).status_code, 200)
+
+    def test_session_date_is_required_and_validated(self):
+        r = self.client.post(f'/api/clients/{self.cid}/tattoo-records',
+                             json={'body_location': 'ruka'})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self._mk(session_date='4. 3. 2027').status_code, 400)
+
+    def test_foreign_booking_cannot_be_attached(self):
+        # Rezervace artist4 (cizí studio) nesmí jít navázat na mého klienta.
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('INSERT INTO bookings (artist_id, client_id, slot_id, status, '
+                     'booking_start_at, booking_end_at, duration_hours) '
+                     "VALUES (4, 5, 1, 'confirmed', '2027-03-04T10:00', '2027-03-04T12:00', 2)")
+        conn.commit()
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        r = self._mk(booking_id=bid)
+        self.assertEqual(r.status_code, 400)
+
+    def test_records_are_invisible_across_tenants(self):
+        rid = self._mk().get_json()['id']
+        for uid in (2, 4, 6):  # jiné studio, cizí studio, platformní admin
+            self._as(uid)
+            self.assertEqual(
+                self.client.patch(f'/api/tattoo-records/{rid}',
+                                  json={'style': 'hacked'}).status_code, 404)
+            self.assertEqual(
+                self.client.delete(f'/api/tattoo-records/{rid}').status_code, 404)
+        self._logout()
+        self.assertEqual(self.client.delete(f'/api/tattoo-records/{rid}').status_code, 401)
+
+    def test_patch_leaves_unmentioned_fields_alone(self):
+        rid = self._mk().get_json()['id']
+        r = self.client.patch(f'/api/tattoo-records/{rid}', json={'style': 'fineline'})
+        self.assertEqual(r.status_code, 200)
+        rec = self.client.get(f'/api/clients/{self.cid}').get_json()['tattoo_records'][0]
+        self.assertEqual(rec['style'], 'fineline')
+        self.assertEqual(rec['body_location'], 'předloktí')  # nevymazáno
+        self.assertEqual(rec['price_czk'], 4500)
+
+    def test_studio_colleague_sees_but_cannot_delete(self):
+        # artist2 a artist3 jsou ve studiu A; klient patří artist2.
+        cid = self._mk_client_for(2, name='Klient studia')
+        self._as(2)
+        rid = self.client.post(f'/api/clients/{cid}/tattoo-records',
+                               json={'session_date': '2027-05-05'}).get_json()['id']
+        self._as(3)
+        self.assertEqual(len(self.client.get(f'/api/clients/{cid}')
+                             .get_json()['tattoo_records']), 1)
+        self.assertEqual(self.client.delete(f'/api/tattoo-records/{rid}').status_code, 403)
+        self._as(2)
+        self.assertEqual(self.client.delete(f'/api/tattoo-records/{rid}').status_code, 200)
+
+
+class ClientGdprTests(_CrmBase):
+    """Výmaz musí odstranit PII a nechat účetnictví. Nejsledovanější řádek
+    je bookings.internal_note — tam tatéři reálně píšou zdravotní údaje."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        self.cid = self._mk_client_for(1, user_id=5)
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE clients SET phone='777111222', note='má ráda jehly 7RL' "
+                     'WHERE id=?', (self.cid,))
+        conn.execute('INSERT INTO bookings (artist_id, client_id, slot_id, status, '
+                     'booking_start_at, booking_end_at, duration_hours, total_price_cents, '
+                     'design_note, internal_note) '
+                     "VALUES (1, 5, 1, 'completed', '2027-02-01T10:00', '2027-02-01T13:00', "
+                     "3, 900000, 'růže na předloktí', 'alergie na latex, volat po 18:00')")
+        conn.commit()
+        conn.close()
+        self._as(1)
+        self.client.post(f'/api/clients/{self.cid}/notes', json={'body': 'přišla pozdě'})
+        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'diabetes 1. typu'})
+        self.rid = self.client.post(
+            f'/api/clients/{self.cid}/tattoo-records',
+            json={'session_date': '2027-02-01', 'body_location': 'levé předloktí',
+                  'description': 'růže, 3 h', 'price_czk': 9000}).get_json()['id']
+
+    def _rows(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = sqlite3.Row
+        out = {
+            'client':  dict(conn.execute('SELECT * FROM clients WHERE id=?', (self.cid,)).fetchone()),
+            'notes':   conn.execute('SELECT COUNT(*) FROM client_notes WHERE client_id=?',
+                                    (self.cid,)).fetchone()[0],
+            'medical': conn.execute('SELECT COUNT(*) FROM client_medical_notes WHERE client_id=?',
+                                    (self.cid,)).fetchone()[0],
+            'audit':   conn.execute('SELECT COUNT(*) FROM medical_notes_access_log WHERE client_id=?',
+                                    (self.cid,)).fetchone()[0],
+            'record':  dict(conn.execute('SELECT * FROM tattoo_records WHERE id=?',
+                                         (self.rid,)).fetchone()),
+            'booking': dict(conn.execute('SELECT * FROM bookings WHERE id=1').fetchone()),
+        }
+        conn.close()
+        return out
+
+    def test_export_contains_everything_including_medical(self):
+        r = self.client.get(f'/api/clients/{self.cid}/export')
+        self.assertEqual(r.status_code, 200)
+        d = r.get_json()
+        self.assertEqual(d['medical_notes'], 'diabetes 1. typu')
+        self.assertEqual(len(d['notes']), 1)
+        self.assertEqual(len(d['tattoo_records']), 1)
+        self.assertEqual(len(d['bookings']), 1)
+
+    def test_export_is_audited(self):
+        before = self._rows()['audit']
+        self.client.get(f'/api/clients/{self.cid}/export')
+        self.assertEqual(self._rows()['audit'], before + 1)
+
+    def test_erase_requires_typed_confirmation(self):
+        r = self.client.post(f'/api/clients/{self.cid}/erase', json={'confirm': 'ano'})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self._rows()['notes'], 1)  # nic se nestalo
+
+    def test_erase_scrubs_pii_and_keeps_accounting(self):
+        r = self.client.post(f'/api/clients/{self.cid}/erase', json={'confirm': 'VYMAZAT'})
+        self.assertEqual(r.status_code, 200)
+        rows = self._rows()
+
+        # Klient: PII pryč VČETNĚ user_id (ponechaný odkaz re-identifikuje).
+        self.assertIsNone(rows['client']['user_id'])
+        self.assertEqual(rows['client']['phone'], '')
+        self.assertEqual(rows['client']['note'], '')
+        self.assertTrue(rows['client']['anonymized_at'])
+
+        # Poznámky i zdravotní údaje tvrdě smazané.
+        self.assertEqual(rows['notes'], 0)
+        self.assertEqual(rows['medical'], 0)
+
+        # Access log ZŮSTÁVÁ — je to důkaz zákonnosti zpracování.
+        self.assertGreater(rows['audit'], 0)
+
+        # Záznam rozdělený: popis těla pryč, účetní kostra zůstala.
+        self.assertEqual(rows['record']['body_location'], '')
+        self.assertEqual(rows['record']['description'], '')
+        self.assertEqual(rows['record']['price_czk'], 9000)
+        self.assertEqual(rows['record']['session_date'], '2027-02-01')
+
+        # Rezervace: peníze zůstávají, poznámky ne.
+        self.assertEqual(rows['booking']['total_price_cents'], 900000)
+        self.assertEqual(rows['booking']['status'], 'completed')
+        self.assertEqual(rows['booking']['design_note'], '')
+        self.assertEqual(rows['booking']['internal_note'], '')
+
+    def test_erase_is_not_repeatable(self):
+        self.client.post(f'/api/clients/{self.cid}/erase', json={'confirm': 'VYMAZAT'})
+        r = self.client.post(f'/api/clients/{self.cid}/erase', json={'confirm': 'VYMAZAT'})
+        self.assertEqual(r.status_code, 409)
+
+    def test_plain_studio_member_cannot_erase(self):
+        cid = self._mk_client_for(2)          # klient patří artist2 (admin studia A)
+        self._as(3)                            # artist3 je řadový člen studia A
+        self.assertEqual(self.client.get(f'/api/clients/{cid}').status_code, 200)  # vidí
+        r = self.client.post(f'/api/clients/{cid}/erase', json={'confirm': 'VYMAZAT'})
+        self.assertEqual(r.status_code, 403)   # ale nemaže
+
+    def test_studio_admin_can_erase_colleagues_client(self):
+        cid = self._mk_client_for(3)          # klient řadového člena
+        self._as(2)                            # admin studia A
+        r = self.client.post(f'/api/clients/{cid}/erase', json={'confirm': 'VYMAZAT'})
+        self.assertEqual(r.status_code, 200)
+
+    def test_erase_is_invisible_across_tenants(self):
+        for uid in (2, 4, 6):
+            self._as(uid)
+            r = self.client.post(f'/api/clients/{self.cid}/erase', json={'confirm': 'VYMAZAT'})
+            self.assertEqual(r.status_code, 404)
+        self.assertEqual(self._rows()['notes'], 1)
+
+
+class ClientMergeTests(_CrmBase):
+    """Slučování v1 vyžaduje shodný artist_id — 'čí je pak klient' je otázka
+    vlastnictví dat, ne UI."""
+
+    def setUp(self):
+        super().setUp()
+        self.target = self._mk_client_for(1, name='Jana N.')
+        self.source = self._mk_client_for(1, name='Jana Nováková')
+        self._as(1)
+
+    def test_children_move_and_source_disappears(self):
+        self.client.post(f'/api/clients/{self.source}/notes', json={'body': 'ze zdroje'})
+        self.client.post(f'/api/clients/{self.source}/tattoo-records',
+                         json={'session_date': '2027-01-01'})
+        r = self.client.post(f'/api/clients/{self.target}/merge',
+                             json={'source_id': self.source})
+        self.assertEqual(r.status_code, 200)
+        d = self.client.get(f'/api/clients/{self.target}').get_json()
+        self.assertEqual(len(d['notes']), 1)
+        self.assertEqual(len(d['tattoo_records']), 1)
+        self.assertEqual(self.client.get(f'/api/clients/{self.source}').status_code, 404)
+
+    def test_empty_target_fields_are_filled_from_source(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE clients SET phone='777111222' WHERE id=?", (self.source,))
+        conn.commit(); conn.close()
+        self.client.post(f'/api/clients/{self.target}/merge', json={'source_id': self.source})
+        d = self.client.get(f'/api/clients/{self.target}').get_json()
+        self.assertEqual(d['phone'], '777111222')
+        self.assertEqual(d['name'], 'Jana N.')  # neprázdné pole cíle vyhrává
+
+    def test_cannot_merge_across_artists(self):
+        other = self._mk_client_for(2)
+        self._as(2)
+        r = self.client.post(f'/api/clients/{other}/merge', json={'source_id': self.target})
+        self.assertEqual(r.status_code, 404)   # na cizího klienta ani nevidí
+
+    def test_cannot_merge_two_different_accounts(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE clients SET user_id=5 WHERE id=?', (self.target,))
+        conn.execute('UPDATE clients SET user_id=6 WHERE id=?', (self.source,))
+        conn.commit(); conn.close()
+        r = self.client.post(f'/api/clients/{self.target}/merge', json={'source_id': self.source})
+        self.assertEqual(r.status_code, 400)
+
+    def test_cannot_merge_into_self(self):
+        r = self.client.post(f'/api/clients/{self.target}/merge', json={'source_id': self.target})
+        self.assertEqual(r.status_code, 400)
+
+
 class PublicEventsTests(unittest.TestCase):
     """/events je veřejná SEO plocha v sitemapě. Endpointy pod ní musí
     odpovídat i nepřihlášenému — dřív vracely 401, nebo se lámaly na

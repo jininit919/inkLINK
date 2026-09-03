@@ -234,6 +234,35 @@ def save_upload(file_storage, filename):
     else:
         file_storage.save(os.path.join(UPLOAD_FOLDER, filename))
 
+
+def delete_upload(filename):
+    """Smaže objekt z úložiště. Vrací True, když je pryč.
+
+    Existuje kvůli GDPR výmazu: vynulovat jen cestu v DB nestačí, protože
+    objekt v R2 zůstane veřejně adresovatelný pro kohokoli, kdo URL zná.
+    """
+    if not filename:
+        return False
+    # Cesta smí být jen holé jméno souboru — i když jméno prošlo DB, nesmí
+    # z něj jít '../' ven z uploads/.
+    filename = os.path.basename(filename)
+    try:
+        if _s3 and R2_BUCKET:
+            _s3.delete_object(Bucket=R2_BUCKET, Key=filename)
+        else:
+            path = os.path.join(UPLOAD_FOLDER, filename)
+            if os.path.exists(path):
+                os.remove(path)
+        return True
+    except Exception as e:
+        # Volající (výmaz) musí vědět, že objekt mohl zůstat — proto se
+        # tahle chyba na rozdíl od jiných logů vrací, ne jen loguje.
+        try:
+            app.logger.error(f'[storage] delete failed for {filename}: {e}')
+        except Exception:
+            print(f'[storage] delete failed for {filename}: {e}')
+        return False
+
 # Platform commission rates
 PLATFORM_FEE_TICKET  = 0.10   # 10 % z ceny vstupenky (poplatek za zpracování)
 PLATFORM_FEE_LISTING = 0.08   # 8 % z ceny inzerátu (provize platformy)
@@ -9495,7 +9524,7 @@ def get_client(client_id):
         '''SELECT n.*, u.display_name AS author_name FROM client_notes n
            LEFT JOIN users u ON n.author_id = u.id
            WHERE n.client_id=? ORDER BY n.created_at DESC''', (client_id,)).fetchall()]
-    records = [dict(t) for t in conn.execute(
+    records = [_record_json(t) for t in conn.execute(
         'SELECT * FROM tattoo_records WHERE client_id=? ORDER BY session_date DESC',
         (client_id,)).fetchall()]
     has_med = bool(conn.execute('SELECT 1 FROM client_medical_notes WHERE client_id=?',
@@ -9622,6 +9651,223 @@ def delete_client_note(note_id):
     return jsonify({'ok': True})
 
 
+# ── CRM: záznamy o tetováních ────────────────────────────────────────────────
+# Záznam je historie práce, ne rezervace: booking_id smí být NULL (práce
+# z doby před InkLinkem, kterou tatér doplňuje ručně). Autorizace jde vždy
+# přes klienta, nikdy přes vlastní id záznamu.
+
+TATTOO_RECORD_FIELDS = ('booking_id', 'session_date', 'body_location', 'style',
+                        'size_label', 'description', 'aftercare_status', 'price_czk')
+
+
+def _record_json(r):
+    return {
+        'id':               r['id'],
+        'client_id':        r['client_id'],
+        'booking_id':       r['booking_id'],
+        'artist_id':        r['artist_id'],
+        'session_date':     r['session_date'],
+        'body_location':    r['body_location'] or '',
+        'style':            r['style'] or '',
+        'size_label':       r['size_label'] or '',
+        'description':      r['description'] or '',
+        'healed_photo':     f"/uploads/{r['healed_photo']}" if r['healed_photo'] else '',
+        'aftercare_status': r['aftercare_status'] or '',
+        'price_czk':        r['price_czk'],
+        'created_at':       r['created_at'],
+        'anonymized':       bool(r['anonymized_at']),
+    }
+
+
+def _parse_record_payload(src, existing=None):
+    """Vytáhne pole záznamu z JSON i z multipartu (kvůli fotce).
+
+    Vrací (data, error). `existing` je řádek při PATCHi — chybějící klíč pak
+    znamená "neměň", ne "vymaž".
+    """
+    def given(k):
+        return k in src
+
+    data = {}
+    for k in TATTOO_RECORD_FIELDS:
+        if not given(k):
+            continue
+        v = src.get(k)
+        if k in ('booking_id', 'price_czk'):
+            if v in (None, '', 'null'):
+                data[k] = None
+            else:
+                try:
+                    data[k] = int(v)
+                except (TypeError, ValueError):
+                    return None, f'Pole {k} musí být číslo.'
+        else:
+            data[k] = str(v or '').strip()[:2000]
+
+    date = data.get('session_date', existing['session_date'] if existing else None)
+    if not date:
+        return None, 'Datum sezení je povinné.'
+    try:
+        datetime.strptime(date[:10], '%Y-%m-%d')
+    except ValueError:
+        return None, 'Datum sezení musí být ve tvaru RRRR-MM-DD.'
+    if 'session_date' in data:
+        data['session_date'] = date[:10]
+    return data, None
+
+
+def _save_healed_photo(client_id):
+    """Vrací (filename, error). Prázdné jméno = fotka nebyla poslána."""
+    f = request.files.get('healed_photo')
+    if not (f and f.filename):
+        return '', None
+    if not (allowed_file(f.filename) and allowed_image(f)):
+        return None, 'Fotka musí být obrázek (jpg, png, webp).'
+    ext = secure_filename(f.filename).rsplit('.', 1)[1].lower()
+    name = f'heal_{client_id}_{int(datetime.now().timestamp() * 1000)}.{ext}'
+    save_upload(f, name)
+    return name, None
+
+
+def _booking_belongs_to_client(conn, uid, client, booking_id):
+    """Bez téhle kontroly je booking_id volný ukazatel, kterým by šlo
+    natáhnout cizí rezervaci do vlastního CRM. Prázdná hodnota je v pořádku —
+    záznam bez rezervace je legitimní (práce z doby před InkLinkem)."""
+    if not booking_id:
+        return True
+    bk = conn.execute('SELECT client_id, artist_id FROM bookings WHERE id=?',
+                      (booking_id,)).fetchone()
+    if not bk or bk['artist_id'] not in _crm_visible_artist_ids(conn, uid):
+        return False
+    # client['user_id'] je NULL u walk-in klienta bez účtu — ten na platformě
+    # žádnou rezervaci mít nemůže, takže je odmítnutí správné.
+    return bool(client['user_id']) and bk['client_id'] == client['user_id']
+
+
+@app.route('/api/clients/<int:client_id>/tattoo-records', methods=['POST'])
+def create_tattoo_record(client_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    client = _crm_get_client(conn, uid, client_id)
+    if not client:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+
+    src = request.get_json(silent=True) or request.form
+    data, perr = _parse_record_payload(src)
+    if perr:
+        conn.close()
+        return jsonify({'error': perr}), 400
+
+    if not _booking_belongs_to_client(conn, uid, client, data.get('booking_id')):
+        conn.close()
+        return jsonify({'error': 'Rezervace nepatří k tomuhle klientovi.'}), 400
+
+    photo, perr = _save_healed_photo(client_id)
+    if perr:
+        conn.close()
+        return jsonify({'error': perr}), 400
+
+    conn.execute(
+        '''INSERT INTO tattoo_records
+           (client_id, booking_id, artist_id, session_date, body_location, style,
+            size_label, description, healed_photo, aftercare_status, price_czk)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+        (client_id, data.get('booking_id'), uid, data['session_date'],
+         data.get('body_location', ''), data.get('style', ''), data.get('size_label', ''),
+         data.get('description', ''), photo, data.get('aftercare_status', ''),
+         data.get('price_czk')))
+    conn.commit()
+    rid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+           else conn.execute('SELECT lastval()').fetchone()[0])
+    conn.close()
+    return jsonify({'ok': True, 'id': rid})
+
+
+def _crm_get_record(conn, uid, record_id):
+    """Záznam + jeho klient, jen když na klienta uživatel vidí."""
+    rec = conn.execute('SELECT * FROM tattoo_records WHERE id=?', (record_id,)).fetchone()
+    if not rec:
+        return None, None
+    client = _crm_get_client(conn, uid, rec['client_id'])
+    if not client:
+        return None, None
+    return rec, client
+
+
+@app.route('/api/tattoo-records/<int:record_id>', methods=['PATCH'])
+def update_tattoo_record(record_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    rec, client = _crm_get_record(conn, uid, record_id)
+    if not rec:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if rec['anonymized_at']:
+        conn.close()
+        return jsonify({'error': 'Záznam je anonymizovaný a nelze ho upravovat.'}), 409
+
+    src = request.get_json(silent=True) or request.form
+    data, perr = _parse_record_payload(src, existing=rec)
+    if perr:
+        conn.close()
+        return jsonify({'error': perr}), 400
+
+    if 'booking_id' in data and not _booking_belongs_to_client(
+            conn, uid, client, data['booking_id']):
+        conn.close()
+        return jsonify({'error': 'Rezervace nepatří k tomuhle klientovi.'}), 400
+
+    photo, perr = _save_healed_photo(rec['client_id'])
+    if perr:
+        conn.close()
+        return jsonify({'error': perr}), 400
+    old_photo = rec['healed_photo']
+    if photo:
+        data['healed_photo'] = photo
+
+    if not data:
+        conn.close()
+        return jsonify({'ok': True})
+
+    cols = ', '.join(f'{k}=?' for k in data)
+    conn.execute(f'UPDATE tattoo_records SET {cols} WHERE id=?',
+                 (*data.values(), record_id))
+    conn.commit()
+    conn.close()
+    # Až po commitu: kdyby update spadl, stará fotka musí zůstat platná.
+    if photo and old_photo:
+        delete_upload(old_photo)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/tattoo-records/<int:record_id>', methods=['DELETE'])
+def delete_tattoo_record(record_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    rec, client = _crm_get_record(conn, uid, record_id)
+    if not rec:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    # Záznam smí smazat jen tatér, který ho pořídil, nebo vlastník klienta.
+    # Kolega ze studia na něj vidí, ale mazat cizí historii práce nesmí.
+    if rec['artist_id'] != uid and client['artist_id'] != uid:
+        conn.close()
+        return jsonify({'error': 'Smazat může jen autor záznamu nebo tatér klienta.'}), 403
+    conn.execute('DELETE FROM tattoo_records WHERE id=?', (record_id,))
+    conn.commit()
+    conn.close()
+    if rec['healed_photo']:
+        delete_upload(rec['healed_photo'])
+    return jsonify({'ok': True})
+
+
 # ── CRM: zdravotní poznámky ──────────────────────────────────────────────────
 # Vlastní endpointy a vlastní tabulka, aby chybějící klíč shodil jen tohle,
 # ne celý detail klienta. Audit se zapisuje a COMMITUJE PŘED dešifrováním:
@@ -9744,6 +9990,208 @@ def delete_client_medical(client_id):
     _medical_audit(conn, client_id, uid, 'delete', 'ok')
     conn.close()
     return jsonify({'ok': True})
+
+
+# ── CRM: GDPR (export, výmaz, slučování) ─────────────────────────────────────
+# Vzor je _anonymize_user: PII vynulovat, řádek nechat, účetnictví zachovat
+# (zákon o účetnictví, 10letá retence). Kaskády se NEDAJÍ použít — SQLite
+# bez PRAGMA foreign_keys=ON cizí klíče nevynucuje a kód ho nikde nezapíná.
+
+def _crm_can_erase(conn, uid, client):
+    """Výmaz smí vlastník klienta, nebo admin studia, ve kterém vlastník je.
+
+    Řadový kolega ze studia klienta VIDÍ, ale mazat cizí klientelu nesmí —
+    to je nevratná operace na datech, jejichž správcem je někdo jiný.
+    """
+    if client['artist_id'] == uid:
+        return True
+    m = conn.execute('SELECT studio_id FROM studio_members WHERE artist_id=?',
+                     (client['artist_id'],)).fetchone()
+    return bool(m and m['studio_id'] and _studio_admin_check(conn, uid, m['studio_id']))
+
+
+@app.route('/api/clients/<int:client_id>/export')
+def export_client(client_id):
+    """Přenositelnost dat pro JEDNOHO klienta, vydává tatér.
+
+    Zdravotní poznámky patří sem, a ne do /api/me/export: ten je platformní
+    a vydává ho sám uživatel, tyhle údaje ale vede tatér jako jejich správce.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    client = _crm_get_client(conn, uid, client_id)
+    if not client:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+
+    out = {'client': _crm_client_dict(conn, client),
+           'exported_at': _prague_now_naive().isoformat(),
+           'exported_by': uid}
+    out['notes'] = [dict(n) for n in conn.execute(
+        'SELECT * FROM client_notes WHERE client_id=? ORDER BY created_at', (client_id,)).fetchall()]
+    out['tattoo_records'] = [_record_json(t) for t in conn.execute(
+        'SELECT * FROM tattoo_records WHERE client_id=? ORDER BY session_date',
+        (client_id,)).fetchall()]
+    if client['user_id']:
+        out['bookings'] = [dict(b) for b in conn.execute(
+            'SELECT * FROM bookings WHERE artist_id=? AND client_id=? ORDER BY booking_start_at',
+            (client['artist_id'], client['user_id'])).fetchall()]
+    else:
+        out['bookings'] = []
+
+    med = conn.execute('SELECT * FROM client_medical_notes WHERE client_id=?',
+                       (client_id,)).fetchone()
+    if med:
+        if not _medical_key_available():
+            # Ostatní části exportu jsou platné, tak je vydáme — jen řekneme
+            # nahlas, že tahle chybí, ať si nikdo nemyslí, že tam nic nebylo.
+            out['medical_notes'] = None
+            out['medical_notes_error'] = 'MEDICAL_NOTES_KEY není nastavený, poznámky nelze dešifrovat.'
+        else:
+            _medical_audit(conn, client_id, uid, 'export', 'ok')  # commituje sám
+            try:
+                out['medical_notes'] = _fernet.decrypt(med['ciphertext'].encode()).decode()
+            except Exception:
+                out['medical_notes'] = None
+                out['medical_notes_error'] = 'Poznámky nejdou dešifrovat aktuálním klíčem.'
+    conn.close()
+    return jsonify(out)
+
+
+@app.route('/api/clients/<int:client_id>/erase', methods=['POST'])
+def erase_client(client_id):
+    """Výmaz jednoho klienta u jednoho tatéra. Nevratné."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    typed = ((request.get_json(silent=True) or request.form).get('confirm') or '').strip()
+
+    conn = get_db()
+    client = _crm_get_client(conn, uid, client_id)
+    if not client:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if not _crm_can_erase(conn, uid, client):
+        conn.close()
+        return jsonify({'error': 'Vymazat klienta může jen jeho tatér nebo admin studia.'}), 403
+    if client['anonymized_at']:
+        conn.close()
+        return jsonify({'error': 'Klient je už vymazaný.'}), 409
+    # Vypsané potvrzení jako u /api/me/delete — chrání před CSRF i překlikem.
+    if typed != 'VYMAZAT':
+        conn.close()
+        return jsonify({'error': 'Pro potvrzení napiš VYMAZAT.'}), 400
+
+    now_iso = _prague_now_naive().isoformat()
+    client_user_id = client['user_id']
+
+    # Fotky hojení jsou samostatné objekty v úložišti; vynulovat cestu v DB
+    # nestačí, objekt by zůstal veřejně adresovatelný pro kohokoli s URL.
+    photos = [r['healed_photo'] for r in conn.execute(
+        'SELECT healed_photo FROM tattoo_records WHERE client_id=? AND healed_photo != ""',
+        (client_id,)).fetchall()]
+
+    # 1) clients — PII pryč VČETNĚ user_id. Ponechaný odkaz na účet
+    #    re-identifikuje přes users, což je přesně to, co má výmaz zrušit.
+    conn.execute('''UPDATE clients SET user_id=NULL, name='', email='', phone='',
+                    tags='', style_preferences='', acquisition_source='', note='',
+                    anonymized_at=?, updated_at=? WHERE id=?''',
+                 (now_iso, now_iso, client_id))
+    # 2) poznámky a zdravotní údaje — tvrdě smazat. Soft delete by nechal PII
+    #    v databázi, tedy pravý opak toho, co má výmaz udělat.
+    conn.execute('DELETE FROM client_notes WHERE client_id=?', (client_id,))
+    conn.execute('DELETE FROM client_medical_notes WHERE client_id=?', (client_id,))
+    # 3) tattoo_records — řádek se ROZDĚLÍ: popisné údaje o těle pryč,
+    #    účetní kostra (booking_id, artist_id, session_date, price_czk) zůstává.
+    conn.execute('''UPDATE tattoo_records SET body_location='', description='',
+                    healed_photo='', aftercare_status='', anonymized_at=?
+                    WHERE client_id=?''', (now_iso, client_id))
+    # 4) bookings — design_note i internal_note. Do internal_note tatéři reálně
+    #    píšou "alergie na latex, volat po 18:00": nejcitlivější pole v celé
+    #    tabulce a nejlevnější výhra celého výmazu.
+    if client_user_id:
+        conn.execute('''UPDATE bookings SET design_note='', internal_note=''
+                        WHERE artist_id=? AND client_id=?''',
+                     (client['artist_id'], client_user_id))
+    # 5) medical_notes_access_log se ZACHOVÁVÁ — je to důkaz zákonnosti
+    #    zpracování. Smazat ho znamená zničit si vlastní obhajobu.
+    conn.commit()
+    conn.close()
+
+    failed = [p for p in photos if not delete_upload(p)]
+    return jsonify({'ok': True, 'photos_deleted': len(photos) - len(failed),
+                    'photos_failed': len(failed)})
+
+
+@app.route('/api/clients/<int:client_id>/merge', methods=['POST'])
+def merge_clients(client_id):
+    """Sloučí duplicitního klienta do `client_id`. Zdroj se pak smaže.
+
+    V1 vyžaduje shodný artist_id. Slučování napříč tatéry je otázka
+    vlastnictví dat, ne UI — špatná odpověď je incident, ne překlep.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    src_id = (request.get_json(silent=True) or request.form).get('source_id')
+    try:
+        src_id = int(src_id)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Chybí source_id.'}), 400
+    if src_id == client_id:
+        return jsonify({'error': 'Nelze sloučit klienta sám se sebou.'}), 400
+
+    conn = get_db()
+    target = _crm_get_client(conn, uid, client_id)
+    source = _crm_get_client(conn, uid, src_id)
+    if not target or not source:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if target['artist_id'] != source['artist_id']:
+        conn.close()
+        return jsonify({'error': 'Sloučit lze jen klienty stejného tatéra.'}), 400
+    if target['anonymized_at'] or source['anonymized_at']:
+        conn.close()
+        return jsonify({'error': 'Vymazaného klienta nelze slučovat.'}), 409
+    # Oba mohou být navázaní na účet, ale na různý — pak to nejsou duplicity,
+    # ale dva lidé, a sloučení by smíchalo cizí zdravotní historie.
+    if target['user_id'] and source['user_id'] and target['user_id'] != source['user_id']:
+        conn.close()
+        return jsonify({'error': 'Klienti jsou navázaní na různé účty.'}), 400
+
+    conn.execute('UPDATE client_notes SET client_id=? WHERE client_id=?', (client_id, src_id))
+    conn.execute('UPDATE tattoo_records SET client_id=? WHERE client_id=?', (client_id, src_id))
+    # client_medical_notes má client_id UNIQUE, takže přesun jde jen když
+    # cíl žádné nemá; jinak zdrojové zahodíme a řekneme to v odpovědi.
+    med_conflict = False
+    if conn.execute('SELECT 1 FROM client_medical_notes WHERE client_id=?', (src_id,)).fetchone():
+        if conn.execute('SELECT 1 FROM client_medical_notes WHERE client_id=?', (client_id,)).fetchone():
+            med_conflict = True
+            conn.execute('DELETE FROM client_medical_notes WHERE client_id=?', (src_id,))
+        else:
+            conn.execute('UPDATE client_medical_notes SET client_id=? WHERE client_id=?',
+                         (client_id, src_id))
+    # Access log ukazuje na client_id bez FK; přepsat ho by přepsalo historii,
+    # nechat ho ukazovat na smazaný řádek je správně — log je o tom, co se
+    # tehdy stalo, ne o tom, kde data leží dnes.
+    fill = {}
+    for col in ('name', 'email', 'phone', 'tags', 'style_preferences',
+                'acquisition_source', 'note'):
+        if not (target[col] or '').strip() and (source[col] or '').strip():
+            fill[col] = source[col]
+    if not target['user_id'] and source['user_id']:
+        fill['user_id'] = source['user_id']
+    if fill:
+        cols = ', '.join(f'{k}=?' for k in fill)
+        conn.execute(f'UPDATE clients SET {cols}, updated_at=? WHERE id=?',
+                     (*fill.values(), _prague_now_naive().isoformat(), client_id))
+    conn.execute('DELETE FROM clients WHERE id=?', (src_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'merged_into': client_id,
+                    'medical_notes_discarded': med_conflict})
 
 
 def _studio_members_list(conn, studio_id):
