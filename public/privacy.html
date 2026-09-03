@@ -69,6 +69,8 @@ ul li{margin-bottom:6px}
     <li><strong>Rezervace a platby:</strong> zvolený termín, popis tetování (lokace, motiv), cena, výše zálohy, doplatek na místě, statusy (potvrzeno / dokončeno / zrušeno)</li>
     <li><strong>Stripe Connect identifikátory (pouze tatéři):</strong> ID Stripe účtu, status verifikace KYC. Provozovatel nemá přístup k bankovním údajům — ty drží přímo Stripe.</li>
     <li><strong>Technická data:</strong> IP adresa (pro zabezpečení), typ prohlížeče, časy přihlášení</li>
+    <li><strong>Klientská databáze tatéra (CRM):</strong> tatér si u svých klientů vede kontakt, štítky, poznámky a záznamy o provedených tetováních (datum, místo na těle, styl, cena, případně fotka zhojení). U klienta s účtem na InkLinku je zdrojem kontaktu jeho profil, ne kopie.</li>
+    <li><strong>Zdravotní poznámky (zvláštní kategorie údajů dle čl. 9 GDPR):</strong> pokud je klient tatérovi sdělí (alergie, léky, kožní onemocnění), ukládají se <strong>šifrovaně</strong> a odděleně od zbytku profilu. Zpracováváme je na základě <strong>výslovného souhlasu klienta</strong> daného tatérovi a slouží výhradně k bezpečnému provedení zákroku. Každé zobrazení se zaznamenává do přístupového logu (kdo, kdy, z jaké IP — nikdy obsah poznámky).</li>
     <li><strong>Geolokace (volitelně):</strong> pokud udělíte souhlas, používáme polohu pro filtr „v mém okolí". Polohu neukládáme jinak než nezbytně pro tento dotaz.</li>
   </ul>
 
@@ -106,6 +108,8 @@ ul li{margin-bottom:6px}
     <li>Portfolio (obrázky): smazáno spolu s účtem, na žádost dříve</li>
     <li>Záznamy o rezervacích a platbách: <strong>10 let</strong> (zákonná povinnost — zákon o účetnictví, daňový řád)</li>
     <li>Logy a technická data: max. 90 dní</li>
+    <li>Klientská databáze tatéra: po dobu, kdy tatér klienta vede; na žádost klienta ji tatér vymaže (jméno, kontakt, poznámky, zdravotní údaje a popisy tetování zmizí, účetní záznam o rezervaci a ceně zůstává podle bodu výše)</li>
+    <li>Přístupový log ke zdravotním poznámkám: <strong>zůstává i po výmazu klienta</strong> — je to doklad o tom, kdo a kdy se k údajům dostal, tedy důkaz zákonnosti zpracování. Obsahuje jen identifikátor, čas, akci a IP, nikdy obsah poznámky.</li>
     <li>Komunikace přes zprávy mezi uživateli: po dobu existence účtu obou stran</li>
   </ul>
 

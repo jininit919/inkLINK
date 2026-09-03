@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<style>html,body{background:#faf8f3;margin:0}</style>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Klienti — InkLink</title>
+<meta name="robots" content="noindex">
+<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg: #faf8f3;--bg2: #f5f1e8;--bg3: #ede8db;--bg4: #e3ddca;
+  --red: #1a1a1a;--red2: #0a0a0a;--red3: #000;--ink: #0a0a0a;
+  --txt: #0a0a0a;--txt2: #2a2a2a;--txt3: #5a5a5a;
+  --border: #d4cfbf;--border2: #a8a399;
+  --med:#8e44ad;
+}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
+.nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;letter-spacing:0;color:var(--ink);line-height:0.9;font-weight:400;flex:1}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);border-radius:2px;font-size:18px}
+.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+
+.wrap{max-width:880px;margin:0 auto;padding:100px 24px 80px}
+@media (max-width:640px){.wrap{padding:92px 16px 90px}}
+
+.page-title{font-size:34px;letter-spacing:0.06em;margin-bottom:6px}
+.page-sub{color:var(--txt3);font-size:12px;letter-spacing:0.06em;margin-bottom:24px}
+
+.toolbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:180px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:11px 13px;border-radius:6px;outline:none}
+.toolbar input:focus{border-color:var(--red2)}
+.toolbar select{background:var(--bg2);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:12px;padding:11px 10px;border-radius:6px;outline:none}
+
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--red2);color:#faf8f3;border:none;font-family:inherit;font-size:12px;letter-spacing:0.08em;padding:11px 20px;border-radius:6px;cursor:pointer;text-transform:uppercase;font-weight:500}
+.btn:hover{background:var(--red3)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--txt2);border:1px solid var(--border2)}
+.btn.ghost:hover{color:var(--txt);border-color:var(--red2)}
+.btn.danger{background:transparent;color:#b3261e;border:1px solid #d99}
+.btn.danger:hover{background:rgba(179,38,30,0.08)}
+.btn.sm{padding:7px 13px;font-size:10px}
+
+.client-row{display:flex;align-items:center;gap:13px;padding:13px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s,transform 0.12s}
+.client-row:hover{border-color:var(--border2);transform:translateY(-1px)}
+.c-av{width:40px;height:40px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0}
+.c-av img{width:100%;height:100%;object-fit:cover}
+.c-meta{flex:1;min-width:0}
+.c-name{font-size:16px;letter-spacing:0.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c-sub{color:var(--txt3);font-size:11px;letter-spacing:0.04em;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-block;font-size:9px;letter-spacing:0.1em;padding:2px 7px;background:var(--bg4);color:var(--txt3);border-radius:3px;text-transform:uppercase;margin-left:6px;vertical-align:middle}
+.pill.acct{background:var(--ink);color:#faf8f3}
+.pill.med{background:rgba(142,68,173,0.14);color:var(--med)}
+.pill.gone{background:#ddd;color:#777}
+
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:22px;margin-bottom:16px}
+.card h3{font-size:14px;letter-spacing:0.14em;color:var(--txt3);margin-bottom:14px;text-transform:uppercase}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:13px}
+.field label{font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase}
+.field input,.field textarea,.field select{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:10px 12px;border-radius:6px;outline:none}
+.field input:focus,.field textarea:focus{border-color:var(--red2)}
+.field textarea{min-height:76px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+@media (max-width:640px){.row2{grid-template-columns:1fr}}
+
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv span:first-child{color:var(--txt3);font-size:11px;letter-spacing:0.06em;text-transform:uppercase}
+
+.item{padding:11px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;margin-bottom:7px;font-size:13px;line-height:1.5}
+.item .meta{color:var(--txt3);font-size:10px;letter-spacing:0.06em;margin-top:5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.item .meta button{background:none;border:none;color:var(--txt3);font-family:inherit;font-size:10px;letter-spacing:0.06em;cursor:pointer;text-decoration:underline;padding:0}
+.item .meta button:hover{color:#b3261e}
+.item.rec{border-left:3px solid var(--ink)}
+.item img.heal{max-width:150px;border-radius:6px;margin-top:8px;display:block;border:1px solid var(--border)}
+
+.medbox{border:1px solid var(--med);border-radius:9px;padding:16px;background:rgba(142,68,173,0.05)}
+.medbox h3{color:var(--med)}
+.medbox .warn{font-size:11px;color:var(--txt3);line-height:1.6;margin-bottom:12px}
+
+.danger-zone{margin-top:26px;border:1px solid #d99;border-radius:10px;padding:18px;background:rgba(179,38,30,0.05)}
+.danger-zone h4{font-size:13px;letter-spacing:0.12em;color:#b3261e;margin-bottom:8px;text-transform:uppercase}
+.danger-zone p{font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:13px}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--red2);color:var(--txt);padding:12px 20px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:1000;letter-spacing:0.04em;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.toast.error{border-color:#b3261e;color:#b3261e}
+
+.empty-state{padding:56px 20px;text-align:center;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.7}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--txt3);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px;cursor:pointer;background:none;border:none;font-family:inherit}
+.back:hover{color:var(--txt)}
+.fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 30px rgba(20,16,8,0.2);border:none;font-size:30px;line-height:1;z-index:200}
+@media (max-width:760px){.fab{bottom:84px;right:20px}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">inklink</a>
+  <a href="/my-bookings" class="nav-icon" title="Zpět na rezervace">←</a>
+</nav>
+
+<div class="wrap" id="root">
+  <div class="empty-state">Načítám…</div>
+</div>
+
+<button class="fab" id="fab" onclick="openNew()" title="Nový klient" style="display:none">+</button>
+<div id="toast" class="toast"></div>
+
+<script src="/mobile-nav.js"></script>
+<script>
+const root  = document.getElementById('root');
+const toast = document.getElementById('toast');
+let me = null, listCache = null;
+
+function esc(s){return (s==null?'':String(s)).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+function showToast(msg, isErr){
+  toast.textContent = msg;
+  toast.className = 'toast show' + (isErr ? ' error' : '');
+  setTimeout(() => { toast.className = 'toast'; }, 3200);
+}
+function initials(n){return (n||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+function czk(cents){return ((cents||0)/100).toLocaleString('cs-CZ',{maximumFractionDigits:0}) + ' Kč'}
+// Česká trojice: 1 klient, 2–4 klienti, 0 a 5+ klientů.
+function plural(n, one, few, many){return n === 1 ? one : (n >= 2 && n <= 4 ? few : many)}
+
+// 'YYYY-MM-DD' po složkách. new Date('2027-02-01') je UTC půlnoc a v našem
+// kladném offsetu by ukázala 31. 1.
+const MON = ['led','úno','bře','dub','kvě','čvn','čvc','srp','zář','říj','lis','pro'];
+function fmtDay(d){
+  const [y,m,dd] = String(d||'').slice(0,10).split('-').map(Number);
+  return y ? `${dd}. ${MON[m-1]} ${y}` : '—';
+}
+function fmtStamp(s){
+  if (!s) return '—';
+  const d = new Date(String(s).replace(' ', 'T'));
+  return isNaN(d) ? String(s).slice(0,10) : d.toLocaleDateString('cs-CZ');
+}
+
+async function api(url, opts){
+  const r = await fetch(url, opts);
+  let body = null;
+  try { body = await r.json(); } catch(_) {}
+  if (!r.ok) throw new Error((body && body.error) || 'Něco se pokazilo.');
+  return body;
+}
+
+// ── Router (hash) ────────────────────────────────────────────────────────────
+async function route(){
+  const m = location.hash.match(/^#\/klient\/(\d+)$/);
+  if (m) { await renderDetail(Number(m[1])); }
+  else   { await renderList(); }
+}
+window.addEventListener('hashchange', route);
+
+// ── Seznam ───────────────────────────────────────────────────────────────────
+let q = '', sort = 'recent';
+
+async function renderList(){
+  document.getElementById('fab').style.display = 'flex';
+  let data;
+  try {
+    data = await api(`/api/clients?q=${encodeURIComponent(q)}&sort=${sort}&limit=100`);
+  } catch(e) { root.innerHTML = `<div class="empty-state">${esc(e.message)}</div>`; return; }
+  listCache = data;
+
+  const rows = data.clients.map(c => `
+    <div class="client-row" onclick="location.hash='#/klient/${c.id}'">
+      <div class="c-av">${c.avatar_url ? `<img src="${esc(c.avatar_url)}" alt="">` : esc(initials(c.name))}</div>
+      <div class="c-meta">
+        <div class="c-name">${esc(c.name || 'Bez jména')}
+          ${c.contact_source === 'user' ? '<span class="pill acct">účet</span>' : ''}
+          ${c.anonymized_at ? '<span class="pill gone">vymazán</span>' : ''}
+        </div>
+        <div class="c-sub">${esc([c.phone, c.email, c.tags].filter(Boolean).join(' · ')) || 'bez kontaktu'}</div>
+      </div>
+      <div style="color:var(--txt3);font-size:18px">›</div>
+    </div>`).join('');
+
+  root.innerHTML = `
+    <div class="page-title">KLIENTI</div>
+    <div class="page-sub">${data.total} ${plural(data.total, 'klient', 'klienti', 'klientů')}</div>
+    <div class="toolbar">
+      <input id="q" placeholder="Hledat jméno, telefon, e-mail…" value="${esc(q)}">
+      <select id="sort">
+        <option value="recent">Naposledy upravení</option>
+        <option value="created">Nejnovější</option>
+        <option value="name">Podle jména</option>
+      </select>
+    </div>
+    ${rows || `<div class="empty-state">Zatím žádní klienti.<br>Založ prvního tlačítkem <b>+</b> vpravo dole —<br>nebo se přidají sami, jakmile ti někdo potvrdí rezervaci.</div>`}`;
+
+  const qi = document.getElementById('q');
+  document.getElementById('sort').value = sort;
+  let t;
+  qi.oninput = () => { clearTimeout(t); t = setTimeout(() => { q = qi.value.trim(); renderList(); }, 280); };
+  document.getElementById('sort').onchange = e => { sort = e.target.value; renderList(); };
+}
+
+function openNew(){
+  root.innerHTML = `
+    <button class="back" onclick="location.hash=''">← Zpět na seznam</button>
+    <div class="page-title">NOVÝ KLIENT</div>
+    <div class="page-sub">Pro klienty bez účtu na InkLinku — walk-in, doporučení, telefon.</div>
+    <div class="card">
+      <div class="field"><label>Jméno *</label><input id="fName" maxlength="120" placeholder="Jana Nováková"></div>
+      <div class="row2">
+        <div class="field"><label>Telefon</label><input id="fPhone" maxlength="40" placeholder="+420…"></div>
+        <div class="field"><label>E-mail</label><input id="fEmail" maxlength="120" placeholder="jana@…"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Štítky</label><input id="fTags" maxlength="200" placeholder="blackwork, stálá klientka"></div>
+        <div class="field"><label>Odkud přišel(a)</label>
+          <select id="fSrc">
+            <option value="manual">Ručně</option>
+            <option value="walk_in">Walk-in</option>
+            <option value="instagram">Instagram</option>
+            <option value="referral">Doporučení</option>
+            <option value="other">Jinak</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Poznámka</label><textarea id="fNote" maxlength="1000" placeholder="Krátká připnutá poznámka…"></textarea></div>
+      <button class="btn" id="saveNew">Založit klienta</button>
+    </div>`;
+  document.getElementById('fab').style.display = 'none';
+  document.getElementById('saveNew').onclick = async (e) => {
+    const name = document.getElementById('fName').value.trim();
+    if (!name) return showToast('Jméno je povinné.', true);
+    e.target.disabled = true;
+    try {
+      const r = await api('/api/clients', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          name, phone: document.getElementById('fPhone').value.trim(),
+          email: document.getElementById('fEmail').value.trim(),
+          tags: document.getElementById('fTags').value.trim(),
+          acquisition_source: document.getElementById('fSrc').value,
+          note: document.getElementById('fNote').value.trim(),
+        })});
+      location.hash = `#/klient/${r.id}`;
+    } catch(err) { showToast(err.message, true); e.target.disabled = false; }
+  };
+}
+
+// ── Detail ───────────────────────────────────────────────────────────────────
+async function renderDetail(id){
+  document.getElementById('fab').style.display = 'none';
+  let c;
+  try { c = await api(`/api/clients/${id}`); }
+  catch(e) { root.innerHTML = `<div class="empty-state">${esc(e.message)}</div>`; return; }
+
+  const notes = c.notes.map(n => `
+    <div class="item">${esc(n.body)}
+      <div class="meta"><span>${esc(n.author_name || '—')} · ${esc(fmtStamp(n.created_at))}</span>
+        <button onclick="delNote(${n.id},${id})">smazat</button></div>
+    </div>`).join('') || '<div style="color:var(--txt3);font-size:12px">Zatím nic.</div>';
+
+  const recs = c.tattoo_records.map(t => `
+    <div class="item rec">
+      <b>${esc(fmtDay(t.session_date))}</b>${t.style ? ' · ' + esc(t.style) : ''}
+      ${t.body_location ? '<br>' + esc(t.body_location) : ''}
+      ${t.description ? '<br>' + esc(t.description) : ''}
+      ${t.healed_photo ? `<img class="heal" src="${esc(t.healed_photo)}" alt="Zhojené tetování">` : ''}
+      <div class="meta">
+        <span>${t.price_czk != null ? esc(t.price_czk) + ' Kč' : 'bez ceny'}${t.anonymized ? ' · anonymizováno' : ''}</span>
+        ${t.anonymized ? '' : `<button onclick="delRecord(${t.id},${id})">smazat</button>`}
+      </div>
+    </div>`).join('') || '<div style="color:var(--txt3);font-size:12px">Zatím nic.</div>';
+
+  const bookings = (c.bookings || []).slice(0, 8).map(b => `
+    <div class="kv"><span>${esc(fmtStamp(b.booking_start_at))}</span>
+      <span>${esc(b.status)} · ${czk(b.total_price_cents)}</span></div>`).join('')
+    || '<div style="color:var(--txt3);font-size:12px">Žádné rezervace.</div>';
+
+  root.innerHTML = `
+    <button class="back" onclick="location.hash=''">← Zpět na seznam</button>
+    <div class="page-title">${esc(c.name || 'Bez jména')}</div>
+    <div class="page-sub">
+      ${c.contact_source === 'user' ? 'Napojeno na účet @' + esc(c.username || '') : 'Klient bez účtu'}
+      ${c.anonymized_at ? ' · <b>vymazáno ' + esc(fmtStamp(c.anonymized_at)) + '</b>' : ''}
+    </div>
+
+    <div class="card">
+      <h3>Přehled</h3>
+      <div class="kv"><span>Telefon</span><span>${esc(c.phone) || '—'}</span></div>
+      <div class="kv"><span>E-mail</span><span>${esc(c.email) || '—'}</span></div>
+      <div class="kv"><span>Štítky</span><span>${esc(c.tags) || '—'}</span></div>
+      <div class="kv"><span>Odkud</span><span>${esc(c.acquisition_source) || '—'}</span></div>
+      <div class="kv"><span>Utraceno celkem</span><span>${czk(c.lifetime_value_cents)}</span></div>
+      ${c.note ? `<div class="kv"><span>Poznámka</span><span>${esc(c.note)}</span></div>` : ''}
+    </div>
+
+    <div class="card">
+      <h3>Rezervace</h3>
+      ${bookings}
+    </div>
+
+    <div class="card">
+      <h3>Záznamy o tetováních</h3>
+      ${recs}
+      <div class="row2" style="margin-top:14px">
+        <div class="field"><label>Datum sezení *</label><input id="rDate" type="date"></div>
+        <div class="field"><label>Styl</label><input id="rStyle" placeholder="blackwork"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Místo na těle</label><input id="rLoc" placeholder="levé předloktí"></div>
+        <div class="field"><label>Cena (Kč)</label><input id="rPrice" type="number" min="0"></div>
+      </div>
+      <div class="field"><label>Popis</label><textarea id="rDesc" placeholder="Co se dělalo…"></textarea></div>
+      <div class="field"><label>Fotka zhojení</label><input id="rPhoto" type="file" accept="image/*"></div>
+      <button class="btn sm" onclick="addRecord(${id})">Přidat záznam</button>
+    </div>
+
+    <div class="card">
+      <h3>Poznámky</h3>
+      ${notes}
+      <div class="field" style="margin-top:12px"><textarea id="nBody" placeholder="Nová poznámka…"></textarea></div>
+      <button class="btn sm" onclick="addNote(${id})">Přidat poznámku</button>
+    </div>
+
+    <div class="card medbox">
+      <h3>Zdravotní poznámky</h3>
+      <div class="warn">
+        Alergie, léky, kožní onemocnění. Uložené šifrovaně a <b>každé zobrazení se
+        zaznamenává</b> do přístupového logu — proto se nenačítají samy.
+        ${c.medical_notes_available ? '' : '<br><b>Šifrovací klíč není na serveru nastavený, poznámky teď nejdou číst ani ukládat.</b>'}
+      </div>
+      <div id="medArea">
+        ${c.medical_notes_available
+          ? `<button class="btn ghost sm" onclick="revealMedical(${id})">
+               ${c.has_medical_notes ? 'Zobrazit zdravotní poznámky' : 'Přidat zdravotní poznámky'}
+             </button>`
+          : '<button class="btn ghost sm" disabled>Nedostupné</button>'}
+      </div>
+    </div>
+
+    <div class="danger-zone">
+      <h4>Nevratné operace</h4>
+      <p>
+        <b>Export</b> stáhne všechna data klienta v JSON (včetně zdravotních poznámek —
+        to se také zaznamená do logu).<br>
+        <b>Výmaz</b> odstraní jméno, kontakt, poznámky, zdravotní údaje a popisy
+        tetování. Rezervace, ceny a účetní záznamy zůstávají — ty musíme ze zákona
+        držet 10 let. Vrátit to nejde.
+      </p>
+      <button class="btn ghost sm" onclick="exportClient(${id})">Stáhnout export</button>
+      ${c.anonymized_at ? '' : `<button class="btn danger sm" onclick="eraseClient(${id})">Vymazat klienta</button>`}
+    </div>`;
+}
+
+// ── Akce detailu ─────────────────────────────────────────────────────────────
+async function addNote(id){
+  const el = document.getElementById('nBody');
+  const body = el.value.trim();
+  if (!body) return showToast('Poznámka je prázdná.', true);
+  try { await api(`/api/clients/${id}/notes`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({body}) });
+        renderDetail(id); }
+  catch(e){ showToast(e.message, true); }
+}
+
+async function delNote(nid, id){
+  if (!confirm('Smazat poznámku?')) return;
+  try { await api(`/api/client-notes/${nid}`, {method: 'DELETE'}); renderDetail(id); }
+  catch(e){ showToast(e.message, true); }
+}
+
+async function addRecord(id){
+  const date = document.getElementById('rDate').value;
+  if (!date) return showToast('Datum sezení je povinné.', true);
+  // Multipart kvůli fotce; endpoint bere JSON i formulář.
+  const fd = new FormData();
+  fd.append('session_date', date);
+  fd.append('style',         document.getElementById('rStyle').value.trim());
+  fd.append('body_location', document.getElementById('rLoc').value.trim());
+  fd.append('description',   document.getElementById('rDesc').value.trim());
+  const price = document.getElementById('rPrice').value.trim();
+  if (price) fd.append('price_czk', price);
+  const f = document.getElementById('rPhoto').files[0];
+  if (f) fd.append('healed_photo', f);
+  try { await api(`/api/clients/${id}/tattoo-records`, {method: 'POST', body: fd}); renderDetail(id); }
+  catch(e){ showToast(e.message, true); }
+}
+
+async function delRecord(rid, id){
+  if (!confirm('Smazat záznam? Smaže se i fotka zhojení.')) return;
+  try { await api(`/api/tattoo-records/${rid}`, {method: 'DELETE'}); renderDetail(id); }
+  catch(e){ showToast(e.message, true); }
+}
+
+// Rozbalení je záměrné odhalení — proto se zdravotní poznámky tahají až tady
+// a ne s detailem. Audit má zaznamenat, že se na ně někdo díval, ne že si
+// otevřel stránku klienta.
+async function revealMedical(id){
+  const area = document.getElementById('medArea');
+  area.innerHTML = '<div style="color:var(--txt3);font-size:12px">Načítám…</div>';
+  let d;
+  try { d = await api(`/api/clients/${id}/medical`); }
+  catch(e){ area.innerHTML = `<div style="color:#b3261e;font-size:12px">${esc(e.message)}</div>`; return; }
+  area.innerHTML = `
+    <div class="field"><textarea id="medBody" style="min-height:110px">${esc(d.notes || '')}</textarea></div>
+    <button class="btn sm" onclick="saveMedical(${id})">Uložit</button>
+    ${d.notes ? `<button class="btn danger sm" onclick="deleteMedical(${id})">Smazat</button>` : ''}
+    <div style="color:var(--txt3);font-size:10px;letter-spacing:0.06em;margin-top:9px">
+      Poslední úprava: ${esc(fmtStamp(d.updated_at))}
+    </div>`;
+}
+
+async function saveMedical(id){
+  const notes = document.getElementById('medBody').value;
+  try { await api(`/api/clients/${id}/medical`, {
+          method: 'PUT', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({notes}) });
+        showToast('Uloženo.'); }
+  catch(e){ showToast(e.message, true); }
+}
+
+async function deleteMedical(id){
+  if (!confirm('Smazat zdravotní poznámky? Nejde to vrátit.')) return;
+  try { await api(`/api/clients/${id}/medical`, {method: 'DELETE'}); renderDetail(id); }
+  catch(e){ showToast(e.message, true); }
+}
+
+async function exportClient(id){
+  try {
+    const d = await api(`/api/clients/${id}/export`);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)],
+                                             {type: 'application/json'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = `klient-${id}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Export stažen.');
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function eraseClient(id){
+  if (!confirm('Opravdu vymazat všechna osobní data tohoto klienta? Nejde to vrátit.')) return;
+  const typed = prompt('Pro potvrzení napiš VYMAZAT:');
+  if (typed === null) return;
+  try {
+    await api(`/api/clients/${id}/erase`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({confirm: typed.trim()}) });
+    showToast('Klient vymazán.');
+    renderDetail(id);
+  } catch(e){ showToast(e.message, true); }
+}
+
+// ── Start ────────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const r = await fetch('/api/me');
+    if (r.ok) me = await r.json();
+  } catch(_) {}
+  if (!me) { location.href = '/login'; return; }
+  if (!me.is_artist) {
+    root.innerHTML = '<div class="empty-state">Klientská databáze je pro tatéry.<br>' +
+                     '<a href="/artist-setup" style="text-decoration:underline">Nastav si profil tatéra</a></div>';
+    return;
+  }
+  route();
+})();
+</script>
+</body>
+</html>

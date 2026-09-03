@@ -127,6 +127,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
   <div id="content" style="display:none">
     <div class="cal-tools" id="calTools">
+      <a class="btn muted" id="clientsLink" href="/clients" style="display:none">◫ Klienti</a>
+      <a class="btn muted" href="/calendar">▤ Kalendář</a>
       <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics">⇩ Download .ics</a>
       <button class="btn muted" onclick="showCalendarSubscribe()">⌷ Subscribe URL</button>
     </div>
@@ -316,6 +318,8 @@ async function init() {
   }
   document.getElementById('content').style.display = 'block';
   document.getElementById('profileLink').href = '/profile/' + me.username;
+  // Klientská databáze je jen pro tatéry.
+  if (me.is_artist) document.getElementById('clientsLink').style.display = '';
   demoMode = !me.can_accept_bookings;
   if (demoMode) {
     const banner = document.createElement('div');

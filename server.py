@@ -1623,6 +1623,7 @@ def robots():
         "Disallow: /verify\n"
         "Disallow: /artist-setup\n"
         "Disallow: /my-bookings\n"
+        "Disallow: /clients\n"
         "Disallow: /messages\n"
         "Disallow: /earnings\n"
         "Disallow: /liked\n"
@@ -10691,6 +10692,10 @@ def studio_create_page():
 @app.route('/studio-admin')
 def studio_admin_page():
     return send_from_directory('public', 'studio-admin.html')
+
+@app.route('/clients')
+def clients_page():
+    return send_from_directory('public', 'clients.html')
 
 @app.route('/studio/<slug>')
 def studio_public_page(slug):
