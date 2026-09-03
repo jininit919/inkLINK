@@ -229,8 +229,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
         <div class="uname"><span id="uname"></span></div>
         <div class="meta">
           <span id="cityRow" style="display:none">⌖ <b id="city"></b></span>
-          <span id="studioRow" style="display:none">◫ <b id="studio"></b></span>
-          <span id="instaRow" style="display:none">@<a id="insta" target="_blank" rel="noopener" style="color:var(--txt);text-decoration:underline"></a></span>
         </div>
         <div class="trust-row" id="trustRow"></div>
         <div class="styles" id="stylesRow"></div>
@@ -460,21 +458,6 @@ function render() {
   }
 
   if (profile.city) { document.getElementById('city').textContent = profile.city; document.getElementById('cityRow').style.display = 'inline'; }
-  if (profile.studio_link) {
-    // Structured studio — render jako link na /studio/<slug>
-    const el = document.getElementById('studio');
-    el.innerHTML = `<a href="/studio/${encodeURIComponent(profile.studio_link.slug)}" style="color:var(--txt);text-decoration:underline;text-underline-offset:3px">${escapeHtml(profile.studio_link.name)}</a>`;
-    document.getElementById('studioRow').style.display = 'inline';
-  } else if (profile.studio) {
-    document.getElementById('studio').textContent = profile.studio;
-    document.getElementById('studioRow').style.display = 'inline';
-  }
-  if (profile.instagram) {
-    const a = document.getElementById('insta');
-    a.textContent = profile.instagram;
-    a.href = 'https://instagram.com/' + encodeURIComponent(profile.instagram);
-    document.getElementById('instaRow').style.display = 'inline';
-  }
 
   if (profile.styles) {
     document.getElementById('stylesRow').innerHTML = profile.styles.split(',')
