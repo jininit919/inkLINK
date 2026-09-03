@@ -198,7 +198,16 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <script src="/i18n.js"></script>
 <script src="/mobile-nav.js?v=14"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();
-const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
+const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+
+// Přepínač jazyka. apply() v i18n.js sám dopisuje .active podle
+// [data-i18n-switch], my jen posíláme volbu dovnitř.
+// Delegace na dokumentu, ne querySelectorAll: tenhle skript běží nad
+// tlačítky v dokumentu, takže v tu chvíli ještě neexistují.
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-i18n-switch]');
+  if (b && window.InkLinkI18N) InkLinkI18N.set(b.getAttribute('data-i18n-switch'));
+});</script>
 
 <div class="wrap">
   <h1 data-i18n="as.pageTitle">Artist settings</h1>
@@ -415,6 +424,15 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 
   <!-- ── ACCOUNT TAB ── -->
   <div id="tab-account" style="display:none">
+    <div class="card">
+      <h2 data-i18n="as.language">Language</h2>
+      <p class="hint" data-i18n="as.languageHint">The language follows your device setting the first time. If you switch it here, your choice sticks in this browser.</p>
+      <div class="lang-pick" style="margin-top:14px">
+        <button type="button" class="btn ghost" data-i18n-switch="en" data-i18n="as.langEn">English</button>
+        <button type="button" class="btn ghost" data-i18n-switch="cs" data-i18n="as.langCs">Čeština</button>
+      </div>
+    </div>
+
     <div class="card">
       <h2 data-i18n="as.gdprExport">Data export (GDPR)</h2>
       <p class="hint" data-i18n="as.hExport">Download all your data as a ZIP — profile, bookings, messages, portfolio, reviews, referrals. JSON files, readable by machines and humans. Rate limit 5 downloads/h.</p>

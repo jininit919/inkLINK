@@ -1711,6 +1711,52 @@ class ClientMergeTests(_CrmBase):
         self.assertEqual(r.status_code, 400)
 
 
+class I18nKeyTests(unittest.TestCase):
+    """Chybějící klíč se v UI projeví jako syrové 'as.langEn' místo textu.
+    Vzniká tiše: str.replace() při nesedící kotvě nic nenahradí a nic neohlásí,
+    což se při zavádění překladů stalo. Proto to hlídá test, ne oko."""
+
+    @staticmethod
+    def _dicts():
+        import re
+        src = open('public/i18n.js', encoding='utf-8').read()
+        i_cs = src.index('    cs: {')
+        i_en = src.index('    en: {')
+        i_end = src.index('\n  };', i_en)
+        keys = lambda b: set(re.findall(r"^\s+'([a-zA-Z0-9_.]+)':", b, re.M))
+        return keys(src[i_cs:i_en]), keys(src[i_en:i_end])
+
+    @staticmethod
+    def _used(known_prefixes):
+        import re, glob
+        used = set()
+        for f in glob.glob('public/*.html'):
+            txt = open(f, encoding='utf-8').read()
+            used |= set(re.findall(r'data-i18n(?:-html)?="([^"]+)"', txt))
+            for attr in re.findall(r'data-i18n-attr="([^"]+)"', txt):
+                for pair in attr.split(','):
+                    if ':' in pair:
+                        used.add(pair.split(':')[0].strip())
+            # Dynamické použití — t(cond ? 'a.b' : 'c.d') — chytáme přes
+            # literály, jejichž prefix slovník zná.
+            for lit in re.findall(r"'([a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z0-9_.]+)'", txt):
+                if lit.split('.')[0] in known_prefixes:
+                    used.add(lit)
+        return used
+
+    def test_every_used_key_exists_in_both_languages(self):
+        cs, en = self._dicts()
+        used = self._used({k.split('.')[0] for k in cs | en})
+        self.assertTrue(used, 'nenašel jsem žádné klíče — checker je rozbitý')
+        self.assertEqual(sorted(used - cs), [], 'klíče chybí v češtině')
+        self.assertEqual(sorted(used - en), [], 'klíče chybí v angličtině')
+
+    def test_dictionaries_are_symmetric(self):
+        cs, en = self._dicts()
+        self.assertEqual(sorted(cs - en), [], 'klíč jen v češtině')
+        self.assertEqual(sorted(en - cs), [], 'klíč jen v angličtině')
+
+
 class ComingSoonGateTests(unittest.TestCase):
     """Brána stojí před veřejnou doménou, takže její chyby jsou drahé:
     zablokovaný webhook = ztracené platby, zablokovaný health check =

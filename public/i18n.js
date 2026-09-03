@@ -391,6 +391,20 @@
       'as.confirmRegen':       'Opravdu vygenerovat nový token? Stávající odběratelé (Google/Apple Calendar) přestanou fungovat — budou se muset přidat znovu s novým URL.',
       'as.notifBlocked':       'Notifikace jsou zablokované v prohlížeči — povol je v nastavení stránky.',
       'as.hideChecklist':      'Skrýt do dalšího načtení',
+      'as.vlozUrl':            'vlož URL',
+      'as.stripeLinked':       'Stripe propojen ✓ Můžeš přijímat rezervace a vyplácet si peníze.',
+      'as.maxStyles':          'Vyber max {n} stylů',
+      'as.fileTooBig':         '{name} je velký ({size} MB) — max 12 MB',
+      'as.daysLeftOne':        'den',
+      'as.daysLeftFew':        'dny',
+      'as.daysLeftMany':       'dní',
+      'as.inWord':             'za',
+      'as.mainPhoto':          'HLAVNÍ',
+      'as.previewAlt':         'Náhled',
+      'as.language':           'Jazyk',
+      'as.languageHint':       'Poprvé se jazyk vezme z nastavení tvého zařízení. Když si ho tady přepneš, volba platí i na dalších zařízeních v tomhle prohlížeči.',
+      'as.langEn':             'English',
+      'as.langCs':             'Čeština',
 
       // ── EARNINGS ────────────────────────────────────────────────────────────
       'ea.pageTitle':    'Výdělky',
@@ -1136,6 +1150,20 @@
       'as.confirmRegen':       'Really generate a new token? Existing subscribers (Google/Apple Calendar) will stop working — they have to be added again with the new URL.',
       'as.notifBlocked':       'Notifications are blocked in the browser — allow them in the site settings.',
       'as.hideChecklist':      'Hide until next load',
+      'as.vlozUrl':            'paste URL',
+      'as.stripeLinked':       'Stripe connected ✓ You can accept bookings and get paid out.',
+      'as.maxStyles':          'Pick at most {n} styles',
+      'as.fileTooBig':         '{name} is large ({size} MB) — max 12 MB',
+      'as.daysLeftOne':        'day',
+      'as.daysLeftFew':        'days',
+      'as.daysLeftMany':       'days',
+      'as.inWord':             'in',
+      'as.mainPhoto':          'MAIN',
+      'as.previewAlt':         'Preview',
+      'as.language':           'Language',
+      'as.languageHint':       'The language follows your device setting the first time. If you switch it here, your choice sticks in this browser.',
+      'as.langEn':             'English',
+      'as.langCs':             'Čeština',
 
       // ── EARNINGS ────────────────────────────────────────────────────────────
       'ea.pageTitle':    'Earnings',
@@ -1505,10 +1533,21 @@
 
   // ── Core ─────────────────────────────────────────────────────────────────────
   function detect() {
-    // English by default for all new users — international-first.
-    // Users can toggle to Czech via the language switcher; choice persists.
-    const saved = localStorage.getItem(STORE_KEY);
+    // 1) Vlastní volba vyhrává vždycky — kdo si jazyk jednou přepnul, tomu
+    //    ho nemá přepisovat ani cesta do zahraničí, ani nový telefon.
+    let saved = null;
+    try { saved = localStorage.getItem(STORE_KEY); } catch (e) {}
     if (saved && SUPPORTED.includes(saved)) return saved;
+
+    // 2) Jinak jazyk zařízení. Angličtina zůstává zdrojovým jazykem
+    //    a záchytným bodem pro všechny ostatní jazyky, ale českému tatérovi
+    //    nemá smysl servírovat angličtinu a nechat ho hledat přepínač.
+    const langs = (navigator.languages && navigator.languages.length)
+      ? navigator.languages : [navigator.language || ''];
+    for (const l of langs) {
+      const code = String(l).toLowerCase().split('-')[0];
+      if (SUPPORTED.includes(code)) return code;
+    }
     return FALLBACK;
   }
 
@@ -1561,51 +1600,12 @@
 
   window.InkLinkI18N = { t, set, get, apply, supported: SUPPORTED };
 
-  // ── Language switcher ────────────────────────────────────────────────────────
-  // Systém uměl přepínat jazyk od začátku, ale žádná stránka ovládání
-  // nevykreslila — čeština šla zapnout jen ručním zápisem do localStorage.
-  // Injektuje se tady, aby ji dostala každá stránka, co načte i18n.js,
-  // místo aby se stejný přepínač psal do každé šablony zvlášť.
-  const LANG_LABEL = { en: 'EN', cs: 'CZ' };
-
-  function injectSwitcher() {
-    if (document.getElementById('il-lang')) return;
-    // Stránka si může přepínač umístit sama přes [data-i18n-switch];
-    // pak jí do layoutu nelezeme.
-    if (document.querySelector('[data-i18n-switch]')) return;
-
-    const style = document.createElement('style');
-    style.textContent = `
-      #il-lang{position:fixed;left:14px;bottom:14px;z-index:9997;display:flex;gap:1px;
-        background:var(--bg2,#f5f1e8);border:1px solid var(--border2,#a8a399);border-radius:999px;
-        padding:2px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;
-        box-shadow:0 2px 10px rgba(20,16,8,0.10)}
-      #il-lang button{border:none;background:transparent;color:var(--txt3,#5a5a5a);cursor:pointer;
-        font-family:inherit;font-size:10px;letter-spacing:0.1em;padding:5px 10px;border-radius:999px;
-        line-height:1;transition:background 0.15s,color 0.15s}
-      #il-lang button:hover{color:var(--txt,#0a0a0a)}
-      #il-lang button.active{background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3)}
-      /* Nad spodní lištu na mobilu, ať ji nepřekrývá. */
-      @media(max-width:768px){#il-lang{bottom:calc(74px + env(safe-area-inset-bottom));left:12px}}
-      @media print{#il-lang{display:none}}
-    `;
-    document.head.appendChild(style);
-
-    const box = document.createElement('div');
-    box.id = 'il-lang';
-    box.setAttribute('aria-label', 'Language');
-    box.innerHTML = SUPPORTED.map(l =>
-      `<button type="button" data-i18n-switch="${l}" lang="${l}">${LANG_LABEL[l] || l.toUpperCase()}</button>`
-    ).join('');
-    box.addEventListener('click', e => {
-      const b = e.target.closest('button[data-i18n-switch]');
-      if (b) set(b.getAttribute('data-i18n-switch'));
-    });
-    document.body.appendChild(box);
-  }
+  // Přepínač se nikam neinjektuje. Jazyk se poprvé vezme ze zařízení
+  // (viz detect()) a měnit se dá v nastavení tatéra — stránka si tam
+  // vykreslí vlastní ovládání přes [data-i18n-switch] a apply() mu doplní
+  // aktivní stav. Plovoucí pilulka na každé stránce byla vizuální šum.
 
   function boot() {
-    injectSwitcher();
     apply();
   }
 
