@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#faf8f3">
 <meta name="apple-mobile-web-app-title" content="InkLink">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Moje rezervace — InkLink</title>
+<title>My bookings — InkLink</title>
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
 <style>
@@ -111,43 +111,44 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <a class="nav-icon" href="/artist-setup" title="Nastavení tatéra">⚙</a>
 </nav>
 <script src="/notifs.js?v=5"></script>
+<script src="/i18n.js"></script>
 <script src="/mobile-nav.js?v=14"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <div class="wrap">
-  <h1>MOJE REZERVACE</h1>
+  <h1 data-i18n="bk.pageTitle">My bookings</h1>
 
   <div id="loginNeeded" style="display:none">
     <div class="empty">
-      <div class="b">PŘIHLÁSIT SE</div>
-      Pro zobrazení rezervací se musíš přihlásit.<br><br>
-      <a class="btn" href="/login">Přihlásit se / registrovat</a>
+      <div class="b" data-i18n="bk.signIn">Sign in</div>
+      <span data-i18n="bk.signInBody">You need to sign in to see your bookings.</span><br><br>
+      <a class="btn" href="/login" data-i18n="bk.signInCta">Sign in / register</a>
     </div>
   </div>
 
   <div id="content" style="display:none">
     <div class="cal-tools" id="calTools">
-      <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics">⇩ Stáhnout .ics</a>
-      <button class="btn muted" onclick="showCalendarSubscribe()">⌷ Odebírat v kalendáři</button>
+      <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics" data-i18n="bk.downloadIcs">⇩ Download .ics</a>
+      <button class="btn muted" onclick="showCalendarSubscribe()" data-i18n="bk.subscribeUrl">⌷ Subscribe URL</button>
     </div>
     <div id="calSubBox" style="display:none;margin:14px 0;padding:14px;background:var(--bg2);border:1px solid var(--border2);font-size:11px;letter-spacing:0.04em;color:var(--txt2);line-height:1.7">
-      <div style="margin-bottom:8px;color:var(--txt)">Odkaz pro průběžnou synchronizaci — vlož do Apple/Google kalendáře (Odebírat kalendář):</div>
+      <div style="margin-bottom:8px;color:var(--txt)"><span data-i18n="bk.subscribeHint">Continuous sync URL — paste into Apple/Google Calendar (Subscribe to calendar):</span></div>
       <input id="calSubUrl" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:8px 10px;letter-spacing:0.02em" onclick="this.select()">
       <div style="margin-top:10px;display:flex;gap:8px">
         <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px">Kopírovat</button>
-        <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)">Vygenerovat znovu (staré URL přestane platit)</button>
+        <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)" data-i18n="bk.regenerate">Regenerate (old URL stops working)</button>
       </div>
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="client" id="tabClient">Jako klient<span class="count" id="cntClient"></span></div>
-      <div class="tab" data-tab="artist" id="tabArtist">Jako tatér<span class="count" id="cntArtist"></span></div>
+      <div class="tab active" data-tab="client" id="tabClient"><span data-i18n="bk.asClient">As a client</span><span class="count" id="cntClient"></span></div>
+      <div class="tab" data-tab="artist" id="tabArtist"><span data-i18n="bk.asArtist">As an artist</span><span class="count" id="cntArtist"></span></div>
     </div>
 
     <div id="tab-client">
       <div class="list" id="clientList"></div>
       <div class="empty" id="clientEmpty" style="display:none">
-        <div class="b">ZATÍM ŽÁDNÉ REZERVACE</div>
+        <div class="b" data-i18n="bk.noneYet">No bookings yet</div>
         Find an artist in the <a href="/" style="color:var(--red2);text-decoration:underline">feed</a> and click on an open slot.
       </div>
     </div>
@@ -155,7 +156,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <div id="tab-artist" style="display:none">
       <div class="list" id="artistList"></div>
       <div class="empty" id="artistEmpty" style="display:none">
-        <div class="b">ŽÁDNÉ REZERVACE</div>
+        <div class="b" data-i18n="bk.none">No bookings</div>
         No clients have booked with you yet.<br>
         Add slots in <a href="/artist-setup" style="color:var(--red2);text-decoration:underline">artist settings</a> so clients can find you.
       </div>
@@ -165,19 +166,19 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <div id="reviewModal" onclick="if(event.target===this)closeReview()">
   <div class="cm-card">
-    <h3>OHODNOTIT TETOVÁNÍ</h3>
-    <p id="rmHint">Your rating will be visible to other clients on the artist's profile. You can edit it anytime.</p>
-    <label>Stars *</label>
+    <h3 data-i18n="bk.mRate">Rate the tattoo</h3>
+    <p id="rmHint"><span data-i18n="bk.mRateHint">Your rating will be visible to other clients on the artist's profile. You can edit it anytime.</span></p>
+    <label data-i18n="bk.mStars">Stars *</label>
     <div class="star-pick" id="rmStars" data-rating="0">
       <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
       <span data-v="4">★</span><span data-v="5">★</span>
     </div>
-    <label>Komentář (nepovinné)</label>
-    <textarea id="rmText" maxlength="1000" placeholder="Jaké to bylo? Komunikace, hygiena, výsledek…"></textarea>
+    <label data-i18n="bk.mComment">Comment (optional)</label>
+    <textarea id="rmText" maxlength="1000" data-i18n-attr="bk.mCommentPh:placeholder" placeholder="How was the session? Communication, hygiene, result…"></textarea>
     <div id="rmFlash" style="margin-top:10px"></div>
     <div class="actions">
       <button class="btn danger" id="rmDelete" onclick="deleteReview()" style="margin-right:auto;display:none">Smazat hodnocení</button>
-      <button class="btn muted" onclick="closeReview()">Zrušit</button>
+      <button class="btn muted" onclick="closeReview()">${t('bk.cancel')}</button>
       <button class="btn" onclick="submitReview()">Uložit</button>
     </div>
   </div>
@@ -185,14 +186,14 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <div id="respondModal" onclick="if(event.target===this)closeRespond()">
   <div class="cm-card">
-    <h3>ODPOVĚĎ NA RECENZI</h3>
-    <p>Your reply will appear under the client's review on your profile.</p>
+    <h3 data-i18n="bk.mReply">Reply to review</h3>
+    <p><span data-i18n="bk.mReplyHint">Your reply will appear under the client's review on your profile.</span></p>
     <div id="respClientReview" style="margin-bottom:12px"></div>
-    <label>Tvoje odpověď</label>
-    <textarea id="respText" maxlength="500" placeholder="Díky za recenzi!"></textarea>
+    <label data-i18n="bk.mYourReply">Your reply</label>
+    <textarea id="respText" maxlength="500" data-i18n-attr="bk.mReplyPh:placeholder" placeholder="Thanks for the review!"></textarea>
     <div id="respFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeRespond()">Zrušit</button>
+      <button class="btn muted" onclick="closeRespond()">${t('bk.cancel')}</button>
       <button class="btn" onclick="submitResponse()">Odeslat odpověď</button>
     </div>
   </div>
@@ -200,13 +201,13 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <div id="editBookModal" onclick="if(event.target===this)closeEditBook()">
   <div class="cm-card">
-    <h3 id="ebmTitle">UPRAVIT REZERVACI</h3>
-    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Uprav popis tetování. Termín se přesouvá tlačítkem „Přesunout".</p>
-    <label>Popis tetování</label>
+    <h3 id="ebmTitle" data-i18n="bk.mEdit">Edit booking</h3>
+    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px"><span data-i18n="bk.mEditHint">Edit the tattoo description. Use “Reschedule” to move the appointment.</span></p>
+    <label data-i18n="bk.mDesc">Tattoo description</label>
     <textarea id="ebmNote" maxlength="1000"></textarea>
     <div id="ebmFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeEditBook()">Zrušit</button>
+      <button class="btn muted" onclick="closeEditBook()">${t('bk.cancel')}</button>
       <button class="btn" onclick="submitEditBook()">Uložit změny</button>
     </div>
   </div>
@@ -215,16 +216,16 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <!-- Přesun rezervace: klient ≥48 h předem hned, jinak žádost tatérovi -->
 <div id="rescheduleModal" onclick="if(event.target===this)closeReschedule()">
   <div class="cm-card">
-    <h3 id="rsTitle">PŘESUNOUT REZERVACI</h3>
+    <h3 id="rsTitle" data-i18n="bk.mMove">Reschedule booking</h3>
     <p id="rsHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px"></p>
-    <label>Volný blok tatéra</label>
+    <label data-i18n="bk.mArtistSlot">Artist's open slot</label>
     <select id="rsSlot" onchange="renderRescheduleStarts()"></select>
     <label>Začátek</label>
     <select id="rsStart"></select>
     <div id="rsFlash" style="margin-top:10px"></div>
     <div class="actions">
       <button class="btn muted" onclick="closeReschedule()">Zpět</button>
-      <button class="btn" id="rsSubmit" onclick="submitReschedule()">Přesunout</button>
+      <button class="btn" id="rsSubmit" onclick="submitReschedule()">${t('bk.reschedule')}</button>
     </div>
   </div>
 </div>
@@ -232,13 +233,13 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <!-- Tatér plánuje navazující sezení -->
 <div id="followUpModal" onclick="if(event.target===this)closeFollowUp()">
   <div class="cm-card">
-    <h3>DALŠÍ SEZENÍ</h3>
+    <h3 data-i18n="bk.mNextSession">Next session</h3>
     <p class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Naváže na stávající rezervaci jako další sezení. Záloha se neplatí znovu.</p>
-    <label>Volný blok</label>
+    <label data-i18n="bk.mFreeSlot">Open slot</label>
     <select id="fuSlot" onchange="renderFollowUpStarts()"></select>
     <label>Začátek</label>
     <select id="fuStart"></select>
-    <label>Délka (h)</label>
+    <label data-i18n="bk.mDuration">Duration (h)</label>
     <input type="number" id="fuDuration" min="1" max="12" step="0.5" value="2">
     <div id="fuFlash" style="margin-top:10px"></div>
     <div class="actions">
@@ -250,11 +251,11 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <div id="refundModal" onclick="if(event.target===this)closeRefund()">
   <div class="cm-card">
-    <h3 id="rfTitle">ŽÁDOST O VRÁCENÍ ZÁLOHY</h3>
+    <h3 id="rfTitle" data-i18n="bk.mRefund">Refund request</h3>
     <p id="rfHint" style="font-size:13px;color:var(--txt3);letter-spacing:0">The artist will review your request — if approved, the money will be refunded to your card within 5–10 days.</p>
     <div id="rfMaxLine" style="font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin:6px 0 4px"></div>
     <label>Částka (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— leave blank = full paid amount</span></label>
-    <input type="number" id="rfAmount" min="1" placeholder="celá zaplacená částka">
+    <input type="number" id="rfAmount" min="1" data-i18n-attr="bk.mAmountPh:placeholder" placeholder="full paid amount">
     <label style="margin-top:14px">Reason (min 10 chars)</label>
     <textarea id="rfReason" rows="4" style="width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:10px;font-family:inherit;font-size:14px;resize:vertical" placeholder="Stručně co se stalo…"></textarea>
     <div id="rfFlash" style="margin-top:10px"></div>
@@ -267,7 +268,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <div id="completeModal" onclick="if(event.target===this)closeComplete()">
   <div class="cm-card">
-    <h3>DOKONČIT REZERVACI</h3>
+    <h3 data-i18n="bk.mComplete">Complete booking</h3>
     <p id="cmHint">Enter how much the client paid after the deposit. You can split between cash / card on-site and the balance via InkLink (client gets an email with a payment link).</p>
     <label>On-site balance (CZK) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— cash / card outside InkLink</span></label>
     <input type="number" id="onsiteKc" min="0" placeholder="0">
@@ -275,14 +276,18 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <input type="number" id="balanceKc" min="0" placeholder="0">
     <div id="cmFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeComplete()">Zrušit</button>
-      <button class="btn" onclick="confirmComplete()">Označit jako dokončené</button>
+      <button class="btn muted" onclick="closeComplete()">${t('bk.cancel')}</button>
+      <button class="btn" onclick="confirmComplete()">${t('bk.markCompleted')}</button>
     </div>
   </div>
 </div>
 
 <script>
 let me = null, completingId = null, demoMode = false;
+
+const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+// Seznamy se skládají v JS, takže je po přepnutí jazyka musíme překreslit.
+document.addEventListener('il-i18n-applied', () => { if (me) { loadClient(); loadArtist(); } });
 let refundByBooking = {}; // booking_id → latest refund_request (or null)
 let refundingBookingId = null, refundingMaxKc = 0;
 let rescheduleByBooking = {}; // booking_id → latest pending reschedule request
@@ -290,15 +295,18 @@ let rsBooking = null, rsSlots = [];   // stav modalu pro přesun
 let fuBooking = null, fuSlots = [];   // stav modalu pro další sezení
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
-function fmtKc(cents){return cents ? `${(cents/100).toLocaleString('cs-CZ')} CZK` : '—';}
+// Formát data a čísel se řídí jazykem UI; měna zůstává CZK, ta se s jazykem
+// nemění (platforma je česká).
+function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
+function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString(locale(),{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
+function fmtKc(cents){return cents ? `${(cents/100).toLocaleString(locale())} CZK` : '—';}
 function statusLabel(s){return ({
-  pending_payment: 'ČEKÁ NA PLATBU',
-  confirmed:       'POTVRZENO',
-  completed:       'DOKONČENO',
-  cancelled_client:'ZRUŠENO KLIENTEM',
-  cancelled_artist:'ZRUŠENO TATÉREM',
-  no_show:         'NEDORAZIL',
+  pending_payment: t('bk.stPending'),
+  confirmed:       t('bk.stConfirmed'),
+  completed:       t('bk.stCompleted'),
+  cancelled_client:t('bk.stCancelledC'),
+  cancelled_artist:t('bk.stCancelledA'),
+  no_show:         t('bk.stNoShow'),
 })[s] || (s||'').toUpperCase();}
 
 function showTab(which) {
@@ -328,7 +336,7 @@ async function init() {
   if (demoMode) {
     const banner = document.createElement('div');
     banner.className = 'demo-banner';
-    banner.textContent = '⚠ Demo režim — Stripe zatím není propojený. Rezervace se jen zaznamenávají, žádná záloha se nestrhává.';
+    banner.textContent = t('bk.demoBanner');
     document.getElementById('content').insertBefore(banner, document.querySelector('.tabs'));
   }
   await Promise.all([loadRefundRequests(), loadRescheduleRequests()]);
@@ -477,7 +485,7 @@ function renderRow(b, view) {
       view === 'artist'
         ? ` <button class="btn" style="margin-left:8px" onclick="decideReschedule(${rs.id},'approve')">Schválit</button>
             <button class="btn danger" onclick="decideReschedule(${rs.id},'reject')">Zamítnout</button>`
-        : ' — čeká na tatéra'}</div>`;
+        : t('bk.waitingArtist')}</div>`;
   }
 
   // ── REFUND REQUEST block + button ─────────────────────────────────────
@@ -527,17 +535,17 @@ function renderRow(b, view) {
         ${b.design_note ? `<div class="b-note">${escapeHtml(b.design_note)}</div>` : ''}
         ${(b.session_number || 1) > 1 ? `<div style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px">Sezení ${b.session_number}${b.parent_booking_id?` · navazuje na #${b.parent_booking_id}`:''}</div>` : ''}
         ${rescheduleHint}
-        <div class="b-money">${b.payment_mode === 'full' ? 'Plná platba' : 'Záloha'} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · provize ${fmtKc(b.platform_fee_cents)}`:''}</div>
+        <div class="b-money">${b.payment_mode === 'full' ? t('bk.fullPayment') : t('bk.deposit')} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · ${t('bk.commission')} ${fmtKc(b.platform_fee_cents)}`:''}</div>
         ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${refundBlock}${reviewBlock}
       </div>
       <div class="b-actions">
         <span class="b-status ${b.status}">${statusLabel(b.status)}</span>
         ${payCta}
-        ${isEditable ? `<button class="btn muted" onclick='openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>Upravit</button>` : ''}
-        ${isCancellable ? `<button class="btn muted" onclick='openReschedule(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>Přesunout</button>` : ''}
-        ${view === 'artist' && ['confirmed','completed'].includes(b.status) ? `<button class="btn muted" onclick='openFollowUp(${JSON.stringify(b).replace(/'/g, "&#39;")})'>+ Další sezení</button>` : ''}
-        ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">Zrušit</button>` : ''}
-        ${canComplete ? `<button class="btn" onclick="openComplete(${b.id})">Označit jako dokončené</button>` : ''}
+        ${isEditable ? `<button class="btn muted" onclick='openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>${t('bk.edit')}</button>` : ''}
+        ${isCancellable ? `<button class="btn muted" onclick='openReschedule(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>${t('bk.reschedule')}</button>` : ''}
+        ${view === 'artist' && ['confirmed','completed'].includes(b.status) ? `<button class="btn muted" onclick='openFollowUp(${JSON.stringify(b).replace(/'/g, "&#39;")})'>+ ${t('bk.nextSession')}</button>` : ''}
+        ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">${t('bk.cancel')}</button>` : ''}
+        ${canComplete ? `<button class="btn" onclick="openComplete(${b.id})">${t('bk.markCompleted')}</button>` : ''}
         ${reviewCta}
         ${refundCta}
       </div>
@@ -551,7 +559,7 @@ function openRefund(bookingId, maxKc) {
   document.getElementById('rfAmount').max = maxKc;
   document.getElementById('rfReason').value = '';
   document.getElementById('rfFlash').innerHTML = '';
-  document.getElementById('rfMaxLine').textContent = `Max refundable: ${maxKc.toLocaleString('cs-CZ')} CZK`;
+  document.getElementById('rfMaxLine').textContent = `${t('bk.maxRefundable')} ${maxKc.toLocaleString(locale())} CZK`;
   document.getElementById('refundModal').classList.add('show');
   setTimeout(() => document.getElementById('rfReason').focus(), 30);
 }
@@ -567,7 +575,7 @@ async function submitRefund() {
   const flash = document.getElementById('rfFlash');
   const reason = document.getElementById('rfReason').value.trim();
   if (reason.length < 10) {
-    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Reason must be at least 10 characters.</div>';
+    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">' + t('bk.needReason') + '</div>';
     return;
   }
   const amountStr = document.getElementById('rfAmount').value.trim();
@@ -587,7 +595,7 @@ async function submitRefund() {
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${j.error || 'Žádost se nepodařilo odeslat'}</div>`;
+    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${j.error || t('bk.errRequest')}</div>`;
     return;
   }
   closeRefund();
@@ -598,7 +606,7 @@ async function submitRefund() {
 async function decideRefund(rid, decision) {
   let note = '';
   if (decision === 'reject') {
-    note = prompt('Reason for rejection (optional, client will see it):') || '';
+    note = prompt(t('bk.rejectReason')) || '';
   } else {
     if (!confirm('Approve refund? Stripe will return the money to the client and this action cannot be undone.')) return;
   }
@@ -609,7 +617,7 @@ async function decideRefund(rid, decision) {
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    alert(j.error || 'Akce selhala');
+    alert(j.error || t('bk.errGeneric'));
     return;
   }
   await loadRefundRequests();
@@ -617,7 +625,7 @@ async function decideRefund(rid, decision) {
 }
 
 async function cancelBooking(id) {
-  if (!confirm('Really cancel this booking? Refund will be calculated by cancellation rules.')) return;
+  if (!confirm(t('bk.confirmCancel'))) return;
   const r = await fetch(`/api/bookings/${id}/cancel`, {method:'POST'});
   if (r.ok) {
     const j = await r.json();
@@ -625,7 +633,7 @@ async function cancelBooking(id) {
     await Promise.all([loadClient(), loadArtist()]);
   } else {
     const j = await r.json().catch(() => ({}));
-    alert(j.error || 'Zrušení se nepovedlo');
+    alert(j.error || t('bk.errCancel'));
   }
 }
 
@@ -649,7 +657,7 @@ let editingView = 'client';
 function openEditBook(booking, view) {
   editingBookingId = booking.id;
   editingView = view;
-  document.getElementById('ebmTitle').textContent = 'UPRAVIT POPIS';
+  document.getElementById('ebmTitle').textContent = t('bk.editDesc');
   document.getElementById('ebmNote').value = booking.design_note || '';
   document.getElementById('ebmFlash').innerHTML = '';
   document.getElementById('editBookModal').classList.add('show');
@@ -690,7 +698,7 @@ async function artistFreeSlots(username) {
 
 function slotOptionLabel(s) {
   const d = new Date(s.start_at);
-  return `${d.toLocaleDateString('cs-CZ',{day:'numeric',month:'short'})} · `
+  return `${d.toLocaleDateString(locale(),{day:'numeric',month:'short'})} · `
        + `${s.start_at.slice(11,16)}–${s.end_at.slice(11,16)}`;
 }
 
@@ -712,12 +720,12 @@ async function openReschedule(booking, view) {
   const username = (view === 'client' ? booking.artist : booking.client).username;
   document.getElementById('rsFlash').innerHTML = '';
   document.getElementById('rsHint').textContent = view === 'artist'
-    ? 'Jako tatér přesouváš rovnou — klientovi přijde upozornění.'
-    : 'Do 48 h před termínem musí přesun schválit tatér.';
+    ? t('bk.moveArtist')
+    : t('bk.moveClient');
   rsSlots = await artistFreeSlots(view === 'client' ? username : me.username);
   const sel = document.getElementById('rsSlot');
   sel.innerHTML = rsSlots.map((s,i) => `<option value="${i}">${escapeHtml(slotOptionLabel(s))}</option>`).join('')
-                  || '<option value="">Žádné volné bloky</option>';
+                  || `<option value="">${t('bk.noFreeSlots')}</option>`;
   renderRescheduleStarts();
   document.getElementById('rescheduleModal').classList.add('show');
 }
@@ -730,7 +738,7 @@ function renderRescheduleStarts() {
   const dur = rsBooking?.duration_hours || 1;
   sel.innerHTML = startOptionsFor(slot, dur)
     .map(o => `<option value="${o.iso}">${o.label}</option>`).join('')
-    || '<option value="">Blok je pro tuhle délku krátký</option>';
+    || `<option value="">${t('bk.slotTooShort')}</option>`;
 }
 
 function closeReschedule() {
@@ -745,10 +753,10 @@ async function submitReschedule() {
   const start = document.getElementById('rsStart').value;
   if (!slot || !start) {
     document.getElementById('rsFlash').innerHTML =
-      '<div style="color:#e58787;font-size:11px">Vyber blok a čas</div>'; return;
+      `<div style="color:#e58787;font-size:11px">${t('bk.mPickSlot')}</div>`; return;
   }
   const btn = document.getElementById('rsSubmit');
-  btn.disabled = true; btn.textContent = 'Odesílám…';
+  btn.disabled = true; btn.textContent = t('bk.sending');
   const r = await fetch(`/api/bookings/${rsBooking.id}/reschedule`, {
     method: 'PATCH', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ new_slot_id: slot.id, booking_start_at: start }),
@@ -756,8 +764,8 @@ async function submitReschedule() {
   const j = await r.json().catch(() => ({}));
   if (r.ok) {
     document.getElementById('rsFlash').innerHTML = j.applied
-      ? '<div style="color:#7fd391;font-size:11px">Přesunuto ✓</div>'
-      : '<div style="color:#e8c87f;font-size:11px">Žádost odeslána — čeká na tatéra</div>';
+      ? `<div style="color:#7fd391;font-size:11px">${t('bk.rescheduled')}</div>`
+      : `<div style="color:#e8c87f;font-size:11px">${t('bk.requestSent')}</div>`;
     setTimeout(async () => {
       closeReschedule();
       await loadRescheduleRequests();
@@ -765,9 +773,9 @@ async function submitReschedule() {
     }, 900);
   } else {
     document.getElementById('rsFlash').innerHTML =
-      `<div style="color:#e58787;font-size:11px">${escapeHtml(j.error || 'Přesun selhal')}</div>`;
+      `<div style="color:#e58787;font-size:11px">${escapeHtml(j.error || t('bk.errMove'))}</div>`;
   }
-  btn.disabled = false; btn.textContent = 'Přesunout';
+  btn.disabled = false; btn.textContent = t('bk.reschedule');
 }
 
 async function decideReschedule(rid, decision) {
@@ -775,7 +783,7 @@ async function decideReschedule(rid, decision) {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ decision }),
   });
-  if (!r.ok) { alert((await r.json().catch(() => ({}))).error || 'Nepodařilo se'); return; }
+  if (!r.ok) { alert((await r.json().catch(() => ({}))).error || t('bk.errFailed')); return; }
   await loadRescheduleRequests();
   await Promise.all([loadClient(), loadArtist()]);
 }
@@ -789,7 +797,7 @@ async function openFollowUp(booking) {
   fuSlots = await artistFreeSlots(me.username);
   const sel = document.getElementById('fuSlot');
   sel.innerHTML = fuSlots.map((s,i) => `<option value="${i}">${escapeHtml(slotOptionLabel(s))}</option>`).join('')
-                  || '<option value="">Žádné volné bloky — nejdřív si přidej termín</option>';
+                  || `<option value="">${t('bk.noSlotsAddOne')}</option>`;
   renderFollowUpStarts();
   document.getElementById('followUpModal').classList.add('show');
 }
@@ -801,7 +809,7 @@ function renderFollowUpStarts() {
   const dur = parseFloat(document.getElementById('fuDuration').value) || 1;
   sel.innerHTML = startOptionsFor(slot, dur)
     .map(o => `<option value="${o.iso}">${o.label}</option>`).join('')
-    || '<option value="">Blok je pro tuhle délku krátký</option>';
+    || `<option value="">${t('bk.slotTooShort')}</option>`;
 }
 
 function closeFollowUp() {
@@ -815,10 +823,10 @@ async function submitFollowUp() {
   const start = document.getElementById('fuStart').value;
   if (!slot || !start) {
     document.getElementById('fuFlash').innerHTML =
-      '<div style="color:#e58787;font-size:11px">Vyber blok a čas</div>'; return;
+      `<div style="color:#e58787;font-size:11px">${t('bk.mPickSlot')}</div>`; return;
   }
   const btn = document.getElementById('fuSubmit');
-  btn.disabled = true; btn.textContent = 'Ukládám…';
+  btn.disabled = true; btn.textContent = t('bk.saving');
   const r = await fetch(`/api/bookings/${fuBooking.id}/follow-up`, {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
@@ -833,9 +841,9 @@ async function submitFollowUp() {
     setTimeout(async () => { closeFollowUp(); await Promise.all([loadClient(), loadArtist()]); }, 900);
   } else {
     document.getElementById('fuFlash').innerHTML =
-      `<div style="color:#e58787;font-size:11px">${escapeHtml(j.error || 'Nepodařilo se')}</div>`;
+      `<div style="color:#e58787;font-size:11px">${escapeHtml(j.error || t('bk.errFailed'))}</div>`;
   }
-  btn.disabled = false; btn.textContent = 'Naplánovat';
+  btn.disabled = false; btn.textContent = t('bk.schedule');
 }
 
 document.getElementById('fuDuration')?.addEventListener('change', renderFollowUpStarts);
@@ -851,7 +859,7 @@ function starsHtml(rating) {
 }
 
 function renderReviewBlock(review, view, bookingId) {
-  const date = review.created_at ? new Date(review.created_at).toLocaleDateString('cs-CZ', {day:'numeric',month:'short',year:'numeric'}) : '';
+  const date = review.created_at ? new Date(review.created_at).toLocaleDateString(locale(), {day:'numeric',month:'short',year:'numeric'}) : '';
   let html = `<div class="b-review">
     <div>${starsHtml(review.rating)} <b>${review.rating}/5</b> <span style="color:var(--txt3);font-size:10px;letter-spacing:0.05em">${escapeHtml(date)}</span></div>`;
   if (review.text) html += `<div style="margin-top:6px">${escapeHtml(review.text)}</div>`;
@@ -904,7 +912,7 @@ function closeReview() {
 
 async function submitReview() {
   if (reviewRating < 1) {
-    document.getElementById('rmFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Vyber 1–5 hvězd.</div>';
+    document.getElementById('rmFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">' + t('bk.needStars') + '</div>';
     return;
   }
   const text = document.getElementById('rmText').value.trim();
@@ -944,7 +952,7 @@ function closeRespond() {
 async function submitResponse() {
   const txt = document.getElementById('respText').value.trim();
   if (!txt) {
-    document.getElementById('respFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Napiš odpověď.</div>';
+    document.getElementById('respFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">' + t('bk.needReply') + '</div>';
     return;
   }
   const r = await fetch(`/api/reviews/${respondReviewId}/respond`, {
@@ -963,7 +971,7 @@ async function confirmComplete() {
   const onsite = parseInt(document.getElementById('onsiteKc').value || '0');
   const balance = parseInt(document.getElementById('balanceKc').value || '0');
   if (onsite < 0 || balance < 0) {
-    document.getElementById('cmFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Záporná částka nedává smysl.</div>';
+    document.getElementById('cmFlash').innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">' + t('bk.negativeAmount') + '</div>';
     return;
   }
   const r = await fetch(`/api/bookings/${completingId}/complete`, {
@@ -985,7 +993,7 @@ async function confirmComplete() {
   if (j.balance_charge && j.balance_charge.demo_mode) {
     alert('Done. In demo mode (no Stripe) the InkLink balance was marked as paid immediately.');
   } else if (j.balance_charge && j.balance_charge.payment_url) {
-    alert('Hotovo. Klientovi jsme poslali e-mail s odkazem na platbu.');
+    alert(t('bk.okBalanceMail'));
   }
 }
 
@@ -999,7 +1007,7 @@ async function showCalendarSubscribe() {
     document.getElementById('calSubUrl').value = d.subscribe_url;
     box.style.display = 'block';
   } catch (e) {
-    alert('Nepodařilo se získat odkaz na odběr.');
+    alert(t('bk.errIcsUrl'));
   }
 }
 
@@ -1008,7 +1016,7 @@ function copyCalSubUrl() {
   el.select();
   try {
     navigator.clipboard.writeText(el.value);
-    alert('Odkaz zkopírován.');
+    alert(t('bk.okCopied'));
   } catch {}
 }
 
@@ -1019,9 +1027,9 @@ async function regenerateCalToken() {
     if (!r.ok) throw new Error();
     const d = await r.json();
     document.getElementById('calSubUrl').value = d.subscribe_url;
-    alert('Nový odkaz vygenerován. Aktualizuj si ho v kalendáři.');
+    alert(t('bk.okRegen'));
   } catch {
-    alert('Nepodařilo se vygenerovat nový token.');
+    alert(t('bk.errRegen'));
   }
 }
 
