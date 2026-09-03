@@ -105,10 +105,10 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-icon" href="/" title="Zpět na feed"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
-  <a class="nav-icon" id="profileLink" href="#" title="Můj profil"><svg class="icon"><use href="#i-bookmark"/></svg></a>
-  <a class="nav-icon" href="/messages" title="Zprávy"><svg class="icon"><use href="#i-message"/></svg></a>
-  <a class="nav-icon" href="/artist-setup" title="Nastavení tatéra">⚙</a>
+  <a class="nav-icon" href="/" data-i18n-attr="as.backToFeed:title" title="Back to feed"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
+  <a class="nav-icon" id="profileLink" href="#" data-i18n-attr="fd.myProfile:title" title="My profile"><svg class="icon"><use href="#i-bookmark"/></svg></a>
+  <a class="nav-icon" href="/messages" data-i18n-attr="fd.navMessages:title" title="Messages"><svg class="icon"><use href="#i-message"/></svg></a>
+  <a class="nav-icon" href="/artist-setup" data-i18n-attr="fd.artistSettings:title" title="Artist settings">⚙</a>
 </nav>
 <script src="/notifs.js?v=5"></script>
 <script src="/i18n.js"></script>
@@ -135,7 +135,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
       <div style="margin-bottom:8px;color:var(--txt)"><span data-i18n="bk.subscribeHint">Continuous sync URL — paste into Apple/Google Calendar (Subscribe to calendar):</span></div>
       <input id="calSubUrl" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:8px 10px;letter-spacing:0.02em" onclick="this.select()">
       <div style="margin-top:10px;display:flex;gap:8px">
-        <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px">Kopírovat</button>
+        <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px" data-i18n="bk.copy">Copy</button>
         <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)" data-i18n="bk.regenerate">Regenerate (old URL stops working)</button>
       </div>
     </div>
@@ -177,9 +177,9 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <textarea id="rmText" maxlength="1000" data-i18n-attr="bk.mCommentPh:placeholder" placeholder="How was the session? Communication, hygiene, result…"></textarea>
     <div id="rmFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn danger" id="rmDelete" onclick="deleteReview()" style="margin-right:auto;display:none">Smazat hodnocení</button>
+      <button class="btn danger" id="rmDelete" onclick="deleteReview()" style="margin-right:auto;display:none" data-i18n="bk.deleteRating">Delete rating</button>
       <button class="btn muted" onclick="closeReview()">${t('bk.cancel')}</button>
-      <button class="btn" onclick="submitReview()">Uložit</button>
+      <button class="btn" onclick="submitReview()" data-i18n="bk.save">Save</button>
     </div>
   </div>
 </div>
@@ -194,7 +194,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <div id="respFlash" style="margin-top:10px"></div>
     <div class="actions">
       <button class="btn muted" onclick="closeRespond()">${t('bk.cancel')}</button>
-      <button class="btn" onclick="submitResponse()">Odeslat odpověď</button>
+      <button class="btn" onclick="submitResponse()" data-i18n="bk.mSendReply">Send reply</button>
     </div>
   </div>
 </div>
@@ -208,7 +208,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <div id="ebmFlash" style="margin-top:10px"></div>
     <div class="actions">
       <button class="btn muted" onclick="closeEditBook()">${t('bk.cancel')}</button>
-      <button class="btn" onclick="submitEditBook()">Uložit změny</button>
+      <button class="btn" onclick="submitEditBook()" data-i18n="bk.saveChanges">Save changes</button>
     </div>
   </div>
 </div>
@@ -220,11 +220,11 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <p id="rsHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px"></p>
     <label data-i18n="bk.mArtistSlot">Artist's open slot</label>
     <select id="rsSlot" onchange="renderRescheduleStarts()"></select>
-    <label>Začátek</label>
+    <label data-i18n="bk.startAt">Start</label>
     <select id="rsStart"></select>
     <div id="rsFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeReschedule()">Zpět</button>
+      <button class="btn muted" onclick="closeReschedule()" data-i18n="bk.back">Back</button>
       <button class="btn" id="rsSubmit" onclick="submitReschedule()">${t('bk.reschedule')}</button>
     </div>
   </div>
@@ -234,17 +234,17 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 <div id="followUpModal" onclick="if(event.target===this)closeFollowUp()">
   <div class="cm-card">
     <h3 data-i18n="bk.mNextSession">Next session</h3>
-    <p class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px">Naváže na stávající rezervaci jako další sezení. Záloha se neplatí znovu.</p>
+    <p class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px" data-i18n="bk.followUpHint">Links to the existing booking as another session. No deposit is charged again.</p>
     <label data-i18n="bk.mFreeSlot">Open slot</label>
     <select id="fuSlot" onchange="renderFollowUpStarts()"></select>
-    <label>Začátek</label>
+    <label data-i18n="bk.startAt">Start</label>
     <select id="fuStart"></select>
     <label data-i18n="bk.mDuration">Duration (h)</label>
     <input type="number" id="fuDuration" min="1" max="12" step="0.5" value="2">
     <div id="fuFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeFollowUp()">Zpět</button>
-      <button class="btn" id="fuSubmit" onclick="submitFollowUp()">Naplánovat</button>
+      <button class="btn muted" onclick="closeFollowUp()" data-i18n="bk.back">Back</button>
+      <button class="btn" id="fuSubmit" onclick="submitFollowUp()" data-i18n="bk.schedule">Schedule</button>
     </div>
   </div>
 </div>
@@ -254,14 +254,14 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <h3 id="rfTitle" data-i18n="bk.mRefund">Refund request</h3>
     <p id="rfHint" style="font-size:13px;color:var(--txt3);letter-spacing:0">The artist will review your request — if approved, the money will be refunded to your card within 5–10 days.</p>
     <div id="rfMaxLine" style="font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin:6px 0 4px"></div>
-    <label>Částka (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— leave blank = full paid amount</span></label>
+    <label>Částka (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0" data-i18n="bk.amountBlank">— leave blank = full paid amount</span></label>
     <input type="number" id="rfAmount" min="1" data-i18n-attr="bk.mAmountPh:placeholder" placeholder="full paid amount">
     <label style="margin-top:14px">Reason (min 10 chars)</label>
-    <textarea id="rfReason" rows="4" style="width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:10px;font-family:inherit;font-size:14px;resize:vertical" placeholder="Stručně co se stalo…"></textarea>
+    <textarea id="rfReason" rows="4" style="width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:10px;font-family:inherit;font-size:14px;resize:vertical" data-i18n-attr="bk.reasonPh:placeholder" placeholder="Briefly what happened…"></textarea>
     <div id="rfFlash" style="margin-top:10px"></div>
     <div class="actions">
-      <button class="btn muted" onclick="closeRefund()">Zavřít</button>
-      <button class="btn" onclick="submitRefund()">Odeslat žádost</button>
+      <button class="btn muted" onclick="closeRefund()" data-i18n="bk.close">Close</button>
+      <button class="btn" onclick="submitRefund()" data-i18n="bk.mSendRequest">Send request</button>
     </div>
   </div>
 </div>
@@ -272,7 +272,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
     <p id="cmHint">Enter how much the client paid after the deposit. You can split between cash / card on-site and the balance via InkLink (client gets an email with a payment link).</p>
     <label>On-site balance (CZK) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— cash / card outside InkLink</span></label>
     <input type="number" id="onsiteKc" min="0" placeholder="0">
-    <label style="margin-top:14px">Doplatek přes InkLink (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0">— we will send the client a payment link</span></label>
+    <label style="margin-top:14px">Doplatek přes InkLink (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0" data-i18n="bk.balanceHint">— we will send the client a payment link</span></label>
     <input type="number" id="balanceKc" min="0" placeholder="0">
     <div id="cmFlash" style="margin-top:10px"></div>
     <div class="actions">
@@ -439,7 +439,7 @@ function renderRow(b, view) {
       if (view === 'client') {
         reviewCta = `<button class="btn muted" onclick="openReview(${b.id}, ${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Edit ★</button>`;
       } else if (view === 'artist' && !b.review.response) {
-        reviewCta = `<button class="btn" onclick="openRespond(${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Odpovědět</button>`;
+        reviewCta = `<button class="btn" onclick="openRespond(${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">${t('bk.reply')}</button>`;
       }
     } else if (view === 'client') {
       reviewCta = `<button class="btn" onclick="openReview(${b.id}, null, 0, '')">★ Write a review</button>`;
@@ -481,10 +481,10 @@ function renderRow(b, view) {
   let rescheduleHint = '';
   if (rs && rs.status === 'pending') {
     const when = fmtDate(rs.new_booking_start_at);
-    rescheduleHint = `<div class="b-money" style="color:#e8c87f">⏳ Žádost o přesun na ${escapeHtml(when)}${
+    rescheduleHint = `<div class="b-money" style="color:#e8c87f">${t('bk.rescheduleAsk').replace('{when}', escapeHtml(when))}${
       view === 'artist'
-        ? ` <button class="btn" style="margin-left:8px" onclick="decideReschedule(${rs.id},'approve')">Schválit</button>
-            <button class="btn danger" onclick="decideReschedule(${rs.id},'reject')">Zamítnout</button>`
+        ? ` <button class="btn" style="margin-left:8px" onclick="decideReschedule(${rs.id},'approve')">${t('bk.approve')}</button>
+            <button class="btn danger" onclick="decideReschedule(${rs.id},'reject')">${t('bk.reject')}</button>`
         : t('bk.waitingArtist')}</div>`;
   }
 
@@ -498,13 +498,13 @@ function renderRow(b, view) {
       refundBlock = `<div class="b-money" style="color:#e8c87f">⏳ Refund request ${amt} — awaiting artist decision</div>`;
       if (view === 'artist') {
         refundCta = `
-          <button class="btn" onclick="decideRefund(${rr.id}, 'approve')">Schválit vrácení</button>
-          <button class="btn danger" onclick="decideRefund(${rr.id}, 'reject')">Zamítnout</button>`;
+          <button class="btn" onclick="decideRefund(${rr.id}, 'approve')">${t('bk.approveRefund')}</button>
+          <button class="btn danger" onclick="decideRefund(${rr.id}, 'reject')">${t('bk.reject')}</button>`;
       }
     } else if (rr.status === 'approved') {
       refundBlock = `<div class="b-money" style="color:#7fd391">✓ Refund ${amt} approved${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
     } else if (rr.status === 'rejected') {
-      refundBlock = `<div class="b-money" style="color:#e58787">✗ Refund zamítnut${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
+      refundBlock = `<div class="b-money" style="color:#e58787">${t('bk.refundRejected')}${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
     }
   }
   // Client can request refund only if booking is past-completion or already cancelled
@@ -515,7 +515,7 @@ function renderRow(b, view) {
   if (refundable) {
     const maxKc = Math.max(0, Math.floor(((b.deposit_cents || 0) + (b.balance_paid_cents || 0) - (b.refund_cents || 0)) / 100));
     if (maxKc > 0) {
-      refundCta = `<button class="btn muted" onclick="openRefund(${b.id}, ${maxKc})">Vrátit zálohu</button>`;
+      refundCta = `<button class="btn muted" onclick="openRefund(${b.id}, ${maxKc})">${t('bk.mRefund')}</button>`;
     }
   }
 
@@ -533,7 +533,7 @@ function renderRow(b, view) {
           <span><b>${escapeHtml(other.display_name)}</b><span style="color:var(--txt3)"> · @${escapeHtml(other.username)}</span></span>
         </a>
         ${b.design_note ? `<div class="b-note">${escapeHtml(b.design_note)}</div>` : ''}
-        ${(b.session_number || 1) > 1 ? `<div style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px">Sezení ${b.session_number}${b.parent_booking_id?` · navazuje na #${b.parent_booking_id}`:''}</div>` : ''}
+        ${(b.session_number || 1) > 1 ? `<div style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px">${t('bk.session').replace('{n}', b.session_number)}${b.parent_booking_id?` · ${t('bk.followsOn').replace('{id}', b.parent_booking_id)}`:''}</div>` : ''}
         ${rescheduleHint}
         <div class="b-money">${b.payment_mode === 'full' ? t('bk.fullPayment') : t('bk.deposit')} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · ${t('bk.commission')} ${fmtKc(b.platform_fee_cents)}`:''}</div>
         ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${refundBlock}${reviewBlock}
@@ -837,7 +837,7 @@ async function submitFollowUp() {
   const j = await r.json().catch(() => ({}));
   if (r.ok) {
     document.getElementById('fuFlash').innerHTML =
-      `<div style="color:#7fd391;font-size:11px">Sezení ${j.session_number} naplánováno ✓</div>`;
+      `<div style="color:#7fd391;font-size:11px">${t('bk.sessionPlanned').replace('{n}', j.session_number)}</div>`;
     setTimeout(async () => { closeFollowUp(); await Promise.all([loadClient(), loadArtist()]); }, 900);
   } else {
     document.getElementById('fuFlash').innerHTML =
