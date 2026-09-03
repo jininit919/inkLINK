@@ -226,7 +226,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       <input type="file" id="avatarUploadInput" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadAvatar(event)">
       <div class="head-info">
         <div class="dname" id="dname"></div>
-        <div class="uname"><span id="uname"></span><span class="badge" id="artistBadge" style="display:none" data-i18n="pf.artist">Artist</span></div>
+        <div class="uname"><span id="uname"></span></div>
         <div class="meta">
           <span id="cityRow" style="display:none">⌖ <b id="city"></b></span>
           <span id="studioRow" style="display:none">◫ <b id="studio"></b></span>
@@ -445,7 +445,6 @@ function render() {
     dnameEl.appendChild(pill);
   }
   document.getElementById('uname').textContent = '@' + profile.username;
-  if (profile.is_artist) document.getElementById('artistBadge').style.display = 'inline-block';
   // Recenze tab visibility — jen pro artisty (jinak nemají bookings)
   if (!profile.is_artist) document.getElementById('reviewsTab').style.display = 'none';
 
@@ -483,7 +482,13 @@ function render() {
   }
   if (profile.bio) document.getElementById('bio').textContent = profile.bio;
 
-  // Trust signals — jen pro tatéry
+  // Trust signals — jen pro tatéry, a jen ty, co klientovi pomůžou
+  // rozhodnout se. Vypuštěno schválně:
+  //   "tetuje od <měsíc>" — platforma běží první rok, takže tenhle odznak
+  //     z každého dělá nováčka; je to negativní signál v kabátě pozitivního,
+  //   "N sledujících" — marnivá metrika, o kvalitě práce neříká nic.
+  // Zbylé dva odpovídají na jediné dvě otázky, které klient před rezervací
+  // má: udělal to už někdy, a můžu mu zaplatit?
   if (profile.is_artist) {
     const badges = [];
     if (profile.completed_count > 0) {
@@ -491,17 +496,6 @@ function render() {
     }
     if (profile.can_book) {
       badges.push(`<span class="trust-badge verified"><span class="icon">⌗</span> ${tr('pf.onlinePayments')}</span>`);
-    }
-    if (profile.member_since) {
-      try {
-        const d = new Date(profile.member_since);
-        const loc = (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB';
-        const ms = d.toLocaleDateString(loc, { month: 'long', year: 'numeric' });
-        badges.push(`<span class="trust-badge"><svg class="icon"><use href="#i-calendar"/></svg> ${tr('pf.memberSince').replace('{date}', escapeHtml(ms))}</span>`);
-      } catch {}
-    }
-    if (profile.followers > 0) {
-      badges.push(`<span class="trust-badge"><svg class="icon"><use href="#i-bookmark"/></svg> <b>${profile.followers}</b> ${profile.followers === 1 ? tr('pf.followerOne') : tr('pf.followerMany')}</span>`);
     }
     document.getElementById('trustRow').innerHTML = badges.join('');
 
