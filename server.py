@@ -4379,7 +4379,7 @@ def my_checklist():
                         FROM users WHERE id=?''', (uid,)).fetchone()
     portfolio_count = conn.execute('SELECT COUNT(*) FROM portfolio_items WHERE user_id=?',
                                     (uid,)).fetchone()[0]
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = _prague_now_naive().isoformat()
     upcoming_slots = conn.execute('''SELECT COUNT(*) FROM slots
                                      WHERE user_id=? AND end_at >= ?''',
                                   (uid, now_iso)).fetchone()[0]
@@ -4390,48 +4390,53 @@ def my_checklist():
     ).fetchone()[0]
     conn.close()
 
+    # `label` je anglicky (zdrojový jazyk API), UI si podle `key` sáhne do
+    # slovníku. Překlady patří do i18n.js, ne do dvou míst.
     items = [
         {
             'key':  'profile',
-            'label':'Vyplnit profil (jméno + město nebo studio + bio)',
+            'label':'Fill in your profile (name + city or studio + bio)',
             'done': bool(u['display_name'] and (u['city'] or u['studio']) and u['bio']),
             'href': '/artist-setup#profile',
         },
         {
             'key':  'rate',
-            'label':'Nastavit hodinovou sazbu',
+            'label':'Set your hourly rate',
             'done': bool(u['hourly_rate_min'] or u['hourly_rate_max']),
             'href': '/artist-setup#profile',
         },
         {
             'key':  'styles',
-            'label':'Vybrat styly tetování',
+            'label':'Pick your tattoo styles',
             'done': bool((u['styles'] or '').strip()),
             'href': '/artist-setup#profile',
         },
         {
             'key':  'portfolio',
-            'label':'Přidat aspoň 3 položky do portfolia',
+            'label':'Add at least 3 portfolio items',
             'done': portfolio_count >= 3,
             'href': '/artist-setup#portfolio',
             'count': portfolio_count,
         },
         {
             'key':  'slot',
-            'label':'Přidat aspoň jeden volný blok do kalendáře',
+            'label':'Publish at least one open slot',
             'done': upcoming_slots > 0,
-            'href': '/artist-setup#slots',
+            # Míří na /calendar, ne na /artist-setup#slots — ta kotva
+            # ve stránce od Sprintu 2 neexistuje a onboarding tak posílal
+            # tatéra do prázdna přesně v kroku, na kterém stojí rezervace.
+            'href': '/calendar',
             'count': upcoming_slots,
         },
         {
             'key':  'stripe',
-            'label':'Propojit Stripe Connect (přijímat zálohy)',
+            'label':'Connect Stripe (to accept deposits)',
             'done': bool(u['stripe_charges_enabled']),
             'href': '/artist-setup#payments',
         },
         {
             'key':  'first_booking',
-            'label':'První rezervace',
+            'label':'Your first booking',
             'done': bookings_count > 0,
             'href': '/my-bookings',
             'count': bookings_count,

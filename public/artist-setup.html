@@ -207,6 +207,12 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
 document.addEventListener('click', function (e) {
   var b = e.target.closest('[data-i18n-switch]');
   if (b && window.InkLinkI18N) InkLinkI18N.set(b.getAttribute('data-i18n-switch'));
+});
+
+// Checklist se skládá v JS, takže ho apply() nepřepíše — po přepnutí
+// jazyka se musí překreslit ručně.
+document.addEventListener('il-i18n-applied', function () {
+  if (typeof loadChecklist === 'function') loadChecklist();
 });</script>
 
 <div class="wrap">
@@ -815,19 +821,23 @@ async function loadChecklist() {
   const items = data.items.map(it => {
     const tick = it.done ? '✓' : '';
     const cnt  = it.count ? ` <span style="color:var(--txt3);font-size:10px">(${it.count})</span>` : '';
+    // Popisek přeložíme podle `key`; anglický `label` ze serveru je
+    // záchytný text, kdyby klíč ve slovníku chyběl.
+    const key = 'cl.' + it.key;
+    const label = t(key) === key ? it.label : t(key);
     return `<a class="cl-item ${it.done?'done':''}" href="${it.href}">
       <div class="cl-check">${tick}</div>
-      <span>${escapeHtml(it.label)}${cnt}</span>
+      <span>${escapeHtml(label)}${cnt}</span>
       <span class="arrow">→</span>
     </a>`;
   }).join('');
 
   root.innerHTML = `
     <div class="cl-card ${doneCls}">
-      <button class="cl-dismiss" onclick="dismissChecklist()" data-i18n-attr="as.hideChecklist:title" title="Hide until next load">×</button>
+      <button class="cl-dismiss" onclick="dismissChecklist()" title="${escapeHtml(t('as.hideChecklist'))}">×</button>
       <div class="cl-head">
-        <h3 data-i18n="as.setupProfile">Set up your profile</h3>
-        <span style="font-size:11px;color:var(--txt3);letter-spacing:0.04em">${data.completed}/${data.total} hotovo</span>
+        <h3>${escapeHtml(t('as.setupProfile'))}</h3>
+        <span style="font-size:11px;color:var(--txt3);letter-spacing:0.04em">${data.completed}/${data.total} ${t('cl.done')}</span>
         <span class="cl-pct">${data.percent}%</span>
       </div>
       <div class="cl-bar"><div class="cl-bar-fill" style="width:${data.percent}%"></div></div>

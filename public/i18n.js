@@ -405,6 +405,14 @@
       'as.languageHint':       'Poprvé se jazyk vezme z nastavení tvého zařízení. Když si ho tady přepneš, volba platí i na dalších zařízeních v tomhle prohlížeči.',
       'as.langEn':             'English',
       'as.langCs':             'Čeština',
+      'cl.profile':            'Vyplnit profil (jméno + město nebo studio + bio)',
+      'cl.rate':               'Nastavit hodinovou sazbu',
+      'cl.styles':             'Vybrat styly tetování',
+      'cl.portfolio':          'Přidat aspoň 3 položky do portfolia',
+      'cl.slot':               'Vypsat aspoň jeden volný termín',
+      'cl.stripe':             'Propojit Stripe (přijímat zálohy)',
+      'cl.first_booking':      'První rezervace',
+      'cl.done':               'hotovo',
 
       // ── EARNINGS ────────────────────────────────────────────────────────────
       'ea.pageTitle':    'Výdělky',
@@ -1164,6 +1172,14 @@
       'as.languageHint':       'The language follows your device setting the first time. If you switch it here, your choice sticks in this browser.',
       'as.langEn':             'English',
       'as.langCs':             'Čeština',
+      'cl.profile':            'Fill in your profile (name + city or studio + bio)',
+      'cl.rate':               'Set your hourly rate',
+      'cl.styles':             'Pick your tattoo styles',
+      'cl.portfolio':          'Add at least 3 portfolio items',
+      'cl.slot':               'Publish at least one open slot',
+      'cl.stripe':             'Connect Stripe (to accept deposits)',
+      'cl.first_booking':      'Your first booking',
+      'cl.done':               'done',
 
       // ── EARNINGS ────────────────────────────────────────────────────────────
       'ea.pageTitle':    'Earnings',
