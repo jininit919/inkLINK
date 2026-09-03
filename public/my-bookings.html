@@ -149,7 +149,8 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
       <div class="list" id="clientList"></div>
       <div class="empty" id="clientEmpty" style="display:none">
         <div class="b" data-i18n="bk.noneYet">No bookings yet</div>
-        Find an artist in the <a href="/" style="color:var(--red2);text-decoration:underline">feed</a> and click on an open slot.
+        <span data-i18n="bk.clientEmpty">Find an artist in the feed and pick an open slot.</span>
+        <div style="margin-top:16px"><a class="btn" href="/" data-i18n="bk.browseFeed">Browse the feed</a></div>
       </div>
     </div>
 
@@ -157,8 +158,11 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
       <div class="list" id="artistList"></div>
       <div class="empty" id="artistEmpty" style="display:none">
         <div class="b" data-i18n="bk.none">No bookings</div>
-        No clients have booked with you yet.<br>
-        Add slots in <a href="/artist-setup" style="color:var(--red2);text-decoration:underline">artist settings</a> so clients can find you.
+        <span data-i18n="bk.artistEmpty">Nobody has booked with you yet.</span><br>
+        <span data-i18n="bk.artistEmptyCta">Publish open slots in your calendar so clients can find you.</span>
+        <!-- Míří na /calendar: termíny se od Sprintu 2 spravují tam,
+             v artist-setup ta sekce už není. -->
+        <div style="margin-top:16px"><a class="btn" href="/calendar" data-i18n="bk.goToCalendar">Open the calendar</a></div>
       </div>
     </div>
   </div>

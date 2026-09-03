@@ -1786,6 +1786,10 @@ def landing_page():
 
 @app.route('/style-guide')
 def style_guide_page():
+    # Vývojářská paleta, ne produktová stránka. Na produkci ji nikdo
+    # z venku vidět nemá — je to jen šum a zbytečná plocha navíc.
+    if not app.debug and not is_admin_user(session.get('user_id')):
+        return send_from_directory('public', '404.html'), 404
     return send_from_directory('public', 'style-guide.html')
 
 
@@ -3310,6 +3314,9 @@ def get_profile(username):
     ''', (u['id'],)).fetchone()
     if sm:
         studio_link = {'slug': sm['slug'], 'name': sm['name'], 'role': sm['role']}
+    # Stejný resolver jako používá rušení rezervace — jeden zdroj pravdy,
+    # ať se to, co klientovi slíbíme, shoduje s tím, co mu pak vrátíme.
+    _cancel_full, _cancel_half = _resolve_cancel_policy(conn, u['id'])
     conn.close()
 
     return jsonify({
@@ -3343,6 +3350,10 @@ def get_profile(username):
         'rating_count':    rating_count,
         'completed_count': completed_count,
         'member_since':    u['created_at'],
+        # Storno lhůty tatéra. Bez nich frontend vypisoval natvrdo 96/48 h,
+        # takže klientovi od Sprintu 2 mohl ukázat cizí podmínky.
+        'cancel_full_hours': _cancel_full,
+        'cancel_half_hours': _cancel_half,
         'portfolio_count': len(portfolio),
         'portfolio': [{
             'id':              p['id'],

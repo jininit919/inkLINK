@@ -1962,6 +1962,27 @@ class PublicEventsTests(unittest.TestCase):
     def tearDown(self):
         os.unlink(self.db)
 
+    def test_profile_exposes_the_artists_own_cancel_policy(self):
+        """Profil dřív storno lhůty vůbec neposílal, takže je frontend
+        vypisoval natvrdo jako 96/48 h. Tatér, který si je od Sprintu 2
+        změnil, tak klientovi ukazoval cizí podmínky — a vracelo se pak
+        podle jiných čísel, než jaká slíbil."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET cancel_refund_full_hours=120, '
+                     'cancel_refund_half_hours=72 WHERE id=1')
+        conn.commit()
+        conn.close()
+        d = self.client.get('/api/profile/inker').get_json()
+        self.assertEqual(d['cancel_full_hours'], 120)
+        self.assertEqual(d['cancel_half_hours'], 72)
+
+    def test_profile_falls_back_to_platform_policy(self):
+        d = self.client.get('/api/profile/inker').get_json()
+        import server
+        self.assertEqual(d['cancel_full_hours'], server.CANCEL_REFUND_FULL_HOURS)
+        self.assertEqual(d['cancel_half_hours'], server.CANCEL_REFUND_HALF_HOURS)
+
     def test_events_list_is_public(self):
         r = self.client.get('/api/events?year=2027&month=9')
         self.assertEqual(r.status_code, 200)

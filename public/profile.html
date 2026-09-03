@@ -322,6 +322,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 const username = location.pathname.replace(/^\/profile\//, '').split('/')[0] || '';
 let me = null, profile = null;
 const tr = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+// Storno lhůty jsou per tatér (Sprint 2). Doplňujeme je do textu, ať
+// klientovi neslibujeme cizí podmínky.
+function cancelText(key) {
+  return tr(key)
+    .replace(/\{full\}/g, (profile && profile.cancel_full_hours) || 96)
+    .replace(/\{half\}/g, (profile && profile.cancel_half_hours) || 48);
+}
 document.addEventListener('il-i18n-applied', () => { if (profile) load(); });
 
 function escapeHtml(s) { return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -990,14 +997,14 @@ function refreshDeposit() {
   if (!total) {
     dep.innerHTML = payFull
       ? tr('pf.agreedNoPrepay')
-      : tr('pf.agreedDeposit').replace('{pct}', depPct) + '<br>' + tr('pf.cancelPolicy');
+      : tr('pf.agreedDeposit').replace('{pct}', depPct) + '<br>' + cancelText('pf.cancelPolicy');
     return;
   }
   if (payFull) {
     dep.innerHTML = `
       Délka: <b>${pendingSize.hours} h</b> · Cena: <b>${totalKc.toLocaleString('cs-CZ')} Kč</b><br>
       <b>Platíš teď celé: ${totalKc.toLocaleString('cs-CZ')} Kč</b> · na místě už nic.<br>
-      ${tr('pf.cancelPolicyRefund')}
+      ${cancelText('pf.cancelPolicyRefund')}
     `;
   } else {
     dep.innerHTML = `
@@ -1005,7 +1012,7 @@ function refreshDeposit() {
       Záloha (${depPct}%) <b>${chargedKc.toLocaleString('cs-CZ')} Kč</b> teď přes InkLink.<br>
       Zbytek <b>${remainingKc.toLocaleString('cs-CZ')} Kč</b> doplatíš na místě (hotově / kartou)
       ${tr('pf.balanceLater')}<br>
-      ${tr('pf.cancelPolicy')}
+      ${cancelText('pf.cancelPolicy')}
     `;
   }
 }
