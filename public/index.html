@@ -324,8 +324,8 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 <div class="layout">
   <main>
     <div class="feed-tabs">
-      <div class="feed-tab active" data-kind="sketch"><span data-i18n="fd.tabSketch">Sketch</span> <span class="tab-hint" id="cntSketch"></span></div>
-      <div class="feed-tab" data-kind="done"><span data-i18n="fd.tabHealed">Healed</span> <span class="tab-hint" id="cntDone"></span></div>
+      <div class="feed-tab active" data-kind="done"><span data-i18n="fd.tabDone">Done</span> <span class="tab-hint" id="cntDone"></span></div>
+      <div class="feed-tab" data-kind="sketch"><span data-i18n="fd.tabSketch">Sketch</span> <span class="tab-hint" id="cntSketch"></span></div>
     </div>
 
     <div class="feed-toolbar">
@@ -368,7 +368,7 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
           <label data-i18n="fd.type">Type</label>
           <select name="kind" id="addpKind" required>
             <option value="sketch" data-i18n="fd.sketchDesign">Sketch / tattoo design</option>
-            <option value="done" data-i18n="fd.healedWork">Healed / finished work</option>
+            <option value="done" data-i18n="fd.healedWork">Finished work</option>
           </select>
         </div>
         <div class="addp-field">
@@ -476,7 +476,7 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
           <div class="welcome-step-title">Upload portfolio</div>
-          <div class="welcome-step-sub">Sketches with a price show to clients as "Book this design →". Healed shows your style.</div>
+          <div class="welcome-step-sub">Sketches with a price show to clients as "Book this design →". Finished work shows your style.</div>
         </div>
       </div>
       <div class="welcome-step">
@@ -565,7 +565,7 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 </div>
 
 <script>
-let me = null, items = [], styleFilter = '', cityFilter = '', searchQuery = '', kindFilter = 'sketch', sortBy = 'price';
+let me = null, items = [], styleFilter = '', cityFilter = '', searchQuery = '', kindFilter = 'done', sortBy = 'price';
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -620,10 +620,10 @@ async function init() {
   });
 
   // feed tabs
-  document.querySelectorAll('.feed-tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.feed-tab').forEach(tab => tab.addEventListener('click', () => {
     document.querySelectorAll('.feed-tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    kindFilter = t.dataset.kind;
+    tab.classList.add('active');
+    kindFilter = tab.dataset.kind;
     // FAB title se mění podle aktivní záložky
     const fab = document.getElementById('fabAdd');
     if (fab) fab.title = kindFilter === 'sketch' ? t('fd.addSketch') : t('fd.addHealed');
@@ -755,8 +755,8 @@ function closeAddPortfolio() {
 
 function updateAddpTitle() {
   const k = document.getElementById('addpKind')?.value;
-  const t = document.getElementById('addpTitle');
-  if (t) t.textContent = k === 'done' ? t('fd.addHealed') : 'PŘIDAT SKICU';
+  const el = document.getElementById('addpTitle');
+  if (el) el.textContent = k === 'done' ? t('fd.addHealed') : t('fd.addSketch');
 }
 
 async function loadAddpStyles() {
@@ -1009,7 +1009,7 @@ async function doSearch() {
       const price = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
       return `<a class="sd-item" href="/profile/${escapeHtml(p.username)}#book-${p.id}">
         <div class="sd-img"><img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy"></div>
-        <div class="sd-body"><div class="n">${escapeHtml(p.caption || (p.kind==='sketch'?'Sketch':'Healed'))}</div>
+        <div class="sd-body"><div class="n">${escapeHtml(p.caption || (p.kind==='sketch'?t('fd.badgeSketch'):t('fd.badgeDone')))}</div>
           <div class="m">${escapeHtml(p.display_name)} · ${p.kind==='sketch'?'sketch':'healed'}</div></div>
         <div class="sd-meta">${price}</div>
       </a>`;
