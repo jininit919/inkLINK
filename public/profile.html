@@ -2,7 +2,10 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
-<style>html,body{background:#faf8f3;margin:0}</style>
+<style>html,body{background:#faf8f3;margin:0}#instaLink{align-items:center;color:var(--txt3);margin-left:10px;vertical-align:middle;transition:color 0.15s}
+#instaLink:hover{color:var(--txt)}
+#instaLink .icon{width:15px;height:15px;display:block}
+</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf8f3">
@@ -229,6 +232,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
         <div class="uname"><span id="uname"></span></div>
         <div class="meta">
           <span id="cityRow" style="display:none">⌖ <b id="city"></b></span>
+          <a id="instaLink" href="#" target="_blank" rel="noopener me" style="display:none"
+             data-i18n-attr="pf.instagram:title" title="Instagram" aria-label="Instagram"><svg class="icon"><use href="#i-instagram"/></svg></a>
         </div>
         <div class="trust-row" id="trustRow"></div>
         <div class="bio" id="bio"></div>
@@ -457,6 +462,16 @@ function render() {
   }
 
   if (profile.city) { document.getElementById('city').textContent = profile.city; document.getElementById('cityRow').style.display = 'inline'; }
+  if (profile.instagram) {
+    const ig = document.getElementById('instaLink');
+    // Handle si uživatel píše sám, takže může přijít i s @ nebo s celou URL.
+    const handle = String(profile.instagram).trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/.*$/, '');
+    if (handle) {
+      ig.href = 'https://instagram.com/' + encodeURIComponent(handle);
+      ig.title = 'Instagram · @' + handle;
+      ig.style.display = 'inline-flex';
+    }
+  }
 
   if (profile.bio) document.getElementById('bio').textContent = profile.bio;
 

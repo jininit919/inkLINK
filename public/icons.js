@@ -1,11 +1,15 @@
 // InkLink icon loader — synchronously inject /icons.svg sprite into <body>
 // Once loaded, use anywhere: <svg class="icon"><use href="#i-heart"/></svg>
 (function () {
+  var SPRITE_V = 2;   // ↑ při každé změně public/icons.svg
   // Run as soon as body exists
   function inject() {
     if (window.__inkLinkIconsLoaded) return;
     window.__inkLinkIconsLoaded = true;
-    fetch('/icons.svg', { cache: 'force-cache' })
+    // POZOR: force-cache bez verze znamená, že prohlížeč drží starý sprite
+    // a nově přidaná ikona se u vracejícího se uživatele NIKDY neobjeví.
+    // Při každé změně icons.svg zvedni SPRITE_V.
+    fetch('/icons.svg?v=' + SPRITE_V, { cache: 'force-cache' })
       .then(function (r) { return r.text(); })
       .then(function (txt) {
         var div = document.createElement('div');
