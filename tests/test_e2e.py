@@ -1257,11 +1257,7 @@ class _CrmBase(unittest.TestCase):
     admin1  (id 6) — platformní admin (is_admin=1)
     """
 
-    MEDICAL_KEY = 'ZmFrZS1rZXktZm9yLXRlc3RzLTMyLWJ5dGVzLWxvbmc9'  # placeholder, viz setUp
-
     def setUp(self):
-        from cryptography.fernet import Fernet
-        os.environ['MEDICAL_NOTES_KEY'] = Fernet.generate_key().decode()
         self.client, self.db = _fresh_client()
         import sqlite3
         conn = sqlite3.connect(self.db)
@@ -1285,7 +1281,6 @@ class _CrmBase(unittest.TestCase):
 
     def tearDown(self):
         os.unlink(self.db)
-        os.environ.pop('MEDICAL_NOTES_KEY', None)
 
     def _as(self, uid):
         with self.client.session_transaction() as s:
@@ -1323,9 +1318,6 @@ class CrossStudioLeakageTests(_CrmBase):
         return [
             ('GET',    f'/api/clients/{self.cid}',         None),
             ('PATCH',  f'/api/clients/{self.cid}',         {'note': 'x'}),
-            ('GET',    f'/api/clients/{self.cid}/medical', None),
-            ('PUT',    f'/api/clients/{self.cid}/medical', {'notes': 'x'}),
-            ('DELETE', f'/api/clients/{self.cid}/medical', None),
             ('POST',   f'/api/clients/{self.cid}/notes',   {'body': 'x'}),
         ]
 
@@ -1479,101 +1471,6 @@ class ClientAutoLinkTests(_CrmBase):
         self.assertEqual(c['email'], 'client1@t.cz')
 
 
-class MedicalNotesTests(_CrmBase):
-
-    def setUp(self):
-        super().setUp()
-        self.cid = self._mk_client_for(2)
-        self._as(2)
-
-    def _log_rows(self):
-        import sqlite3
-        conn = sqlite3.connect(self.db)
-        conn.row_factory = sqlite3.Row
-        rows = [dict(r) for r in conn.execute(
-            'SELECT * FROM medical_notes_access_log ORDER BY id').fetchall()]
-        conn.close()
-        return rows
-
-    def test_encrypt_decrypt_round_trip(self):
-        secret = 'Alergie na latex, epilepsie'
-        self.assertEqual(self.client.put(f'/api/clients/{self.cid}/medical',
-                                         json={'notes': secret}).status_code, 200)
-        r = self.client.get(f'/api/clients/{self.cid}/medical')
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.get_json()['notes'], secret)
-
-    def test_stored_value_is_ciphertext_not_plaintext(self):
-        import sqlite3
-        secret = 'Alergie na latex'
-        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': secret})
-        conn = sqlite3.connect(self.db)
-        stored = conn.execute('SELECT ciphertext, key_version FROM client_medical_notes').fetchone()
-        conn.close()
-        self.assertNotIn(secret, stored[0])
-        self.assertEqual(stored[1], 1)
-
-    def test_access_is_logged(self):
-        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'x'})
-        before = len(self._log_rows())
-        self.client.get(f'/api/clients/{self.cid}/medical')
-        rows = self._log_rows()
-        self.assertGreater(len(rows), before)
-        self.assertTrue(any(r['action'] == 'read' and r['outcome'] == 'ok' for r in rows))
-
-    def test_audit_failure_refuses_the_read(self):
-        from unittest.mock import patch
-        import server
-        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'tajné'})
-        with patch.object(server, '_medical_audit', side_effect=RuntimeError('disk full')):
-            r = self.client.get(f'/api/clients/{self.cid}/medical')
-        self.assertEqual(r.status_code, 503)
-        self.assertNotIn(b'tajn', r.data)
-
-    def test_client_detail_never_returns_plaintext(self):
-        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'tajné'})
-        d = self.client.get(f'/api/clients/{self.cid}').get_json()
-        self.assertTrue(d['has_medical_notes'])
-        self.assertNotIn('tajné', json.dumps(d, ensure_ascii=False))
-
-
-class MedicalNotesNoKeyTests(_CrmBase):
-    """Chybějící klíč smí shodit JEN zdravotní endpoint, ne celé CRM."""
-
-    def setUp(self):
-        # Schválně bez MEDICAL_NOTES_KEY — _fresh_client reimportuje server.
-        os.environ.pop('MEDICAL_NOTES_KEY', None)
-        self.client, self.db = _fresh_client()
-        import sqlite3
-        conn = sqlite3.connect(self.db)
-        conn.execute("INSERT INTO users (username, display_name, password_hash, email, is_artist) "
-                     "VALUES ('artist1','A','x','a@t.cz',1)")
-        conn.execute('INSERT INTO clients (artist_id, user_id, name, created_by) '
-                     "VALUES (1,NULL,'Jana',1)")
-        conn.commit()
-        conn.close()
-        self.cid = 1
-        self._as(1)
-
-    def test_medical_endpoint_503(self):
-        self.assertEqual(self.client.get(f'/api/clients/{self.cid}/medical').status_code, 503)
-        self.assertEqual(self.client.put(f'/api/clients/{self.cid}/medical',
-                                         json={'notes': 'x'}).status_code, 503)
-
-    def test_client_detail_still_works(self):
-        r = self.client.get(f'/api/clients/{self.cid}')
-        self.assertEqual(r.status_code, 200, r.data[:300])
-        self.assertFalse(r.get_json()['medical_notes_available'])
-
-    def test_write_creates_no_row(self):
-        import sqlite3
-        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'x'})
-        conn = sqlite3.connect(self.db)
-        n = conn.execute('SELECT COUNT(*) FROM client_medical_notes').fetchone()[0]
-        conn.close()
-        self.assertEqual(n, 0)
-
-
 class TattooRecordTests(_CrmBase):
     """Záznam o tetování je historie práce. Autorizace jde vždy přes klienta;
     booking_id je jinak volný ukazatel do cizích rezervací."""
@@ -1677,7 +1574,6 @@ class ClientGdprTests(_CrmBase):
         conn.close()
         self._as(1)
         self.client.post(f'/api/clients/{self.cid}/notes', json={'body': 'přišla pozdě'})
-        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'diabetes 1. typu'})
         self.rid = self.client.post(
             f'/api/clients/{self.cid}/tattoo-records',
             json={'session_date': '2027-02-01', 'body_location': 'levé předloktí',
@@ -1691,10 +1587,6 @@ class ClientGdprTests(_CrmBase):
             'client':  dict(conn.execute('SELECT * FROM clients WHERE id=?', (self.cid,)).fetchone()),
             'notes':   conn.execute('SELECT COUNT(*) FROM client_notes WHERE client_id=?',
                                     (self.cid,)).fetchone()[0],
-            'medical': conn.execute('SELECT COUNT(*) FROM client_medical_notes WHERE client_id=?',
-                                    (self.cid,)).fetchone()[0],
-            'audit':   conn.execute('SELECT COUNT(*) FROM medical_notes_access_log WHERE client_id=?',
-                                    (self.cid,)).fetchone()[0],
             'record':  dict(conn.execute('SELECT * FROM tattoo_records WHERE id=?',
                                          (self.rid,)).fetchone()),
             'booking': dict(conn.execute('SELECT * FROM bookings WHERE id=1').fetchone()),
@@ -1702,19 +1594,13 @@ class ClientGdprTests(_CrmBase):
         conn.close()
         return out
 
-    def test_export_contains_everything_including_medical(self):
+    def test_export_contains_client_notes_records_and_bookings(self):
         r = self.client.get(f'/api/clients/{self.cid}/export')
         self.assertEqual(r.status_code, 200)
         d = r.get_json()
-        self.assertEqual(d['medical_notes'], 'diabetes 1. typu')
         self.assertEqual(len(d['notes']), 1)
         self.assertEqual(len(d['tattoo_records']), 1)
         self.assertEqual(len(d['bookings']), 1)
-
-    def test_export_is_audited(self):
-        before = self._rows()['audit']
-        self.client.get(f'/api/clients/{self.cid}/export')
-        self.assertEqual(self._rows()['audit'], before + 1)
 
     def test_erase_requires_typed_confirmation(self):
         r = self.client.post(f'/api/clients/{self.cid}/erase', json={'confirm': 'ano'})
@@ -1732,12 +1618,8 @@ class ClientGdprTests(_CrmBase):
         self.assertEqual(rows['client']['note'], '')
         self.assertTrue(rows['client']['anonymized_at'])
 
-        # Poznámky i zdravotní údaje tvrdě smazané.
+        # Poznámky tvrdě smazané.
         self.assertEqual(rows['notes'], 0)
-        self.assertEqual(rows['medical'], 0)
-
-        # Access log ZŮSTÁVÁ — je to důkaz zákonnosti zpracování.
-        self.assertGreater(rows['audit'], 0)
 
         # Záznam rozdělený: popis těla pryč, účetní kostra zůstala.
         self.assertEqual(rows['record']['body_location'], '')

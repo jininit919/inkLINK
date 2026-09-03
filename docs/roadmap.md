@@ -75,14 +75,19 @@
 ## Sprint 3 — Client database (CRM-lite) [HIGH PRIORITY]
 
 **Effort: ~13 days**
-**Goal:** Turn one-off `users` rows into a studio-scoped client database with notes, medical info, tattoo history. Single biggest B2B "wow" feature.
+**Goal:** Turn one-off `users` rows into a client database with notes and tattoo history. Single biggest B2B "wow" feature.
+
+> **Doneseno jinak, viz [specs/sprint_3_crm_events.md](specs/sprint_3_crm_events.md):**
+> klienta vlastní tatér, ne studio (jinak by sólo tatéři dostávali 403).
+> **Zdravotní poznámky postaveny a zase odstraněny** — zvláštní kategorie údajů
+> dle čl. 9 GDPR nese DPIA a souhlasový režim, které pro launch nedávají smysl.
 
 | Deliverable | Days |
 |---|---|
 | `clients` table (studio_id, user_id, tags, style_preferences, acquisition_source, lifetime_value_czk cached) — or extend `users` with studio-scoped view via `studio_clients` linking table | 1 |
 | `client_notes` table (timestamped, studio-scoped, soft delete) | 1 |
 | `tattoo_records` table (booking_id, date, artist, body location, healed_photo_url, aftercare_followup_status) | 1 |
-| Medical notes encryption — Fernet with key from env, `medical_notes_encrypted` column, decrypt on read with audit log | 1 |
+| ~~Medical notes encryption~~ — postaveno a odstraněno, viz spec §4 | — |
 | Studio-scoped queries: `GET /api/studios/{id}/clients?search=&sort=` with `studio_id` enforcement | 1 |
 | Client detail: `GET /api/clients/{id}/history` (bookings + tattoos + notes, all studio-scoped) | 1 |
 | Per-client GDPR export (studio-issued, not user-issued) → ZIP scoped to one client | 0.5 |

@@ -46,7 +46,7 @@ pamatuje otestovat.
 **404, ne 403**, když je zdroj neviditelný. 403 je orákulum na existenci.
 
 **`is_admin_user` neobchází `_crm_get_client`.** Platformní admin čte
-telemetrii; zdravotní data tudy dostupná být nesmí. Je na to test.
+telemetrii; klientela tatéra mu tudy přístupná být nemá. Je na to test.
 
 ## 2. Fáze 0 — `studio_id` a plumbing
 
@@ -74,8 +74,6 @@ a doplněny chybějící indexy `bookings(artist_id)`, `bookings(client_id)`,
 | `clients` | `artist_id` vlastník, `user_id` NULLable (walk-in). Částečný unikátní index `(artist_id, user_id) WHERE user_id IS NOT NULL` |
 | `client_notes` | bez soft delete |
 | `tattoo_records` | `booking_id` NULLable — práce z doby před InkLinkem |
-| `client_medical_notes` | vlastní tabulka, `client_id UNIQUE`, `ciphertext`, `key_version` |
-| `medical_notes_access_log` | **bez FK na `clients`** — musí přežít výmaz klienta |
 
 `name/email/phone` na `clients` se čtou **jen když `user_id IS NULL`**; jinak
 je zdrojem pravdy `users`, jinak by tatér volal telefon, který si klient před
@@ -88,28 +86,27 @@ invalidace je přesně ta chyba, co byla na `bookings.studio_id`. `SUM()` při
 **Bez soft delete poznámek** (roadmapa ho chce): měkce smazaná poznámka je
 pořád PII v databázi, tedy pravý opak toho, co má výmaz udělat.
 
-## 4. Šifrování zdravotních poznámek
+## 4. Zdravotní poznámky — postaveno a zase odstraněno
 
-Fernet, klíč z `MEDICAL_NOTES_KEY`, validace **při importu** (vadný klíč se
-projeví při startu, ne až u prvního zápisu).
+Sprint 3 původně obsahoval šifrované zdravotní poznámky (Fernet, klíč z env,
+auditní log každého přístupu). **Odstraněno na vyžádání ještě před tím, než to
+kdokoli použil** — v produkci ani lokálně nezůstal jediný řádek dat.
 
-- **Klíč se NIKDY negeneruje.** `SECRET_KEY` se umí sám vygenerovat do
-  `.session_secret`; pro šifrovací klíč je to anti-vzor — přegenerování
-  nenávratně osiří všechen ciphertext.
-- Chybí klíč → **503 jen na zdravotním endpointu**, CRM jede dál. Proto je to
-  vlastní tabulka, ne sloupec na `clients`.
-- **Nejdřív zapsat audit a commitnout, teprve pak dešifrovat.** Opačné pořadí
-  propustí nezalogované čtení, když to mezi krokama spadne.
-- Audit se **nesmí polykat**, na rozdíl od ostatních logů v kódu: když zápis do
-  logu selže, čtení selže taky.
-- `key_version` se ukládá od začátku — jinak je rotace archeologie.
-- `cryptography` je v `requirements.txt` **explicitně**, ne tranzitivně přes
-  pywebpush/apns2, jejichž minor bump by nám verzi vytáhl zpod nohou.
+Důvod je správný a stojí za zapsání: údaje o zdraví jsou **zvláštní kategorie
+podle čl. 9 GDPR**. Šifrování a auditní log jsou z toho ta nejsnazší část;
+těžké je právní podloží (výslovný souhlas s jasným rozsahem), posouzení vlivu
+(DPIA), režim uchovávání a to, že se závazek objeví v zásadách ochrany údajů,
+kde ho pak musíme reálně plnit. Pro produkt bez jediného uživatele téhle
+funkce je to čistá zátěž.
 
-Detail klienta vrací jen `has_medical_notes` / `medical_notes_available`, nikdy
-plaintext. Ve frontendu je to sbalené tlačítko — **audit má zaznamenávat
-záměrné odhalení, ne každé načtení stránky.** Kdyby se poznámky načítaly
-s detailem, log by byl za měsíc k ničemu.
+**Co z toho zůstalo:** `bookings.internal_note` a `client_notes` jsou volný
+text, kam tatér technicky napsat cokoli může. Proto je výmaz klienta obě pole
+čistí (viz §5). Rozdíl je v tom, že se jako zdravotní databáze **netváříme**
+a nesbíráme je strukturovaně — což je přesně ta hranice, která odděluje běžný
+provozní záznam od zpracování zvláštní kategorie údajů.
+
+**Revisit trigger:** až o to tatéři sami řeknou a bude čas na DPIA. Kód je
+v historii gitu ve Sprintu 3 (commity `edc8e6f` a `04f2155`).
 
 ## 5. GDPR: výmaz jednoho klienta
 
@@ -119,16 +116,12 @@ zachovat (10letá retence dle zákona o účetnictví).
 | Tabulka | Co se stane |
 |---|---|
 | `clients` | PII pryč **včetně `user_id`** (ponechaný odkaz re-identifikuje přes `users`) |
-| `client_notes`, `client_medical_notes` | **tvrdě smazat** |
+| `client_notes` | **tvrdě smazat** |
 | `tattoo_records` | **řádek se rozdělí** — `body_location`/`description`/`healed_photo`/`aftercare_status` pryč; `booking_id`/`artist_id`/`session_date`/`price_czk` zůstává |
 | `bookings` | vyčistit `design_note` a `internal_note` |
-| `medical_notes_access_log` | **zachovat** |
 
-`bookings.internal_note` je soukromé pole tatéra, kam se reálně píše „alergie
-na latex, volat po 18:00" — nejvyšší hodnota za dva řádky kódu.
-
-Access log se zachovává, protože je to **důkaz zákonnosti zpracování**; mazat
-ho znamená zničit si vlastní obhajobu.
+`bookings.internal_note` je soukromé pole tatéra, kam se reálně píšou věci
+jako „volat po 18:00" — nejvyšší hodnota za dva řádky kódu.
 
 **Fotky hojení se mažou i z úložiště** (`delete_upload()`, nový vedle
 `save_upload()`). Vynulovat cestu v DB nestačí — objekt v R2 zůstane veřejně
@@ -146,8 +139,8 @@ V1 vyžaduje **shodný `artist_id`** — napříč tatéry je „čí je pak kli
 otázka vlastnictví dat, ne UI, a špatná odpověď je incident.
 
 Odmítá se i sloučení dvou klientů navázaných na **různé účty**: to nejsou
-duplicity, ale dva lidé, a sloučení by smíchalo cizí zdravotní historie.
-Access log se nepřepisuje — říká, co se tehdy stalo, ne kde data leží dnes.
+duplicity, ale dva lidé, a sloučení by jednomu z nich přepsalo historii pod
+rukama.
 
 ## 7. Události
 
@@ -174,7 +167,7 @@ záznamů a nepropojené. Byla ale **rozbitá, ne zamčená**: `init()` dělal
 ## 8. Endpointy
 
 `GET/POST /api/clients` · `GET/PATCH /api/clients/<id>` ·
-`GET/PUT/DELETE /api/clients/<id>/medical` · `POST /api/clients/<id>/notes` ·
+`POST /api/clients/<id>/notes` ·
 `PATCH/DELETE /api/client-notes/<nid>` ·
 `POST /api/clients/<id>/tattoo-records` · `PATCH/DELETE /api/tattoo-records/<rid>` ·
 `GET /api/clients/<id>/export` · `POST /api/clients/<id>/erase` ·
@@ -188,22 +181,11 @@ cizí `studio_id`) a odpadá potřeba chybějícího „člen tohohle studia" gu
 helper navíc plete „nemá studio" s „nemá tarif"; sólo tatér je `free`, ne bez
 tarifu.)
 
-Zdravotní poznámky **nepatří do `/api/me/export`** (ten je platformní a vydává
-ho sám uživatel) — patří do per-klient exportu, který vydává tatér jako jejich
-správce.
+Per-klient export je vedle platformního `/api/me/export` schválně: ten
+vydává sám uživatel o sobě, tenhle vydává tatér o svém klientovi. Jsou to
+dvě různé role správce a dva různé rozsahy dat.
 
-## 9. Provoz
-
-`MEDICAL_NOTES_KEY` musí být nastavený v prostředí, jinak zdravotní endpointy
-vrací 503. **Klíč se nesmí přegenerovat ani ztratit** — na rozdíl od
-`SECRET_KEY` (kde přegenerování jen odhlásí uživatele) tady ztráta znamená, že
-všechny uložené zdravotní poznámky jsou nenávratně nečitelné. Vygenerování:
-
-```
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-## 10. Testy
+## 9. Testy
 
 48 nových (celkem 136).
 
@@ -214,20 +196,17 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
   Tenhle test obhajuje počítanou viditelnost proti denormalizovanému sloupci.
 - **`ClientAutoLinkTests`** — první rezervace řádek založí, druhá už ne, jiný
   tatér = vlastní řádek.
-- **`MedicalNotesTests`** / **`MedicalNotesNoKeyTests`** — round trip; chybí
-  klíč → medical 503 **a detail klienta 200** (důkaz izolace); v DB je opravdu
-  ciphertext.
 - **`TattooRecordTests`** — cizí `booking_id` se nedá navázat; PATCH nesahá na
   nezmíněná pole; kolega ze studia vidí, ale nemaže.
 - **`ClientGdprTests`** — výmaz vynuluje PII i `user_id`, poznámky tvrdě smaže,
-  rezervace a ceny nechá, `internal_note` vyčistí, `tattoo_records` rozdělí,
-  access log **zachová**; řadový člen studia → 403, admin studia → 200.
+  rezervace a ceny nechá, `internal_note` vyčistí a `tattoo_records` rozdělí;
+  řadový člen studia → 403, admin studia → 200.
 - **`StudioIdInsertTests`** (přepis) — `studio_id` při INSERTu, NULL u sólo,
   follow-up dědí rodiče, pozdější vstup do studia historii nepřepíše.
 - **`PublicEventsTests`** — veřejné čtení, rozsah přes přelom měsíce,
   `is_own`/`is_saved` u nepřihlášeného nesmí vyjít `true` kvůli `uid == 0`.
 
-## 11. Vědomé škrty (v1)
+## 10. Vědomé škrty (v1)
 
 Cachovaná `lifetime_value_czk`; `GET /api/studios/<id>/clients`; gating přes
 `require_tier`; soft delete poznámek; slučování napříč tatéry;

@@ -16,7 +16,6 @@
   --red: #1a1a1a;--red2: #0a0a0a;--red3: #000;--ink: #0a0a0a;
   --txt: #0a0a0a;--txt2: #2a2a2a;--txt3: #5a5a5a;
   --border: #d4cfbf;--border2: #a8a399;
-  --med:#8e44ad;
 }
 body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
@@ -54,7 +53,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .c-sub{color:var(--txt3);font-size:11px;letter-spacing:0.04em;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pill{display:inline-block;font-size:9px;letter-spacing:0.1em;padding:2px 7px;background:var(--bg4);color:var(--txt3);border-radius:3px;text-transform:uppercase;margin-left:6px;vertical-align:middle}
 .pill.acct{background:var(--ink);color:#faf8f3}
-.pill.med{background:rgba(142,68,173,0.14);color:var(--med)}
 .pill.gone{background:#ddd;color:#777}
 
 .card{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:22px;margin-bottom:16px}
@@ -78,9 +76,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .item.rec{border-left:3px solid var(--ink)}
 .item img.heal{max-width:150px;border-radius:6px;margin-top:8px;display:block;border:1px solid var(--border)}
 
-.medbox{border:1px solid var(--med);border-radius:9px;padding:16px;background:rgba(142,68,173,0.05)}
-.medbox h3{color:var(--med)}
-.medbox .warn{font-size:11px;color:var(--txt3);line-height:1.6;margin-bottom:12px}
 
 .danger-zone{margin-top:26px;border:1px solid #d99;border-radius:10px;padding:18px;background:rgba(179,38,30,0.05)}
 .danger-zone h4{font-size:13px;letter-spacing:0.12em;color:#b3261e;margin-bottom:8px;text-transform:uppercase}
@@ -323,29 +318,12 @@ async function renderDetail(id){
       <button class="btn sm" onclick="addNote(${id})">Přidat poznámku</button>
     </div>
 
-    <div class="card medbox">
-      <h3>Zdravotní poznámky</h3>
-      <div class="warn">
-        Alergie, léky, kožní onemocnění. Uložené šifrovaně a <b>každé zobrazení se
-        zaznamenává</b> do přístupového logu — proto se nenačítají samy.
-        ${c.medical_notes_available ? '' : '<br><b>Šifrovací klíč není na serveru nastavený, poznámky teď nejdou číst ani ukládat.</b>'}
-      </div>
-      <div id="medArea">
-        ${c.medical_notes_available
-          ? `<button class="btn ghost sm" onclick="revealMedical(${id})">
-               ${c.has_medical_notes ? 'Zobrazit zdravotní poznámky' : 'Přidat zdravotní poznámky'}
-             </button>`
-          : '<button class="btn ghost sm" disabled>Nedostupné</button>'}
-      </div>
-    </div>
-
     <div class="danger-zone">
       <h4>Nevratné operace</h4>
       <p>
-        <b>Export</b> stáhne všechna data klienta v JSON (včetně zdravotních poznámek —
-        to se také zaznamená do logu).<br>
-        <b>Výmaz</b> odstraní jméno, kontakt, poznámky, zdravotní údaje a popisy
-        tetování. Rezervace, ceny a účetní záznamy zůstávají — ty musíme ze zákona
+        <b>Export</b> stáhne všechna data klienta v JSON.<br>
+        <b>Výmaz</b> odstraní jméno, kontakt, poznámky a popisy tetování.
+        Rezervace, ceny a účetní záznamy zůstávají — ty musíme ze zákona
         držet 10 let. Vrátit to nejde.
       </p>
       <button class="btn ghost sm" onclick="exportClient(${id})">Stáhnout export</button>
@@ -391,39 +369,6 @@ async function addRecord(id){
 async function delRecord(rid, id){
   if (!confirm('Smazat záznam? Smaže se i fotka zhojení.')) return;
   try { await api(`/api/tattoo-records/${rid}`, {method: 'DELETE'}); renderDetail(id); }
-  catch(e){ showToast(e.message, true); }
-}
-
-// Rozbalení je záměrné odhalení — proto se zdravotní poznámky tahají až tady
-// a ne s detailem. Audit má zaznamenat, že se na ně někdo díval, ne že si
-// otevřel stránku klienta.
-async function revealMedical(id){
-  const area = document.getElementById('medArea');
-  area.innerHTML = '<div style="color:var(--txt3);font-size:12px">Načítám…</div>';
-  let d;
-  try { d = await api(`/api/clients/${id}/medical`); }
-  catch(e){ area.innerHTML = `<div style="color:#b3261e;font-size:12px">${esc(e.message)}</div>`; return; }
-  area.innerHTML = `
-    <div class="field"><textarea id="medBody" style="min-height:110px">${esc(d.notes || '')}</textarea></div>
-    <button class="btn sm" onclick="saveMedical(${id})">Uložit</button>
-    ${d.notes ? `<button class="btn danger sm" onclick="deleteMedical(${id})">Smazat</button>` : ''}
-    <div style="color:var(--txt3);font-size:10px;letter-spacing:0.06em;margin-top:9px">
-      Poslední úprava: ${esc(fmtStamp(d.updated_at))}
-    </div>`;
-}
-
-async function saveMedical(id){
-  const notes = document.getElementById('medBody').value;
-  try { await api(`/api/clients/${id}/medical`, {
-          method: 'PUT', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({notes}) });
-        showToast('Uloženo.'); }
-  catch(e){ showToast(e.message, true); }
-}
-
-async function deleteMedical(id){
-  if (!confirm('Smazat zdravotní poznámky? Nejde to vrátit.')) return;
-  try { await api(`/api/clients/${id}/medical`, {method: 'DELETE'}); renderDetail(id); }
   catch(e){ showToast(e.message, true); }
 }
 

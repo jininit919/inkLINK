@@ -13,6 +13,3 @@ Pillow>=10.0.0
 sentry-sdk[flask]>=2.0.0
 holidays>=0.60
 tzdata>=2024.1
-# Fernet pro zdravotní poznámky klientů. Explicitně, ne tranzitivně přes
-# pywebpush/apns2 — jejich minor bump by nám verzi vytáhl zpod nohou.
-cryptography>=45

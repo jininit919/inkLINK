@@ -185,36 +185,6 @@ R2_SECRET_KEY = os.environ.get('R2_SECRET_KEY', '')
 R2_BUCKET     = os.environ.get('R2_BUCKET', '')
 R2_PUBLIC_URL = os.environ.get('R2_PUBLIC_URL', '').rstrip('/')
 
-# ── Šifrování zdravotních poznámek klientů ───────────────────────────────────
-# Fernet, klíč výhradně z env. Klíč se NIKDY negeneruje sám: SECRET_KEY si to
-# dovolit může (přegenerování jen odhlásí uživatele), tady by přegenerování
-# nenávratně a tiše osiřelo všechen existující ciphertext.
-# Klíč se validuje TEĎ, při importu — vadný klíč má spadnout při startu, ne až
-# někomu při prvním zápisu. Chybějící klíč appku neshodí, jen zdravotní
-# endpointy vrací 503; zbytek CRM jede dál.
-MEDICAL_NOTES_KEY = os.environ.get('MEDICAL_NOTES_KEY', '').strip()
-MEDICAL_KEY_VERSION = 1
-_fernet = None
-if MEDICAL_NOTES_KEY:
-    from cryptography.fernet import Fernet as _Fernet
-    _fernet = _Fernet(MEDICAL_NOTES_KEY.encode())  # ValueError při startu = vadný klíč
-    print('[medical] encryption key loaded')
-else:
-    print('[medical] MEDICAL_NOTES_KEY not set — zdravotní poznámky vypnuté (503)')
-
-
-def _medical_key_available() -> bool:
-    return _fernet is not None
-
-
-def _medical_encrypt(plaintext: str) -> str:
-    return _fernet.encrypt((plaintext or '').encode('utf-8')).decode('ascii')
-
-
-def _medical_decrypt(token: str) -> str:
-    return _fernet.decrypt(token.encode('ascii')).decode('utf-8')
-
-
 _s3 = None
 if R2_BUCKET and R2_ACCESS_KEY and R2_ACCOUNT_ID:
     _s3 = boto3.client(
@@ -1136,34 +1106,6 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_tattoo_records_client ON tattoo_records(client_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_tattoo_records_booking ON tattoo_records(booking_id)')
-
-    # Vlastní tabulka, ne sloupec na clients: chybějící šifrovací klíč pak
-    # vrátí 503 jen na zdravotním endpointu, ne na celém detailu klienta.
-    # Jeden řádek na klienta — zdravotní info je aktuální stav (alergie, léky),
-    # ne log; editace přepisuje.
-    c.execute('''CREATE TABLE IF NOT EXISTS client_medical_notes (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        client_id   INTEGER NOT NULL UNIQUE,
-        ciphertext  TEXT NOT NULL,               -- Fernet token
-        key_version INTEGER NOT NULL DEFAULT 1,  -- od začátku, jinak je rotace archeologie
-        updated_by  INTEGER NOT NULL,
-        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (client_id) REFERENCES clients(id)
-    )''')
-
-    # Bez FK na clients — schválně: log musí přežít výmaz klienta, je to důkaz
-    # zákonnosti zpracování. Obsahuje jen kdo/kdy/co, nikdy obsah poznámky.
-    c.execute('''CREATE TABLE IF NOT EXISTS medical_notes_access_log (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        client_id     INTEGER NOT NULL,
-        actor_user_id INTEGER NOT NULL,
-        action        TEXT NOT NULL,                     -- read|write|delete
-        outcome       TEXT NOT NULL DEFAULT 'requested', -- requested|ok|error
-        ip            TEXT DEFAULT '',
-        accessed_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_mna_log_client ON medical_notes_access_log(client_id)')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_mna_log_actor ON medical_notes_access_log(actor_user_id)')
 
     # ── native_push_tokens (iOS APNs / Android FCM tokeny z Capacitor app) ──
     # Web VAPID push žije v push_subscriptions (endpoint/p256dh/auth schéma).
@@ -9528,17 +9470,12 @@ def get_client(client_id):
     records = [_record_json(t) for t in conn.execute(
         'SELECT * FROM tattoo_records WHERE client_id=? ORDER BY session_date DESC',
         (client_id,)).fetchall()]
-    has_med = bool(conn.execute('SELECT 1 FROM client_medical_notes WHERE client_id=?',
-                                (client_id,)).fetchone())
     conn.close()
 
     out['bookings'] = bookings
     out['notes'] = notes
     out['tattoo_records'] = records
     out['lifetime_value_cents'] = spent
-    # Nikdy plaintext — jen jestli něco existuje a jestli to jde přečíst.
-    out['has_medical_notes'] = has_med
-    out['medical_notes_available'] = _medical_key_available()
     return jsonify(out)
 
 
@@ -9869,130 +9806,6 @@ def delete_tattoo_record(record_id):
     return jsonify({'ok': True})
 
 
-# ── CRM: zdravotní poznámky ──────────────────────────────────────────────────
-# Vlastní endpointy a vlastní tabulka, aby chybějící klíč shodil jen tohle,
-# ne celý detail klienta. Audit se zapisuje a COMMITUJE PŘED dešifrováním:
-# opačné pořadí propustí nezalogované čtení, když to mezi krokama spadne.
-# A na rozdíl od ostatních logů v kódu se tenhle NESMÍ polykat.
-
-def _medical_audit(conn, client_id, actor_id, action, outcome='requested'):
-    conn.execute('''INSERT INTO medical_notes_access_log
-                    (client_id, actor_user_id, action, outcome, ip)
-                    VALUES (?,?,?,?,?)''',
-                 (client_id, actor_id, action, outcome, (request.remote_addr or '')[:64]))
-    conn.commit()
-
-
-@app.route('/api/clients/<int:client_id>/medical')
-def get_client_medical(client_id):
-    err = require_login()
-    if err: return err
-    uid = session['user_id']
-    conn = get_db()
-    row = _crm_get_client(conn, uid, client_id)
-    if not row:
-        conn.close()
-        return jsonify({'error': 'not found'}), 404
-    if not _medical_key_available():
-        conn.close()
-        return jsonify({'error': 'Zdravotní poznámky nejsou nakonfigurované '
-                                 '(chybí MEDICAL_NOTES_KEY).'}), 503
-
-    # Nejdřív audit — když ho nejde zapsat, čtení neproběhne.
-    try:
-        _medical_audit(conn, client_id, uid, 'read')
-    except Exception as e:
-        conn.close()
-        print(f'[medical] audit write failed, refusing read: {e}')
-        return jsonify({'error': 'Nelze zaznamenat přístup — čtení odmítnuto.'}), 503
-
-    rec = conn.execute('SELECT * FROM client_medical_notes WHERE client_id=?',
-                       (client_id,)).fetchone()
-    if not rec:
-        conn.close()
-        return jsonify({'client_id': client_id, 'notes': '', 'exists': False})
-    try:
-        plaintext = _medical_decrypt(rec['ciphertext'])
-    except Exception as e:
-        _medical_audit(conn, client_id, uid, 'read', 'error')
-        conn.close()
-        print(f'[medical] decrypt failed for client {client_id}: {e}')
-        return jsonify({'error': 'Poznámku se nepodařilo dešifrovat.'}), 503
-    _medical_audit(conn, client_id, uid, 'read', 'ok')
-    conn.close()
-    return jsonify({'client_id': client_id, 'notes': plaintext, 'exists': True,
-                    'updated_at': rec['updated_at']})
-
-
-@app.route('/api/clients/<int:client_id>/medical', methods=['PUT'])
-def put_client_medical(client_id):
-    err = require_login()
-    if err: return err
-    uid = session['user_id']
-    data = request.get_json(silent=True) or request.form
-    notes = (data.get('notes') or '').strip()[:5000]
-
-    conn = get_db()
-    row = _crm_get_client(conn, uid, client_id)
-    if not row:
-        conn.close()
-        return jsonify({'error': 'not found'}), 404
-    if not _medical_key_available():
-        conn.close()
-        return jsonify({'error': 'Zdravotní poznámky nejsou nakonfigurované '
-                                 '(chybí MEDICAL_NOTES_KEY).'}), 503
-    try:
-        _medical_audit(conn, client_id, uid, 'write')
-    except Exception as e:
-        conn.close()
-        print(f'[medical] audit write failed, refusing write: {e}')
-        return jsonify({'error': 'Nelze zaznamenat přístup — zápis odmítnut.'}), 503
-
-    ciphertext = _medical_encrypt(notes)
-    existing = conn.execute('SELECT id FROM client_medical_notes WHERE client_id=?',
-                            (client_id,)).fetchone()
-    if existing:
-        conn.execute('''UPDATE client_medical_notes
-                        SET ciphertext=?, key_version=?, updated_by=?, updated_at=?
-                        WHERE client_id=?''',
-                     (ciphertext, MEDICAL_KEY_VERSION, uid,
-                      datetime.utcnow().isoformat(), client_id))
-    else:
-        conn.execute('''INSERT INTO client_medical_notes
-                        (client_id, ciphertext, key_version, updated_by)
-                        VALUES (?,?,?,?)''',
-                     (client_id, ciphertext, MEDICAL_KEY_VERSION, uid))
-    conn.commit()
-    _medical_audit(conn, client_id, uid, 'write', 'ok')
-    conn.close()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/clients/<int:client_id>/medical', methods=['DELETE'])
-def delete_client_medical(client_id):
-    err = require_login()
-    if err: return err
-    uid = session['user_id']
-    conn = get_db()
-    row = _crm_get_client(conn, uid, client_id)
-    if not row:
-        conn.close()
-        return jsonify({'error': 'not found'}), 404
-    # Mazat jde i bez klíče — smazat ciphertext, který nejde přečíst, musí být
-    # vždycky možné (a je to legitimní forma výmazu).
-    try:
-        _medical_audit(conn, client_id, uid, 'delete')
-    except Exception as e:
-        conn.close()
-        print(f'[medical] audit write failed, refusing delete: {e}')
-        return jsonify({'error': 'Nelze zaznamenat přístup — mazání odmítnuto.'}), 503
-    conn.execute('DELETE FROM client_medical_notes WHERE client_id=?', (client_id,))
-    conn.commit()
-    _medical_audit(conn, client_id, uid, 'delete', 'ok')
-    conn.close()
-    return jsonify({'ok': True})
-
-
 # ── CRM: GDPR (export, výmaz, slučování) ─────────────────────────────────────
 # Vzor je _anonymize_user: PII vynulovat, řádek nechat, účetnictví zachovat
 # (zákon o účetnictví, 10letá retence). Kaskády se NEDAJÍ použít — SQLite
@@ -10042,21 +9855,6 @@ def export_client(client_id):
     else:
         out['bookings'] = []
 
-    med = conn.execute('SELECT * FROM client_medical_notes WHERE client_id=?',
-                       (client_id,)).fetchone()
-    if med:
-        if not _medical_key_available():
-            # Ostatní části exportu jsou platné, tak je vydáme — jen řekneme
-            # nahlas, že tahle chybí, ať si nikdo nemyslí, že tam nic nebylo.
-            out['medical_notes'] = None
-            out['medical_notes_error'] = 'MEDICAL_NOTES_KEY není nastavený, poznámky nelze dešifrovat.'
-        else:
-            _medical_audit(conn, client_id, uid, 'export', 'ok')  # commituje sám
-            try:
-                out['medical_notes'] = _fernet.decrypt(med['ciphertext'].encode()).decode()
-            except Exception:
-                out['medical_notes'] = None
-                out['medical_notes_error'] = 'Poznámky nejdou dešifrovat aktuálním klíčem.'
     conn.close()
     return jsonify(out)
 
@@ -10100,24 +9898,21 @@ def erase_client(client_id):
                     tags='', style_preferences='', acquisition_source='', note='',
                     anonymized_at=?, updated_at=? WHERE id=?''',
                  (now_iso, now_iso, client_id))
-    # 2) poznámky a zdravotní údaje — tvrdě smazat. Soft delete by nechal PII
-    #    v databázi, tedy pravý opak toho, co má výmaz udělat.
+    # 2) poznámky — tvrdě smazat. Soft delete by nechal PII v databázi,
+    #    tedy pravý opak toho, co má výmaz udělat.
     conn.execute('DELETE FROM client_notes WHERE client_id=?', (client_id,))
-    conn.execute('DELETE FROM client_medical_notes WHERE client_id=?', (client_id,))
     # 3) tattoo_records — řádek se ROZDĚLÍ: popisné údaje o těle pryč,
     #    účetní kostra (booking_id, artist_id, session_date, price_czk) zůstává.
     conn.execute('''UPDATE tattoo_records SET body_location='', description='',
                     healed_photo='', aftercare_status='', anonymized_at=?
                     WHERE client_id=?''', (now_iso, client_id))
     # 4) bookings — design_note i internal_note. Do internal_note tatéři reálně
-    #    píšou "alergie na latex, volat po 18:00": nejcitlivější pole v celé
-    #    tabulce a nejlevnější výhra celého výmazu.
+    #    píšou i věci jako "volat po 18:00": nejcitlivější pole v celé tabulce
+    #    a nejlevnější výhra celého výmazu.
     if client_user_id:
         conn.execute('''UPDATE bookings SET design_note='', internal_note=''
                         WHERE artist_id=? AND client_id=?''',
                      (client['artist_id'], client_user_id))
-    # 5) medical_notes_access_log se ZACHOVÁVÁ — je to důkaz zákonnosti
-    #    zpracování. Smazat ho znamená zničit si vlastní obhajobu.
     conn.commit()
     conn.close()
 
@@ -10164,19 +9959,6 @@ def merge_clients(client_id):
 
     conn.execute('UPDATE client_notes SET client_id=? WHERE client_id=?', (client_id, src_id))
     conn.execute('UPDATE tattoo_records SET client_id=? WHERE client_id=?', (client_id, src_id))
-    # client_medical_notes má client_id UNIQUE, takže přesun jde jen když
-    # cíl žádné nemá; jinak zdrojové zahodíme a řekneme to v odpovědi.
-    med_conflict = False
-    if conn.execute('SELECT 1 FROM client_medical_notes WHERE client_id=?', (src_id,)).fetchone():
-        if conn.execute('SELECT 1 FROM client_medical_notes WHERE client_id=?', (client_id,)).fetchone():
-            med_conflict = True
-            conn.execute('DELETE FROM client_medical_notes WHERE client_id=?', (src_id,))
-        else:
-            conn.execute('UPDATE client_medical_notes SET client_id=? WHERE client_id=?',
-                         (client_id, src_id))
-    # Access log ukazuje na client_id bez FK; přepsat ho by přepsalo historii,
-    # nechat ho ukazovat na smazaný řádek je správně — log je o tom, co se
-    # tehdy stalo, ne o tom, kde data leží dnes.
     fill = {}
     for col in ('name', 'email', 'phone', 'tags', 'style_preferences',
                 'acquisition_source', 'note'):
@@ -10191,8 +9973,7 @@ def merge_clients(client_id):
     conn.execute('DELETE FROM clients WHERE id=?', (src_id,))
     conn.commit()
     conn.close()
-    return jsonify({'ok': True, 'merged_into': client_id,
-                    'medical_notes_discarded': med_conflict})
+    return jsonify({'ok': True, 'merged_into': client_id})
 
 
 def _studio_members_list(conn, studio_id):
