@@ -163,7 +163,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .search-close{background:transparent;border:none;color:var(--txt3);cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:background 0.12s,color 0.12s}
 .search-close:hover{background:var(--bg3);color:var(--txt)}
 .search-drop-inner{flex:1;overflow-y:auto}
-.search-drop-inner:empty::before{content:'Start typing at least 2 characters…';display:block;padding:24px;text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.06em}
+.search-drop-inner:empty::before{content:t('fd.typeMore');display:block;padding:24px;text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.06em}
 
 #filterModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:400;padding:60px 16px 16px;-webkit-tap-highlight-color:transparent}
 #filterModal.show{display:flex}
@@ -298,32 +298,34 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 <nav>
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-icons">
-    <button class="nav-icon" onclick="openSearchOverlay()" title="Search" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
-    <a class="nav-icon" href="/map" title="Map"><svg class="icon"><use href="#i-map-pin"/></svg></a>
-    <a class="nav-icon" id="navLiked" href="/liked" title="Liked" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
-    <a class="nav-icon" id="navCalendar" href="/my-bookings" title="Calendar"><svg class="icon"><use href="#i-calendar"/></svg></a>
-    <a class="nav-icon" href="/messages" title="Messages" id="navMessages" style="position:relative"><svg class="icon"><use href="#i-message"/></svg><span id="navMessagesBadge" style="display:none;position:absolute;top:4px;right:4px;min-width:8px;height:8px;border-radius:50%;background:var(--red2);border:1.5px solid var(--bg)"></span></a>
+    <button class="nav-icon" onclick="openSearchOverlay()" data-i18n-attr="fd.navSearch:title" title="Search" style="background:none;border:none"><svg class="icon"><use href="#i-search"/></svg></button>
+    <a class="nav-icon" href="/map" data-i18n-attr="fd.navMap:title" title="Map"><svg class="icon"><use href="#i-map-pin"/></svg></a>
+    <a class="nav-icon" id="navLiked" href="/liked" data-i18n-attr="fd.navLiked:title" title="Liked" style="display:none"><svg class="icon"><use href="#i-heart"/></svg></a>
+    <a class="nav-icon" id="navCalendar" href="/my-bookings" data-i18n-attr="fd.navBookings:title" title="Bookings"><svg class="icon"><use href="#i-calendar"/></svg></a>
+    <a class="nav-icon" href="/messages" data-i18n-attr="fd.navMessages:title" title="Messages" id="navMessages" style="position:relative"><svg class="icon"><use href="#i-message"/></svg><span id="navMessagesBadge" style="display:none;position:absolute;top:4px;right:4px;min-width:8px;height:8px;border-radius:50%;background:var(--red2);border:1.5px solid var(--bg)"></span></a>
     <div class="nav-avatar-wrap">
-      <div class="nav-avatar" id="navAvatar" title="Account" onclick="toggleAvatarMenu(event)">??</div>
+      <div class="nav-avatar" id="navAvatar" data-i18n-attr="fd.navAccount:title" title="Account" onclick="toggleAvatarMenu(event)">??</div>
       <div class="avatar-menu" id="avatarMenu" onclick="event.stopPropagation()">
-        <a id="amProfile" href="#"><svg class="icon"><use href="#i-user"/></svg> My profile</a>
-        <a id="amSetup" href="/artist-setup" style="display:none"><svg class="icon"><use href="#i-settings"/></svg> Artist settings</a>
-        <a id="amEarnings" href="/earnings" style="display:none"><svg class="icon"><use href="#i-trending"/></svg> Earnings</a>
+        <a id="amProfile" href="#"><svg class="icon"><use href="#i-user"/></svg> <span data-i18n="fd.myProfile">My profile</span></a>
+        <a id="amSetup" href="/artist-setup" style="display:none"><svg class="icon"><use href="#i-settings"/></svg> <span data-i18n="fd.artistSettings">Artist settings</span></a>
+        <a id="amEarnings" href="/earnings" style="display:none"><svg class="icon"><use href="#i-trending"/></svg> <span data-i18n="fd.earnings">Earnings</span></a>
         <hr class="divider">
-        <button type="button" onclick="doLogout()"><svg class="icon"><use href="#i-log-out"/></svg> Sign out</button>
+        <button type="button" onclick="doLogout()"><svg class="icon"><use href="#i-log-out"/></svg> <span data-i18n="fd.signOut">Sign out</span></button>
       </div>
     </div>
   </div>
 </nav>
 <script src="/notifs.js?v=5"></script>
+<script src="/i18n.js"></script>
 <script src="/mobile-nav.js?v=14"></script>
-<script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init();
+const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 
 <div class="layout">
   <main>
     <div class="feed-tabs">
-      <div class="feed-tab active" data-kind="sketch">Sketch <span class="tab-hint" id="cntSketch"></span></div>
-      <div class="feed-tab" data-kind="done">Healed <span class="tab-hint" id="cntDone"></span></div>
+      <div class="feed-tab active" data-kind="sketch"><span data-i18n="fd.tabSketch">Sketch</span> <span class="tab-hint" id="cntSketch"></span></div>
+      <div class="feed-tab" data-kind="done"><span data-i18n="fd.tabHealed">Healed</span> <span class="tab-hint" id="cntDone"></span></div>
     </div>
 
     <div class="feed-toolbar">
@@ -334,7 +336,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     </div>
 
     <div class="filter-floating">
-      <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filter and sort" title="Filter & sort">
+      <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filter and sort" data-i18n-attr="fd.filterSort:title" title="Filter &amp; sort">
         <svg class="icon icon-sm"><use href="#i-filter"/></svg><span class="count" id="filterCount" style="display:none">0</span>
       </button>
     </div>
@@ -343,7 +345,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     <div id="emptyState" class="empty" style="display:none">
       <span class="b" id="emptyTitle">NO SKETCHES YET</span>
       <span id="emptyText">New sketches will appear here as artists add them.<br>
-      Are you an artist? <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline">Add your first sketch</a> and clients will find you.</span>
+      Are you an artist? <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline" data-i18n="fd.stepPortfolio">Add your first sketch</a> and clients will find you.</span>
     </div>
   </main>
 </div>
@@ -351,22 +353,22 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 <div class="toast" id="toast"></div>
 
 <!-- Floating Action Button — desktop only, add sketch / healed work -->
-<button class="fab-add" id="fabAdd" type="button" onclick="openAddPortfolio()" title="Add sketch or healed" aria-label="Add sketch"><span>+</span></button>
+<button class="fab-add" id="fabAdd" type="button" onclick="openAddPortfolio()" data-i18n-attr="fd.navAdd:title" title="Add sketch or healed work" aria-label="Add sketch"><span>+</span></button>
 
 <!-- Add Portfolio Modal — focused form (sketch / done) -->
 <div id="addPortfolioModal" onclick="if(event.target===this)closeAddPortfolio()">
   <div class="addp-card">
     <div class="addp-head">
-      <h3 id="addpTitle">ADD SKETCH</h3>
+      <h3 id="addpTitle" data-i18n="fd.addSketch">Add sketch</h3>
       <button class="addp-close" type="button" onclick="closeAddPortfolio()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form id="addPortfolioForm" class="addp-body">
       <div class="addp-row">
         <div class="addp-field">
-          <label>Type</label>
+          <label data-i18n="fd.type">Type</label>
           <select name="kind" id="addpKind" required>
-            <option value="sketch">Sketch / tattoo design</option>
-            <option value="done">Healed / finished work</option>
+            <option value="sketch" data-i18n="fd.sketchDesign">Sketch / tattoo design</option>
+            <option value="done" data-i18n="fd.healedWork">Healed / finished work</option>
           </select>
         </div>
         <div class="addp-field">
@@ -376,8 +378,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       </div>
 
       <div class="addp-field">
-        <label>Caption / title</label>
-        <input type="text" name="caption" maxlength="500" placeholder="Wolf on forearm, realism">
+        <label data-i18n="fd.caption">Caption / title</label>
+        <input type="text" name="caption" maxlength="500" data-i18n-attr="fd.captionPh:placeholder" placeholder="Wolf on forearm, realism">
       </div>
 
       <div class="addp-field">
@@ -404,8 +406,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       <div id="addpFlash"></div>
 
       <div class="addp-foot">
-        <button type="button" class="btn" onclick="closeAddPortfolio()">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="addpSubmit">Upload</button>
+        <button type="button" class="btn" onclick="closeAddPortfolio()" data-i18n="bk.cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="addpSubmit" data-i18n="fd.upload">Upload</button>
       </div>
     </form>
   </div>
@@ -416,48 +418,48 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
     <button class="welcome-close" onclick="closeWelcome()" aria-label="Close">×</button>
     <div id="welcomeStep1">
       <div class="welcome-brand">INKLINK</div>
-      <h2 class="welcome-title">Welcome to InkLink</h2>
-      <p class="welcome-sub">Tattoo booking network — find an artist, browse portfolios, book with a deposit.<br>What brings you here?</p>
+      <h2 class="welcome-title" data-i18n="fd.welcome">Welcome to InkLink</h2>
+      <p class="welcome-sub">Tattoo booking network — find an artist, browse portfolios, book with a deposit.<br data-i18n="fd.whatBrings">What brings you here?</p>
       <div class="welcome-role-grid">
         <button class="welcome-role" onclick="welcomeRole('client')">
           <div class="welcome-role-icon"><svg class="icon icon-2xl"><use href="#i-user"/></svg></div>
-          <div class="welcome-role-title">Jsem klient</div>
-          <div class="welcome-role-sub">Looking for an artist</div>
+          <div class="welcome-role-title" data-i18n="fd.imClient">I'm a client</div>
+          <div class="welcome-role-sub" data-i18n="fd.imClientSub">Looking for an artist</div>
         </button>
         <button class="welcome-role" onclick="welcomeRole('artist')">
           <div class="welcome-role-icon"><svg class="icon icon-2xl"><use href="#i-edit"/></svg></div>
-          <div class="welcome-role-title">I'm an artist</div>
-          <div class="welcome-role-sub">I offer sessions</div>
+          <div class="welcome-role-title" data-i18n="fd.imArtist">I'm an artist</div>
+          <div class="welcome-role-sub" data-i18n="fd.imArtistSub">I offer sessions</div>
         </button>
       </div>
-      <button class="welcome-cta-muted" onclick="closeWelcome()">Skip</button>
+      <button class="welcome-cta-muted" onclick="closeWelcome()" data-i18n="fd.skip">Skip</button>
     </div>
 
     <div id="welcomeStep2Client" style="display:none">
       <div class="welcome-brand">INKLINK</div>
-      <h2 class="welcome-title">How it works</h2>
+      <h2 class="welcome-title" data-i18n="fd.howItWorks">How it works</h2>
       <div class="welcome-step">
         <div class="welcome-step-num">1</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Browse the feed of sketches and healed work</div>
-          <div class="welcome-step-sub">Filter by city, style, or check the <a href="/map" style="color:var(--red2);text-decoration:underline">artist map</a>.</div>
+          <div class="welcome-step-title" data-i18n="fd.stepBrowse">Browse the feed of sketches and healed work</div>
+          <div class="welcome-step-sub">Filter by city, style, or check the <a href="/map" style="color:var(--red2);text-decoration:underline" data-i18n="fd.artistMap">artist map</a>.</div>
         </div>
       </div>
       <div class="welcome-step">
         <div class="welcome-step-num">2</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Like ♥ what you enjoy</div>
+          <div class="welcome-step-title" data-i18n="fd.stepLike">Like ♥ what you enjoy</div>
           <div class="welcome-step-sub">You will find sketches later in <a href="/liked" style="color:var(--red2);text-decoration:underline">Liked</a>.</div>
         </div>
       </div>
       <div class="welcome-step">
         <div class="welcome-step-num">3</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Book an appointment via the artist profile</div>
+          <div class="welcome-step-title" data-i18n="fd.stepBook">Book an appointment via the artist profile</div>
           <div class="welcome-step-sub">Pay a deposit by card, the rest on-site. Refund per artist rules.</div>
         </div>
       </div>
-      <button class="welcome-cta" onclick="closeWelcome()">Start browsing</button>
+      <button class="welcome-cta" onclick="closeWelcome()" data-i18n="fd.startBrowsing">Start browsing</button>
     </div>
 
     <div id="welcomeStep2Artist" style="display:none">
@@ -466,8 +468,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       <div class="welcome-step">
         <div class="welcome-step-num">1</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Fill in your profile</div>
-          <div class="welcome-step-sub">Name, city, studio, bio, styles, and hourly rate.</div>
+          <div class="welcome-step-title" data-i18n="fd.stepProfile">Fill in your profile</div>
+          <div class="welcome-step-sub" data-i18n="fd.stepProfileSub">Name, city, studio, bio, styles, and hourly rate.</div>
         </div>
       </div>
       <div class="welcome-step">
@@ -480,19 +482,19 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       <div class="welcome-step">
         <div class="welcome-step-num">3</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Add available slots</div>
+          <div class="welcome-step-title" data-i18n="fd.stepSlots">Publish open slots</div>
           <div class="welcome-step-sub">Availability blocks appear in your calendar. Clients pick a size and time.</div>
         </div>
       </div>
       <div class="welcome-step">
         <div class="welcome-step-num">4</div>
         <div class="welcome-step-body">
-          <div class="welcome-step-title">Propojení se Stripe Connect</div>
-          <div class="welcome-step-sub">Aby klienti mohli zaplatit zálohu online. Bez Stripe pojede tvůj profil v demo režimu.</div>
+          <div class="welcome-step-title" data-i18n="fd.stepStripe">Connect Stripe</div>
+          <div class="welcome-step-sub" data-i18n="fd.stripeSub">So clients can pay a deposit online. Without Stripe your profile runs in demo mode.</div>
         </div>
       </div>
-      <a class="welcome-cta" href="/artist-setup">Otevřít nastavení tatéra →</a>
-      <button class="welcome-cta-muted" onclick="closeWelcome()">Skip</button>
+      <a class="welcome-cta" href="/artist-setup" data-i18n="fd.openArtistSetup">Open artist settings →</a>
+      <button class="welcome-cta-muted" onclick="closeWelcome()" data-i18n="fd.skip">Skip</button>
     </div>
   </div>
 </div>
@@ -502,7 +504,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
   <div class="search-card">
     <div class="search-bar">
       <svg class="icon" style="color:var(--txt3);flex-shrink:0"><use href="#i-search"/></svg>
-      <input type="text" id="searchInput" placeholder="Hledat tatéra, styl, město…" autocomplete="off">
+      <input type="text" id="searchInput" data-i18n-attr="fd.searchPh:placeholder" placeholder="Search artist, style, city…" autocomplete="off">
       <button class="search-close" onclick="closeSearchOverlay()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <div id="searchDrop" class="search-drop-inner"></div>
@@ -512,14 +514,14 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 <div id="filterModal" onclick="if(event.target===this)closeFilterModal()">
   <div class="filter-card">
     <div class="filter-head">
-      <h3>Filtr & řazení</h3>
+      <h3 data-i18n="fd.filterSort">Filter &amp; sort</h3>
       <button class="filter-close" onclick="closeFilterModal()" aria-label="Close">×</button>
     </div>
     <div class="filter-section">
-      <div class="filter-section-label">Řadit podle</div>
+      <div class="filter-section-label" data-i18n="fd.sortBy">Sort by</div>
       <div class="filter-chips" id="filterSortChips">
-        <button class="filter-chip" data-sort="price">Nejlevnější</button>
-        <button class="filter-chip" data-sort="price_desc">Nejdražší</button>
+        <button class="filter-chip" data-sort="price" data-i18n="fd.cheapest">Cheapest</button>
+        <button class="filter-chip" data-sort="price_desc" data-i18n="fd.priciest">Most expensive</button>
       </div>
     </div>
     <div class="filter-section">
@@ -527,12 +529,12 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       <div class="filter-chips" id="filterCitiesChips"></div>
     </div>
     <div class="filter-section">
-      <div class="filter-section-label">Styl</div>
+      <div class="filter-section-label" data-i18n="fd.style">Style</div>
       <div class="filter-chips" id="filterStylesChips"></div>
     </div>
     <div class="filter-foot">
-      <button class="filter-clear" onclick="clearFilters()">Vymazat</button>
-      <button class="filter-apply" onclick="closeFilterModal()">Hotovo</button>
+      <button class="filter-clear" onclick="clearFilters()" data-i18n="fd.clear">Clear</button>
+      <button class="filter-apply" onclick="closeFilterModal()" data-i18n="fd.done">Done</button>
     </div>
   </div>
 </div>
@@ -554,7 +556,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
       </div>
       <div class="lb-actions">
         <a class="lb-btn" id="lb-profile" href="#"><svg class="icon"><use href="#i-user"/></svg> Profil</a>
-        <a class="lb-btn" id="lb-message" href="#"><svg class="icon"><use href="#i-message"/></svg> Zpráva</a>
+        <a class="lb-btn" id="lb-message" href="#"><svg class="icon"><use href="#i-message"/></svg> <span data-i18n="fd.message">Message</span></a>
         <a class="lb-btn primary" id="lb-book" href="#" style="display:none"><svg class="icon"><use href="#i-arrow-right"/></svg> Book</a>
       </div>
     </div>
@@ -599,12 +601,12 @@ async function init() {
       // Pro tatéry kalendář vede na /calendar (slot management),
       // pro klienty zůstává /my-bookings (přehled rezervací)
       const navCal = document.getElementById('navCalendar');
-      if (navCal) { navCal.href = '/calendar'; navCal.title = 'Kalendář — moje termíny'; }
+      if (navCal) { navCal.href = '/calendar'; navCal.title = t('fd.myCalendar'); }
     }
   } else {
     // Host: avatar → Sign in button
     const wrap = navAvatar.closest('.nav-avatar-wrap');
-    if (wrap) wrap.outerHTML = '<a href="/login" class="btn" style="margin-left:6px">Sign in</a>';
+    if (wrap) wrap.outerHTML = '<a href="/login" class="btn" style="margin-left:6px" data-i18n="fd.signIn">Sign in</a>';
   }
 
   // sort chips in filter modal
@@ -624,7 +626,7 @@ async function init() {
     kindFilter = t.dataset.kind;
     // FAB title se mění podle aktivní záložky
     const fab = document.getElementById('fabAdd');
-    if (fab) fab.title = kindFilter === 'sketch' ? 'Add sketch' : 'Add healed';
+    if (fab) fab.title = kindFilter === 'sketch' ? t('fd.addSketch') : t('fd.addHealed');
     loadFeed();
   }));
 
@@ -754,7 +756,7 @@ function closeAddPortfolio() {
 function updateAddpTitle() {
   const k = document.getElementById('addpKind')?.value;
   const t = document.getElementById('addpTitle');
-  if (t) t.textContent = k === 'done' ? 'PŘIDAT HOTOVOU PRÁCI' : 'PŘIDAT SKICU';
+  if (t) t.textContent = k === 'done' ? t('fd.addHealed') : 'PŘIDAT SKICU';
 }
 
 async function loadAddpStyles() {
@@ -807,11 +809,11 @@ async function submitAddPortfolio(e) {
   const imageInput = document.getElementById('addpImage');
   const files = Array.from(imageInput.files || []).slice(0, 4);
   if (!files.length) {
-    flash.innerHTML = '<div class="addp-flash err">Vyber aspoň jeden obrázek</div>';
+    flash.innerHTML = `<div class="addp-flash err">${t('fd.pickImage')}</div>`;
     return;
   }
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Nahrávám…';
+  submitBtn.textContent = t('fd.uploading');
 
   const fd = new FormData();
   fd.set('image', files[0]);
@@ -826,7 +828,7 @@ async function submitAddPortfolio(e) {
   try {
     const r = await fetch('/api/portfolio', { method: 'POST', body: fd });
     if (r.ok) {
-      flash.innerHTML = '<div class="addp-flash ok">Položka přidána ✓</div>';
+      flash.innerHTML = `<div class="addp-flash ok">${t('fd.itemAdded')}</div>`;
       e.target.reset();
       document.getElementById('addpPreview').innerHTML = '';
       document.getElementById('addpPreview').classList.remove('show');
@@ -842,13 +844,13 @@ async function submitAddPortfolio(e) {
       }, 800);
     } else {
       const j = await r.json().catch(() => ({}));
-      flash.innerHTML = `<div class="addp-flash err">${escapeHtml(j.error || 'Upload selhal')}</div>`;
+      flash.innerHTML = `<div class="addp-flash err">${escapeHtml(j.error || t('fd.uploadFailed'))}</div>`;
     }
   } catch {
-    flash.innerHTML = '<div class="addp-flash err">Chyba sítě — zkus znovu</div>';
+    flash.innerHTML = `<div class="addp-flash err">${t('fd.netErrorRetry')}</div>`;
   }
   submitBtn.disabled = false;
-  submitBtn.textContent = 'Nahrát';
+  submitBtn.textContent = t('fd.upload');
 }
 
 function openSearchOverlay() {
@@ -910,8 +912,8 @@ async function loadFeed() {
   } catch (e) {
     items = [];
     grid.innerHTML = `<div class="il-error-banner">
-      <span>Failed načíst feed (${escapeHtml(e.message || 'network error')}).</span>
-      <button onclick="loadFeed()">Try again</button>
+      <span>${t('fd.loadFailed')} (${escapeHtml(e.message || 'network error')}).</span>
+      <button onclick="loadFeed()" data-i18n="fd.tryAgain">Try again</button>
     </div>`;
     document.getElementById('emptyState').style.display = 'none';
   }
@@ -933,15 +935,15 @@ function render() {
     grid.innerHTML = '';
     empty.style.display = 'block';
     if (kindFilter === 'sketch') {
-      document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ SKICY';
+      document.getElementById('emptyTitle').textContent = t('fd.noSketches');
       document.getElementById('emptyText').innerHTML =
-        'Nové sketche se tu objeví, jakmile je tatéři přidají.<br>'
-        + 'Jsi tatér? <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline">Přidej svůj první sketch</a> a klienti si tě najdou.';
+        t('fd.noSketchesBody') + '<br>'
+        + t('fd.areYouArtist') + ' <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline">' + t('fd.addFirstSketch') + '</a> ' + t('fd.andClients');
     } else {
-      document.getElementById('emptyTitle').textContent = 'ZATÍM ŽÁDNÉ PRÁCE';
+      document.getElementById('emptyTitle').textContent = t('fd.noHealed');
       document.getElementById('emptyText').innerHTML =
-        'Galerie hotových tetování se brzy zaplní.<br>'
-        + 'Jsi tatér? <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline">Sdílej svoji první práci</a>.';
+        t('fd.noHealedBody') + '<br>'
+        + t('fd.areYouArtist') + ' <a href="javascript:void(0)" onclick="openAddPortfolio()" style="color:var(--red2);text-decoration:underline">' + t('fd.shareFirstWork') + '</a>.';
     }
     return;
   }
@@ -981,13 +983,13 @@ async function doSearch() {
   const d = await r.json();
   const total = (d.artists?.length||0) + (d.portfolio?.length||0) + (d.events?.length||0);
   if (!total) {
-    drop.innerHTML = '<div class="sd-empty">Nic nenalezeno.</div>';
+    drop.innerHTML = '<div class="sd-empty" data-i18n="fd.nothingFound">Nothing found.</div>';
     drop.classList.add('show');
     return;
   }
   let html = '';
   if (d.artists?.length) {
-    html += '<div class="sd-section"><div class="sd-label">TATÉŘI</div>';
+    html += '<div class="sd-section"><div class="sd-label" data-i18n="fd.artists">Artists</div>';
     html += d.artists.map(a => {
       const av = a.avatar_url ? `<img src="${escapeHtml(a.avatar_url)}" alt="">` : escapeHtml((a.display_name||'?').slice(0,2).toUpperCase());
       const meta = [a.studio, a.city].filter(Boolean).join(' · ');
@@ -1002,7 +1004,7 @@ async function doSearch() {
     html += '</div>';
   }
   if (d.portfolio?.length) {
-    html += '<div class="sd-section"><div class="sd-label">SKICY / PRÁCE</div>';
+    html += '<div class="sd-section"><div class="sd-label" data-i18n="fd.sketchesWorks">Sketches / work</div>';
     html += d.portfolio.map(p => {
       const price = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
       return `<a class="sd-item" href="/profile/${escapeHtml(p.username)}#book-${p.id}">
@@ -1015,7 +1017,7 @@ async function doSearch() {
     html += '</div>';
   }
   if (d.events?.length) {
-    html += '<div class="sd-section"><div class="sd-label">EVENTY</div>';
+    html += '<div class="sd-section"><div class="sd-label" data-i18n="fd.events">Events</div>';
     html += d.events.map(e => `<a class="sd-item" href="/events">
       <div class="sd-avatar" style="background:var(--bg3)"><svg class="icon icon-sm"><use href="#i-calendar"/></svg</div>
       <div class="sd-body"><div class="n">${escapeHtml(e.title)}</div>
@@ -1042,7 +1044,7 @@ async function toggleLike(id, el) {
     console.log('[toggleLike] HTTP', resp.status);
     if (!resp.ok) {
       if (resp.status === 401) { location.href = '/login'; return; }
-      showToast('Failed aktualizovat lajk');
+      showToast(t('fd.likeFailed'));
       return;
     }
     const r = await resp.json();
@@ -1052,7 +1054,7 @@ async function toggleLike(id, el) {
     if (sp) sp.textContent = r.like_count;
   } catch (e) {
     console.error('[toggleLike] error', e);
-    showToast('Chyba sítě');
+    showToast(t('fd.netError'));
   } finally {
     delete el.dataset.busy;
   }
@@ -1073,9 +1075,9 @@ async function shareSketch(id) {
   }
   try {
     await navigator.clipboard.writeText(url);
-    showToast('Link copied');
+    showToast(t('fd.linkCopied'));
   } catch {
-    showToast('Copy URL: ' + url);
+    showToast(t('fd.copyUrl') + url);
   }
 }
 
@@ -1117,7 +1119,7 @@ function openLb(i) {
     durPill.classList.remove('muted');
     durPill.style.display = 'inline-flex';
   } else if (isSketch) {
-    durPill.innerHTML = `<svg class="icon"><use href="#i-clock"/></svg> délka dle domluvy`;
+    durPill.innerHTML = `<svg class="icon"><use href="#i-clock"/></svg> ${t('fd.durationAgreed')}`;
     durPill.classList.add('muted');
     durPill.style.display = 'inline-flex';
   } else {

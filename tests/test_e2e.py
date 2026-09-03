@@ -1751,6 +1751,24 @@ class I18nKeyTests(unittest.TestCase):
         self.assertEqual(sorted(used - cs), [], 'klíče chybí v češtině')
         self.assertEqual(sorted(used - en), [], 'klíče chybí v angličtině')
 
+    def test_no_i18n_on_element_with_children(self):
+        """apply() dělá el.textContent = t(key), takže data-i18n na prvku,
+        který má potomky, je smaže. V my-bookings takhle zmizel span
+        s počtem rezervací a loadArtist() pak padal na null. Popisek musí mít
+        vlastní span."""
+        import re, glob
+        bad = []
+        for f in glob.glob('public/*.html'):
+            txt = open(f, encoding='utf-8').read()
+            # Otevírací tag s data-i18n, za ním text a hned vnořený element.
+            for m in re.finditer(r'<([a-z0-9]+)[^>]*\sdata-i18n="[^"]*"[^>]*>([^<]*)<([a-z])', txt):
+                # Prázdné elementy potomky mít nemůžou — tam regex jen
+                # přeskočil na následující tag.
+                if m.group(1) in ('meta', 'link', 'br', 'hr', 'img', 'input'):
+                    continue
+                bad.append(f'{f}: <{m.group(1)} data-i18n=…>{m.group(2).strip()[:30]}<{m.group(3)}…')
+        self.assertEqual(bad, [])
+
     def test_dictionaries_are_symmetric(self):
         cs, en = self._dicts()
         self.assertEqual(sorted(cs - en), [], 'klíč jen v češtině')
