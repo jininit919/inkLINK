@@ -124,51 +124,49 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 <div class="wrap">
   <div id="content" style="display:none">
     <div class="page-head">
-      <h1 class="page-title">Earnings</h1>
-      <span class="page-sub">Online payments via InkLink (Stripe)</span>
+      <h1 class="page-title" data-i18n="ea.pageTitle">Earnings</h1>
+      <span class="page-sub" data-i18n="ea.subtitle">Online payments via InkLink (Stripe)</span>
     </div>
 
     <div class="kpi-grid">
       <div class="kpi primary">
-        <div class="kpi-label">This month</div>
+        <div class="kpi-label" data-i18n="ea.thisMonth">This month</div>
         <div class="kpi-value" id="kpiThisMonth">—</div>
         <div class="kpi-sub" id="kpiThisMonthSub"></div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Last month</div>
+        <div class="kpi-label" data-i18n="ea.lastMonth">Last month</div>
         <div class="kpi-value" id="kpiLastMonth">—</div>
         <div class="kpi-sub" id="kpiLastMonthSub"></div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Celkem</div>
+        <div class="kpi-label" data-i18n="ea.total">Total</div>
         <div class="kpi-value" id="kpiTotal">—</div>
         <div class="kpi-sub" id="kpiTotalSub"></div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Pending</div>
+        <div class="kpi-label" data-i18n="ea.pending">Pending</div>
         <div class="kpi-value" id="kpiPending">—</div>
-        <div class="kpi-sub" id="kpiPendingSub">unpaid deposits so far</div>
+        <div class="kpi-sub" id="kpiPendingSub" data-i18n="ea.pendingSub">unpaid deposits so far</div>
       </div>
     </div>
 
     <div class="report-card">
-      <h3><svg class="icon"><use href="#i-credit-card"/></svg> Monthly report</h3>
+      <h3><svg class="icon"><use href="#i-credit-card"/></svg> <span data-i18n="ea.monthlyReport">Monthly report</span></h3>
       <p>
-        Download the <b style="color:var(--txt)">PDF report</b> for the selected month — includes
-        all bookings, paid deposits, on-site cash, InkLink commission
-        and net income. Suitable for tax records.
+        <span data-i18n="ea.reportIntro">Download the PDF report for the selected month — it includes all bookings, paid deposits, on-site cash, InkLink commission and net income. Suitable for tax records.</span>
       </p>
       <form id="reportForm" onsubmit="downloadReport(event)">
         <div class="report-row">
           <div class="fld">
-            <label>Month</label>
+            <label data-i18n="ea.month">Month</label>
             <input type="month" id="reportMonth" required>
           </div>
           <button class="report-btn primary" type="submit">
-            <svg class="icon"><use href="#i-arrow-right"/></svg> Download PDF
+            <svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="ea.downloadPdf">Download PDF</span>
           </button>
           <button class="report-btn" type="button" onclick="previewReport()">
-            <svg class="icon"><use href="#i-eye"/></svg> Preview (JSON)
+            <svg class="icon"><use href="#i-eye"/></svg> <span data-i18n="ea.preview">Preview (JSON)</span>
           </button>
         </div>
       </form>
@@ -177,43 +175,43 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
 
     <div class="section-head">
-      <h2 class="section-title">Last 30 transactions</h2>
-      <a class="section-sub" href="/my-bookings" style="text-decoration:underline">All bookings →</a>
+      <h2 class="section-title" data-i18n="ea.last30">Last 30 transactions</h2>
+      <a class="section-sub" href="/my-bookings" style="text-decoration:underline" data-i18n="ea.allBookings">All bookings →</a>
     </div>
     <div id="txList" class="tx-table"></div>
     <div id="txEmpty" class="empty" style="display:none">
-      <span class="b">ZATÍM ŽÁDNÉ TRANSAKCE</span>
-      <span>Až ti někdo zarezervuje termín, uvidíš zde výdělek.<br>
-      <a href="/artist-setup#slots">Add available slots</a> aby tě klienti našli.</span>
+      <span class="b" data-i18n="ea.noTx">No transactions yet</span>
+      <span><span data-i18n="ea.noTxBody">Once someone books with you, your earnings show up here.</span><br>
+      <a href="/calendar" data-i18n="ea.addSlots">Publish open slots</a> <span data-i18n="ea.addSlotsTail">so clients can find you.</span></span>
     </div>
 
     <div class="disclaimer">
-      <b>Jak se počítá:</b> Net = zaplacená záloha + doplatek − platforma provize − vrácené zálohy.
-      Onsite (vybráno na místě) sledujeme samostatně, do net částky nepočítáme.
-      Pro výplaty bankovním převodem otevři <b>Stripe Express</b> (odkaz v Artist settings).
+      <b data-i18n="ea.howTitle">How it is calculated:</b>
+      <span data-i18n="ea.howBody">Net = paid deposit + balance − platform commission − refunded deposits. Cash collected on site is tracked separately and is not counted into net. For bank payouts open Stripe Express (link in artist settings).</span>
     </div>
   </div>
 
   <div id="needLogin" style="display:none">
     <div class="empty">
-      <span class="b">PŘIHLASTE SE</span>
-      <span>Pro výdělky se musíš přihlásit.<br>
-      <a href="/login">Sign in / register</a></span>
+      <span class="b" data-i18n="ea.signIn">Sign in</span>
+      <span><span data-i18n="ea.signInBody">You need to sign in to see your earnings.</span><br>
+      <a href="/login"><span data-i18n="ea.signInCta">Sign in / register</span></a></span>
     </div>
   </div>
 
   <div id="needArtist" style="display:none">
     <div class="empty">
-      <span class="b">JEN PRO TATÉRY</span>
-      <span>Výdělky vidí jen tatéři.<br>
-      <a href="/artist-setup">Become an artist →</a></span>
+      <span class="b" data-i18n="ea.artistsOnly">Artists only</span>
+      <span><span data-i18n="ea.artistsOnlyBody">Only artists can see earnings.</span><br>
+      <a href="/artist-setup"><span data-i18n="ea.becomeArtist">Become an artist →</span></a></span>
     </div>
   </div>
 
-  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> Loading výdělky…</div>
+  <div id="loading" class="il-loading-row"><span class="il-spinner"></span> <span data-i18n="ea.loading">Loading earnings…</span></div>
 </div>
 
 <script src="/notifs.js?v=11"></script>
+<script src="/i18n.js"></script>
 <script src="/mobile-nav.js?v=14"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
@@ -223,10 +221,10 @@ let me = null;
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 function fmtKc(cents) {
-  if (!cents) return '0 Kč';
+  if (!cents) return '0 CZK';
   const sign = cents < 0 ? '−' : '';
   const abs = Math.abs(Math.round(cents / 100));
-  return sign + abs.toLocaleString('cs-CZ') + ' Kč';
+  return sign + abs.toLocaleString(locale()) + ' CZK';
 }
 
 function fmtDate(iso, withYear) {
@@ -234,7 +232,7 @@ function fmtDate(iso, withYear) {
   try {
     const d = new Date(iso);
     const opts = withYear ? {day:'numeric',month:'short',year:'2-digit'} : {day:'numeric',month:'short'};
-    return d.toLocaleDateString('cs-CZ', opts);
+    return d.toLocaleDateString(locale(), opts);
   } catch { return iso; }
 }
 
@@ -242,17 +240,22 @@ function fmtSessionDate(iso) {
   if (!iso) return '';
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('cs-CZ', {day:'numeric',month:'short',year:'2-digit'})
-         + ' · ' + d.toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'});
+    return d.toLocaleDateString(locale(), {day:'numeric',month:'short',year:'2-digit'})
+         + ' · ' + d.toLocaleTimeString(locale(), {hour:'2-digit',minute:'2-digit'});
   } catch { return iso; }
 }
 
+const tr = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+const bkWord = n => tr(n === 1 ? 'ea.bkOne' : (n >= 2 && n <= 4 ? 'ea.bkFew' : 'ea.bkMany'));
+function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
+document.addEventListener('il-i18n-applied', () => { if (typeof init === 'function') init(); });
+
 const STATUS_LABEL = {
-  'pending_payment': 'Čeká platbu',
-  'confirmed':       'Potvrzeno',
-  'completed':       'Hotovo',
-  'cancelled_client':'Zrušil klient',
-  'cancelled_artist':'Zrušil tatér',
+  'pending_payment': 'ea.stPending',
+  'confirmed':       'ea.stConfirmed',
+  'completed':       'ea.stCompleted',
+  'cancelled_client':'ea.stCancelledC',
+  'cancelled_artist':'ea.stCancelledA',
 };
 
 function goToProfile() {
@@ -286,8 +289,8 @@ async function init() {
     data = await r.json();
   } catch (e) {
     document.getElementById('loading').innerHTML = `<div class="il-error-banner">
-      <span>Failed načíst výdělky (${escapeHtml(e.message || 'network error')}).</span>
-      <button onclick="location.reload()">Try again</button>
+      <span>${tr('ea.loadFailed')} (${escapeHtml(e.message || 'network error')}).</span>
+      <button onclick="location.reload()">${tr('ea.tryAgain')}</button>
     </div>`;
     return;
   }
@@ -298,15 +301,15 @@ async function init() {
   // KPIs
   document.getElementById('kpiThisMonth').textContent = fmtKc(data.this_month.net_cents);
   document.getElementById('kpiThisMonthSub').textContent =
-    `${data.this_month.bookings_count} rezervací · onsite ${fmtKc(data.this_month.onsite_cents)}`;
+    `${data.this_month.bookings_count} ${bkWord(data.this_month.bookings_count)} · ${tr('ea.onsite')} ${fmtKc(data.this_month.onsite_cents)}`;
   document.getElementById('kpiLastMonth').textContent = fmtKc(data.last_month.net_cents);
   document.getElementById('kpiLastMonthSub').textContent =
-    `${data.last_month.bookings_count} rezervací · onsite ${fmtKc(data.last_month.onsite_cents)}`;
+    `${data.last_month.bookings_count} ${bkWord(data.last_month.bookings_count)} · ${tr('ea.onsite')} ${fmtKc(data.last_month.onsite_cents)}`;
   document.getElementById('kpiTotal').textContent = fmtKc(data.total.net_cents);
   document.getElementById('kpiTotalSub').textContent =
-    `${data.total.bookings_count} rezervací celkem · onsite ${fmtKc(data.total.onsite_cents)}`;
+    `${data.total.bookings_count} ${bkWord(data.total.bookings_count)} ${tr('ea.totalWord')} · ${tr('ea.onsite')} ${fmtKc(data.total.onsite_cents)}`;
   document.getElementById('kpiPending').textContent = fmtKc(data.pending.net_cents);
-  document.getElementById('kpiPendingSub').textContent = `${data.pending.count} rezervací čeká platbu`;
+  document.getElementById('kpiPendingSub').textContent = `${data.pending.count} ${bkWord(data.pending.count)} ${tr('ea.awaitingWord')}`;
 
   // Transactions
   const list = document.getElementById('txList');
@@ -321,17 +324,17 @@ async function init() {
       ? `<img src="${escapeHtml(t.client_avatar_url)}" alt="">`
       : escapeHtml((t.client_name || '?').slice(0,2).toUpperCase());
     const statusCls = t.status.replace(/[^a-z_]/gi, '');
-    const statusLbl = STATUS_LABEL[t.status] || t.status;
+    const statusLbl = STATUS_LABEL[t.status] ? tr(STATUS_LABEL[t.status]) : t.status;
     const session = t.session_at ? fmtSessionDate(t.session_at) : '';
 
     // Breakdown na pravé straně (deposit + balance - fees)
     const parts = [];
-    if (t.deposit_cents)  parts.push(`záloha ${fmtKc(t.deposit_cents)}`);
+    if (t.deposit_cents)  parts.push(`${tr('ea.depositLbl')} ${fmtKc(t.deposit_cents)}`);
     if (t.balance_paid_cents) parts.push(`doplatek ${fmtKc(t.balance_paid_cents)}`);
     const fees = (t.platform_fee_cents || 0) + (t.balance_charge_fee_cents || 0);
     if (fees) parts.push(`<span style="color:var(--bad)">− ${fmtKc(fees)}</span>`);
     if (t.refund_cents) parts.push(`<span style="color:var(--bad)">− refund ${fmtKc(t.refund_cents)}</span>`);
-    if (t.onsite_cents) parts.push(`<span style="color:var(--txt2)">+ onsite ${fmtKc(t.onsite_cents)}</span>`);
+    if (t.onsite_cents) parts.push(`<span style="color:var(--txt2)">+ ${tr('ea.onsite')} ${fmtKc(t.onsite_cents)}</span>`);
 
     return `<div class="tx-row">
       <div class="tx-date">${fmtDate(t.created_at)}</div>
@@ -354,7 +357,7 @@ function reportMonthOrErr() {
   const m = document.getElementById('reportMonth').value;
   const flash = document.getElementById('reportFlash');
   if (!m) {
-    flash.innerHTML = '<div class="report-flash err">Vyber měsíc</div>';
+    flash.innerHTML = `<div class="report-flash err">${tr('ea.pickMonth')}</div>`;
     return null;
   }
   flash.innerHTML = '';
@@ -376,7 +379,7 @@ async function previewReport() {
   const flash = document.getElementById('reportFlash');
   const r = await fetch(`/api/me/report/${x.y}/${x.mm}?format=json`);
   if (!r.ok) {
-    flash.innerHTML = '<div class="report-flash err">Načtení selhalo</div>';
+    flash.innerHTML = `<div class="report-flash err">${tr('ea.loadFailed')}</div>`;
     return;
   }
   const j = await r.json();
