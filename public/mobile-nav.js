@@ -176,10 +176,20 @@
     //   klient: 🔍 Hledat
     let centerItem;
     if (isArtist) {
-      const useAddModal = onFeed && typeof window.openAddPortfolio === 'function';
-      centerItem = useAddModal
-        ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') }
-        : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') };
+      // Střední tlačítko dělá to, co je na dané stránce hlavní akce. Na
+      // kalendáři to je "vypsat termín" — jinak by tam byla dvě "+" vedle
+      // sebe: jedno v liště a jedno stránkové, každé s jiným významem.
+      const onCalendar = location.pathname === '/calendar';
+      if (onCalendar && typeof window.openSlotSheet === 'function') {
+        centerItem = { onclick: 'window.openSlotSheet()', ico: 'i-plus',
+                       lbl: T('mnav.add', 'Add'), primary: true,
+                       aria: T('cal.addSlot', 'Add slot') };
+      } else {
+        const useAddModal = onFeed && typeof window.openAddPortfolio === 'function';
+        centerItem = useAddModal
+          ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') }
+          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') };
+      }
     } else {
       centerItem = onFeed && typeof window.openSearchOverlay === 'function'
         ? { onclick: 'window.openSearchOverlay()', ico: 'i-search', lbl: T('mnav.search', 'Search'), primary: true, aria: T('mnav.search', 'Search') }

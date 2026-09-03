@@ -73,6 +73,20 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .slot-pill .p{font-size:10px;color:var(--txt3);letter-spacing:0.02em}
 .slot-pill.booked{border-color:rgba(48,209,88,0.4);background:rgba(48,209,88,0.06)}
 .slot-pill.booked .t{color:var(--ok)}
+
+/* Hierarchie v buňce, od nejsilnějšího po nejtišší:
+   rezervace (někdo přijde) > akce > blokace (nikde nejsem) > volný termín.
+   Volný termín je jen nabídka, rezervace je závazek — proto plná výplň. */
+.slot-pill.booking{background:var(--txt);border-color:var(--txt);color:var(--bg)}
+.slot-pill.booking .t{color:var(--bg);font-weight:600}
+.slot-pill.booking .p{color:rgba(250,248,243,0.78)}
+.slot-pill.booking:hover{background:#000;border-color:#000;transform:translateY(-1px)}
+/* Nezaplacená záloha — pořád rezervace, ale ne jistota. */
+.slot-pill.booking.unpaid{background:transparent;border:1.5px dashed var(--txt);color:var(--txt)}
+.slot-pill.booking.unpaid .t{color:var(--txt)}
+.slot-pill.booking.unpaid .p{color:var(--txt3)}
+/* Volný termín ztlumit, ať nekřičí stejně jako rezervace. */
+.slot-pill:not(.booking):not(.event):not(.blocked){background:transparent}
 /* Akce — vlastní barva, ať se v mřížce neplete se slotem ani s blokací.
    Plná levá linka místo přerušovaného rámečku blokace. */
 .slot-pill.event{border-color:rgba(175,82,222,0.42);background:rgba(175,82,222,0.07);border-left:3px solid #af52de}
@@ -81,6 +95,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .slot-pill .del{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.4);border:none;color:var(--txt3);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;font-size:10px;line-height:1}
 .slot-pill:hover .del{display:flex}
 .slot-pill .del:hover{background:var(--ac-r,#ff453a);color:#fff}
+.cal-legend{display:flex;gap:18px;flex-wrap:wrap;margin:-8px 0 22px;
+  font-size:11px;letter-spacing:0.06em;color:var(--txt3)}
+.cal-legend span{display:inline-flex;align-items:center;gap:7px}
+.cal-legend i.lg{width:13px;height:13px;border-radius:3px;display:inline-block;flex-shrink:0}
+.cal-legend i.booking{background:var(--txt)}
+.cal-legend i.slot{border:1px solid var(--border2)}
+.cal-legend i.block{border:1px dashed var(--border2);opacity:0.75}
+.cal-legend i.event{border-left:3px solid #af52de;background:rgba(175,82,222,0.12)}
 .add-event-link{display:inline-flex;align-items:center;height:38px;padding:0 14px;border:1px solid rgba(175,82,222,0.5);border-radius:var(--r-md);color:#8e44ad;font-size:12px;letter-spacing:0.06em;background:rgba(175,82,222,0.06);transition:all 0.15s;white-space:nowrap}
 .add-event-link:hover{background:rgba(175,82,222,0.14);border-color:#af52de}
 .day-col .empty-day{color:var(--txt3);font-size:10px;letter-spacing:0.06em;text-align:center;padding:20px 0;border:1px dashed var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
@@ -91,7 +113,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .fab-add-slot > span{display:block;line-height:1;transform:translateY(0.02em)}
 .fab-add-slot:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 16px 40px rgba(20,16,8,0.24),0 4px 10px rgba(20,16,8,0.10)}
 .fab-add-slot:active{transform:translateY(0) scale(0.96)}
-@media(max-width:760px){.fab-add-slot{bottom:80px;right:20px}}
+/* Na mobilu tuhle roli přebírá "+" ve spodní liště; dvě stejná
+   tlačítka vedle sebe jsou zmatek, ne zkratka. */
+@media(max-width:768px){.fab-add-slot{display:none}}
 
 /* SHEET MODAL — Apple-style slide up */
 #slotSheet{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:500;opacity:0;pointer-events:none;transition:opacity 0.2s var(--ease)}
@@ -199,10 +223,17 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
     <div class="week-grid" id="weekGrid"></div>
 
+    <div class="cal-legend">
+      <span><i class="lg booking"></i><span data-i18n="cal.legendBooking">Booking</span></span>
+      <span><i class="lg slot"></i><span data-i18n="cal.legendSlot">Open slot</span></span>
+      <span><i class="lg block"></i><span data-i18n="cal.legendBlock">Time off</span></span>
+      <span><i class="lg event"></i><span data-i18n="cal.legendEvent">Event</span></span>
+    </div>
+
     <div id="emptyHint" class="empty-state" style="display:none">
       <svg class="icon icon-xl" style="width:32px;height:32px"><use href="#i-calendar"/></svg>
       <h3 data-i18n="cal.emptyTitle">No slots</h3>
-      <p><span data-i18n="cal.emptyBody">You have no open slots this week. Add them with the + button at the bottom right.</span></p>
+      <p><span data-i18n="cal.emptyBodyNew">Nothing this week. Add open slots with the + button at the bottom right so clients can book you.</span></p>
     </div>
   </div>
 </div>
@@ -359,6 +390,7 @@ document.addEventListener('il-i18n-applied', () => { if (typeof render === 'func
 let slotsData = [];
 let blocksData = [];
 let eventsData = [];
+let bookingsData = [];
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -415,16 +447,22 @@ async function loadWeek() {
   // Akce se narozdíl od slotů a blokací tahají po týdnech — proto se
   // loadWeek() volá i při přepnutí týdne, ne jen při startu.
   const from = fmtDate(weekStart), to = fmtDate(addDays(weekStart, 6));
-  const [rSlots, rBlocks, rEvents] = await Promise.all([
+  const [rSlots, rBlocks, rEvents, rBookings] = await Promise.all([
     fetch('/api/me/slots'),
     fetch('/api/me/blocked-time'),
     fetch(`/api/events?from=${from}&to=${to}`),
+    fetch('/api/me/bookings/artist'),
   ]);
   slotsData = rSlots.ok ? await rSlots.json() : [];
   blocksData = rBlocks.ok ? await rBlocks.json() : [];
   // V mřížce tatéra jen jeho vlastní akce. Cizí akce jsou na /events —
   // tady by z kalendáře udělaly nástěnku.
   eventsData = rEvents.ok ? (await rEvents.json()).filter(e => e.is_own) : [];
+  // Zrušené rezervace do diáře nepatří — místo je zase volné.
+  bookingsData = rBookings.ok
+    ? (await rBookings.json()).filter(b =>
+        ['confirmed', 'completed', 'pending_payment'].includes(b.status))
+    : [];
   render();
 }
 
@@ -450,6 +488,11 @@ function render() {
   for (const e of eventsData) {
     (eventsByDay[e.date] = eventsByDay[e.date] || []).push(e);
   }
+  const bookingsByDay = {};
+  for (const b of bookingsData) {
+    const k = (b.booking_start_at || '').slice(0, 10);
+    if (k) (bookingsByDay[k] = bookingsByDay[k] || []).push(b);
+  }
 
   grid.innerHTML = '';
   let totalSlots = 0;
@@ -461,7 +504,20 @@ function render() {
     const daySlots = (slotsByDay[key] || []).sort((a,b) => a.start_at.localeCompare(b.start_at));
     const dayBlocks = (blocksByDay[key] || []).sort((a,b) => a.start_at.localeCompare(b.start_at));
     const dayEvents = (eventsByDay[key] || []).sort((a,b) => (a.time||'').localeCompare(b.time||''));
+    const dayBookings = (bookingsByDay[key] || [])
+      .sort((a,b) => (a.booking_start_at||'').localeCompare(b.booking_start_at||''));
     totalSlots += daySlots.length;
+    const bookingPills = dayBookings.map(b => {
+      const who = (b.client && (b.client.display_name || b.client.username)) || t('cal.noName');
+      const note = b.design_note || b.size_label || '';
+      return `
+              <div class="slot-pill booking${b.status === 'pending_payment' ? ' unpaid' : ''}"
+                   onclick="location.href='/my-bookings'"
+                   title="${escapeHtml(who)}${note ? ' · ' + escapeHtml(note) : ''} — ${t('cal.openBooking')}">
+                <span class="t">${fmtTime(b.booking_start_at)}–${fmtTime(b.booking_end_at)}</span>
+                <span class="p">${escapeHtml(who)}</span>
+              </div>`;
+    }).join('');
     const blockPills = dayBlocks.map(b => `
               <div class="slot-pill blocked" style="opacity:0.72;border-style:dashed">
                 <span class="t">${fmtTime(b.start_at)}–${fmtTime(b.end_at)}</span>
@@ -479,6 +535,7 @@ function render() {
           <div class="day-name">${dayName(d)}</div>
           <div class="day-num">${fmtDayNum(d)}</div>
         </div>
+        ${bookingPills}
         ${eventPills}
         ${blockPills}
         ${daySlots.length
@@ -488,13 +545,18 @@ function render() {
                 <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} CZK/h` : t('cal.priceOnRequest')}</span>
                 ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="${t('cal.delete')}">×</button>` : ''}
               </div>`).join('')
-          : ((dayBlocks.length || dayEvents.length) ? '' : (isPast
+          : ((dayBlocks.length || dayEvents.length || dayBookings.length) ? '' : (isPast
               ? '<div style="color:var(--txt4);font-size:10px;text-align:center;padding:8px 0;letter-spacing:0.06em">—</div>'
               : `<div class="empty-day" onclick="openSlotSheetForDay('${key}')">${t('cal.slotEmptyDay')}</div>`))
         }
       </div>`;
   }
-  document.getElementById('emptyHint').style.display = totalSlots === 0 ? 'block' : 'none';
+  // Prázdno je až když v týdnu není opravdu nic — ne když chybí jen sloty.
+  const weekHasAnything = totalSlots > 0 || bookingsData.some(b => {
+    const k = (b.booking_start_at || '').slice(0, 10);
+    return k >= fmtDate(weekStart) && k <= fmtDate(addDays(weekStart, 6));
+  });
+  document.getElementById('emptyHint').style.display = weekHasAnything ? 'none' : 'block';
 }
 
 function shiftWeek(dir) {
