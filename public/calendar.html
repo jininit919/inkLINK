@@ -175,24 +175,24 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
   <div id="gate" class="gate-msg" style="display:none">
     This page is artist-only.<br>
-    <a href="/artist-setup">Become an artist →</a>
+    <a href="/artist-setup" data-i18n="cal.becomeArtist">Become an artist →</a>
   </div>
 
   <div id="cal" style="display:none">
     <div class="cal-hero">
       <div>
-        <h1>MŮJ KALENDÁŘ</h1>
-        <div class="sub" id="weekRange">Načítám…</div>
+        <h1 data-i18n="cal.pageTitle">My calendar</h1>
+        <div class="sub" id="weekRange" data-i18n="cal.loading">Loading…</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <!-- Akce se zakládají na /events, kde je celý formulář (místo, mapa,
              fotky). Duplikovat ho sem by znamenalo dvě místa k opravě. -->
-        <a class="add-event-link" href="/events">+ Akce</a>
+        <a class="add-event-link" href="/events" data-i18n="cal.addEvent">+ Event</a>
         <div class="week-nav">
-          <button onclick="shiftWeek(-1)" title="Předchozí týden"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
-          <span class="label" id="weekLabel">Týden</span>
-          <button class="today" onclick="goToToday()">Dnes</button>
-          <button onclick="shiftWeek(1)" title="Další týden"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+          <button onclick="shiftWeek(-1)" data-i18n-attr="cal.prevWeek:title" title="Previous week"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
+          <span class="label" id="weekLabel" data-i18n="cal.week">Week</span>
+          <button class="today" onclick="goToToday()" data-i18n="cal.today">Today</button>
+          <button onclick="shiftWeek(1)" data-i18n-attr="cal.nextWeek:title" title="Next week"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
         </div>
       </div>
     </div>
@@ -201,13 +201,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
     <div id="emptyHint" class="empty-state" style="display:none">
       <svg class="icon icon-xl" style="width:32px;height:32px"><use href="#i-calendar"/></svg>
-      <h3>ŽÁDNÉ TERMÍNY</h3>
-      <p>Tento týden nemáš vypsané volné termíny. Přidej je tlačítkem <b style="color:var(--accent)">+</b> vpravo dole.</p>
+      <h3 data-i18n="cal.emptyTitle">No slots</h3>
+      <p><span data-i18n="cal.emptyBody">You have no open slots this week. Add them with the + button at the bottom right.</span></p>
     </div>
   </div>
 </div>
 
-<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" title="Přidat termín" aria-label="Přidat volný termín"><span>+</span></button>
+<button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" data-i18n-attr="cal.addSlot:title,cal.addSlot:aria-label" title="Add slot" aria-label="Add slot"><span>+</span></button>
 
 <!-- Sheet Modal — Apple-style -->
 <div id="slotSheet" onclick="if(event.target===this)closeSlotSheet()">
@@ -222,9 +222,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
       <div class="fld">
         <div class="segmented" data-count="2">
           <input type="radio" name="sheetMode" id="modeSlot" value="slot" checked>
-          <label for="modeSlot">Volný termín</label>
+          <label for="modeSlot" data-i18n="cal.freeSlot">Open slot</label>
           <input type="radio" name="sheetMode" id="modeBlock" value="block">
-          <label for="modeBlock">Blokace volna</label>
+          <label for="modeBlock" data-i18n="cal.blockTime">Time off</label>
         </div>
       </div>
 
@@ -245,8 +245,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
       </div>
 
       <div class="quick-row">
-        <button type="button" class="quick-btn" onclick="setTimes('09:00','13:00')">Dopoledne</button>
-        <button type="button" class="quick-btn" onclick="setTimes('13:00','18:00')">Odpoledne</button>
+        <button type="button" class="quick-btn" onclick="setTimes('09:00','13:00')" data-i18n="cal.morning">Morning</button>
+        <button type="button" class="quick-btn" onclick="setTimes('13:00','18:00')" data-i18n="cal.afternoon">Afternoon</button>
         <button type="button" class="quick-btn" onclick="setTimes('09:00','18:00')">All day</button>
         <button type="button" class="quick-btn" onclick="setTimes('17:00','21:00')">Evening</button>
       </div>
@@ -254,8 +254,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
       <!-- Blokace: jen důvod, žádné ceny ani opakování -->
       <div id="blockOnlyFields" style="display:none">
         <div class="fld">
-          <label>Důvod <span class="hint">— volitelně, vidíš jen ty</span></label>
-          <input type="text" id="ssBlockReason" maxlength="200" placeholder="Dovolená, doktor, soukromé">
+          <label><span data-i18n="cal.fReason">Reason</span> <span class="hint" data-i18n="cal.reasonHint">— optional, only you see it</span></label>
+          <input type="text" id="ssBlockReason" maxlength="200" data-i18n-attr="cal.reasonPh:placeholder" placeholder="Holiday, doctor, personal">
         </div>
       </div>
 
@@ -273,34 +273,34 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
       <div class="row2">
         <div class="fld">
-          <label>Min. rezervace (h)</label>
+          <label data-i18n="cal.fMinBooking">Min. booking (h)</label>
           <input type="number" id="ssMinDur" min="1" max="12" value="1">
         </div>
         <div class="fld">
-          <label>Záloha % <span class="hint">— volitelně</span></label>
+          <label><span data-i18n="cal.fDeposit">Deposit %</span> <span class="hint" data-i18n="cal.optional">— optional</span></label>
           <input type="number" id="ssDeposit" min="0" max="100" placeholder="30">
         </div>
       </div>
 
       <div class="fld">
-        <label>Poznámka <span class="hint">— volitelně</span></label>
-        <input type="text" id="ssNote" maxlength="200" placeholder="Realismus, konzultace předem">
+        <label><span data-i18n="cal.fNote">Note</span> <span class="hint" data-i18n="cal.optional">— optional</span></label>
+        <input type="text" id="ssNote" maxlength="200" data-i18n-attr="cal.notePh:placeholder" placeholder="Realism, consultation first">
       </div>
 
       <!-- Recurrence -->
       <div class="fld">
-        <label>Opakování</label>
+        <label data-i18n="cal.repeat">Repeat</label>
         <div class="segmented" data-count="2">
           <input type="radio" name="recurType" id="recurNone" value="none" checked>
-          <label for="recurNone">Jednorázově</label>
+          <label for="recurNone" data-i18n="cal.repeatOnce">One-off</label>
           <input type="radio" name="recurType" id="recurWeekly" value="weekly">
-          <label for="recurWeekly">Týdně</label>
+          <label for="recurWeekly" data-i18n="cal.repeatWeekly">Weekly</label>
         </div>
       </div>
 
       <div id="recurOptions" style="display:none;flex-direction:column;gap:14px">
         <div class="fld">
-          <label>Dny v týdnu</label>
+          <label data-i18n="cal.weekdays">Days of the week</label>
           <div class="day-picker" id="recurDays">
             <button type="button" data-day="0">PO</button>
             <button type="button" data-day="1">ÚT</button>
@@ -312,29 +312,29 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
           </div>
         </div>
         <div class="quick-row">
-          <button type="button" class="quick-btn" onclick="setRecurDays([0,1,2,3,4])">Pracovní dny</button>
-          <button type="button" class="quick-btn" onclick="setRecurDays([5,6])">Víkend</button>
-          <button type="button" class="quick-btn" onclick="setRecurDays([0,1,2,3,4,5,6])">Celý týden</button>
+          <button type="button" class="quick-btn" onclick="setRecurDays([0,1,2,3,4])" data-i18n="cal.workdays">Weekdays</button>
+          <button type="button" class="quick-btn" onclick="setRecurDays([5,6])" data-i18n="cal.weekend">Weekend</button>
+          <button type="button" class="quick-btn" onclick="setRecurDays([0,1,2,3,4,5,6])" data-i18n="cal.wholeWeek">Whole week</button>
         </div>
         <div class="fld">
-          <label>Opakovat do</label>
+          <label data-i18n="cal.repeatUntil">Repeat until</label>
           <input type="date" id="recurUntil">
         </div>
       </div>
 
       <details style="margin-top:2px">
-        <summary style="cursor:pointer;font-size:12px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase">Pokročilé</summary>
+        <summary style="cursor:pointer;font-size:12px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase" data-i18n="cal.advanced">Advanced</summary>
         <div class="row2" style="margin-top:12px">
           <div class="fld">
-            <label>Buffer před (min)</label>
+            <label data-i18n="cal.bufBefore">Buffer before (min)</label>
             <input type="number" id="ssBufBefore" min="0" max="240" value="0">
           </div>
           <div class="fld">
-            <label>Buffer po (min)</label>
+            <label data-i18n="cal.bufAfter">Buffer after (min)</label>
             <input type="number" id="ssBufAfter" min="0" max="240" value="0">
           </div>
         </div>
-        <div class="hint" style="margin-top:-6px">Odstup mezi rezervacemi — čas na úklid a přípravu.</div>
+        <div class="hint" style="margin-top:-6px" data-i18n="cal.bufHint">Gap between bookings — time to clean up and set up.</div>
       </details>
       </div><!-- /slotOnlyFields -->
 
@@ -343,7 +343,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
     <div class="sheet-foot">
       <button type="button" class="btn" onclick="closeSlotSheet()">Cancel</button>
-      <button type="button" class="btn btn-primary" id="ssSubmit" onclick="submitSlot()">Save termín</button>
+      <button type="button" class="btn btn-primary" id="ssSubmit" onclick="submitSlot()" data-i18n="cal.save">Save slot</button>
     </div>
   </div>
 </div>
@@ -351,6 +351,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 <script>
 let me = null;
 let weekStart = startOfWeek(new Date());  // monday
+const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
+// Mřížka se skládá v JS — po přepnutí jazyka ji musíme překreslit.
+document.addEventListener('il-i18n-applied', () => { if (typeof render === 'function' && slotsData) render(); });
+
 let slotsData = [];
 let blocksData = [];
 let eventsData = [];
@@ -374,8 +379,8 @@ function fmtDate(d){
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
 function fmtDayNum(d){ return d.getDate().toString().padStart(2,'0'); }
-function dayName(d){ return ['NE','PO','ÚT','ST','ČT','PÁ','SO'][d.getDay()]; }
-function csMonth(d){ return ['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'][d.getMonth()]; }
+function dayName(d){ return d.toLocaleDateString(locale(), {weekday:'short'}).replace('.','').toUpperCase(); }
+function csMonth(d){ return d.toLocaleDateString(locale(), {month:'long'}); }
 function fmtTime(iso){ const d = new Date(iso); return d.toTimeString().slice(0,5); }
 
 async function init() {
@@ -460,12 +465,12 @@ function render() {
     const blockPills = dayBlocks.map(b => `
               <div class="slot-pill blocked" style="opacity:0.72;border-style:dashed">
                 <span class="t">${fmtTime(b.start_at)}–${fmtTime(b.end_at)}</span>
-                <span class="p">${b.reason ? escapeHtml(b.reason) : 'blokace'}</span>
-                <button class="del" onclick="event.stopPropagation();delBlock(${b.id})" title="Smazat blokaci">×</button>
+                <span class="p">${b.reason ? escapeHtml(b.reason) : t('cal.block')}</span>
+                <button class="del" onclick="event.stopPropagation();delBlock(${b.id})" title="${t('cal.deleteBlock')}">×</button>
               </div>`).join('');
     const eventPills = dayEvents.map(e => `
               <div class="slot-pill event" onclick="location.href='/events'" title="${escapeHtml(e.title)}${e.venue ? ' · ' + escapeHtml(e.venue) : ''}">
-                <span class="t">${e.time ? escapeHtml(e.time.slice(0,5)) : 'akce'}</span>
+                <span class="t">${e.time ? escapeHtml(e.time.slice(0,5)) : t('cal.event')}</span>
                 <span class="p">${escapeHtml(e.title)}</span>
               </div>`).join('');
     grid.innerHTML += `
@@ -480,12 +485,12 @@ function render() {
           ? daySlots.map(s => `
               <div class="slot-pill ${s.status==='booked'?'booked':''}">
                 <span class="t">${fmtTime(s.start_at)}–${fmtTime(s.end_at)}</span>
-                <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} CZK/h` : 'cena dohodou'}</span>
-                ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="Delete">×</button>` : ''}
+                <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} CZK/h` : t('cal.priceOnRequest')}</span>
+                ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="${t('cal.delete')}">×</button>` : ''}
               </div>`).join('')
           : ((dayBlocks.length || dayEvents.length) ? '' : (isPast
               ? '<div style="color:var(--txt4);font-size:10px;text-align:center;padding:8px 0;letter-spacing:0.06em">—</div>'
-              : `<div class="empty-day" onclick="openSlotSheetForDay('${key}')">+ Termín</div>`))
+              : `<div class="empty-day" onclick="openSlotSheetForDay('${key}')">${t('cal.slotEmptyDay')}</div>`))
         }
       </div>`;
   }
@@ -535,8 +540,8 @@ function applySheetMode() {
   const isBlock = currentSheetMode() === 'block';
   document.getElementById('slotOnlyFields').style.display = isBlock ? 'none' : '';
   document.getElementById('blockOnlyFields').style.display = isBlock ? '' : 'none';
-  document.getElementById('ssTitle').textContent = isBlock ? 'BLOKACE VOLNA' : 'NOVÝ TERMÍN';
-  document.getElementById('ssSubmit').textContent = isBlock ? 'Uložit blokaci' : 'Save termín';
+  document.getElementById('ssTitle').textContent = isBlock ? t('cal.blockTime') : t('cal.newSlot');
+  document.getElementById('ssSubmit').textContent = isBlock ? t('cal.saveBlock') : t('cal.save');
 }
 
 async function submitSlot() {
@@ -546,14 +551,14 @@ async function submitSlot() {
   const from = document.getElementById('ssFrom').value;
   const to = document.getElementById('ssTo').value;
   if (!date || !from || !to) {
-    flash.innerHTML = '<div class="flash err">Vyplň datum a časy</div>'; return;
+    flash.innerHTML = `<div class="flash err">${t('cal.needDateTime')}</div>`; return;
   }
   if (from >= to) {
-    flash.innerHTML = '<div class="flash err">Konec musí být po začátku</div>'; return;
+    flash.innerHTML = `<div class="flash err">${t('cal.endAfterStart')}</div>`; return;
   }
   if (currentSheetMode() === 'block') { return submitBlock(); }
 
-  btn.disabled = true; btn.textContent = 'Ukládám…';
+  btn.disabled = true; btn.textContent = t('cal.saving');
   const start_at = `${date}T${from}:00`;
   const end_at = `${date}T${to}:00`;
 
@@ -575,8 +580,8 @@ async function submitSlot() {
     const days = Array.from(document.querySelectorAll('#recurDays button.on')).map(b => parseInt(b.dataset.day));
     const until = document.getElementById('recurUntil').value;
     if (!days.length || !until) {
-      flash.innerHTML = '<div class="flash err">Pro opakování vyber dny a "Opakovat do"</div>';
-      btn.disabled = false; btn.textContent = 'Save termín';
+      flash.innerHTML = `<div class="flash err">${t('cal.needRecurDays')}</div>`;
+      btn.disabled = false; btn.textContent = t('cal.save');
       return;
     }
     body.recur = { days, until };
@@ -592,9 +597,12 @@ async function submitSlot() {
       const j = await r.json();
       const warns = j.holiday_warnings || [];
       const warnTxt = warns.length
-        ? `<div class="flash" style="margin-top:6px">Pozor: ${warns.map(w => escapeHtml(w.name)).join(', ')} — termín je i tak vytvořený.</div>`
+        ? `<div class="flash" style="margin-top:6px">${t('cal.holidayWarn')
+             .replace('{names}', warns.map(w => escapeHtml(w.name)).join(', '))}</div>`
         : '';
-      flash.innerHTML = `<div class="flash ok">Vytvořeno ${j.created || 1} termín${(j.created||1)>1?'ů':'u'} ✓</div>${warnTxt}`;
+      const n = j.created || 1;
+      const okTxt = n === 1 ? t('cal.createdOne') : t('cal.createdMany').replace('{n}', n);
+      flash.innerHTML = `<div class="flash ok">${okTxt}</div>${warnTxt}`;
       setTimeout(() => {
         closeSlotSheet();
         // Reset
@@ -606,12 +614,12 @@ async function submitSlot() {
       }, warns.length ? 2600 : 700);  // varování o svátku si musí stihnout přečíst
     } else {
       const j = await r.json().catch(() => ({}));
-      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || 'Failed uložit')}</div>`;
+      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || t('cal.errSave'))}</div>`;
     }
   } catch {
-    flash.innerHTML = '<div class="flash err">Chyba sítě</div>';
+    flash.innerHTML = `<div class="flash err">${t('cal.errNetwork')}</div>`;
   }
-  btn.disabled = false; btn.textContent = 'Save termín';
+  btn.disabled = false; btn.textContent = t('cal.save');
 }
 
 async function submitBlock() {
@@ -621,7 +629,7 @@ async function submitBlock() {
   const from = document.getElementById('ssFrom').value;
   const to = document.getElementById('ssTo').value;
 
-  btn.disabled = true; btn.textContent = 'Ukládám…';
+  btn.disabled = true; btn.textContent = t('cal.saving');
   try {
     const r = await fetch('/api/blocked-time', {
       method: 'POST',
@@ -633,7 +641,7 @@ async function submitBlock() {
       }),
     });
     if (r.ok) {
-      flash.innerHTML = '<div class="flash ok">Blokace uložena ✓</div>';
+      flash.innerHTML = `<div class="flash ok">${t('cal.okBlock')}</div>`;
       setTimeout(() => {
         closeSlotSheet();
         document.getElementById('ssBlockReason').value = '';
@@ -641,27 +649,27 @@ async function submitBlock() {
       }, 700);
     } else {
       const j = await r.json().catch(() => ({}));
-      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || 'Blokaci se nepodařilo uložit')}</div>`;
+      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || t('cal.errBlock'))}</div>`;
     }
   } catch {
-    flash.innerHTML = '<div class="flash err">Chyba sítě</div>';
+    flash.innerHTML = `<div class="flash err">${t('cal.errNetwork')}</div>`;
   }
   btn.disabled = false;
   applySheetMode();
 }
 
 async function delSlot(id) {
-  if (!confirm('Delete tento termín?')) return;
+  if (!confirm(t('cal.confirmDelSlot'))) return;
   const r = await fetch('/api/slots/' + id, {method:'DELETE'});
   if (r.ok) await loadWeek();
-  else alert((await r.json()).error || 'Failed smazat');
+  else alert((await r.json()).error || t('cal.errDelete'));
 }
 
 async function delBlock(id) {
-  if (!confirm('Zrušit tuhle blokaci volna?')) return;
+  if (!confirm(t('cal.confirmDelBlock'))) return;
   const r = await fetch('/api/blocked-time/' + id, {method:'DELETE'});
   if (r.ok) await loadWeek();
-  else alert((await r.json().catch(() => ({}))).error || 'Nepodařilo se smazat');
+  else alert((await r.json().catch(() => ({}))).error || t('cal.errDelete'));
 }
 
 document.querySelectorAll('input[name="sheetMode"]').forEach(el => {
@@ -674,6 +682,7 @@ init();
 <script src="/icons.js?v=2"></script>
 <script src="/nav-avatar.js?v=1"></script>
 <script>InkLinkNavAvatar.init();</script>
+<script src="/i18n.js"></script>
 <script src="/mobile-nav.js?v=14"></script>
 <script>InkLinkMobileNav.init();</script>
 <script src="/ink-trail.js?v=1"></script>

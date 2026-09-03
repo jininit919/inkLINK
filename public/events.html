@@ -228,10 +228,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 <nav>
   <a class="nav-logo" href="/">inklink</a>
   <div class="nav-links">
-    <a class="nav-link" href="/">Feed</a>
-    <a class="nav-link active" href="/events">Eventy</a>
-    <a class="nav-link" href="/my-bookings">Booking</a>
-    <a class="nav-link" href="/artist-setup">For artists</a>
+    <a class="nav-link" href="/" data-i18n="ev.navFeed">Feed</a>
+    <a class="nav-link active" href="/events" data-i18n="ev.navEvents">Events</a>
+    <a class="nav-link" href="/my-bookings" data-i18n="ev.navBooking">Booking</a>
+    <a class="nav-link" href="/artist-setup" data-i18n="ev.navArtists">For artists</a>
   </div>
   <div class="nav-icons">
     <a class="nav-icon" href="/messages" title="Messages" id="msgIcon" style="position:relative">
@@ -248,11 +248,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
   <div class="filter-topbar">
     <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilterPanel()">
       <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><line x1="1" y1="3" x2="10" y2="3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="3" y1="6" x2="8" y2="6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="5" y1="9" x2="6" y2="9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-      Filtry
+      <span data-i18n="ev.filters">Filters</span>
       <span class="arrow">▾</span>
     </button>
     <div id="activeFilterBadge" class="filter-active-badge" style="display:none"></div>
-    <button class="filter-clear-btn" id="filterClearBtn" onclick="clearFilters()" style="display:none">✕ zrušit</button>
+    <button class="filter-clear-btn" id="filterClearBtn" onclick="clearFilters()" style="display:none" data-i18n="ev.clear">✕ clear</button>
   </div>
 
   <!-- FILTER PANEL -->
@@ -262,11 +262,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
       <div class="chips-wrap" id="genreChips"></div>
     </div>
     <div class="filter-section">
-      <div class="filter-section-label">Město</div>
+      <div class="filter-section-label" data-i18n="ev.city">City</div>
       <div class="chips-wrap" id="cityChips">
         <button class="filter-chip gps-btn" id="nearMeBtn" onclick="useMyLocation()">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg>
-          V okolí
+          <span data-i18n="ev.nearMe">Near me</span>
         </button>
         <button class="filter-chip city-chip" onclick="filterByCity('Praha',50.0755,14.4378)">Praha</button>
         <button class="filter-chip city-chip" onclick="filterByCity('Brno',49.1951,16.6068)">Brno</button>
@@ -287,8 +287,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 
   <!-- VIEW TABS -->
   <div class="view-tabs">
-    <button class="view-tab active" id="tabCal" onclick="switchView('cal')">◫ Kalendář</button>
-    <button class="view-tab" id="tabMap" onclick="switchView('map')"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-map-pin"/></svg> Mapa</button>
+    <button class="view-tab active" id="tabCal" onclick="switchView('cal')" data-i18n="ev.calendarTab">◫ Calendar</button>
+    <button class="view-tab" id="tabMap" onclick="switchView('map')"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-map-pin"/></svg> <span data-i18n="ev.mapTab">Map</span></button>
   </div>
 
   <!-- CALENDAR VIEW -->
@@ -296,7 +296,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
     <div class="cal-header">
       <div class="cal-month" id="calMonthTitle">—</div>
       <div class="cal-nav">
-        <button class="cal-today-btn" onclick="goToday()">Dnes</button>
+        <button class="cal-today-btn" onclick="goToday()" data-i18n="ev.today">Today</button>
         <button class="cal-nav-btn" onclick="prevMonth()">‹</button>
         <button class="cal-nav-btn" onclick="nextMonth()">›</button>
       </div>
@@ -309,14 +309,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
   <!-- MAP VIEW -->
   <div id="mapView">
     <div id="mainMap"></div>
-    <div class="no-map-events" id="noMapEvents" style="display:none">Tento měsíc tu není žádná akce s místem konání</div>
+    <div class="no-map-events" id="noMapEvents" style="display:none" data-i18n="ev.noMapEvents">No events with a location this month</div>
   </div>
 
 </div>
 
 <!-- ADD BUTTON -->
 <div class="add-bar">
-  <button class="add-btn" onclick="openAdd()">+ Přidat akci</button>
+  <button class="add-btn" onclick="openAdd()" data-i18n="ev.add">+ Add event</button>
 </div>
 
 <!-- ADD EVENT MODAL -->
@@ -330,7 +330,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
       <div class="merror" id="addError"></div>
       <div class="mfield">
         <label>Event name *</label>
-        <input type="text" id="aTitle" required placeholder="např. Guest spot u Terezy, Flash day…">
+        <input type="text" id="aTitle" required data-i18n-attr="ev.fNamePh:placeholder" placeholder="e.g. Guest spot at Tereza's, Flash day…">
       </div>
       <div class="mrow">
         <div class="mfield">
@@ -344,12 +344,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
       </div>
       <div class="mrow">
         <div class="mfield">
-          <label>Místo / studio</label>
-          <input type="text" id="aVenue" placeholder="název studia nebo místa">
+          <label data-i18n="ev.fVenue">Venue / studio</label>
+          <input type="text" id="aVenue" data-i18n-attr="ev.fVenuePh:placeholder" placeholder="studio or venue name">
         </div>
         <div class="mfield">
-          <label>Město</label>
-          <input type="text" id="aCity" placeholder="Praha, Brno…" oninput="onCityInput(this.value)">
+          <label data-i18n="ev.fCity">City</label>
+          <input type="text" id="aCity" data-i18n-attr="ev.fCityPh:placeholder" placeholder="Prague, Brno…" oninput="onCityInput(this.value)">
         </div>
       </div>
       <div class="mfield">
@@ -362,12 +362,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
         <input type="hidden" id="aLng">
       </div>
       <div class="mfield">
-        <label>Typ akce</label>
-        <input type="text" id="aGenre" placeholder="Guest spot · Konvence · Flash day · Workshop">
+        <label data-i18n="ev.fType">Event type</label>
+        <input type="text" id="aGenre" data-i18n-attr="ev.fTypePh:placeholder" placeholder="Guest spot · Convention · Flash day · Workshop">
       </div>
       <div class="mfield">
         <label>Description</label>
-        <textarea id="aDesc" placeholder="Krátký popis akce…"></textarea>
+        <textarea id="aDesc" data-i18n-attr="ev.fDescPh:placeholder" placeholder="Short event description…"></textarea>
       </div>
       <div class="mfield">
         <label>Link (FB event, tickets...)</label>
@@ -381,7 +381,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
         </label>
         <div class="photo-preview-strip" id="photoPreviewStrip"></div>
       </div>
-      <button class="msave" type="submit" id="aSave">PŘIDAT AKCI</button>
+      <button class="msave" type="submit" id="aSave" data-i18n="ev.submit">ADD EVENT</button>
     </form>
   </div>
 </div>
@@ -422,19 +422,36 @@ let events = [];
 
 const filters = { genre: null, cityName: null, lat: null, lng: null, radius: 50 };
 
-const MONTHS_CS = ['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'];
-const DAYS_CS   = ['Po','Út','St','Čt','Pá','So','Ne'];
+// Názvy měsíců a dnů z Intl podle jazyka UI, ne dva natvrdo psané seznamy.
+// Funkce, ne konstanty — po přepnutí jazyka se musí přepočítat.
+const MONTHS_CS = () => Array.from({length:12}, (_,i) =>
+  new Date(2020, i, 1).toLocaleDateString(locale(), {month:'long'}));
+const DAYS_CS = () => Array.from({length:7}, (_,i) =>
+  new Date(2020, 5, 1 + i).toLocaleDateString(locale(), {weekday:'short'})
+    .replace('.','').replace(/^./, c => c.toUpperCase()));
 
 // Typy tatérských akcí. Sloupec v DB se pořád jmenuje `genre` (pozůstatek
 // forku, ~23 referencí, 0 řádků) — přejmenováno jen v UI.
+// Hodnota v DB zůstává anglická (sloupec `genre`); překládá se jen popisek,
+// jinak by filtr po přepnutí jazyka přestal chytat uložené záznamy.
 const PRESET_GENRES = [
-  'Guest spot','Konvence','Flash day','Workshop','Charitativní flash',
-  'Otevřený ateliér','Křest studia','Výstava','Kurz','Pop-up'
+  'Guest spot','Convention','Flash day','Workshop','Charity flash',
+  'Open studio','Studio opening','Exhibition','Course','Pop-up'
 ];
+const GENRE_KEYS = {
+  'Guest spot':'ev.tGuestSpot', 'Convention':'ev.tConvention', 'Flash day':'ev.tFlashDay',
+  'Workshop':'ev.tWorkshop', 'Charity flash':'ev.tCharity', 'Open studio':'ev.tOpenStudio',
+  'Studio opening':'ev.tOpening', 'Exhibition':'ev.tExhibition', 'Course':'ev.tCourse',
+  'Pop-up':'ev.tPopUp',
+};
+const genreLabel = g => GENRE_KEYS[g] ? t(GENRE_KEYS[g]) : g;
 
 // Nepřihlášený uživatel je tu vítaný — /events je veřejná SEO plocha
 // a je v sitemapě. `me` proto může být null a všechno níž s tím počítá.
 let me = null;
+const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
+document.addEventListener('il-i18n-applied', () => { if (typeof loadEvents === 'function') { renderGenreChips(); loadEvents(); } });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
@@ -452,7 +469,7 @@ async function init() {
     pollUnread();
   } else {
     avatar.textContent = '↪';
-    avatar.title = 'Přihlásit se';
+    avatar.title = t('ev.signIn');
     avatar.setAttribute('onclick', "window.location.href='/login'; return false;");
     // Akce zakládá tatér; nepřihlášený si je jen prohlíží.
     const add = document.querySelector('.add-btn');
@@ -478,7 +495,7 @@ function renderGenreChips() {
     btn.className = 'filter-chip genre-colored-chip';
     btn.style.borderColor = c;
     btn.style.color = c;
-    btn.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${c};display:inline-block;flex-shrink:0"></span>${esc(g)}`;
+    btn.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${c};display:inline-block;flex-shrink:0"></span>${esc(genreLabel(g))}`;
     btn.style.display = 'inline-flex';
     btn.style.alignItems = 'center';
     btn.style.gap = '6px';
@@ -534,30 +551,30 @@ function filterByCity(name, lat, lng) {
 
 function useMyLocation() {
   const btn = document.getElementById('nearMeBtn');
-  if (!navigator.geolocation) { showToast('GPS not available'); return; }
+  if (!navigator.geolocation) { showToast(t('ev.gpsMissing')); return; }
   btn.classList.add('locating');
   btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg> Locating...`;
   navigator.geolocation.getCurrentPosition(pos => {
     filters.lat = pos.coords.latitude;
     filters.lng = pos.coords.longitude;
-    filters.cityName = 'V okolí';
+    filters.cityName = 'nearme';
     btn.classList.remove('locating');
-    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg> V okolí`;
+    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg> ${t('ev.nearMe')}`;
     btn.classList.add('active');
     document.querySelectorAll('#cityChips .filter-chip:not(#nearMeBtn)').forEach(c => c.classList.remove('active'));
     updateBadge();
     loadEvents();
   }, () => {
     btn.classList.remove('locating');
-    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg> V okolí`;
-    showToast('GPS denied or unavailable');
+    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg> ${t('ev.nearMe')}`;
+    showToast(t('ev.gpsDenied'));
   });
 }
 
 function clearFilters() {
   filters.genre = null; filters.lat = null; filters.lng = null; filters.cityName = null;
   document.querySelectorAll('.filter-chip').forEach(c => { c.classList.remove('active'); c.style.background = ''; });
-  document.getElementById('nearMeBtn').innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg> V okolí`;
+  document.getElementById('nearMeBtn').innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="0" x2="5" y2="2.2" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="7.8" x2="5" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="0" y1="5" x2="2.2" y2="5" stroke="currentColor" stroke-width="1.4"/><line x1="7.8" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1.4"/></svg> ${t('ev.nearMe')}`;
   updateBadge();
   loadEvents();
 }
@@ -565,7 +582,7 @@ function clearFilters() {
 function updateBadge() {
   const parts = [];
   if (filters.genre) parts.push(filters.genre);
-  if (filters.cityName) parts.push(filters.cityName === 'V okolí' ? 'V okolí (50 km)' : `Okolí ${filters.cityName} (50 km)`);
+  if (filters.cityName) parts.push(filters.cityName === 'nearme' ? t('ev.nearMeRadius') : t('ev.nearCity').replace('{city}', filters.cityName));
   const badge = document.getElementById('activeFilterBadge');
   const clearBtn = document.getElementById('filterClearBtn');
   if (parts.length) {
@@ -581,7 +598,7 @@ function renderLegend() {
   if (!active.length) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
   el.innerHTML = active.map(g =>
-    `<div class="legend-item"><div class="legend-dot" style="background:${genreColor(g)}"></div>${esc(g)}</div>`
+    `<div class="legend-item"><div class="legend-dot" style="background:${genreColor(g)}"></div>${esc(genreLabel(g))}</div>`
   ).join('');
 }
 
@@ -590,7 +607,7 @@ async function loadEvents() {
   let url = `/api/events?year=${year}&month=${month}`;
   if (filters.genre) url += `&genre=${encodeURIComponent(filters.genre)}`;
   if (filters.lat != null) url += `&lat=${filters.lat}&lng=${filters.lng}&radius=${filters.radius}`;
-  else if (filters.cityName && filters.cityName !== 'V okolí') url += `&city=${encodeURIComponent(filters.cityName)}`;
+  else if (filters.cityName && filters.cityName !== 'nearme') url += `&city=${encodeURIComponent(filters.cityName)}`;
   try { events = await fetch(url).then(r => r.json()); } catch { events = []; }
   renderLegend();
   renderCalendar();
@@ -599,13 +616,13 @@ async function loadEvents() {
 
 // ── Calendar render ───────────────────────────────────────────────────────────
 function renderCalendar() {
-  document.getElementById('calMonthTitle').textContent = `${MONTHS_CS[month-1]} ${year}`;
+  document.getElementById('calMonthTitle').textContent = `${MONTHS_CS()[month-1]} ${year}`;
 
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
 
   // Day headers
-  DAYS_CS.forEach(d => {
+  DAYS_CS().forEach(d => {
     const h = document.createElement('div');
     h.className = 'cal-day-header';
     h.textContent = d;
@@ -751,7 +768,7 @@ function renderMap() {
         <div class="popup-title">${esc(ev.title)}</div>
         <div class="popup-meta">${[ev.date, ev.time, ev.venue, ev.city].filter(Boolean).join(' · ')}</div>
         ${ev.genre ? `<div class="popup-meta" style="color:${color}">${esc(ev.genre)}</div>` : ''}
-        <button class="popup-open" onclick="openDetail(window.__popupEv_${ev.id})">Zobrazit detail →</button>
+        <button class="popup-open" onclick="openDetail(window.__popupEv_${ev.id})">${t('ev.openDetail')}</button>
       `, {className: 'map-pin-popup'});
     window[`__popupEv_${ev.id}`] = ev;
     mapMarkers.push(marker);
@@ -855,7 +872,7 @@ function openDetail(ev) {
     : '';
   const saveBtn = !ev.is_own
     ? `<button class="detail-save-btn ${ev.is_saved ? 'saved' : ''}" id="evSaveBtn-${ev.id}" onclick="toggleEventSave(${ev.id},this)">
-        ${ev.is_saved ? '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-check"/></svg> Uloženo do kalendáře' : '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-calendar"/></svg> Uložit do kalendáře'}
+        ${ev.is_saved ? `<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-check"/></svg> ${t('ev.savedToCal')}` : `<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-calendar"/></svg> ${t('ev.saveToCal')}`}
        </button>`
     : '';
   const ticketBtn = ev.is_own
@@ -923,7 +940,7 @@ function renderTicketTypes(types, isOwn) {
     return `<div class="ticket-row">
       <span class="ticket-name">${esc(tt.name)}</span>
       ${capLabel ? `<span class="ticket-cap">${capLabel}</span>` : ''}
-      <span class="ticket-price">${tt.price > 0 ? Number(tt.price).toLocaleString('cs-CZ') + ' ' + tt.currency : 'Free'}</span>
+      <span class="ticket-price">${tt.price > 0 ? Number(tt.price).toLocaleString('cs-CZ') + ' ' + tt.currency : t('ev.free')}</span>
       ${buyBtn}
     </div>`;
   }).join('');
@@ -931,17 +948,17 @@ function renderTicketTypes(types, isOwn) {
   const addForm = isOwn ? `
     <button class="ticket-toggle" id="ticketToggleBtn" onclick="toggleTicketForm()">+ Add ticket</button>
     <div class="ticket-add-form" id="ticketAddForm" style="display:none">
-      <input id="ttName" placeholder="Název (např. Standard, VIP…)" maxlength="60">
+      <input id="ttName" data-i18n-attr="ev.ticketNamePh:placeholder" placeholder="Name (e.g. Standard, VIP…)" maxlength="60">
       <div class="ticket-add-row">
-        <input id="ttPrice" type="number" min="0" placeholder="Cena v Kč">
-        <input id="ttCapacity" type="number" min="0" placeholder="Kapacita (0 = neomezeno)">
+        <input id="ttPrice" type="number" min="0" data-i18n-attr="ev.ticketPricePh:placeholder" placeholder="Price in CZK">
+        <input id="ttCapacity" type="number" min="0" data-i18n-attr="ev.ticketCapPh:placeholder" placeholder="Capacity (0 = unlimited)">
       </div>
       <button class="ticket-add-submit" onclick="submitTicketType()">Add</button>
     </div>` : '';
 
   sec.innerHTML = `
     <div class="tickets-title">Tickets</div>
-    ${rows || `<div style="font-size:13px;color:var(--txt3);padding:4px 0">${isOwn ? 'No tickets yet.' : 'No tickets for this event.'}</div>`}
+    ${rows || `<div style="font-size:13px;color:var(--txt3);padding:4px 0">${isOwn ? t('ev.noTicketsYet') : t('ev.noTickets')}</div>`}
     ${addForm}`;
 }
 
@@ -957,7 +974,7 @@ async function submitTicketType() {
   const name     = document.getElementById('ttName').value.trim();
   const price    = parseInt(document.getElementById('ttPrice').value) || 0;
   const capacity = parseInt(document.getElementById('ttCapacity').value) || 0;
-  if (!name) { showToast('Enter a ticket name'); return; }
+  if (!name) { showToast(t('ev.ticketName')); return; }
   const res = await fetch(`/api/events/${_ticketEventId}/ticket-types`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
@@ -968,9 +985,9 @@ async function submitTicketType() {
 }
 
 async function deleteTicketType(id) {
-  if (!confirm('Delete this ticket type?')) return;
+  if (!confirm(t('ev.confirmDelTicket'))) return;
   const res = await fetch(`/api/ticket-types/${id}`, {method:'DELETE'});
-  if (!res.ok) { showToast('Error deleting ticket'); return; }
+  if (!res.ok) { showToast(t('ev.errDelTicket')); return; }
   loadTicketTypes(_ticketEventId, _ticketIsOwn);
 }
 
@@ -986,19 +1003,19 @@ async function toggleEventSave(id, btn) {
   const data = await res.json();
   if (data.saved !== undefined) {
     btn.classList.toggle('saved', data.saved);
-    btn.innerHTML = data.saved ? '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-check"/></svg> Uloženo do kalendáře' : '<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-calendar"/></svg> Uložit do kalendáře';
-    showToast(data.saved ? 'Uloženo do kalendáře' : 'Odebráno z kalendáře');
+    btn.innerHTML = data.saved ? `<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-check"/></svg> ${t('ev.savedToCal')}` : `<svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-calendar"/></svg> ${t('ev.saveToCal')}`;
+    showToast(data.saved ? t('ev.savedToCal') : t('ev.removedFromCal'));
   }
 }
 
 async function deleteEvent(id) {
-  if (!confirm('Delete this event?')) return;
+  if (!confirm(t('ev.confirmDelete'))) return;
   const res = await fetch(`/api/events/${id}`, {method:'DELETE'});
   const data = await res.json();
   if (data.ok) {
     closeDetail();
     await loadEvents();
-    showToast('Event deleted');
+    showToast(t('ev.deleted'));
   } else {
     showToast(data.error || 'Error');
   }
@@ -1069,7 +1086,7 @@ function renderPhotoPreviews() {
 async function submitEvent(e) {
   e.preventDefault();
   const btn = document.getElementById('aSave');
-  btn.disabled = true; btn.textContent = 'SAVING...';
+  btn.disabled = true; btn.textContent = t('ev.saving');
   document.getElementById('addError').classList.remove('visible');
 
   const lat = parseFloat(document.getElementById('aLat').value);
@@ -1094,14 +1111,14 @@ async function submitEvent(e) {
     document.getElementById('addForm').reset();
     closeAdd();
     await loadEvents();
-    showToast('Event added');
+    showToast(t('ev.added'));
     if (currentView === 'map') renderMap();
   } else {
     const el = document.getElementById('addError');
     el.textContent = data.error || 'Error';
     el.classList.add('visible');
   }
-  btn.disabled = false; btn.textContent = 'ADD EVENT';
+  btn.disabled = false; btn.textContent = t('ev.submit');
 }
 
 // ── Modals close on backdrop click ────────────────────────────────────────────
@@ -1150,6 +1167,7 @@ init();
 </script>
 
 <script src="/notifs.js?v=5"></script>
+<script src="/i18n.js"></script>
 <script src="/mobile-nav.js?v=14"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
