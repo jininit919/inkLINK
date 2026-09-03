@@ -231,7 +231,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
           <span id="cityRow" style="display:none">⌖ <b id="city"></b></span>
         </div>
         <div class="trust-row" id="trustRow"></div>
-        <div class="styles" id="stylesRow"></div>
         <div class="bio" id="bio"></div>
         <div class="actions" id="actions"></div>
       </div>
@@ -459,10 +458,6 @@ function render() {
 
   if (profile.city) { document.getElementById('city').textContent = profile.city; document.getElementById('cityRow').style.display = 'inline'; }
 
-  if (profile.styles) {
-    document.getElementById('stylesRow').innerHTML = profile.styles.split(',')
-      .filter(Boolean).map(s => `<span class="style-chip">${escapeHtml(s.trim())}</span>`).join('');
-  }
   if (profile.bio) document.getElementById('bio').textContent = profile.bio;
 
   // Trust signals — jen pro tatéry, a jen ty, co klientovi pomůžou
