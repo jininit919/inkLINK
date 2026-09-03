@@ -8399,8 +8399,9 @@ def remove_favorite_city(name):
 @app.route('/api/events')
 def get_events():
     uid   = session.get('user_id', 0)
-    year  = int(request.args.get('year',  datetime.now().year))
-    month = int(request.args.get('month', datetime.now().month))
+    _now  = _prague_now_naive()
+    year  = int(request.args.get('year',  _now.year))
+    month = int(request.args.get('month', _now.month))
     genre = request.args.get('genre', '').strip()
 
     city  = request.args.get('city', '').strip()
@@ -8412,15 +8413,29 @@ def get_events():
     except (ValueError, TypeError):
         gps_filter = False
 
-    month_str = f'{year}-{month:02d}'
+    # Rozsah data má přednost před měsícem. Týdenní pohled v kalendáři přes
+    # přelom měsíce by s `date LIKE '2026-09%'` utnul půlku týdne.
+    date_from = request.args.get('from', '').strip()
+    date_to   = request.args.get('to', '').strip()
+    artist_id = request.args.get('artist_id', '').strip()
+
     conn   = get_db()
-    params = [f'{month_str}%']
-    query  = '''
+    if date_from and date_to:
+        params = [date_from, date_to]
+        date_clause = 'e.date >= ? AND e.date <= ?'
+    else:
+        params = [f'{year}-{month:02d}%']
+        date_clause = 'e.date LIKE ?'
+
+    query  = f'''
         SELECT e.*, u.username, u.display_name, u.emoji, u.lat AS user_lat, u.lng AS user_lng
         FROM events e
         JOIN users u ON e.user_id = u.id
-        WHERE e.date LIKE ?
+        WHERE {date_clause}
     '''
+    if artist_id.isdigit():
+        query += ' AND e.user_id = ?'
+        params.append(int(artist_id))
     if genre:
         query += ' AND e.genre LIKE ?'
         params.append(f'%{genre}%')
@@ -8519,7 +8534,7 @@ def get_my_events():
     err = require_login()
     if err: return err
     conn = get_db()
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _prague_now_naive().strftime('%Y-%m-%d')
     rows = conn.execute(
         'SELECT id, title, date, time, city, genre FROM events WHERE user_id = ? ORDER BY date ASC, time ASC',
         (session['user_id'],)
@@ -8565,7 +8580,7 @@ def get_calendar():
     if 'user_id' not in session:
         return jsonify({'error': 'Not signed in'}), 401
     conn = get_db()
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _prague_now_naive().strftime('%Y-%m-%d')
     rows = conn.execute('''
         SELECT e.id, e.title, e.date, e.time, e.city, e.genre
         FROM event_saves es
@@ -8583,13 +8598,13 @@ def get_calendar():
 
 @app.route('/api/profile/<username>/events')
 def get_profile_events(username):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not signed in'}), 401
+    # Veřejné. Akce tatéra jsou marketingová plocha — nemá smysl je schovávat
+    # za login, když je profil sám veřejný a je v sitemapě.
     conn = get_db()
     user = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
     if not user:
         conn.close(); return jsonify([])
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _prague_now_naive().strftime('%Y-%m-%d')
     rows = conn.execute(
         'SELECT id, title, date, time, venue, city, genre, description, link, photo1 FROM events WHERE user_id = ? ORDER BY date ASC, time ASC',
         (user['id'],)

@@ -250,6 +250,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
 
     <div id="tab-slots" style="display:none">
+      <div id="profileEvents" style="display:none;margin-bottom:26px">
+        <div style="font-size:12px;letter-spacing:0.16em;color:var(--txt3);text-transform:uppercase;margin-bottom:12px">Nadcházející akce</div>
+        <div id="profileEventsList"></div>
+      </div>
       <div class="slots-list" id="slots"></div>
       <div class="empty" id="slotsEmpty" style="display:none">No available slots.</div>
     </div>
@@ -538,6 +542,7 @@ function render() {
   }
 
   if (!profile.is_artist) document.getElementById('slotsTab').style.display = 'none';
+  else loadProfileEvents();
   document.getElementById('slotsCount').textContent = profile.slots.length;
   const slotsEl = document.getElementById('slots');
   if (!profile.slots.length) {
@@ -569,6 +574,36 @@ function render() {
       </div>`;
     }).join('');
   }
+}
+
+// Akce tatéra (guest spoty, konvence, flash days). Veřejné — endpoint
+// nevyžaduje přihlášení, takže je vidí i nepřihlášený návštěvník profilu.
+async function loadProfileEvents() {
+  try {
+    const r = await fetch('/api/profile/' + encodeURIComponent(profile.username) + '/events');
+    if (!r.ok) return;
+    const upcoming = (await r.json()).filter(e => !e.past).slice(0, 6);
+    if (!upcoming.length) return;
+    document.getElementById('profileEventsList').innerHTML = upcoming.map(e => `
+      <a href="/events" class="slot-row" style="border-left:3px solid #af52de;text-decoration:none">
+        <div class="slot-date">${escapeHtml(fmtEventDate(e.date))}${e.time ? ' · ' + escapeHtml(e.time.slice(0,5)) : ''}</div>
+        <div class="slot-meta">
+          <span class="slot-price">${escapeHtml(e.title)}</span>
+          ${e.genre ? `<span class="slot-deposit">${escapeHtml(e.genre)}</span>` : ''}
+          ${(e.venue || e.city) ? `<span class="slot-note">${escapeHtml([e.venue, e.city].filter(Boolean).join(' · '))}</span>` : ''}
+        </div>
+      </a>`).join('');
+    document.getElementById('profileEvents').style.display = 'block';
+  } catch (_) { /* akce jsou doplněk, jejich výpadek nesmí shodit profil */ }
+}
+
+// events.date je 'YYYY-MM-DD' bez času; new Date() by to vzalo jako UTC
+// půlnoc a v kladném offsetu ukázalo předchozí den.
+function fmtEventDate(d) {
+  const [y, m, day] = (d || '').split('-').map(Number);
+  if (!y) return d || '';
+  const MON = ['led','úno','bře','dub','kvě','čvn','čvc','srp','zář','říj','lis','pro'];
+  return `${day}. ${MON[m - 1]} ${y}`;
 }
 
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {

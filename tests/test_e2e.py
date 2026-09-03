@@ -1574,6 +1574,64 @@ class MedicalNotesNoKeyTests(_CrmBase):
         self.assertEqual(n, 0)
 
 
+class PublicEventsTests(unittest.TestCase):
+    """/events je veřejná SEO plocha v sitemapě. Endpointy pod ní musí
+    odpovídat i nepřihlášenému — dřív vracely 401, nebo se lámaly na
+    přelomu měsíce, protože filtrovaly `date LIKE '2026-09%'`."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO users (username, display_name, password_hash, email, is_artist) '
+            "VALUES ('inker','Inker','x','i@t.cz',1)")
+        # Konec září a začátek října — jeden týden, dva měsíce.
+        for title, date in (('Guest spot Praha', '2027-09-29'),
+                            ('Flash day Brno',   '2027-10-02')):
+            conn.execute(
+                'INSERT INTO events (user_id, title, date, time, city, genre) '
+                "VALUES (1, ?, ?, '18:00', 'Praha', 'Guest spot')", (title, date))
+        conn.commit()
+        conn.close()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_events_list_is_public(self):
+        r = self.client.get('/api/events?year=2027&month=9')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.get_json()), 1)
+
+    def test_range_spans_month_boundary(self):
+        # Přesně ten případ, který měsíční LIKE utne v půlce týdne.
+        r = self.client.get('/api/events?from=2027-09-27&to=2027-10-03')
+        self.assertEqual(r.status_code, 200)
+        titles = {e['title'] for e in r.get_json()}
+        self.assertEqual(titles, {'Guest spot Praha', 'Flash day Brno'})
+
+    def test_artist_id_filter(self):
+        r = self.client.get('/api/events?from=2027-09-01&to=2027-10-31&artist_id=999')
+        self.assertEqual(r.get_json(), [])
+        r = self.client.get('/api/events?from=2027-09-01&to=2027-10-31&artist_id=1')
+        self.assertEqual(len(r.get_json()), 2)
+
+    def test_anonymous_gets_no_ownership_flags(self):
+        # is_own u nepřihlášeného nesmí vyjít True kvůli uid == 0.
+        r = self.client.get('/api/events?from=2027-09-01&to=2027-10-31')
+        self.assertTrue(all(e['is_own'] is False for e in r.get_json()))
+        self.assertTrue(all(e['is_saved'] is False for e in r.get_json()))
+
+    def test_profile_events_is_public(self):
+        r = self.client.get('/api/profile/inker/events')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.get_json()), 2)
+
+    def test_creating_an_event_still_requires_login(self):
+        r = self.client.post('/api/events', data={'title': 'X', 'date': '2027-11-01'})
+        self.assertEqual(r.status_code, 401)
+
+
 class PragueTimeTests(unittest.TestCase):
     """Časy se v DB drží jako pražský wall-clock — porovnávat je proti
     datetime.utcnow() posouvalo všechny 'kolik hodin před' kontroly."""
