@@ -135,6 +135,25 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 def _set_secure_cookie():
     app.config['SESSION_COOKIE_SECURE'] = (request.scheme == 'https')
 
+# ── Instagram ────────────────────────────────────────────────────────────────
+# Instagram API with Instagram Login (profesionální účty). Basic Display API
+# Meta vypnula v prosinci 2024, takže tudy cesta nevede.
+# Bez vyplněných proměnných se propojení jen neukáže — appka jede dál.
+INSTAGRAM_APP_ID     = os.environ.get('INSTAGRAM_APP_ID', '').strip()
+INSTAGRAM_APP_SECRET = os.environ.get('INSTAGRAM_APP_SECRET', '').strip()
+INSTAGRAM_SCOPES     = 'instagram_business_basic'
+
+
+def _instagram_enabled() -> bool:
+    return bool(INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET)
+
+
+def _instagram_redirect_uri() -> str:
+    # Musí se PŘESNĚ shodovat s tím, co je v nastavení aplikace u Mety —
+    # jinak Instagram vrátí chybu ještě před přihlášením.
+    return APP_BASE_URL.rstrip('/') + '/api/instagram/callback'
+
+
 # ── Coming-soon brána ────────────────────────────────────────────────────────
 # Doména je veřejná, ale produkt se ještě staví. Anonymní návštěvník uvidí
 # jen stránku s waitlistem; dovnitř se dostane přihlášený uživatel (stačí se
@@ -822,6 +841,38 @@ def init_db():
     )''')
 
     # ── events / event_saves (kept) ─────────────────────────────────────────
+    # ── instagram_accounts ──────────────────────────────────────────────────
+    # Propojení tatérova Instagramu. Jeden účet na uživatele: kdyby jich bylo
+    # víc, "ze kterého importujeme" je otázka, na kterou UI nemá odpověď.
+    #
+    # Token je v DB v otevřené podobě. Vědomé rozhodnutí: je to read-only
+    # rozsah nad médii, která tatér stejně zveřejňuje na Instagramu, platí
+    # 60 dní a jde odvolat z obou stran. Kdyby sem někdy přibyl zápis
+    # (publikování za tatéra), tohle je místo, kde se musí přidat šifrování.
+    c.execute("""CREATE TABLE IF NOT EXISTS instagram_accounts (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id       INTEGER NOT NULL UNIQUE,
+        ig_user_id    TEXT NOT NULL,
+        username      TEXT DEFAULT '',
+        access_token  TEXT NOT NULL,
+        token_expires_at TEXT DEFAULT NULL,
+        connected_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_import_at TEXT DEFAULT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )""")
+
+    # Které médium už jsme importovali. Bez toho by opakovaný import
+    # portfolio duplikoval — a tatér by mazal ručně.
+    c.execute("""CREATE TABLE IF NOT EXISTS instagram_imports (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL,
+        ig_media_id TEXT NOT NULL,
+        portfolio_item_id INTEGER DEFAULT NULL,
+        imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (user_id, ig_media_id)
+    )""")
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ig_imports_user ON instagram_imports(user_id)')
+
     # ── waitlist (coming-soon stránka) ──────────────────────────────────────
     # Sbíráme jen e-mail a nepovinnou roli. Žádné jméno, žádný profil —
     # čím míň osobních údajů před spuštěním, tím míň povinností navíc.
@@ -8485,6 +8536,268 @@ def remove_favorite_city(name):
 
 
 # ── Events API ────────────────────────────────────────────────────────────────
+
+# ── Instagram: propojení účtu ────────────────────────────────────────────────
+# Tok: /connect → Instagram → /callback → krátkodobý token → dlouhodobý (60 dní).
+# Token se nikam neloguje a ven z API nikdy nejde.
+
+IG_AUTH_URL  = 'https://www.instagram.com/oauth/authorize'
+IG_TOKEN_URL = 'https://api.instagram.com/oauth/access_token'
+IG_GRAPH     = 'https://graph.instagram.com'
+
+
+@app.route('/api/instagram/connect')
+def instagram_connect():
+    err = require_login()
+    if err: return err
+    if not _instagram_enabled():
+        return jsonify({'error': 'Instagram is not configured on this server.'}), 503
+
+    # state chrání proti CSRF: bez něj by šlo uživateli podstrčit callback
+    # a připojit mu cizí Instagram účet.
+    import secrets as _secrets
+    state = _secrets.token_urlsafe(24)
+    session['ig_oauth_state'] = state
+
+    from urllib.parse import urlencode
+    return redirect(IG_AUTH_URL + '?' + urlencode({
+        'client_id':     INSTAGRAM_APP_ID,
+        'redirect_uri':  _instagram_redirect_uri(),
+        'response_type': 'code',
+        'scope':         INSTAGRAM_SCOPES,
+        'state':         state,
+    }))
+
+
+@app.route('/api/instagram/callback')
+def instagram_callback():
+    err = require_login()
+    if err: return err
+    if not _instagram_enabled():
+        return redirect('/artist-setup#profile?ig=unconfigured')
+
+    # Jednorázový state — druhé použití už neprojde.
+    expected = session.pop('ig_oauth_state', None)
+    if not expected or request.args.get('state') != expected:
+        return redirect('/artist-setup?ig=state')
+    if request.args.get('error') or not request.args.get('code'):
+        return redirect('/artist-setup?ig=denied')
+
+    import requests as _rq
+    try:
+        tok = _rq.post(IG_TOKEN_URL, data={
+            'client_id':     INSTAGRAM_APP_ID,
+            'client_secret': INSTAGRAM_APP_SECRET,
+            'grant_type':    'authorization_code',
+            'redirect_uri':  _instagram_redirect_uri(),
+            'code':          request.args['code'],
+        }, timeout=15).json()
+        short_token = tok.get('access_token')
+        ig_user_id  = str(tok.get('user_id') or '')
+        if not short_token or not ig_user_id:
+            raise ValueError('no access_token in response')
+
+        # Krátkodobý token platí hodinu; bez výměny by propojení do hodiny
+        # umřelo a tatér by nevěděl proč.
+        lng = _rq.get(f'{IG_GRAPH}/access_token', params={
+            'grant_type':     'ig_exchange_token',
+            'client_secret':  INSTAGRAM_APP_SECRET,
+            'access_token':   short_token,
+        }, timeout=15).json()
+        token = lng.get('access_token') or short_token
+        expires_in = int(lng.get('expires_in') or 0)
+
+        me = _rq.get(f'{IG_GRAPH}/me', params={
+            'fields': 'id,username',
+            'access_token': token,
+        }, timeout=15).json()
+        username = me.get('username') or ''
+    except Exception as e:
+        # Token ani kód se do logu nedostanou — jen typ chyby.
+        app.logger.error(f'[instagram] connect failed: {type(e).__name__}')
+        return redirect('/artist-setup?ig=error')
+
+    expires_at = (_prague_now_naive() + timedelta(seconds=expires_in)).isoformat() if expires_in else None
+    uid = session['user_id']
+    conn = get_db()
+    conn.execute('DELETE FROM instagram_accounts WHERE user_id=?', (uid,))
+    conn.execute("""INSERT INTO instagram_accounts
+                    (user_id, ig_user_id, username, access_token, token_expires_at)
+                    VALUES (?,?,?,?,?)""",
+                 (uid, ig_user_id, username, token, expires_at))
+    conn.commit()
+    conn.close()
+    return redirect('/artist-setup?ig=ok')
+
+
+@app.route('/api/instagram/status')
+def instagram_status():
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = conn.execute(
+        'SELECT ig_user_id, username, connected_at, token_expires_at, last_import_at '
+        'FROM instagram_accounts WHERE user_id=?', (session['user_id'],)).fetchone()
+    imported = conn.execute(
+        'SELECT COUNT(*) FROM instagram_imports WHERE user_id=?',
+        (session['user_id'],)).fetchone()[0]
+    conn.close()
+    if not row:
+        return jsonify({'connected': False, 'available': _instagram_enabled()})
+    # Token se ven nikdy neposílá.
+    return jsonify({
+        'connected':        True,
+        'available':        True,
+        'username':         row['username'],
+        'connected_at':     row['connected_at'],
+        'token_expires_at': row['token_expires_at'],
+        'last_import_at':   row['last_import_at'],
+        'imported_count':   imported,
+    })
+
+
+@app.route('/api/instagram/disconnect', methods=['POST'])
+def instagram_disconnect():
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    conn.execute('DELETE FROM instagram_accounts WHERE user_id=?', (uid,))
+    # Historii importů necháváme: opětovné propojení nemá znovu natáhnout
+    # fotky, které si tatér mezitím z portfolia smazal.
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+def _ig_account(conn, uid):
+    return conn.execute(
+        'SELECT * FROM instagram_accounts WHERE user_id=?', (uid,)).fetchone()
+
+
+@app.route('/api/instagram/media')
+def instagram_media():
+    """Média z propojeného účtu, s příznakem, co už je naimportované."""
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    acc = _ig_account(conn, uid)
+    if not acc:
+        conn.close()
+        return jsonify({'error': 'Instagram is not connected.'}), 404
+    done = {r['ig_media_id'] for r in conn.execute(
+        'SELECT ig_media_id FROM instagram_imports WHERE user_id=?', (uid,)).fetchall()}
+    conn.close()
+
+    import requests as _rq
+    try:
+        r = _rq.get(f'{IG_GRAPH}/me/media', params={
+            'fields': 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp',
+            'limit':  50,
+            'access_token': acc['access_token'],
+        }, timeout=20).json()
+    except Exception as e:
+        app.logger.error(f'[instagram] media fetch failed: {type(e).__name__}')
+        return jsonify({'error': 'Could not reach Instagram.'}), 502
+    if 'error' in r:
+        # Vypršelý nebo odvolaný token je běžný stav, ne chyba serveru —
+        # frontend na něj má reagovat nabídkou znovupropojení.
+        return jsonify({'error': 'Instagram rejected the request.',
+                        'reconnect': True}), 401
+
+    items = []
+    for m in (r.get('data') or []):
+        # VIDEO nemá statický obrázek k zobrazení v portfoliu; bereme
+        # náhled. CAROUSEL_ALBUM vrací jen první snímek, což stačí.
+        if m.get('media_type') == 'VIDEO' and not m.get('thumbnail_url'):
+            continue
+        items.append({
+            'id':        m.get('id'),
+            'caption':   (m.get('caption') or '')[:300],
+            'type':      m.get('media_type'),
+            'thumb':     m.get('thumbnail_url') or m.get('media_url'),
+            'permalink': m.get('permalink'),
+            'timestamp': m.get('timestamp'),
+            'imported':  m.get('id') in done,
+        })
+    return jsonify({'media': items, 'username': acc['username']})
+
+
+@app.route('/api/instagram/import', methods=['POST'])
+@limiter.limit('20 per hour')
+def instagram_import():
+    """Naimportuje vybraná média do portfolia.
+
+    Obrázky se STAHUJÍ k nám. URL z Instagramu jsou podepsané a expirují,
+    takže odkazovat na ně přímo by znamenalo portfolio, které se za pár dní
+    rozsype na prázdné rámečky.
+    """
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or {}
+    ids  = [str(i) for i in (data.get('ids') or [])][:30]
+    kind = 'sketch' if data.get('kind') == 'sketch' else 'done'
+    if not ids:
+        return jsonify({'error': 'Pick at least one photo.'}), 400
+
+    conn = get_db()
+    acc = _ig_account(conn, uid)
+    if not acc:
+        conn.close()
+        return jsonify({'error': 'Instagram is not connected.'}), 404
+    already = {r['ig_media_id'] for r in conn.execute(
+        'SELECT ig_media_id FROM instagram_imports WHERE user_id=?', (uid,)).fetchall()}
+
+    import requests as _rq
+    imported, skipped, failed = 0, 0, 0
+    for mid in ids:
+        if mid in already:
+            skipped += 1
+            continue
+        try:
+            m = _rq.get(f'{IG_GRAPH}/{mid}', params={
+                'fields': 'id,caption,media_type,media_url,thumbnail_url',
+                'access_token': acc['access_token'],
+            }, timeout=20).json()
+            url = m.get('media_url') if m.get('media_type') != 'VIDEO' else m.get('thumbnail_url')
+            if not url:
+                failed += 1
+                continue
+            img = _rq.get(url, timeout=30)
+            img.raise_for_status()
+            # Instagram servíruje JPEG; přípona se řídí typem odpovědi,
+            # ne koncovkou v URL (ta nese podpisové parametry).
+            ext = 'png' if 'png' in (img.headers.get('Content-Type') or '') else 'jpg'
+            name = f'ig_{uid}_{mid}_{int(datetime.now().timestamp()*1000)}.{ext}'
+            import io as _io
+            from werkzeug.datastructures import FileStorage as _FS
+            save_upload(_FS(stream=_io.BytesIO(img.content), filename=name), name)
+
+            conn.execute(
+                'INSERT INTO portfolio_items (user_id, image, caption, kind) VALUES (?,?,?,?)',
+                (uid, name, (m.get('caption') or '')[:300], kind))
+            conn.commit()
+            pid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+                   else conn.execute('SELECT lastval()').fetchone()[0])
+            conn.execute(
+                'INSERT INTO instagram_imports (user_id, ig_media_id, portfolio_item_id) VALUES (?,?,?)',
+                (uid, mid, pid))
+            conn.commit()
+            imported += 1
+        except Exception as e:
+            # Jedna vadná fotka nesmí shodit celý import — tatér by nevěděl,
+            # co se stihlo a co ne.
+            app.logger.warning(f'[instagram] import of one item failed: {type(e).__name__}')
+            failed += 1
+
+    conn.execute('UPDATE instagram_accounts SET last_import_at=? WHERE user_id=?',
+                 (_prague_now_naive().isoformat(), uid))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'imported': imported, 'skipped': skipped, 'failed': failed})
+
 
 @app.route('/api/waitlist', methods=['POST'])
 @limiter.limit('10 per hour')

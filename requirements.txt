@@ -13,3 +13,7 @@ Pillow>=10.0.0
 sentry-sdk[flask]>=2.0.0
 holidays>=0.60
 tzdata>=2024.1
+
+# HTTP klient pro Instagram Graph API. Explicitně, ne tranzitivně přes
+# stripe/resend/boto3 — jejich bump by nám verzi vytáhl zpod nohou.
+requests>=2.32

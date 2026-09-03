@@ -1775,6 +1775,149 @@ class I18nKeyTests(unittest.TestCase):
         self.assertEqual(sorted(en - cs), [], 'klíč jen v angličtině')
 
 
+class InstagramConnectTests(unittest.TestCase):
+    """OAuth je jediné místo, kde do appky vstupuje cizí identita, takže
+    kontroly kolem `state` a nakládání s tokenem jsou tu podstatnější než
+    samotné volání Instagramu (to je při testu stejně zaslepené)."""
+
+    def setUp(self):
+        os.environ['INSTAGRAM_APP_ID'] = 'test-app-id'
+        os.environ['INSTAGRAM_APP_SECRET'] = 'test-secret'
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO users (username, display_name, password_hash, email, is_artist) '
+            "VALUES ('inker','Inker','x','i@t.cz',1)")
+        conn.commit()
+        conn.close()
+
+    def tearDown(self):
+        os.unlink(self.db)
+        os.environ.pop('INSTAGRAM_APP_ID', None)
+        os.environ.pop('INSTAGRAM_APP_SECRET', None)
+
+    def _login(self):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+
+    def _connect_row(self, token='tok-123'):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('INSERT INTO instagram_accounts '
+                     '(user_id, ig_user_id, username, access_token) VALUES (1,?,?,?)',
+                     ('99', 'inker_ig', token))
+        conn.commit()
+        conn.close()
+
+    def test_connect_requires_login(self):
+        self.assertEqual(self.client.get('/api/instagram/connect').status_code, 401)
+
+    def test_connect_redirects_with_state(self):
+        self._login()
+        r = self.client.get('/api/instagram/connect')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('instagram.com/oauth/authorize', r.headers['Location'])
+        self.assertIn('state=', r.headers['Location'])
+        with self.client.session_transaction() as sess:
+            self.assertTrue(sess.get('ig_oauth_state'))
+
+    def test_callback_rejects_wrong_state(self):
+        """Bez téhle kontroly jde uživateli podstrčit callback a připojit
+        mu cizí Instagram účet."""
+        self._login()
+        self.client.get('/api/instagram/connect')
+        r = self.client.get('/api/instagram/callback?code=abc&state=podvrzeny')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('ig=state', r.headers['Location'])
+
+    def test_callback_rejects_missing_state(self):
+        self._login()
+        r = self.client.get('/api/instagram/callback?code=abc&state=cokoli')
+        self.assertIn('ig=state', r.headers['Location'])
+
+    def test_state_is_single_use(self):
+        self._login()
+        r1 = self.client.get('/api/instagram/connect')
+        from urllib.parse import urlparse, parse_qs
+        st = parse_qs(urlparse(r1.headers['Location']).query)['state'][0]
+        # První callback state spotřebuje (i když pak selže na výměně tokenu),
+        # druhý už neprojde.
+        self.client.get(f'/api/instagram/callback?error=denied&state={st}')
+        r2 = self.client.get(f'/api/instagram/callback?code=abc&state={st}')
+        self.assertIn('ig=state', r2.headers['Location'])
+
+    def test_status_never_returns_the_token(self):
+        self._login()
+        self._connect_row(token='SUPER-TAJNY-TOKEN')
+        r = self.client.get('/api/instagram/status')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.get_json()['connected'])
+        self.assertNotIn(b'SUPER-TAJNY-TOKEN', r.get_data())
+
+    def test_status_when_not_connected(self):
+        self._login()
+        d = self.client.get('/api/instagram/status').get_json()
+        self.assertFalse(d['connected'])
+        self.assertTrue(d['available'])
+
+    def test_disconnect_removes_account_but_keeps_import_history(self):
+        self._login()
+        self._connect_row()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO instagram_imports (user_id, ig_media_id) VALUES (1,'m1')")
+        conn.commit()
+        conn.close()
+
+        self.assertEqual(self.client.post('/api/instagram/disconnect').status_code, 200)
+        conn = sqlite3.connect(self.db)
+        accounts = conn.execute('SELECT COUNT(*) FROM instagram_accounts').fetchone()[0]
+        imports  = conn.execute('SELECT COUNT(*) FROM instagram_imports').fetchone()[0]
+        conn.close()
+        self.assertEqual(accounts, 0)
+        # Historie zůstává: po znovupropojení nemá import znovu natáhnout
+        # fotky, které si tatér mezitím z portfolia smazal.
+        self.assertEqual(imports, 1)
+
+    def test_media_and_import_need_a_connected_account(self):
+        self._login()
+        self.assertEqual(self.client.get('/api/instagram/media').status_code, 404)
+        self.assertEqual(self.client.post(
+            '/api/instagram/import', json={'ids': ['m1']}).status_code, 404)
+
+    def test_import_rejects_empty_selection(self):
+        self._login()
+        self._connect_row()
+        r = self.client.post('/api/instagram/import', json={'ids': []})
+        self.assertEqual(r.status_code, 400)
+
+
+class InstagramDisabledTests(unittest.TestCase):
+    """Bez vyplněných proměnných se propojení nesmí nabízet — a nesmí
+    ani spadnout."""
+
+    def setUp(self):
+        os.environ.pop('INSTAGRAM_APP_ID', None)
+        os.environ.pop('INSTAGRAM_APP_SECRET', None)
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_connect_returns_503(self):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        self.assertEqual(self.client.get('/api/instagram/connect').status_code, 503)
+
+    def test_status_reports_unavailable(self):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        d = self.client.get('/api/instagram/status').get_json()
+        self.assertFalse(d['available'])
+        self.assertFalse(d['connected'])
+
+
 class ComingSoonGateTests(unittest.TestCase):
     """Brána stojí před veřejnou doménou, takže její chyby jsou drahé:
     zablokovaný webhook = ztracené platby, zablokovaný health check =

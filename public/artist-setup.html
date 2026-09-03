@@ -186,6 +186,22 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 .cl-item.done .arrow{display:none}
 .cl-dismiss{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--txt3);font-size:16px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
 .cl-dismiss:hover{color:var(--txt)}
+/* Přepínač jazyka */
+.lang-pick{display:flex;gap:8px;flex-wrap:wrap}
+.lang-pick .btn.active{background:var(--red2);color:var(--bg);border-color:var(--red2)}
+
+/* Import z Instagramu */
+.ig-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:14px;max-height:340px;overflow-y:auto}
+.ig-tile{position:relative;aspect-ratio:1;border:2px solid transparent;border-radius:6px;overflow:hidden;cursor:pointer;background:var(--bg3)}
+.ig-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.ig-tile.on{border-color:var(--red2)}
+.ig-tile.done{opacity:0.4;cursor:default}
+.ig-tile .mark{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:var(--red2);color:var(--bg);font-size:11px;display:none;align-items:center;justify-content:center;line-height:1}
+.ig-tile.on .mark{display:flex}
+.ig-tile .lbl{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;letter-spacing:0.04em;padding:2px 4px;text-align:center}
+.ig-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.ig-user{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--txt2)}
+.ig-user b{color:var(--txt);font-weight:500}
 </style>
 </head>
 <body data-theme="dark">
@@ -243,6 +259,16 @@ document.addEventListener('il-i18n-applied', function () {
 
   <!-- ── PROFILE TAB ── -->
   <div id="tab-profile">
+    <!-- Instagram nahoře v Profilu schválně: pro nového tatéra je to
+         nejrychlejší cesta k vyplněnému portfoliu, takže má být první
+         věc, kterou uvidí, ne položka schovaná dole. -->
+    <div class="card" id="igCard" style="display:none">
+      <h2 data-i18n="ig.title">Instagram</h2>
+      <p class="hint" data-i18n="ig.hint">Connect Instagram and pull your work straight into your portfolio — no re-uploading. We only read your posts; we never post for you.</p>
+      <p class="hint" style="margin-top:8px" data-i18n="ig.needPro">Requires a professional Instagram account (Business or Creator). Switching is free and takes two taps in the Instagram app.</p>
+      <div id="igBody" style="margin-top:14px"></div>
+    </div>
+
     <div class="card">
       <h2 data-i18n="as.publicProfile">Public profile</h2>
       <p class="hint">This info is visible to clients on your profile. Once saved you'll be listed as an artist.</p>
@@ -579,6 +605,7 @@ async function init() {
   if (document.getElementById('gallery')) await loadPortfolio();
   await loadStripeStatus();
   await loadChecklist();
+  loadInstagram();
   await loadPushStatus();
 
   // ?stripe=ok přijde po returnu z Connect — flash + auto-tab
@@ -800,6 +827,131 @@ async function disablePush() {
     await loadPushStatus();
   } catch (e) { flash(t('as.error') + e.message, 'err'); }
 }
+
+// ── Instagram ───────────────────────────────────────────────────────────────
+let igMedia = [], igPicked = new Set();
+
+async function loadInstagram() {
+  let st;
+  try { st = await fetch('/api/instagram/status').then(r => r.json()); }
+  catch (_) { return; }
+  // Nenakonfigurováno na serveru → kartu vůbec neukazujeme. Nabízet
+  // tlačítko, které skončí chybou, je horší než ho nemít.
+  if (!st.available) return;
+
+  document.getElementById('igCard').style.display = '';
+  const body = document.getElementById('igBody');
+
+  if (!st.connected) {
+    body.innerHTML = `<a class="btn" href="/api/instagram/connect">${escapeHtml(t('ig.connect'))}</a>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="ig-actions">
+      <span class="ig-user"><svg class="icon"><use href="#i-instagram"/></svg>
+        ${escapeHtml(t('ig.connectedAs'))} <b>@${escapeHtml(st.username || '')}</b></span>
+      <button class="btn ghost sm" onclick="disconnectInstagram()">${escapeHtml(t('ig.disconnect'))}</button>
+    </div>
+    <div class="hint" style="margin-top:8px">${escapeHtml(t('ig.importedCount').replace('{n}', st.imported_count))}</div>
+    <div id="igPicker" style="margin-top:14px">
+      <div class="hint">${escapeHtml(t('ig.loadingMedia'))}</div>
+    </div>`;
+  loadInstagramMedia();
+}
+
+async function loadInstagramMedia() {
+  const box = document.getElementById('igPicker');
+  if (!box) return;
+  let d;
+  try { d = await fetch('/api/instagram/media').then(r => r.json().then(j => ({ok: r.ok, j}))); }
+  catch (_) { box.innerHTML = `<div class="hint">${escapeHtml(t('ig.error'))}</div>`; return; }
+  if (!d.ok) {
+    // Vypršelý token není chyba serveru — je to výzva k novému propojení.
+    const msg = d.j && d.j.reconnect ? t('ig.reconnect') : t('ig.error');
+    box.innerHTML = `<div class="hint">${escapeHtml(msg)}</div>
+      <div style="margin-top:10px"><a class="btn ghost sm" href="/api/instagram/connect">${escapeHtml(t('ig.connect'))}</a></div>`;
+    return;
+  }
+  igMedia = d.j.media || [];
+  igPicked = new Set();
+  if (!igMedia.length) { box.innerHTML = `<div class="hint">${escapeHtml(t('ig.noMedia'))}</div>`; return; }
+
+  box.innerHTML = `
+    <div class="hint">${escapeHtml(t('ig.pickPhotos'))}</div>
+    <div class="ig-grid">${igMedia.map(m => `
+      <div class="ig-tile${m.imported ? ' done' : ''}" data-id="${escapeHtml(m.id)}"
+           ${m.imported ? '' : `onclick="toggleIgTile(this)"`}
+           title="${escapeHtml(m.caption || '')}">
+        <img src="${escapeHtml(m.thumb || '')}" alt="" loading="lazy">
+        <span class="mark">✓</span>
+        ${m.imported ? `<span class="lbl">${escapeHtml(t('ig.alreadyIn'))}</span>` : ''}
+      </div>`).join('')}</div>
+    <div class="ig-actions">
+      <label class="hint" style="margin:0">${escapeHtml(t('ig.importAs'))}</label>
+      <select id="igKind" style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:8px 10px;border-radius:6px">
+        <option value="done">${escapeHtml(t('fd.healedWork'))}</option>
+        <option value="sketch">${escapeHtml(t('fd.sketchDesign'))}</option>
+      </select>
+      <button class="btn" id="igImportBtn" onclick="runIgImport()">${escapeHtml(t('ig.importBtn'))}</button>
+    </div>
+    <div id="igFlash" class="hint" style="margin-top:10px"></div>`;
+}
+
+function toggleIgTile(el) {
+  const id = el.dataset.id;
+  if (igPicked.has(id)) { igPicked.delete(id); el.classList.remove('on'); }
+  else { igPicked.add(id); el.classList.add('on'); }
+}
+
+async function runIgImport() {
+  const flash = document.getElementById('igFlash');
+  if (!igPicked.size) { flash.textContent = t('ig.selectSome'); return; }
+  const btn = document.getElementById('igImportBtn');
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = t('ig.importing');
+  flash.textContent = '';
+  try {
+    const r = await fetch('/api/instagram/import', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ids: [...igPicked], kind: document.getElementById('igKind').value})
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'failed');
+    // Hlásíme i přeskočené a nepovedené — "naimportováno 3" u výběru pěti
+    // fotek by tatéra nechalo hádat, co se stalo se zbytkem.
+    const parts = [t('ig.importDone').replace('{n}', j.imported)];
+    if (j.skipped) parts.push(t('ig.importSkipped').replace('{n}', j.skipped));
+    if (j.failed)  parts.push(t('ig.importFailed').replace('{n}', j.failed));
+    flash.textContent = parts.join(' · ');
+    await loadInstagram();
+    if (typeof loadChecklist === 'function') loadChecklist();
+  } catch (e) {
+    flash.textContent = e.message || t('ig.error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+async function disconnectInstagram() {
+  if (!confirm(t('ig.confirmDisconnect'))) return;
+  await fetch('/api/instagram/disconnect', {method: 'POST'});
+  loadInstagram();
+}
+
+// Návrat z Instagramu — ?ig=<stav> v URL.
+(function () {
+  const p = new URLSearchParams(location.search).get('ig');
+  if (!p) return;
+  const map = {ok: 'ig.okConnected', state: 'ig.errState',
+               denied: 'ig.errDenied', error: 'ig.errGeneric',
+               unconfigured: 'ig.errGeneric'};
+  if (map[p]) flash(t(map[p]), p === 'ok' ? 'ok' : 'err');
+  // Stav z adresy pryč, ať se hláška neopakuje při obnovení stránky.
+  history.replaceState({}, '', location.pathname + location.hash);
+})();
 
 async function loadChecklist() {
   const data = await fetch('/api/me/checklist').then(r => r.json()).catch(() => null);
