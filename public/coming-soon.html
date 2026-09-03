@@ -81,36 +81,6 @@ body{
   color:var(--txt3); text-decoration:none;
 }
 .fine:hover{color:var(--txt);text-decoration:underline;text-underline-offset:3px}
-/* Vstup pro nás — má být nenápadný, ne pozvánka pro cizí. */
-.unlock{margin-top:26px}
-.unlock summary{
-  list-style:none; cursor:pointer;
-  font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
-  color:var(--txt3); user-select:none;
-}
-.unlock summary::-webkit-details-marker{display:none}
-.unlock summary:hover{color:var(--txt2)}
-.unlock form{display:flex;gap:8px;margin-top:12px}
-.unlock input{
-  flex:1 1 auto; min-width:0;
-  background:var(--bg2); border:1px solid var(--border2); color:var(--txt);
-  border-radius:8px; padding:11px 13px;
-  font-family:inherit; font-size:14px; outline:none;
-  -webkit-appearance:none; appearance:none;
-}
-.unlock input:focus{border-color:var(--txt)}
-.unlock button{
-  flex:0 0 auto; width:50px;
-  background:transparent; border:1px solid var(--border2); color:var(--txt2);
-  border-radius:8px;
-  display:flex; align-items:center; justify-content:center;
-  cursor:pointer; transition:all 0.15s;
-  -webkit-appearance:none; appearance:none;
-}
-.unlock button svg{width:18px;height:18px;display:block}
-.unlock button:hover:not(:disabled){border-color:var(--txt);color:var(--txt)}
-.unlock button:disabled{opacity:0.45;cursor:not-allowed}
-.unlock .msg{font-size:12px;margin-top:9px;min-height:16px;color:#b3261e}
 </style>
 </head>
 <body>
@@ -132,15 +102,6 @@ body{
        základ pro sběr e-mailu: bez odkazu na zásady bychom sbírali osobní
        údaj, aniž bychom o tom subjekt informovali. -->
 
-  <details class="unlock" id="unlockBox">
-    <summary id="unlockLabel">Have a password?</summary>
-    <form id="unlockForm" novalidate>
-      <input type="password" id="unlockPwd" autocomplete="current-password"
-             aria-label="Access password" placeholder="••••••••">
-      <button type="submit" id="unlockBtn" aria-label="Unlock"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    </form>
-    <div class="msg" id="unlockMsg" role="status" aria-live="polite"></div>
-  </details>
 
   <a class="fine" href="/privacy">Privacy</a>
 </div>
@@ -201,44 +162,6 @@ var IL_CS = (function () {
   });
 })();
 
-// ── Odemčení pro nás ────────────────────────────────────────────────────────
-// Sdílené heslo, ne účet. Server ho srovnává v konstantním čase a má na tom
-// rate limit; tady jen posíláme a po úspěchu překreslíme.
-(function () {
-  var form = document.getElementById('unlockForm');
-  if (!form) return;
-  var pwd = document.getElementById('unlockPwd');
-  var btn = document.getElementById('unlockBtn');
-  var msg = document.getElementById('unlockMsg');
-
-  if (IL_CS) {
-    document.getElementById('unlockLabel').textContent = 'Máš heslo?';
-  }
-  var T = IL_CS
-    ? {wrong: 'Špatné heslo.', net: 'Nepovedlo se ověřit. Zkus to znovu.'}
-    : {wrong: 'Wrong password.', net: 'Could not verify. Try again.'};
-
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var v = (pwd.value || '').trim();
-    if (!v) { pwd.focus(); return; }
-    btn.disabled = true; msg.textContent = '';
-
-    fetch('/api/preview-unlock', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({password: v})
-    }).then(function (r) {
-      if (r.ok) { location.reload(); return; }
-      btn.disabled = false;
-      pwd.value = ''; pwd.focus();
-      msg.textContent = r.status === 429 ? T.net : T.wrong;
-    }).catch(function () {
-      btn.disabled = false;
-      msg.textContent = T.net;
-    });
-  });
-})();
 </script>
 </body>
 </html>

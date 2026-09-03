@@ -1828,28 +1828,6 @@ class ComingSoonGateTests(unittest.TestCase):
         r = self.client.get('/my-bookings')
         self.assertIn(b'wlForm', r.data)
 
-    def test_password_unlock_opens_the_gate(self):
-        bad = self.client.post('/api/preview-unlock', json={'password': 'nope'})
-        self.assertEqual(bad.status_code, 403)
-        self.assertIn(b'wlForm', self.client.get('/my-bookings').data)
-
-        ok = self.client.post('/api/preview-unlock', json={'password': 'letmein'})
-        self.assertEqual(ok.status_code, 200)
-        self.assertNotIn(b'wlForm', self.client.get('/my-bookings').data)
-
-    def test_unlock_refuses_when_no_password_configured(self):
-        # Nenastavený token nesmí znamenat "pouštěj všechny".
-        import importlib, server
-        os.environ['COMING_SOON_TOKEN'] = ''
-        importlib.reload(server)
-        try:
-            c = server.app.test_client()
-            self.assertEqual(
-                c.post('/api/preview-unlock', json={'password': ''}).status_code, 403)
-        finally:
-            os.environ['COMING_SOON_TOKEN'] = 'letmein'
-            importlib.reload(server)
-
     def test_api_gets_json_not_html(self):
         r = self.client.get('/api/feed')
         self.assertEqual(r.status_code, 503)

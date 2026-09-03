@@ -137,8 +137,9 @@ def _set_secure_cookie():
 
 # ── Coming-soon brána ────────────────────────────────────────────────────────
 # Doména je veřejná, ale produkt se ještě staví. Anonymní návštěvník uvidí
-# jen stránku „připravujeme"; přihlášený uživatel a kdokoli s preview odkazem
-# projde dál. Ovládá se env proměnnou, ne deployem — vypnout jde okamžitě.
+# jen stránku s waitlistem; dovnitř se dostane přihlášený uživatel (stačí se
+# přihlásit, /login je vždy otevřené) nebo kdokoli s odkazem ?preview=<token>.
+# Ovládá se env proměnnou, ne deployem — vypnout jde okamžitě.
 COMING_SOON       = os.environ.get('COMING_SOON', '').strip().lower() in ('1', 'true', 'yes')
 COMING_SOON_TOKEN = os.environ.get('COMING_SOON_TOKEN', '').strip()
 PREVIEW_COOKIE    = 'il_preview'
@@ -164,8 +165,6 @@ _GATE_OPEN_API = (
     '/api/verify', '/api/forgot-password', '/api/reset-password',
     # Waitlist je celý smysl coming-soon stránky — bránou projít musí.
     '/api/waitlist',
-    # A odemykací endpoint taky, jinak by heslo nešlo poslat.
-    '/api/preview-unlock',
 )
 
 _GATE_ASSET_EXT = (
@@ -8470,33 +8469,6 @@ def remove_favorite_city(name):
 
 
 # ── Events API ────────────────────────────────────────────────────────────────
-
-@app.route('/api/preview-unlock', methods=['POST'])
-@limiter.limit('10 per hour')
-def preview_unlock():
-    """Odemkne coming-soon bránu sdíleným heslem.
-
-    Není to autentizace uživatele — je to jeden sdílený řetězec, kterým se
-    pouští dovnitř lidé, kterým ho pošleme. Proto rate limit (jinak je to
-    otázka minut) a srovnání v konstantním čase (jinak jde délka a obsah
-    hesla odvodit z doby odpovědi).
-    """
-    if not COMING_SOON_TOKEN:
-        # Bez nastaveného hesla se nesmí dovnitř dostat nikdo — prázdný
-        # token nesmí znamenat "pouštěj všechny".
-        return jsonify({'error': 'Wrong password.'}), 403
-
-    pwd = ((request.get_json(silent=True) or request.form).get('password') or '').strip()
-    import hmac as _hmac
-    if not pwd or not _hmac.compare_digest(pwd, COMING_SOON_TOKEN):
-        return jsonify({'error': 'Wrong password.'}), 403
-
-    resp = jsonify({'ok': True})
-    resp.set_cookie(PREVIEW_COOKIE, COMING_SOON_TOKEN, max_age=30 * 24 * 3600,
-                    httponly=True, samesite='Lax',
-                    secure=(request.scheme == 'https'))
-    return resp
-
 
 @app.route('/api/waitlist', methods=['POST'])
 @limiter.limit('10 per hour')
