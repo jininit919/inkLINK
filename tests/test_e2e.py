@@ -13,6 +13,7 @@ implicitly disabled (no API keys → graceful no-op).
 Run:
     python3 -m unittest tests/test_e2e.py -v
 """
+import json
 import os
 import sys
 import tempfile
@@ -1242,6 +1243,335 @@ class StudioIdInsertTests(_Sprint2Base):
         server.init_db()   # simuluje restart procesu
         self.assertIsNone(self._booking_row(bid)['studio_id'],
                           'rezervace z doby před vstupem do studia se nesmí přepsat')
+
+
+# ── Sprint 3: CRM ────────────────────────────────────────────────────────────
+
+class _CrmBase(unittest.TestCase):
+    """Fixture pro CRM testy.
+
+    artist1 (id 1) — sólo
+    artist2 (id 2) + artist3 (id 3) — studio A
+    artist4 (id 4) — studio B
+    client1 (id 5) — klient s účtem
+    admin1  (id 6) — platformní admin (is_admin=1)
+    """
+
+    MEDICAL_KEY = 'ZmFrZS1rZXktZm9yLXRlc3RzLTMyLWJ5dGVzLWxvbmc9'  # placeholder, viz setUp
+
+    def setUp(self):
+        from cryptography.fernet import Fernet
+        os.environ['MEDICAL_NOTES_KEY'] = Fernet.generate_key().decode()
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        for uname, is_artist, is_admin in (
+                ('artist1', 1, 0), ('artist2', 1, 0), ('artist3', 1, 0),
+                ('artist4', 1, 0), ('client1', 0, 0), ('admin1', 0, 1)):
+            conn.execute(
+                'INSERT INTO users (username, display_name, password_hash, email, is_artist, is_admin) '
+                'VALUES (?,?,?,?,?,?)',
+                (uname, uname.title(), 'x', f'{uname}@t.cz', is_artist, is_admin))
+        conn.execute("INSERT INTO studios (slug, name) VALUES ('studio-a','Studio A')")
+        studio_a = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.execute("INSERT INTO studios (slug, name) VALUES ('studio-b','Studio B')")
+        studio_b = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.execute("INSERT INTO studio_members (studio_id, artist_id, role) VALUES (?,2,'admin')", (studio_a,))
+        conn.execute("INSERT INTO studio_members (studio_id, artist_id, role) VALUES (?,3,'member')", (studio_a,))
+        conn.execute("INSERT INTO studio_members (studio_id, artist_id, role) VALUES (?,4,'admin')", (studio_b,))
+        conn.commit()
+        conn.close()
+        self.studio_a, self.studio_b = studio_a, studio_b
+
+    def tearDown(self):
+        os.unlink(self.db)
+        os.environ.pop('MEDICAL_NOTES_KEY', None)
+
+    def _as(self, uid):
+        with self.client.session_transaction() as s:
+            s['user_id'] = uid
+
+    def _logout(self):
+        with self.client.session_transaction() as s:
+            s.clear()
+
+    def _mk_client_for(self, artist_id, name='Jana Nováková', user_id=None):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO clients (artist_id, user_id, name, created_by) VALUES (?,?,?,?)',
+            (artist_id, user_id, name, artist_id))
+        conn.commit()
+        cid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return cid
+
+
+class CrossStudioLeakageTests(_CrmBase):
+    """Roadmapa označuje únik napříč tenanty za katastrofické riziko.
+    Tabulkově přes KAŽDÝ endpoint, který bere client_id."""
+
+    def setUp(self):
+        super().setUp()
+        # Klient patří artist2 (studio A)
+        self.cid = self._mk_client_for(2)
+        self._as(2)
+        self.nid = self.client.post(f'/api/clients/{self.cid}/notes',
+                                    json={'body': 'tajná poznámka'}).get_json().get('id')
+
+    def _endpoints(self):
+        return [
+            ('GET',    f'/api/clients/{self.cid}',         None),
+            ('PATCH',  f'/api/clients/{self.cid}',         {'note': 'x'}),
+            ('GET',    f'/api/clients/{self.cid}/medical', None),
+            ('PUT',    f'/api/clients/{self.cid}/medical', {'notes': 'x'}),
+            ('DELETE', f'/api/clients/{self.cid}/medical', None),
+            ('POST',   f'/api/clients/{self.cid}/notes',   {'body': 'x'}),
+        ]
+
+    def _call(self, method, path, payload):
+        fn = getattr(self.client, method.lower())
+        return fn(path, json=payload) if payload is not None else fn(path)
+
+    def test_solo_artist_cannot_see_other_artists_client(self):
+        self._as(1)
+        for method, path, payload in self._endpoints():
+            with self.subTest(endpoint=f'{method} {path}'):
+                self.assertEqual(self._call(method, path, payload).status_code, 404)
+
+    def test_other_studio_cannot_see_client(self):
+        self._as(4)
+        for method, path, payload in self._endpoints():
+            with self.subTest(endpoint=f'{method} {path}'):
+                self.assertEqual(self._call(method, path, payload).status_code, 404)
+
+    def test_logged_out_gets_401(self):
+        self._logout()
+        for method, path, payload in self._endpoints():
+            with self.subTest(endpoint=f'{method} {path}'):
+                self.assertEqual(self._call(method, path, payload).status_code, 401)
+
+    def test_platform_admin_does_not_bypass_crm_scope(self):
+        # Admin čte telemetrii; zdravotní data tudy dostupná být nesmí.
+        self._as(6)
+        for method, path, payload in self._endpoints():
+            with self.subTest(endpoint=f'{method} {path}'):
+                self.assertEqual(self._call(method, path, payload).status_code, 404)
+
+    def test_same_studio_colleague_can_see_client(self):
+        self._as(3)
+        r = self.client.get(f'/api/clients/{self.cid}')
+        self.assertEqual(r.status_code, 200, r.data[:300])
+
+    def test_note_authorized_through_parent_client_not_own_id(self):
+        # Nejčastější místo úniku: potomek autorizovaný podle vlastního id.
+        self.assertIsNotNone(self.nid)
+        self._as(4)
+        self.assertEqual(self.client.delete(f'/api/client-notes/{self.nid}').status_code, 404)
+        self._as(1)
+        self.assertEqual(self.client.patch(f'/api/client-notes/{self.nid}',
+                                           json={'body': 'hacked'}).status_code, 404)
+
+    def test_client_list_never_includes_other_tenants(self):
+        self._mk_client_for(1, name='Sólo klient')
+        self._mk_client_for(4, name='Klient studia B')
+        self._as(2)
+        names = [c['name'] for c in self.client.get('/api/clients').get_json()['clients']]
+        self.assertIn('Jana Nováková', names)
+        self.assertNotIn('Sólo klient', names)
+        self.assertNotIn('Klient studia B', names)
+
+
+class CrmScopeTests(_CrmBase):
+    """Počítaná viditelnost vs. denormalizovaný sloupec — tyhle dva testy
+    jsou důvod, proč clients nemá studio_id."""
+
+    def test_leaving_studio_revokes_visibility(self):
+        cid = self._mk_client_for(2)
+        self._as(3)
+        self.assertEqual(self.client.get(f'/api/clients/{cid}').status_code, 200)
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('DELETE FROM studio_members WHERE artist_id=3')
+        conn.commit(); conn.close()
+        self.assertEqual(self.client.get(f'/api/clients/{cid}').status_code, 404)
+
+    def test_joining_studio_grants_visibility(self):
+        cid = self._mk_client_for(2)
+        self._as(1)
+        self.assertEqual(self.client.get(f'/api/clients/{cid}').status_code, 404)
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO studio_members (studio_id, artist_id, role) VALUES (?,1,'member')",
+                     (self.studio_a,))
+        conn.commit(); conn.close()
+        self.assertEqual(self.client.get(f'/api/clients/{cid}').status_code, 200)
+
+    def test_solo_artist_sees_only_own(self):
+        own = self._mk_client_for(1, name='Můj klient')
+        self._mk_client_for(2, name='Cizí klient')
+        self._as(1)
+        clients = self.client.get('/api/clients').get_json()['clients']
+        self.assertEqual([c['id'] for c in clients], [own])
+
+
+class ClientAutoLinkTests(_CrmBase):
+    """Rezervace zakládá klientský řádek; podruhé už ne."""
+
+    def _mk_slot_and_book(self, artist_id, day_offset, hour):
+        import sqlite3, server
+        now = server._prague_now_naive()
+        start = (now + timedelta(days=day_offset)).replace(hour=hour, minute=0, second=0, microsecond=0)
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max, "
+            "price_unit, min_duration_hours) VALUES (?,?,?,'free',1000,1000,'hour',1)",
+            (artist_id, start.isoformat(), (start + timedelta(hours=8)).isoformat()))
+        conn.commit()
+        sid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        self._as(5)  # client1
+        return self.client.post('/api/bookings', json={
+            'slot_id': sid, 'booking_start_at': start.isoformat(),
+            'duration_hours': 2, 'design_note': 'Vlk'})
+
+    def _client_rows(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = sqlite3.Row
+        rows = [dict(r) for r in conn.execute('SELECT * FROM clients').fetchall()]
+        conn.close()
+        return rows
+
+    def test_booking_creates_client_row(self):
+        r = self._mk_slot_and_book(1, 5, 10)
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        rows = self._client_rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['artist_id'], 1)
+        self.assertEqual(rows[0]['user_id'], 5)
+        self.assertEqual(rows[0]['acquisition_source'], 'inklink')
+
+    def test_second_booking_same_artist_does_not_duplicate(self):
+        self._mk_slot_and_book(1, 5, 10)
+        self._mk_slot_and_book(1, 6, 10)
+        self.assertEqual(len(self._client_rows()), 1)
+
+    def test_different_artist_gets_own_client_row(self):
+        self._mk_slot_and_book(1, 5, 10)
+        self._mk_slot_and_book(2, 6, 10)
+        self.assertEqual(sorted(r['artist_id'] for r in self._client_rows()), [1, 2])
+
+    def test_partial_unique_index_blocks_duplicate(self):
+        import sqlite3
+        self._mk_slot_and_book(1, 5, 10)
+        conn = sqlite3.connect(self.db)
+        with self.assertRaises(sqlite3.IntegrityError):
+            conn.execute('INSERT INTO clients (artist_id, user_id, created_by) VALUES (1,5,1)')
+            conn.commit()
+        conn.close()
+
+    def test_linked_client_contact_comes_from_user_account(self):
+        self._mk_slot_and_book(1, 5, 10)
+        self._as(1)
+        c = self.client.get('/api/clients').get_json()['clients'][0]
+        self.assertEqual(c['contact_source'], 'user')
+        self.assertEqual(c['email'], 'client1@t.cz')
+
+
+class MedicalNotesTests(_CrmBase):
+
+    def setUp(self):
+        super().setUp()
+        self.cid = self._mk_client_for(2)
+        self._as(2)
+
+    def _log_rows(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = sqlite3.Row
+        rows = [dict(r) for r in conn.execute(
+            'SELECT * FROM medical_notes_access_log ORDER BY id').fetchall()]
+        conn.close()
+        return rows
+
+    def test_encrypt_decrypt_round_trip(self):
+        secret = 'Alergie na latex, epilepsie'
+        self.assertEqual(self.client.put(f'/api/clients/{self.cid}/medical',
+                                         json={'notes': secret}).status_code, 200)
+        r = self.client.get(f'/api/clients/{self.cid}/medical')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()['notes'], secret)
+
+    def test_stored_value_is_ciphertext_not_plaintext(self):
+        import sqlite3
+        secret = 'Alergie na latex'
+        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': secret})
+        conn = sqlite3.connect(self.db)
+        stored = conn.execute('SELECT ciphertext, key_version FROM client_medical_notes').fetchone()
+        conn.close()
+        self.assertNotIn(secret, stored[0])
+        self.assertEqual(stored[1], 1)
+
+    def test_access_is_logged(self):
+        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'x'})
+        before = len(self._log_rows())
+        self.client.get(f'/api/clients/{self.cid}/medical')
+        rows = self._log_rows()
+        self.assertGreater(len(rows), before)
+        self.assertTrue(any(r['action'] == 'read' and r['outcome'] == 'ok' for r in rows))
+
+    def test_audit_failure_refuses_the_read(self):
+        from unittest.mock import patch
+        import server
+        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'tajné'})
+        with patch.object(server, '_medical_audit', side_effect=RuntimeError('disk full')):
+            r = self.client.get(f'/api/clients/{self.cid}/medical')
+        self.assertEqual(r.status_code, 503)
+        self.assertNotIn(b'tajn', r.data)
+
+    def test_client_detail_never_returns_plaintext(self):
+        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'tajné'})
+        d = self.client.get(f'/api/clients/{self.cid}').get_json()
+        self.assertTrue(d['has_medical_notes'])
+        self.assertNotIn('tajné', json.dumps(d, ensure_ascii=False))
+
+
+class MedicalNotesNoKeyTests(_CrmBase):
+    """Chybějící klíč smí shodit JEN zdravotní endpoint, ne celé CRM."""
+
+    def setUp(self):
+        # Schválně bez MEDICAL_NOTES_KEY — _fresh_client reimportuje server.
+        os.environ.pop('MEDICAL_NOTES_KEY', None)
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+                     "VALUES ('artist1','A','x','a@t.cz',1)")
+        conn.execute('INSERT INTO clients (artist_id, user_id, name, created_by) '
+                     "VALUES (1,NULL,'Jana',1)")
+        conn.commit()
+        conn.close()
+        self.cid = 1
+        self._as(1)
+
+    def test_medical_endpoint_503(self):
+        self.assertEqual(self.client.get(f'/api/clients/{self.cid}/medical').status_code, 503)
+        self.assertEqual(self.client.put(f'/api/clients/{self.cid}/medical',
+                                         json={'notes': 'x'}).status_code, 503)
+
+    def test_client_detail_still_works(self):
+        r = self.client.get(f'/api/clients/{self.cid}')
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertFalse(r.get_json()['medical_notes_available'])
+
+    def test_write_creates_no_row(self):
+        import sqlite3
+        self.client.put(f'/api/clients/{self.cid}/medical', json={'notes': 'x'})
+        conn = sqlite3.connect(self.db)
+        n = conn.execute('SELECT COUNT(*) FROM client_medical_notes').fetchone()[0]
+        conn.close()
+        self.assertEqual(n, 0)
 
 
 class PragueTimeTests(unittest.TestCase):

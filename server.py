@@ -185,6 +185,36 @@ R2_SECRET_KEY = os.environ.get('R2_SECRET_KEY', '')
 R2_BUCKET     = os.environ.get('R2_BUCKET', '')
 R2_PUBLIC_URL = os.environ.get('R2_PUBLIC_URL', '').rstrip('/')
 
+# ── Šifrování zdravotních poznámek klientů ───────────────────────────────────
+# Fernet, klíč výhradně z env. Klíč se NIKDY negeneruje sám: SECRET_KEY si to
+# dovolit může (přegenerování jen odhlásí uživatele), tady by přegenerování
+# nenávratně a tiše osiřelo všechen existující ciphertext.
+# Klíč se validuje TEĎ, při importu — vadný klíč má spadnout při startu, ne až
+# někomu při prvním zápisu. Chybějící klíč appku neshodí, jen zdravotní
+# endpointy vrací 503; zbytek CRM jede dál.
+MEDICAL_NOTES_KEY = os.environ.get('MEDICAL_NOTES_KEY', '').strip()
+MEDICAL_KEY_VERSION = 1
+_fernet = None
+if MEDICAL_NOTES_KEY:
+    from cryptography.fernet import Fernet as _Fernet
+    _fernet = _Fernet(MEDICAL_NOTES_KEY.encode())  # ValueError při startu = vadný klíč
+    print('[medical] encryption key loaded')
+else:
+    print('[medical] MEDICAL_NOTES_KEY not set — zdravotní poznámky vypnuté (503)')
+
+
+def _medical_key_available() -> bool:
+    return _fernet is not None
+
+
+def _medical_encrypt(plaintext: str) -> str:
+    return _fernet.encrypt((plaintext or '').encode('utf-8')).decode('ascii')
+
+
+def _medical_decrypt(token: str) -> str:
+    return _fernet.decrypt(token.encode('ascii')).decode('utf-8')
+
+
 _s3 = None
 if R2_BUCKET and R2_ACCESS_KEY and R2_ACCOUNT_ID:
     _s3 = boto3.client(
@@ -1010,6 +1040,101 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_studio_invites_studio ON studio_invites(studio_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_studio_invites_email ON studio_invites(email)')
+
+    # ── CRM (Sprint 3) ─────────────────────────────────────────────────────
+    # Klienta vlastní TATÉR (artist_id), ne studio. Viditelnost napříč studiem
+    # se počítá za běhu (viz _crm_visible_artist_ids) — denormalizovaný
+    # studio_id by u sólo tatérů (dnes prakticky všech) nedával smysl a stárnul
+    # by při vstupu/odchodu ze studia. Dělící čára: peníze jsou studiové
+    # (bookings.studio_id, nehýbe se), vztah je tatérův a odchází s ním.
+    c.execute('''CREATE TABLE IF NOT EXISTS clients (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        artist_id          INTEGER NOT NULL,
+        user_id            INTEGER DEFAULT NULL,   -- NULL = klient bez účtu (walk-in, telefon)
+        name               TEXT DEFAULT '',        -- čte se JEN když user_id IS NULL
+        email              TEXT DEFAULT '',        -- jinak je zdrojem pravdy users
+        phone              TEXT DEFAULT '',
+        tags               TEXT DEFAULT '',        -- CSV, jako users.styles
+        style_preferences  TEXT DEFAULT '',
+        acquisition_source TEXT DEFAULT '',        -- inklink|instagram|walk_in|referral|other
+        note               TEXT DEFAULT '',        -- krátká připnutá poznámka
+        created_by         INTEGER NOT NULL,       -- kdo řádek založil (ve studiu ≠ artist_id)
+        created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        anonymized_at      TEXT DEFAULT NULL,
+        FOREIGN KEY (artist_id) REFERENCES users(id),
+        FOREIGN KEY (user_id)   REFERENCES users(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_clients_artist ON clients(artist_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_clients_user ON clients(user_id)')
+    # Částečný unikátní index: bez něj dvě souběžné rezervace téhož klienta
+    # obě minou SELECT a obě založí řádek. Stejná syntaxe v SQLite i Postgresu.
+    c.execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_artist_user
+                 ON clients(artist_id, user_id) WHERE user_id IS NOT NULL''')
+
+    # Bez soft delete: měkce smazaná poznámka je pořád PII v databázi, což je
+    # přesně to, co má výmaz klienta odstranit.
+    c.execute('''CREATE TABLE IF NOT EXISTS client_notes (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id  INTEGER NOT NULL,
+        author_id  INTEGER NOT NULL,
+        body       TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (client_id) REFERENCES clients(id),
+        FOREIGN KEY (author_id) REFERENCES users(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_client_notes_client ON client_notes(client_id)')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS tattoo_records (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id        INTEGER NOT NULL,
+        booking_id       INTEGER DEFAULT NULL,   -- NULL = práce z doby před InkLinkem
+        artist_id        INTEGER NOT NULL,
+        session_date     TEXT NOT NULL,          -- YYYY-MM-DD, pražský wall-clock
+        body_location    TEXT DEFAULT '',        -- při výmazu se maže
+        style            TEXT DEFAULT '',
+        size_label       TEXT DEFAULT '',
+        description      TEXT DEFAULT '',        -- při výmazu se maže
+        healed_photo     TEXT DEFAULT '',        -- při výmazu se maže i objekt v úložišti
+        aftercare_status TEXT DEFAULT '',        -- prostý text, stavový automat až Sprint 5
+        price_czk        INTEGER DEFAULT NULL,   -- při výmazu ZŮSTÁVÁ (účetnictví)
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        anonymized_at    TEXT DEFAULT NULL,
+        FOREIGN KEY (client_id)  REFERENCES clients(id),
+        FOREIGN KEY (booking_id) REFERENCES bookings(id),
+        FOREIGN KEY (artist_id)  REFERENCES users(id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_tattoo_records_client ON tattoo_records(client_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_tattoo_records_booking ON tattoo_records(booking_id)')
+
+    # Vlastní tabulka, ne sloupec na clients: chybějící šifrovací klíč pak
+    # vrátí 503 jen na zdravotním endpointu, ne na celém detailu klienta.
+    # Jeden řádek na klienta — zdravotní info je aktuální stav (alergie, léky),
+    # ne log; editace přepisuje.
+    c.execute('''CREATE TABLE IF NOT EXISTS client_medical_notes (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id   INTEGER NOT NULL UNIQUE,
+        ciphertext  TEXT NOT NULL,               -- Fernet token
+        key_version INTEGER NOT NULL DEFAULT 1,  -- od začátku, jinak je rotace archeologie
+        updated_by  INTEGER NOT NULL,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+    )''')
+
+    # Bez FK na clients — schválně: log musí přežít výmaz klienta, je to důkaz
+    # zákonnosti zpracování. Obsahuje jen kdo/kdy/co, nikdy obsah poznámky.
+    c.execute('''CREATE TABLE IF NOT EXISTS medical_notes_access_log (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id     INTEGER NOT NULL,
+        actor_user_id INTEGER NOT NULL,
+        action        TEXT NOT NULL,                     -- read|write|delete
+        outcome       TEXT NOT NULL DEFAULT 'requested', -- requested|ok|error
+        ip            TEXT DEFAULT '',
+        accessed_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_mna_log_client ON medical_notes_access_log(client_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_mna_log_actor ON medical_notes_access_log(actor_user_id)')
 
     # ── native_push_tokens (iOS APNs / Android FCM tokeny z Capacitor app) ──
     # Web VAPID push žije v push_subscriptions (endpoint/p256dh/auth schéma).
@@ -5717,6 +5842,13 @@ def create_booking():
     else:
         bid = conn.execute('SELECT lastval()').fetchone()[0]
 
+    # CRM: rezervace zakládá (nebo najde) klientský řádek u daného tatéra.
+    # Nesmí shodit rezervaci, když se něco pokazí — je to odvozený záznam.
+    try:
+        _crm_link_client_on_booking(conn, slot['user_id'], session['user_id'])
+    except Exception as e:
+        print(f'[crm] client link failed for booking {bid}: {e}')
+
     # Persist economics snapshot (immutable per-booking ledger entry).
     # kind='initial' = first snapshot at booking creation. Refunds/adjusts
     # create new rows linked to the same booking_id.
@@ -9152,6 +9284,451 @@ def _studio_admin_check(conn, user_id, studio_id):
         (user_id, studio_id)
     ).fetchone()
     return bool(m)
+
+
+# ── CRM: viditelnost klientů ─────────────────────────────────────────────────
+# Dva helpery schválně, ne jeden. _crm_visible_artist_ids se splice-uje do
+# IN (...) a použije ho JEDINÝ dotaz (seznam klientů); všechno ostatní jde přes
+# _crm_get_client. Kdyby se dynamické IN (...) skládalo na deseti místech, je
+# to deset nezávislých příležitostí zřetězit tam syrový int.
+#
+# INVARIANT: každý potomek (poznámka, záznam, zdravotní poznámka) se autorizuje
+# PŘES SVÉHO KLIENTA, nikdy podle vlastního id. Tam CRM reálně teče — ne
+# v seznamu, který si každý pamatuje otestovat.
+
+def _crm_visible_artist_ids(conn, user_id):
+    """Id tatérů, jejichž klienty smí `user_id` vidět: vždy on sám, plus
+    kolegové ze stejného studia (pokud v nějakém je)."""
+    ids = {user_id}
+    m = conn.execute('SELECT studio_id FROM studio_members WHERE artist_id=?',
+                     (user_id,)).fetchone()
+    if m and m['studio_id']:
+        rows = conn.execute('SELECT artist_id FROM studio_members WHERE studio_id=?',
+                            (m['studio_id'],)).fetchall()
+        ids.update(r['artist_id'] for r in rows)
+    return sorted(ids)
+
+
+def _crm_get_client(conn, user_id, client_id):
+    """Klient, pokud na něj `user_id` vidí, jinak None (volající vrací 404 —
+    403 by prozradilo, že takové id existuje)."""
+    row = conn.execute('SELECT * FROM clients WHERE id=?', (client_id,)).fetchone()
+    if not row:
+        return None
+    if row['artist_id'] not in _crm_visible_artist_ids(conn, user_id):
+        return None
+    return row
+
+
+def _crm_client_dict(conn, row):
+    """Klient pro API. Když je navázaný na účet, je zdrojem pravdy `users` —
+    jinak by tatér volal telefon, který si klient před půl rokem změnil."""
+    d = dict(row)
+    contact_source = 'manual'
+    if row['user_id']:
+        u = conn.execute(
+            'SELECT display_name, email, phone, username, avatar FROM users WHERE id=?',
+            (row['user_id'],)).fetchone()
+        if u:
+            contact_source = 'user'
+            d['name'] = u['display_name'] or u['username'] or d.get('name') or ''
+            d['email'] = u['email'] or ''
+            d['phone'] = u['phone'] or ''
+            d['username'] = u['username']
+            d['avatar_url'] = f'/uploads/{u["avatar"]}' if u['avatar'] else None
+    d['contact_source'] = contact_source
+    return d
+
+
+def _crm_link_client_on_booking(conn, artist_id, client_user_id, created_by=None):
+    """Založí (nebo najde) klientský řádek při vytvoření rezervace.
+    Částečný unikátní index (artist_id, user_id) ošetří souběh — druhý INSERT
+    spadne a my si řádek prostě znovu přečteme."""
+    row = conn.execute('SELECT id FROM clients WHERE artist_id=? AND user_id=?',
+                       (artist_id, client_user_id)).fetchone()
+    if row:
+        return row['id']
+    try:
+        conn.execute(
+            '''INSERT INTO clients (artist_id, user_id, acquisition_source, created_by)
+               VALUES (?,?,'inklink',?)''',
+            (artist_id, client_user_id, created_by or artist_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    row = conn.execute('SELECT id FROM clients WHERE artist_id=? AND user_id=?',
+                       (artist_id, client_user_id)).fetchone()
+    return row['id'] if row else None
+
+
+# ── CRM: endpointy ───────────────────────────────────────────────────────────
+# Routujeme přes AKTÉRA (/api/clients), ne přes tenanta
+# (/api/studios/<id>/clients): nikdo nemůže podstrčit cizí studio_id, takže
+# celá třída IDOR chyb zmizí a sólo tatér funguje stejně jako členové studia.
+# CRM se schválně negatuje přes require_tier — ten 403uje každého bez studia.
+
+@app.route('/api/clients')
+def list_clients():
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    q    = (request.args.get('q') or '').strip()
+    tag  = (request.args.get('tag') or '').strip()
+    sort = (request.args.get('sort') or 'recent').strip()
+    try:
+        limit = min(100, max(1, int(request.args.get('limit', 50))))
+    except (ValueError, TypeError):
+        limit = 50
+    try:
+        offset = max(0, int(request.args.get('offset', 0)))
+    except (ValueError, TypeError):
+        offset = 0
+
+    conn = get_db()
+    visible = _crm_visible_artist_ids(conn, uid)
+    placeholders = ','.join('?' for _ in visible)
+    where = [f'c.artist_id IN ({placeholders})']
+    params = list(visible)
+
+    if q:
+        # Hledá i v navázaném účtu, ne jen v ručně zadaných polích.
+        where.append('''(LOWER(c.name) LIKE LOWER(?) OR LOWER(c.email) LIKE LOWER(?)
+                         OR c.phone LIKE ?
+                         OR LOWER(COALESCE(u.display_name,'')) LIKE LOWER(?)
+                         OR LOWER(COALESCE(u.email,'')) LIKE LOWER(?))''')
+        params += [f'%{q}%'] * 5
+    if tag:
+        where.append('LOWER(c.tags) LIKE LOWER(?)')
+        params.append(f'%{tag}%')
+
+    where_sql = ' AND '.join(where)
+    # ORDER BY z whitelistu, nikdy z uživatelského vstupu.
+    order = {'recent': 'c.updated_at DESC',
+             'created': 'c.created_at DESC',
+             'name': "COALESCE(NULLIF(u.display_name,''), c.name) COLLATE NOCASE"}.get(sort, 'c.updated_at DESC')
+
+    total = conn.execute(
+        f'SELECT COUNT(*) AS n FROM clients c LEFT JOIN users u ON c.user_id = u.id WHERE {where_sql}',
+        tuple(params)).fetchone()['n']
+    rows = conn.execute(
+        f'''SELECT c.* FROM clients c LEFT JOIN users u ON c.user_id = u.id
+            WHERE {where_sql} ORDER BY {order} LIMIT ? OFFSET ?''',
+        tuple(params) + (limit, offset)).fetchall()
+    out = [_crm_client_dict(conn, r) for r in rows]
+    conn.close()
+    return jsonify({'clients': out, 'total': total, 'limit': limit, 'offset': offset})
+
+
+@app.route('/api/clients', methods=['POST'])
+def create_client():
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or request.form
+    name = (data.get('name') or '').strip()[:120]
+    if not name:
+        return jsonify({'error': 'Jméno klienta je povinné.'}), 400
+
+    conn = get_db()
+    conn.execute('''INSERT INTO clients (artist_id, user_id, name, email, phone, tags,
+                                         style_preferences, acquisition_source, note, created_by)
+                    VALUES (?,NULL,?,?,?,?,?,?,?,?)''',
+                 (uid, name,
+                  (data.get('email') or '').strip()[:120],
+                  (data.get('phone') or '').strip()[:40],
+                  (data.get('tags') or '').strip()[:200],
+                  (data.get('style_preferences') or '').strip()[:200],
+                  (data.get('acquisition_source') or 'manual').strip()[:40],
+                  (data.get('note') or '').strip()[:1000],
+                  uid))
+    conn.commit()
+    cid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+           else conn.execute('SELECT lastval()').fetchone()[0])
+    row = conn.execute('SELECT * FROM clients WHERE id=?', (cid,)).fetchone()
+    out = _crm_client_dict(conn, row)
+    conn.close()
+    return jsonify({'ok': True, 'id': cid, 'client': out})
+
+
+@app.route('/api/clients/<int:client_id>')
+def get_client(client_id):
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    row = _crm_get_client(conn, session['user_id'], client_id)
+    if not row:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+
+    out = _crm_client_dict(conn, row)
+
+    bookings, spent = [], 0
+    if row['user_id']:
+        brows = conn.execute(
+            '''SELECT id, status, booking_start_at, duration_hours, total_price_cents,
+                      deposit_cents, session_number, parent_booking_id
+               FROM bookings WHERE artist_id=? AND client_id=?
+               ORDER BY booking_start_at DESC LIMIT 100''',
+            (row['artist_id'], row['user_id'])).fetchall()
+        bookings = [dict(b) for b in brows]
+        # Lifetime value se počítá při čtení — cachovaný sloupec bez
+        # invalidace je přesně ta chyba, co byla na bookings.studio_id.
+        spent = sum((b['total_price_cents'] or 0) for b in bookings
+                    if b['status'] in ('confirmed', 'completed'))
+
+    notes = [dict(n) for n in conn.execute(
+        '''SELECT n.*, u.display_name AS author_name FROM client_notes n
+           LEFT JOIN users u ON n.author_id = u.id
+           WHERE n.client_id=? ORDER BY n.created_at DESC''', (client_id,)).fetchall()]
+    records = [dict(t) for t in conn.execute(
+        'SELECT * FROM tattoo_records WHERE client_id=? ORDER BY session_date DESC',
+        (client_id,)).fetchall()]
+    has_med = bool(conn.execute('SELECT 1 FROM client_medical_notes WHERE client_id=?',
+                                (client_id,)).fetchone())
+    conn.close()
+
+    out['bookings'] = bookings
+    out['notes'] = notes
+    out['tattoo_records'] = records
+    out['lifetime_value_cents'] = spent
+    # Nikdy plaintext — jen jestli něco existuje a jestli to jde přečíst.
+    out['has_medical_notes'] = has_med
+    out['medical_notes_available'] = _medical_key_available()
+    return jsonify(out)
+
+
+@app.route('/api/clients/<int:client_id>', methods=['PATCH'])
+def update_client(client_id):
+    err = require_login()
+    if err: return err
+    data = request.get_json(silent=True) or request.form
+    conn = get_db()
+    row = _crm_get_client(conn, session['user_id'], client_id)
+    if not row:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+
+    sets, params = [], []
+    limits = {'name': 120, 'email': 120, 'phone': 40, 'tags': 200,
+              'style_preferences': 200, 'acquisition_source': 40, 'note': 1000}
+    for field, maxlen in limits.items():
+        if field in data:
+            sets.append(f'{field}=?')
+            params.append((data.get(field) or '').strip()[:maxlen])
+    if not sets:
+        conn.close()
+        return jsonify({'ok': True, 'no_changes': True})
+    sets.append('updated_at=?')
+    params.append(datetime.utcnow().isoformat())
+    params.append(client_id)
+    conn.execute(f'UPDATE clients SET {", ".join(sets)} WHERE id=?', tuple(params))
+    conn.commit()
+    out = _crm_client_dict(conn, conn.execute('SELECT * FROM clients WHERE id=?',
+                                              (client_id,)).fetchone())
+    conn.close()
+    return jsonify({'ok': True, 'client': out})
+
+
+# ── CRM: poznámky ke klientovi ───────────────────────────────────────────────
+# Potomci se autorizují PŘES KLIENTA (_crm_get_client), nikdy podle vlastního
+# id — jinak by stačilo uhodnout note_id a poznámka cizího studia je venku.
+
+@app.route('/api/clients/<int:client_id>/notes', methods=['POST'])
+def create_client_note(client_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    body = ((request.get_json(silent=True) or request.form).get('body') or '').strip()[:5000]
+    if not body:
+        return jsonify({'error': 'Poznámka nesmí být prázdná.'}), 400
+    conn = get_db()
+    if not _crm_get_client(conn, uid, client_id):
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    conn.execute('INSERT INTO client_notes (client_id, author_id, body) VALUES (?,?,?)',
+                 (client_id, uid, body))
+    conn.commit()
+    nid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+           else conn.execute('SELECT lastval()').fetchone()[0])
+    conn.close()
+    return jsonify({'ok': True, 'id': nid})
+
+
+def _crm_get_note(conn, uid, note_id):
+    """Poznámka + její klient, jen když na klienta uživatel vidí."""
+    note = conn.execute('SELECT * FROM client_notes WHERE id=?', (note_id,)).fetchone()
+    if not note:
+        return None, None
+    client = _crm_get_client(conn, uid, note['client_id'])
+    if not client:
+        return None, None
+    return note, client
+
+
+@app.route('/api/client-notes/<int:note_id>', methods=['PATCH'])
+def update_client_note(note_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    body = ((request.get_json(silent=True) or request.form).get('body') or '').strip()[:5000]
+    if not body:
+        return jsonify({'error': 'Poznámka nesmí být prázdná.'}), 400
+    conn = get_db()
+    note, client = _crm_get_note(conn, uid, note_id)
+    if not note:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if note['author_id'] != uid and client['artist_id'] != uid:
+        conn.close()
+        return jsonify({'error': 'Upravit může jen autor nebo tatér klienta.'}), 403
+    conn.execute('UPDATE client_notes SET body=?, updated_at=? WHERE id=?',
+                 (body, datetime.utcnow().isoformat(), note_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/client-notes/<int:note_id>', methods=['DELETE'])
+def delete_client_note(note_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    note, client = _crm_get_note(conn, uid, note_id)
+    if not note:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if note['author_id'] != uid and client['artist_id'] != uid:
+        conn.close()
+        return jsonify({'error': 'Smazat může jen autor nebo tatér klienta.'}), 403
+    conn.execute('DELETE FROM client_notes WHERE id=?', (note_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+# ── CRM: zdravotní poznámky ──────────────────────────────────────────────────
+# Vlastní endpointy a vlastní tabulka, aby chybějící klíč shodil jen tohle,
+# ne celý detail klienta. Audit se zapisuje a COMMITUJE PŘED dešifrováním:
+# opačné pořadí propustí nezalogované čtení, když to mezi krokama spadne.
+# A na rozdíl od ostatních logů v kódu se tenhle NESMÍ polykat.
+
+def _medical_audit(conn, client_id, actor_id, action, outcome='requested'):
+    conn.execute('''INSERT INTO medical_notes_access_log
+                    (client_id, actor_user_id, action, outcome, ip)
+                    VALUES (?,?,?,?,?)''',
+                 (client_id, actor_id, action, outcome, (request.remote_addr or '')[:64]))
+    conn.commit()
+
+
+@app.route('/api/clients/<int:client_id>/medical')
+def get_client_medical(client_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    row = _crm_get_client(conn, uid, client_id)
+    if not row:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if not _medical_key_available():
+        conn.close()
+        return jsonify({'error': 'Zdravotní poznámky nejsou nakonfigurované '
+                                 '(chybí MEDICAL_NOTES_KEY).'}), 503
+
+    # Nejdřív audit — když ho nejde zapsat, čtení neproběhne.
+    try:
+        _medical_audit(conn, client_id, uid, 'read')
+    except Exception as e:
+        conn.close()
+        print(f'[medical] audit write failed, refusing read: {e}')
+        return jsonify({'error': 'Nelze zaznamenat přístup — čtení odmítnuto.'}), 503
+
+    rec = conn.execute('SELECT * FROM client_medical_notes WHERE client_id=?',
+                       (client_id,)).fetchone()
+    if not rec:
+        conn.close()
+        return jsonify({'client_id': client_id, 'notes': '', 'exists': False})
+    try:
+        plaintext = _medical_decrypt(rec['ciphertext'])
+    except Exception as e:
+        _medical_audit(conn, client_id, uid, 'read', 'error')
+        conn.close()
+        print(f'[medical] decrypt failed for client {client_id}: {e}')
+        return jsonify({'error': 'Poznámku se nepodařilo dešifrovat.'}), 503
+    _medical_audit(conn, client_id, uid, 'read', 'ok')
+    conn.close()
+    return jsonify({'client_id': client_id, 'notes': plaintext, 'exists': True,
+                    'updated_at': rec['updated_at']})
+
+
+@app.route('/api/clients/<int:client_id>/medical', methods=['PUT'])
+def put_client_medical(client_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    data = request.get_json(silent=True) or request.form
+    notes = (data.get('notes') or '').strip()[:5000]
+
+    conn = get_db()
+    row = _crm_get_client(conn, uid, client_id)
+    if not row:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    if not _medical_key_available():
+        conn.close()
+        return jsonify({'error': 'Zdravotní poznámky nejsou nakonfigurované '
+                                 '(chybí MEDICAL_NOTES_KEY).'}), 503
+    try:
+        _medical_audit(conn, client_id, uid, 'write')
+    except Exception as e:
+        conn.close()
+        print(f'[medical] audit write failed, refusing write: {e}')
+        return jsonify({'error': 'Nelze zaznamenat přístup — zápis odmítnut.'}), 503
+
+    ciphertext = _medical_encrypt(notes)
+    existing = conn.execute('SELECT id FROM client_medical_notes WHERE client_id=?',
+                            (client_id,)).fetchone()
+    if existing:
+        conn.execute('''UPDATE client_medical_notes
+                        SET ciphertext=?, key_version=?, updated_by=?, updated_at=?
+                        WHERE client_id=?''',
+                     (ciphertext, MEDICAL_KEY_VERSION, uid,
+                      datetime.utcnow().isoformat(), client_id))
+    else:
+        conn.execute('''INSERT INTO client_medical_notes
+                        (client_id, ciphertext, key_version, updated_by)
+                        VALUES (?,?,?,?)''',
+                     (client_id, ciphertext, MEDICAL_KEY_VERSION, uid))
+    conn.commit()
+    _medical_audit(conn, client_id, uid, 'write', 'ok')
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/clients/<int:client_id>/medical', methods=['DELETE'])
+def delete_client_medical(client_id):
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    row = _crm_get_client(conn, uid, client_id)
+    if not row:
+        conn.close()
+        return jsonify({'error': 'not found'}), 404
+    # Mazat jde i bez klíče — smazat ciphertext, který nejde přečíst, musí být
+    # vždycky možné (a je to legitimní forma výmazu).
+    try:
+        _medical_audit(conn, client_id, uid, 'delete')
+    except Exception as e:
+        conn.close()
+        print(f'[medical] audit write failed, refusing delete: {e}')
+        return jsonify({'error': 'Nelze zaznamenat přístup — mazání odmítnuto.'}), 503
+    conn.execute('DELETE FROM client_medical_notes WHERE client_id=?', (client_id,))
+    conn.commit()
+    _medical_audit(conn, client_id, uid, 'delete', 'ok')
+    conn.close()
+    return jsonify({'ok': True})
 
 
 def _studio_members_list(conn, studio_id):
