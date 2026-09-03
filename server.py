@@ -10721,6 +10721,10 @@ def __health():
         # Hodnotu tokenu nikdy neprozrazujeme, jen jestli vůbec je nastavený.
         'coming_soon': COMING_SOON,
         'coming_soon_token_set': bool(COMING_SOON_TOKEN),
+        # Jen NÁZVY proměnných, které vypadají příbuzně — žádné hodnoty.
+        # Odhalí překlep i mezeru v názvu, která je v Railway UI neviditelná.
+        'coming_soon_env_seen': sorted(
+            repr(k) for k in os.environ if 'COMING' in k.upper()),
         'commit': os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown'),
         'commit_short': (os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown') or 'unknown')[:7],
         'branch': os.environ.get('RAILWAY_GIT_BRANCH', 'unknown'),
