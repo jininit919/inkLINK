@@ -18,6 +18,7 @@ env/
 
 # Uploads / user content
 public/uploads/*
+uploads/
 !public/uploads/.gitkeep
 
 # OS / IDE
