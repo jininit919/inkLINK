@@ -195,12 +195,14 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <a class="nav-icon" href="/" title="Back"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
 </nav>
 <script src="/notifs.js?v=5"></script>
+<script src="/i18n.js"></script>
 <script src="/mobile-nav.js?v=14"></script>
-<script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init();
+const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 
 <div class="wrap">
-  <h1>ARTIST SETTINGS</h1>
-  <div class="sub">Public profile, portfolio, available slots and payments.</div>
+  <h1 data-i18n="as.pageTitle">Artist settings</h1>
+  <div class="sub" data-i18n="as.subtitle">Public profile, portfolio, available slots and payments.</div>
 
   <div id="checklist" style="display:none"></div>
   <div id="flash"></div>
@@ -227,77 +229,77 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <!-- ── PROFILE TAB ── -->
   <div id="tab-profile">
     <div class="card">
-      <h2>PUBLIC PROFILE</h2>
+      <h2 data-i18n="as.publicProfile">Public profile</h2>
       <p class="hint">This info is visible to clients on your profile. Once saved you'll be listed as an artist.</p>
       <form id="profileForm">
         <div class="row">
           <div class="field">
-            <label>Display name</label>
+            <label data-i18n="as.displayName">Display name</label>
             <input type="text" name="display_name" id="display_name" maxlength="60" required>
           </div>
           <div class="field">
-            <label>Studio</label>
+            <label data-i18n="as.studio">Studio</label>
             <input type="text" name="studio" id="studio" maxlength="100" placeholder="Black Sails Tattoo">
           </div>
         </div>
         <div class="row">
           <div class="field">
-            <label>City</label>
+            <label data-i18n="as.city">City</label>
             <input type="text" name="city" id="city" maxlength="80" placeholder="Praha">
           </div>
           <div class="field">
-            <label>Instagram</label>
+            <label data-i18n="as.instagram">Instagram</label>
             <input type="text" name="instagram" id="instagram" maxlength="50" placeholder="@your_handle">
           </div>
         </div>
         <div class="field">
-          <label>Bio</label>
+          <label data-i18n="as.bio">Bio</label>
           <textarea name="bio" id="bio" maxlength="500" placeholder="What you love, your experience, what makes your style unique…"></textarea>
         </div>
         <div class="field">
-          <label>Styly (vyber max 6)</label>
+          <label data-i18n="as.styles">Styles (pick up to 6)</label>
           <div class="styles-grid" id="stylesGrid"></div>
         </div>
         <div class="row">
           <div class="field">
-            <label>Hourly rate from (CZK/h)</label>
+            <label data-i18n="as.rateFrom">Hourly rate from (CZK/h)</label>
             <input type="number" name="hourly_rate_min" id="hourly_rate_min" min="0" placeholder="1200">
           </div>
           <div class="field">
-            <label>Hourly rate to (CZK/h)</label>
+            <label data-i18n="as.rateTo">Hourly rate to (CZK/h)</label>
             <input type="number" name="hourly_rate_max" id="hourly_rate_max" min="0" placeholder="1800">
           </div>
         </div>
         <div class="row">
           <div class="field">
-            <label>Default záloha (%)</label>
+            <label data-i18n="as.defaultDeposit">Default deposit (%)</label>
             <input type="number" name="deposit_pct_default" id="deposit_pct_default" min="0" max="100" value="30">
           </div>
           <div class="field">
-            <label>Default platební režim</label>
+            <label data-i18n="as.defaultPayment">Default payment mode</label>
             <select name="default_payment_mode" id="default_payment_mode">
-              <option value="deposit">Záloha + doplatek na místě (klasika)</option>
-              <option value="full">Plná platba předem (žádný doplatek)</option>
-              <option value="client_choice">Nech volbu na klientovi</option>
+              <option value="deposit" data-i18n="as.payDeposit">Deposit + balance on site (standard)</option>
+              <option value="full" data-i18n="as.payFull">Full payment upfront (no balance)</option>
+              <option value="client_choice" data-i18n="as.payClientChoice">Let the client choose</option>
             </select>
           </div>
         </div>
         <div class="row">
           <div class="field">
-            <label>Plný refund od (h před termínem)</label>
+            <label data-i18n="as.refundFull">Full refund from (h before appointment)</label>
             <input type="number" name="cancel_refund_full_hours" id="cancel_refund_full_hours" min="0" max="2000" placeholder="96">
           </div>
           <div class="field">
-            <label>Poloviční refund od (h před termínem)</label>
+            <label data-i18n="as.refundHalf">Half refund from (h before appointment)</label>
             <input type="number" name="cancel_refund_half_hours" id="cancel_refund_half_hours" min="0" max="2000" placeholder="48">
           </div>
         </div>
         <p class="hint" style="margin:-6px 0 14px;color:var(--txt3);font-size:11px">
-          Storno pravidla pro klienty. Nech prázdné = platformní default (96 h plný / 48 h poloviční refund).
+          <span data-i18n="as.hCancelPolicy">Cancellation rules for clients. Leave empty = platform default (96 h full / 48 h half refund).</span>
         </p>
 
         <div class="field">
-          <label>Avatar (volitelné)</label>
+          <label data-i18n="as.avatar">Avatar (optional)</label>
           <input type="file" name="avatar" id="avatar" accept="image/jpeg,image/png,image/webp">
         </div>
         <p class="hint" style="margin:0 0 14px;color:var(--txt3);font-size:11px">
@@ -306,7 +308,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
         <!-- Artist liability consent — required before is_artist activates -->
         <div id="artistTermsBox" style="margin:18px 0 14px;padding:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px">
-          <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:10px">Artist responsibility — declaration</div>
+          <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:10px" data-i18n="as.artistDeclaration">Artist responsibility — declaration</div>
           <div style="font-size:12px;color:var(--txt2);line-height:1.65;letter-spacing:0.01em">
             I, <b><span id="artistTermsName" style="color:var(--txt)">[fill in your name above]</span></b>, hereby declare that InkLink is only a booking platform and is <b>not a party to the tattoo agreement</b> between me and my client. I declare that:
             <ul style="margin:8px 0 8px 18px;padding:0;line-height:1.7">
@@ -341,16 +343,16 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
           <div id="artistTermsAccepted" style="display:none;font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:8px">✓ Signed <span id="artistTermsAcceptedAt"></span></div>
         </div>
 
-        <button class="btn" type="submit">Save profile</button>
+        <button class="btn" type="submit" data-i18n="as.saveProfile">Save profile</button>
       </form>
     </div>
 
     <div class="card">
-      <h2>PUSH NOTIFIKACE</h2>
-      <p class="hint">Dostávej upozornění o nových rezervacích, doplatcích a recenzích — i když máš InkLink zavřený. Funguje v Chromu, Edge, Firefoxu (na iOS pouze v Safari z home-screen aplikace).</p>
+      <h2 data-i18n="as.push">Push notifications</h2>
+      <p class="hint" data-i18n="as.hPush">Get notified about new bookings, balances and reviews — even with InkLink closed. Works in Chrome, Edge and Firefox (on iOS only in Safari from the home-screen app).</p>
       <div class="stripe-status" id="pushStatus">
         <div class="dot"></div>
-        <span id="pushStatusText">Loading stav…</span>
+        <span id="pushStatusText" data-i18n="as.loadingStatus">Loading status…</span>
       </div>
       <div id="pushActions" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
@@ -359,14 +361,14 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <!-- ── PAYMENTS TAB ── -->
   <div id="tab-payments" style="display:none">
     <div class="card">
-      <h2>STRIPE CONNECT</h2>
-      <p class="hint">Pro přijímání záloh dokončíš Stripe Connect onboarding (KYC + bankovní spojení). Peníze tečou přímo tobě, InkLink si automaticky bere 8% provizi.</p>
+      <h2 data-i18n="as.stripeConnect">Stripe Connect</h2>
+      <p class="hint" data-i18n="as.hStripe">To accept deposits you finish Stripe Connect onboarding (KYC + bank details). Money flows straight to you, InkLink automatically takes an 8% commission.</p>
       <div class="stripe-status" id="stripeStatus">
         <div class="dot"></div>
-        <span id="stripeStatusText">Loading stav…</span>
+        <span id="stripeStatusText" data-i18n="as.loadingStatus">Loading status…</span>
       </div>
       <div id="stripeRequirements" style="margin-top:14px;font-size:11px;color:var(--txt2);letter-spacing:0.04em;display:none">
-        <div style="color:var(--txt3);margin-bottom:6px;letter-spacing:0.1em">CHYBÍ DOPLNIT:</div>
+        <div style="color:var(--txt3);margin-bottom:6px;letter-spacing:0.1em" data-i18n="as.missing">Still missing:</div>
         <ul id="stripeReqList" style="padding-left:16px;line-height:1.7"></ul>
       </div>
       <div id="stripeActions" style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"></div>
@@ -376,37 +378,37 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <!-- ── iCAL FEED TAB ── -->
   <div id="tab-ical" style="display:none">
     <div class="card">
-      <h2>KALENDÁŘ-FEED (.ICS)</h2>
-      <p class="hint">Přihlas si InkLink rezervace do Google Calendar / Apple Calendar / Outlooku. Po každé nové rezervaci se zobrazí automaticky — feed se synchronizuje cca každých 15 minutes (závisí na klientovi).</p>
+      <h2 data-i18n="as.calendarFeed">Calendar feed (.ICS)</h2>
+      <p class="hint" data-i18n="as.hIcs">Subscribe your InkLink bookings to Google Calendar / Apple Calendar / Outlook. Every new booking shows up automatically — the feed syncs roughly every 15 minutes (depends on the client app).</p>
 
-      <label style="display:block;margin:18px 0 8px;font-size:11px;color:var(--txt3);letter-spacing:0.12em">SUBSCRIBE URL</label>
+      <label style="display:block;margin:18px 0 8px;font-size:11px;color:var(--txt3);letter-spacing:0.12em" data-i18n="as.subscribeUrl">Subscribe URL</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input id="icalUrl" type="text" readonly value="Loading…" style="flex:1;min-width:260px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:9px 11px;font-family:'JetBrains Mono','Menlo',monospace;font-size:12px;letter-spacing:0">
         <button class="btn muted" type="button" onclick="copyIcalUrl(this)">Copy</button>
-        <button class="btn muted" type="button" onclick="regenerateIcalToken()">Vygenerovat nový</button>
+        <button class="btn muted" type="button" onclick="regenerateIcalToken()" data-i18n="as.generateNew">Generate new</button>
       </div>
-      <p class="hint" style="margin-top:10px">⚠ Pokud token regeneruješ, starý URL přestane fungovat (všechny aplikace co subscribují se musí znovu přidat).</p>
+      <p class="hint" style="margin-top:10px" data-i18n="as.hRegen">⚠ If you regenerate the token, the old URL stops working (every subscribed app has to be added again).</p>
 
-      <h3 style="margin-top:24px;font-size:13px;letter-spacing:0.12em;color:var(--txt2)">JAK SE PŘIHLÁSIT</h3>
+      <h3 style="margin-top:24px;font-size:13px;letter-spacing:0.12em;color:var(--txt2)" data-i18n="as.howToSubscribe">How to subscribe</h3>
       <div style="margin-top:10px;font-size:12px;line-height:1.8;color:var(--txt2);letter-spacing:0.02em">
-        <p style="margin-bottom:8px"><b style="color:var(--txt)">Google Calendar:</b> Settings → Add calendar → From URL → vlož URL → Add</p>
-        <p style="margin-bottom:8px"><b style="color:var(--txt)">Apple Calendar (Mac):</b> File → New Calendar Subscription → vlož URL → Subscribe</p>
-        <p style="margin-bottom:8px"><b style="color:var(--txt)">Apple Calendar (iPhone):</b> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → vlož URL</p>
-        <p style="margin-bottom:8px"><b style="color:var(--txt)">Outlook:</b> Add calendar → Subscribe from web → vlož URL</p>
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Google Calendar:</b> Settings → Add calendar → From URL → <span data-i18n="as.vlozUrl">paste URL</span> → Add</p>
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Apple Calendar (Mac):</b> File → New Calendar Subscription → <span data-i18n="as.vlozUrl">paste URL</span> → Subscribe</p>
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Apple Calendar (iPhone):</b> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → <span data-i18n="as.vlozUrl">paste URL</span></p>
+        <p style="margin-bottom:8px"><b style="color:var(--txt)">Outlook:</b> Add calendar → Subscribe from web → <span data-i18n="as.vlozUrl">paste URL</span></p>
       </div>
 
-      <h3 style="margin-top:24px;font-size:13px;letter-spacing:0.12em;color:var(--txt2)">CO BUDEŠ V KALENDÁŘI VIDĚT</h3>
+      <h3 style="margin-top:24px;font-size:13px;letter-spacing:0.12em;color:var(--txt2)" data-i18n="as.whatYouSee">What you will see in your calendar</h3>
       <ul style="margin-top:10px;padding-left:18px;font-size:12px;line-height:1.8;color:var(--txt2);letter-spacing:0.02em">
-        <li>Potvrzené rezervace (klient + studio + popis)</li>
+        <li data-i18n="as.confirmedBookings">Confirmed bookings (client + studio + description)</li>
         <li>Pending payment (jako TENTATIVE — nepřekáží jiným meetingům)</li>
         <li>Available slots v kalendáři (TRANSPARENT — počítají se jako available)</li>
         <li>Storno-vané rezervace se z feedu zmizí automaticky</li>
       </ul>
 
-      <p class="hint" style="margin-top:18px">Feed je token-protected — kdokoliv s URL vidí tvůj kalendář (read-only). Drž URL stejně tajný jako heslo.</p>
+      <p class="hint" style="margin-top:18px" data-i18n="as.hIcsSecret">The feed is token-protected — anyone with the URL can see your calendar (read-only). Keep the URL as secret as a password.</p>
 
       <div style="margin-top:18px">
-        <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics">Stáhnout jednorázový .ics</a>
+        <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics" data-i18n="as.downloadIcs">Download one-off .ics</a>
       </div>
     </div>
   </div>
@@ -414,30 +416,30 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <!-- ── ACCOUNT TAB ── -->
   <div id="tab-account" style="display:none">
     <div class="card">
-      <h2>EXPORT DAT (GDPR)</h2>
-      <p class="hint">Stáhni si všechna svá data v ZIP — profil, rezervace, zprávy, portfolio, recenze, referrals. JSON soubory, čitelné strojově i lidsky. Rate-limit 5 stahování/h.</p>
+      <h2 data-i18n="as.gdprExport">Data export (GDPR)</h2>
+      <p class="hint" data-i18n="as.hExport">Download all your data as a ZIP — profile, bookings, messages, portfolio, reviews, referrals. JSON files, readable by machines and humans. Rate limit 5 downloads/h.</p>
       <div style="margin-top:14px">
-        <a class="btn" href="/api/me/export" download>Stáhnout ZIP</a>
+        <a class="btn" href="/api/me/export" download data-i18n="as.downloadZip">Download ZIP</a>
       </div>
     </div>
 
     <div class="card" style="margin-top:20px;border-left:3px solid #b20000">
-      <h2 style="color:#e58787">SMAZAT ÚČET</h2>
-      <p class="hint">Po žádosti následuje <b>30denní ochranná lhůta</b>, během níž si rozhodnutí můžeš rozmyslet. Po jejím uplynutí se profil, portfolio a osobní údaje nenávratně anonymizují.</p>
-      <p class="hint" style="margin-top:8px">Záznamy o platbách v účetnictví zůstanou po dobu 10 let (zákon č. 563/1991 Sb.) — ale bez vazby na tvou totožnost.</p>
+      <h2 style="color:#e58787" data-i18n="as.deleteAccount">Delete account</h2>
+      <p class="hint" data-i18n="as.hGrace">The request is followed by a 30-day grace period during which you can change your mind. After it passes, your profile, portfolio and personal data are irreversibly anonymized.</p>
+      <p class="hint" style="margin-top:8px" data-i18n="as.hAccounting">Payment records stay in the accounting books for 10 years (Czech Act No. 563/1991 Coll.) — but with no link to your identity.</p>
 
       <div id="deletionStatus" style="margin-top:14px"></div>
 
       <div id="deletionForm" style="margin-top:14px;display:none">
-        <label style="display:block;margin-bottom:6px;font-size:11px;color:var(--txt3);letter-spacing:0.1em">PRO POTVRZENÍ NAPIŠ SVÉ UŽIVATELSKÉ JMÉNO</label>
+        <label style="display:block;margin-bottom:6px;font-size:11px;color:var(--txt3);letter-spacing:0.1em" data-i18n="as.typeUsername">Type your username to confirm</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <input id="deletionConfirm" type="text" placeholder="username" autocomplete="off" style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:9px 11px;font-family:inherit;font-size:13px">
-          <button class="btn danger" type="button" onclick="submitDeletion()">Delete účet</button>
+          <button class="btn danger" type="button" onclick="submitDeletion()" data-i18n="as.deleteAccountBtn">Delete account</button>
         </div>
         <div id="deletionFlash" style="margin-top:10px"></div>
       </div>
 
-      <p class="hint" style="margin-top:14px">⚠ Pokud máš aktivní rezervaci (potvrzenou v budoucnosti), zruš ji nejdřív v <a href="/my-bookings" style="color:var(--red2);border-bottom:1px solid currentColor">Mých rezervacích</a> — InkLink ti pak smazání povolí.</p>
+      <p class="hint" style="margin-top:14px"><span data-i18n="as.hActiveBooking">⚠ If you have an active booking (confirmed, in the future), cancel it first in My bookings — InkLink will then allow the deletion.</span> <a href="/my-bookings" style="color:var(--red2);border-bottom:1px solid currentColor" data-i18n="as.myBookings">My bookings</a></p>
     </div>
   </div>
 
@@ -446,19 +448,19 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 <div id="editPortModal" onclick="if(event.target===this)closePortEdit()">
   <div class="epm-card">
-    <h3>UPRAVIT POLOŽKU PORTFOLIA</h3>
+    <h3 data-i18n="as.portfolioItem">Edit portfolio item</h3>
     <div class="preview"><img id="epm-img" src="" alt=""></div>
-    <label>Popis / název návrhu</label>
-    <input type="text" id="epm-caption" maxlength="500" placeholder="Vlk na předloktí">
-    <label>Typ</label>
+    <label data-i18n="as.itemTitle">Description / design name</label>
+    <input type="text" id="epm-caption" maxlength="500" data-i18n-attr="as.itemTitlePh:placeholder" placeholder="Wolf on the forearm">
+    <label data-i18n="as.type">Type</label>
     <select id="epm-kind">
-      <option value="done">Healed / hotová práce</option>
-      <option value="sketch">Sketch / návrh k tetování</option>
+      <option value="done" data-i18n="as.healed">Healed / finished work</option>
+      <option value="sketch" data-i18n="as.sketch">Sketch / tattoo design</option>
     </select>
-    <label>Cena (Kč) — volitelně</label>
-    <input type="number" id="epm-price" min="0" placeholder="ponechat prázdné = bez fixní ceny">
-    <label>Odhad délky (h) — volitelně</label>
-    <input type="number" id="epm-hours" min="0.5" max="24" step="0.5" placeholder="např. 3">
+    <label data-i18n="as.price">Price (CZK) — optional</label>
+    <input type="number" id="epm-price" min="0" data-i18n-attr="as.pricePh:placeholder" placeholder="leave empty = no fixed price">
+    <label data-i18n="as.duration">Estimated duration (h) — optional</label>
+    <input type="number" id="epm-hours" min="0.5" max="24" step="0.5" data-i18n-attr="as.durationPh:placeholder" placeholder="e.g. 3">
     <div class="actions">
       <button class="btn muted" onclick="closePortEdit()">Cancel</button>
       <button class="btn" onclick="savePortEdit()">Save</button>
@@ -492,10 +494,10 @@ async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
   if (!me) {
     document.querySelector('.wrap').innerHTML = `
-      <h1>ARTIST SETTINGS</h1>
-      <div class="sub">Pro úpravu profilu se musíš přihlásit.</div>
+      <h1 data-i18n="as.pageTitle">Artist settings</h1>
+      <div class="sub" data-i18n="as.signInBody">You need to sign in to edit your profile.</div>
       <div style="margin-top:24px;display:flex;gap:8px">
-        <a class="btn" href="/login">Sign in / register</a>
+        <a class="btn" href="/login" data-i18n="as.signInCta">Sign in / register</a>
         <a class="btn muted" href="/">Back to feed</a>
       </div>`;
     return;
@@ -530,7 +532,7 @@ async function init() {
   function syncDeclarationName() {
     const n = (displayInput.value || '').trim();
     if (nameEnEl) nameEnEl.textContent = n || '[fill in your name above]';
-    if (nameCzEl) nameCzEl.textContent = n || '[doplň své jméno výše]';
+    if (nameCzEl) nameCzEl.textContent = n || t('as.namePlaceholder');
   }
   syncDeclarationName();
   displayInput.addEventListener('input', syncDeclarationName);
@@ -558,7 +560,7 @@ async function init() {
   // ?stripe=ok přijde po returnu z Connect — flash + auto-tab
   const qs = new URLSearchParams(location.search);
   if (qs.get('stripe') === 'ok') {
-    flash('Vrátil ses ze Stripe — kontroluju stav…');
+    flash(t('as.stripeBack'));
     history.replaceState(null, '', '/artist-setup#payments');
     document.querySelector('.tab[data-tab="payments"]')?.click();
   }
@@ -587,9 +589,9 @@ async function loadDeletionStatus() {
     const daysLeft = purgeDate ? Math.max(0, Math.ceil((purgeDate - new Date()) / (1000*60*60*24))) : 0;
     statusEl.innerHTML = `
       <div style="background:#0e0e0e;border:1px solid #2a2a2a;border-left:3px solid #e8c87f;padding:14px 16px;border-radius:2px;font-size:13px;color:#bbb;line-height:1.6">
-        ⏳ <b style="color:#eee">Žádost o smazání podána.</b><br>
-        Účet bude anonymizován <b style="color:#eee">${dateStr}</b> (za ${daysLeft} ${daysLeft === 1 ? 'den' : (daysLeft < 5 ? 'dny' : 'dní')}).<br>
-        <button class="btn muted" type="button" onclick="cancelDeletion()" style="margin-top:10px">Cancel žádost</button>
+        ⏳ <b style="color:#eee">${t('as.delRequested')}</b><br>
+        ${t('as.delOn')} <b style="color:#eee">${dateStr}</b> (${t('as.inWord')} ${daysLeft} ${t(daysLeft === 1 ? 'as.daysLeftOne' : (daysLeft < 5 ? 'as.daysLeftFew' : 'as.daysLeftMany'))}).<br>
+        <button class="btn muted" type="button" onclick="cancelDeletion()" style="margin-top:10px" data-i18n="as.cancelRequest">Cancel request</button>
       </div>
     `;
   } else {
@@ -603,10 +605,10 @@ async function submitDeletion() {
   flash.innerHTML = '';
   const confirm_username = (document.getElementById('deletionConfirm').value || '').trim();
   if (!confirm_username) {
-    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">Napiš své uživatelské jméno pro potvrzení.</div>';
+    flash.innerHTML = '<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">' + t('as.typeUsernameErr') + '</div>';
     return;
   }
-  if (!window.confirm('Opravdu chceš smazat svůj účet? Tato akce po 30 dnech nepůjde vrátit.')) return;
+  if (!window.confirm(t('as.confirmDelAccount'))) return;
   const r = await fetch('/api/me/delete', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
@@ -614,20 +616,20 @@ async function submitDeletion() {
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${escapeHtml(j.error || 'Akce selhala')}</div>`;
+    flash.innerHTML = `<div style="color:#e58787;font-size:11px;letter-spacing:0.04em">${escapeHtml(j.error || t('as.actionFailed'))}</div>`;
     return;
   }
   // Server cleared the session — redirect to landing.
-  alert('Žádost o smazání byla zaznamenána. Máš 30 dní na rozmyšlenou; pokud chceš žádost zrušit, znovu se přihlas a otevři tento panel.');
+  alert(t('as.delSubmitted'));
   location.href = '/';
 }
 
 async function cancelDeletion() {
-  if (!window.confirm('Cancel žádost o smazání? Účet zůstane plně aktivní.')) return;
+  if (!window.confirm(t('as.confirmCancelDel'))) return;
   const r = await fetch('/api/me/delete-cancel', {method: 'POST'});
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
-    alert(j.error || 'Cancellation failed');
+    alert(j.error || t('as.cancelFailed'));
     return;
   }
   loadDeletionStatus();
@@ -654,7 +656,7 @@ async function loadIcalToken(forceRegenerate) {
     if (input) input.value = d.subscribe_url || '';
   } catch (e) {
     const input = document.getElementById('icalUrl');
-    if (input) input.value = '(chyba načítání)';
+    if (input) input.value = t('as.loadError');
   }
 }
 
@@ -664,7 +666,7 @@ async function copyIcalUrl(btn) {
   try {
     await navigator.clipboard.writeText(input.value);
     const orig = btn.textContent;
-    btn.textContent = '✓ Zkopírováno';
+    btn.textContent = t('as.copied');
     btn.disabled = true;
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
   } catch (e) {
@@ -674,7 +676,7 @@ async function copyIcalUrl(btn) {
 }
 
 async function regenerateIcalToken() {
-  if (!confirm('Opravdu vygenerovat nový token? Existující subscribers (Google/Apple Calendar) přestanou fungovat — budou se muset přidat znovu s novým URL.')) return;
+  if (!confirm(t('as.confirmRegen'))) return;
   await loadIcalToken(true);
 }
 
@@ -705,11 +707,11 @@ async function loadPushStatus() {
   act.innerHTML = '';
 
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    txt.textContent = 'Tvůj prohlížeč push notifikace nepodporuje.';
+    txt.textContent = t('as.pushUnsupported');
     return;
   }
   if (!me.push_available) {
-    txt.textContent = 'Server zatím nemá nakonfigurovaný VAPID — push není dostupný.';
+    txt.textContent = t('as.pushNoVapid');
     return;
   }
 
@@ -722,26 +724,26 @@ async function loadPushStatus() {
   } catch { subscribed = false; }
 
   if (perm === 'denied') {
-    txt.textContent = 'Notifikace zablokované v prohlížeči — povolte je v nastavení stránky.';
+    txt.textContent = t('as.notifBlocked');
     return;
   }
   if (subscribed) {
     dot.classList.add('ready');
-    txt.textContent = 'Push notifikace zapnuté ✓';
-    act.innerHTML = `<button class="btn muted" onclick="disablePush()">Vypnout push</button>`;
+    txt.textContent = t('as.pushEnabled');
+    act.innerHTML = `<button class="btn muted" onclick="disablePush()" data-i18n="as.pushOff">Turn off push</button>`;
     return;
   }
-  txt.textContent = 'Push notifikace nejsou zapnuté.';
-  act.innerHTML = `<button class="btn" onclick="enablePush()">Zapnout push</button>`;
+  txt.textContent = t('as.pushDisabled');
+  act.innerHTML = `<button class="btn" onclick="enablePush()" data-i18n="as.pushOn">Turn on push</button>`;
 }
 
 async function enablePush() {
   try {
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { flash('Bez povolení nelze zapnout', 'err'); await loadPushStatus(); return; }
+    if (perm !== 'granted') { flash(t('as.pushDenied'), 'err'); await loadPushStatus(); return; }
     const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
     const keyResp = await fetch('/api/push/vapid-key').then(r => r.json());
-    if (!keyResp.publicKey) { flash('Server nemá VAPID klíč', 'err'); return; }
+    if (!keyResp.publicKey) { flash(t('as.pushNoVapid'), 'err'); return; }
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(keyResp.publicKey),
@@ -751,10 +753,10 @@ async function enablePush() {
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(sub),
     });
-    if (r.ok) { flash('Push zapnut ✓'); await loadPushStatus(); }
-    else flash((await r.json()).error || 'Selhalo', 'err');
+    if (r.ok) { flash(t('as.pushEnabled')); await loadPushStatus(); }
+    else flash((await r.json()).error || t('as.failed'), 'err');
   } catch (e) {
-    flash('Chyba: ' + e.message, 'err');
+    flash(t('as.error') + e.message, 'err');
   }
 }
 
@@ -772,7 +774,7 @@ async function disablePush() {
     }
     flash('Push vypnut');
     await loadPushStatus();
-  } catch (e) { flash('Chyba: ' + e.message, 'err'); }
+  } catch (e) { flash(t('as.error') + e.message, 'err'); }
 }
 
 async function loadChecklist() {
@@ -804,9 +806,9 @@ async function loadChecklist() {
 
   root.innerHTML = `
     <div class="cl-card ${doneCls}">
-      <button class="cl-dismiss" onclick="dismissChecklist()" title="Skrýt do dalšího načtení">×</button>
+      <button class="cl-dismiss" onclick="dismissChecklist()" data-i18n-attr="as.hideChecklist:title" title="Hide until next load">×</button>
       <div class="cl-head">
-        <h3>NASTAV SI PROFIL</h3>
+        <h3 data-i18n="as.setupProfile">Set up your profile</h3>
         <span style="font-size:11px;color:var(--txt3);letter-spacing:0.04em">${data.completed}/${data.total} hotovo</span>
         <span class="cl-pct">${data.percent}%</span>
       </div>
@@ -834,47 +836,47 @@ async function loadStripeStatus() {
   actions.innerHTML = '';
 
   if (status.error) {
-    txt.textContent = 'Chyba ze Stripe: ' + status.error;
-    actions.innerHTML = `<button class="btn" onclick="startOnboard()">Try again</button>`;
+    txt.textContent = t('as.stripeError') + status.error;
+    actions.innerHTML = `<button class="btn" onclick="startOnboard()" data-i18n="as.tryAgain">Try again</button>`;
     return;
   }
   if (!status.connected) {
-    txt.textContent = 'Stripe ještě nepropojen — bez něj nemůžeš přijímat rezervace.';
-    actions.innerHTML = `<button class="btn" onclick="startOnboard()">Připojit Stripe</button>`;
+    txt.textContent = t('as.stripeNotLinked');
+    actions.innerHTML = `<button class="btn" onclick="startOnboard()" data-i18n="as.connectStripe">Connect Stripe</button>`;
     return;
   }
   if (status.charges_enabled && status.payouts_enabled) {
     dot.classList.add('ready');
-    txt.textContent = 'Stripe propojen ✓ Můžeš přijímat rezervace a vyplácet si peníze.';
+    txt.textContent = t('as.stripeLinked');
     actions.innerHTML = `
-      <button class="btn" onclick="openDashboard()">Open Stripe dashboard</button>
-      <button class="btn muted" onclick="loadStripeStatus()">Obnovit stav</button>`;
+      <button class="btn" onclick="openDashboard()" data-i18n="as.openStripe">Open Stripe dashboard</button>
+      <button class="btn muted" onclick="loadStripeStatus()" data-i18n="as.refreshStatus">Refresh status</button>`;
     return;
   }
   // partially set up
   txt.textContent = status.details_submitted
-    ? 'Stripe ověřuje údaje. Tlačítkem níž zkontroluj stav.'
-    : 'Onboarding nedokončen — pokračuj na Stripe.';
+    ? t('as.stripeVerifying')
+    : t('as.stripeIncomplete');
   const due = [...new Set([...(status.requirements?.currently_due||[]), ...(status.requirements?.past_due||[])])];
   if (due.length) {
     reqs.style.display = 'block';
     reqList.innerHTML = due.map(d => `<li>${escapeHtml(d.replace(/_/g,' '))}</li>`).join('');
   }
   actions.innerHTML = `
-    <button class="btn" onclick="startOnboard()">Continue na Stripe</button>
-    <button class="btn muted" onclick="loadStripeStatus()">Obnovit stav</button>`;
+    <button class="btn" onclick="startOnboard()" data-i18n="as.continueStripe">Continue on Stripe</button>
+    <button class="btn muted" onclick="loadStripeStatus()" data-i18n="as.refreshStatus">Refresh status</button>`;
 }
 
 async function startOnboard() {
   const r = await fetch('/api/artist/connect/onboard', {method:'POST'});
-  if (!r.ok) { flash((await r.json()).error || 'Onboard selhal', 'err'); return; }
+  if (!r.ok) { flash((await r.json()).error || t('as.onboardFailed'), 'err'); return; }
   const { url } = await r.json();
   if (url) location.href = url;
 }
 
 async function openDashboard() {
   const r = await fetch('/api/artist/connect/dashboard', {method:'POST'});
-  if (!r.ok) { flash((await r.json()).error || 'Nelze otevřít dashboard', 'err'); return; }
+  if (!r.ok) { flash((await r.json()).error || t('as.dashboardFailed'), 'err'); return; }
   const { url } = await r.json();
   if (url) window.open(url, '_blank', 'noopener');
 }
@@ -889,7 +891,7 @@ function renderStylesGrid(id, selected, max) {
       const on = pill.classList.contains('on');
       if (!on) {
         const cur = el.querySelectorAll('.style-pill.on').length;
-        if (cur >= max) { flash(`Vyber max ${max} stylů`, 'err'); return; }
+        if (cur >= max) { flash(t('as.maxStyles').replace('{n}', max), 'err'); return; }
       }
       pill.classList.toggle('on');
     });
@@ -913,10 +915,10 @@ document.getElementById('profileForm').addEventListener('submit', async e => {
   if (alreadyAccepted) fd.set('artist_terms_accepted', '1');
   const r = await fetch('/api/profile/update', {method:'POST', body: fd});
   if (r.ok) {
-    flash('Profile saved ✓');
+    flash(t('as.profileSaved'));
     me = await fetch('/api/me').then(r => r.json());
   } else {
-    flash((await r.json()).error || 'Failed to save', 'err');
+    flash((await r.json()).error || t('as.saveFailed'), 'err');
   }
 });
 
@@ -972,8 +974,8 @@ async function savePortEdit() {
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify(body),
   });
-  if (r.ok) { closePortEdit(); flash('Uloženo ✓'); await loadPortfolio(); }
-  else { flash((await r.json()).error || 'Selhalo', 'err'); }
+  if (r.ok) { closePortEdit(); flash(t('as.saved')); await loadPortfolio(); }
+  else { flash((await r.json()).error || t('as.failed'), 'err'); }
 }
 
 document.getElementById('pImage')?.addEventListener('change', e => {
@@ -982,7 +984,7 @@ document.getElementById('pImage')?.addEventListener('change', e => {
   // Validuj velikost
   for (const f of files) {
     if (f.size > 12 * 1024 * 1024) {
-      flash(`${f.name} je velký (${(f.size/1024/1024).toFixed(1)} MB) — max 12 MB`, 'err');
+      flash(t('as.fileTooBig').replace('{name}', f.name).replace('{size}', (f.size/1024/1024).toFixed(1)), 'err');
       e.target.value = '';
       clearImagePreview();
       return;
@@ -991,7 +993,7 @@ document.getElementById('pImage')?.addEventListener('change', e => {
   // Max 4 fotky
   const selected = files.slice(0, 4);
   if (files.length > 4) {
-    flash('Maximálně 4 fotky — vzal jsem první 4', 'err');
+    flash(t('as.max4'), 'err');
   }
   const grid = document.getElementById('pPreviewGrid');
   grid.style.display = 'grid';
@@ -1001,7 +1003,7 @@ document.getElementById('pImage')?.addEventListener('change', e => {
     reader.onload = ev => {
       const cell = document.createElement('div');
       cell.style.cssText = 'aspect-ratio:1;background:var(--bg3);border:1px solid var(--border2);overflow:hidden;position:relative';
-      cell.innerHTML = `<img src="${ev.target.result}" alt="Náhled ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block">${i === 0 ? '<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.78);color:#fff;font-size:9px;padding:2px 6px;letter-spacing:0.08em">HLAVNÍ</div>' : ''}`;
+      cell.innerHTML = `<img src="${ev.target.result}" alt="${t('as.previewAlt')} ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block">${i === 0 ? `<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.78);color:#fff;font-size:9px;padding:2px 6px;letter-spacing:0.08em">${t('as.mainPhoto')}</div>` : ''}`;
       grid.appendChild(cell);
     };
     reader.readAsDataURL(f);
@@ -1020,7 +1022,7 @@ document.getElementById('portfolioForm')?.addEventListener('submit', async e => 
   const fileInput = document.getElementById('pImage');
   const files = Array.from(fileInput.files || []).slice(0, 4);
   if (!files.length) {
-    flash('Vyber alespoň jeden obrázek', 'err');
+    flash(t('as.pickImage'), 'err');
     return;
   }
   fd.set('image', files[0]);
@@ -1034,21 +1036,21 @@ document.getElementById('portfolioForm')?.addEventListener('submit', async e => 
   fd.set('styles', readStyles('pStylesGrid'));
   const r = await fetch('/api/portfolio', {method:'POST', body: fd});
   if (r.ok) {
-    flash('Položka přidána ✓');
+    flash(t('as.itemAdded'));
     e.target.reset();
     clearImagePreview();
     document.querySelectorAll('#pStylesGrid .style-pill.on').forEach(p=>p.classList.remove('on'));
     await loadPortfolio();
   } else {
-    flash((await r.json()).error || 'Upload selhal', 'err');
+    flash((await r.json()).error || t('as.uploadFailed'), 'err');
   }
 });
 
 async function delPortfolio(id) {
-  if (!confirm('Delete tuto položku?')) return;
+  if (!confirm(t('as.confirmDelItem'))) return;
   const r = await fetch('/api/portfolio/' + id, {method:'DELETE'});
-  if (r.ok) { await loadPortfolio(); flash('Smazáno'); }
-  else flash('Failed smazat', 'err');
+  if (r.ok) { await loadPortfolio(); flash(t('as.deleted')); }
+  else flash(t('as.deleteFailed'), 'err');
 }
 
 
