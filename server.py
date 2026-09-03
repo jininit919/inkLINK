@@ -135,6 +135,82 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 def _set_secure_cookie():
     app.config['SESSION_COOKIE_SECURE'] = (request.scheme == 'https')
 
+# ── Coming-soon brána ────────────────────────────────────────────────────────
+# Doména je veřejná, ale produkt se ještě staví. Anonymní návštěvník uvidí
+# jen stránku „připravujeme"; přihlášený uživatel a kdokoli s preview odkazem
+# projde dál. Ovládá se env proměnnou, ne deployem — vypnout jde okamžitě.
+COMING_SOON       = os.environ.get('COMING_SOON', '').strip().lower() in ('1', 'true', 'yes')
+COMING_SOON_TOKEN = os.environ.get('COMING_SOON_TOKEN', '').strip()
+PREVIEW_COOKIE    = 'il_preview'
+
+# Cesty, které brána NIKDY nesmí chytit. Není to kosmetika: webhook zablokovaný
+# bránou znamená ztracené platby a health check znamená, že Railway prohlásí
+# deploy za mrtvý a vrátí předchozí verzi.
+_GATE_ALWAYS_OPEN = (
+    '/__health', '/healthz', '/robots.txt', '/sitemap.xml', '/favicon.svg',
+    '/manifest.json', '/theme.css', '/i18n.js', '/icons.svg', '/mobile-nav.js',
+    '/sw.js', '/notifs.js',
+    # Přihlášení a obnova hesla musí zůstat průchozí, jinak se dovnitř
+    # nedostane ani ten, kdo účet má.
+    '/login', '/verify', '/forgot-password', '/reset-password',
+    # Právní stránky taky: coming-soon na zásady odkazuje jako na právní
+    # základ pro sběr e-mailu do waitlistu. Odkaz končící v bráně by ten
+    # základ zrušil.
+    '/privacy', '/terms',
+)
+_GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/')
+_GATE_OPEN_API = (
+    '/api/login', '/api/register', '/api/logout', '/api/me',
+    '/api/verify', '/api/forgot-password', '/api/reset-password',
+    # Waitlist je celý smysl coming-soon stránky — bránou projít musí.
+    '/api/waitlist',
+    # A odemykací endpoint taky, jinak by heslo nešlo poslat.
+    '/api/preview-unlock',
+)
+
+_GATE_ASSET_EXT = (
+    'css', 'js', 'svg', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'ico',
+    'woff', 'woff2', 'ttf', 'map', 'json', 'webmanifest',
+)
+
+
+def _gate_is_open_path(path: str) -> bool:
+    if path in _GATE_ALWAYS_OPEN or path in _GATE_OPEN_API:
+        return True
+    if path.startswith(_GATE_OPEN_PREFIXES):
+        return True
+    # Statická aktiva podle přípony — bez nich by stránka přišla o styl.
+    return '.' in path and path.rsplit('.', 1)[-1].lower() in _GATE_ASSET_EXT
+
+
+@app.before_request
+def _coming_soon_gate():
+    if not COMING_SOON:
+        return None
+    path = request.path or '/'
+    if _gate_is_open_path(path):
+        return None
+    # Kdo je přihlášený, je dovnitř pozvaný — včetně demo tatérky.
+    if session.get('user_id'):
+        return None
+    # Preview odkaz: ?preview=<token> nastaví cookie, ať se link nemusí
+    # posílat při každém kliknutí znovu.
+    token = (request.args.get('preview') or '').strip()
+    if COMING_SOON_TOKEN and token == COMING_SOON_TOKEN:
+        resp = redirect(path)
+        resp.set_cookie(PREVIEW_COOKIE, COMING_SOON_TOKEN, max_age=30 * 24 * 3600,
+                        httponly=True, samesite='Lax',
+                        secure=(request.scheme == 'https'))
+        return resp
+    if COMING_SOON_TOKEN and request.cookies.get(PREVIEW_COOKIE) == COMING_SOON_TOKEN:
+        return None
+
+    # API dostane JSON, ne HTML — jinak by frontend parsoval stránku.
+    if path.startswith('/api/'):
+        return jsonify({'error': 'InkLink is not open to the public yet.'}), 503
+    return send_from_directory('public', 'coming-soon.html')
+
+
 # Rate limiter
 limiter = Limiter(
     key_func=get_remote_address,
@@ -747,6 +823,19 @@ def init_db():
     )''')
 
     # ── events / event_saves (kept) ─────────────────────────────────────────
+    # ── waitlist (coming-soon stránka) ──────────────────────────────────────
+    # Sbíráme jen e-mail a nepovinnou roli. Žádné jméno, žádný profil —
+    # čím míň osobních údajů před spuštěním, tím míň povinností navíc.
+    c.execute("""CREATE TABLE IF NOT EXISTS waitlist (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        email      TEXT NOT NULL UNIQUE,
+        role       TEXT DEFAULT '',   -- artist | client | ''
+        source     TEXT DEFAULT '',   -- odkud přišel zápis
+        ip         TEXT DEFAULT '',   -- proti zneužití, ne pro marketing
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    c.execute('CREATE INDEX IF NOT EXISTS idx_waitlist_created ON waitlist(created_at)')
+
     c.execute('''CREATE TABLE IF NOT EXISTS events (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id     INTEGER NOT NULL,
@@ -1557,6 +1646,12 @@ def service_worker():
 
 @app.route('/robots.txt')
 def robots():
+    # Dokud běží coming-soon brána, nemá smysl nabízet robotům zbytek webu —
+    # stejně by dostali jen bránu, a ta by se jim zaindexovala pod každou URL.
+    if COMING_SOON:
+        return Response(
+            "User-agent: *\nAllow: /$\nDisallow: /\n",
+            mimetype='text/plain')
     body = (
         "User-agent: *\n"
         "Allow: /\n"
@@ -1582,6 +1677,14 @@ def sitemap():
     """Dynamicky vygeneruje sitemap z DB — homepage, statické stránky,
     profily tatérů a detail stránky skic/prací."""
     base = APP_BASE_URL.rstrip('/')
+    # Za bránou je veřejná jediná stránka; nabízet profily, které návštěvník
+    # neuvidí, by generovalo jen chyby v Search Console.
+    if COMING_SOON:
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            f'<url><loc>{base}/</loc><priority>1.0</priority></url>'
+            '</urlset>', mimetype='application/xml')
     conn = get_db()
     # Tatéři s public profile
     artists = conn.execute('''
@@ -8367,6 +8470,108 @@ def remove_favorite_city(name):
 
 
 # ── Events API ────────────────────────────────────────────────────────────────
+
+@app.route('/api/preview-unlock', methods=['POST'])
+@limiter.limit('10 per hour')
+def preview_unlock():
+    """Odemkne coming-soon bránu sdíleným heslem.
+
+    Není to autentizace uživatele — je to jeden sdílený řetězec, kterým se
+    pouští dovnitř lidé, kterým ho pošleme. Proto rate limit (jinak je to
+    otázka minut) a srovnání v konstantním čase (jinak jde délka a obsah
+    hesla odvodit z doby odpovědi).
+    """
+    if not COMING_SOON_TOKEN:
+        # Bez nastaveného hesla se nesmí dovnitř dostat nikdo — prázdný
+        # token nesmí znamenat "pouštěj všechny".
+        return jsonify({'error': 'Wrong password.'}), 403
+
+    pwd = ((request.get_json(silent=True) or request.form).get('password') or '').strip()
+    import hmac as _hmac
+    if not pwd or not _hmac.compare_digest(pwd, COMING_SOON_TOKEN):
+        return jsonify({'error': 'Wrong password.'}), 403
+
+    resp = jsonify({'ok': True})
+    resp.set_cookie(PREVIEW_COOKIE, COMING_SOON_TOKEN, max_age=30 * 24 * 3600,
+                    httponly=True, samesite='Lax',
+                    secure=(request.scheme == 'https'))
+    return resp
+
+
+@app.route('/api/waitlist', methods=['POST'])
+@limiter.limit('10 per hour')
+def join_waitlist():
+    """Zápis do waitlistu z coming-soon stránky.
+
+    Veřejný nepřihlášený zápis, takže rate limit není volitelný. Ukládáme
+    minimum — e-mail a nepovinnou roli; čím míň údajů před spuštěním, tím
+    míň povinností navíc.
+    """
+    data  = request.get_json(silent=True) or request.form
+    email = (data.get('email') or '').strip().lower()[:190]
+    role  = (data.get('role') or '').strip().lower()
+    if role not in ('artist', 'client', ''):
+        role = ''
+
+    # Záměrně mírná validace: přísná regex na e-maily odmítá platné adresy.
+    # Skutečné ověření je stejně až odeslaný e-mail.
+    if not email or '@' not in email or '.' not in email.split('@')[-1] or ' ' in email:
+        return jsonify({'error': 'Enter a valid email address.'}), 400
+
+    conn = get_db()
+    existing = conn.execute('SELECT id FROM waitlist WHERE email=?', (email,)).fetchone()
+    if existing:
+        conn.close()
+        # Stejná odpověď jako u nového zápisu — opakované odeslání nesmí
+        # prozradit, kdo už na seznamu je.
+        return jsonify({'ok': True, 'already': True})
+    try:
+        conn.execute(
+            'INSERT INTO waitlist (email, role, source, ip) VALUES (?,?,?,?)',
+            (email, role, (data.get('source') or 'coming-soon').strip()[:40],
+             (request.remote_addr or '')[:64]))
+        conn.commit()
+    except Exception as e:
+        # Souběžný zápis téhož e-mailu spadne na UNIQUE indexu. Z pohledu
+        # návštěvníka je to úspěch, ne chyba.
+        try:
+            app.logger.warning(f'[waitlist] insert failed for {email}: {e}')
+        except Exception:
+            pass
+        conn.close()
+        return jsonify({'ok': True, 'already': True})
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/admin/waitlist')
+def admin_waitlist():
+    """Export waitlistu pro admina — bez něj je seznam k ničemu."""
+    err = require_login()
+    if err: return err
+    if not is_admin_user(session['user_id']):
+        return jsonify({'error': 'not found'}), 404
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT id, email, role, source, created_at FROM waitlist ORDER BY created_at DESC'
+    ).fetchall()
+    conn.close()
+
+    # CSV, protože se seznamem se reálně pracuje v mailingu nebo tabulce,
+    # ne v JSON prohlížeči.
+    if request.args.get('format') == 'csv':
+        import csv, io as _io
+        buf = _io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(['email', 'role', 'source', 'created_at'])
+        for r in rows:
+            w.writerow([r['email'], r['role'], r['source'], r['created_at']])
+        return Response(
+            buf.getvalue(), mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=waitlist.csv'})
+
+    return jsonify({'count': len(rows), 'entries': [dict(r) for r in rows]})
+
 
 @app.route('/api/events')
 def get_events():

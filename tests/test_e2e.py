@@ -1711,6 +1711,187 @@ class ClientMergeTests(_CrmBase):
         self.assertEqual(r.status_code, 400)
 
 
+class ComingSoonGateTests(unittest.TestCase):
+    """Brána stojí před veřejnou doménou, takže její chyby jsou drahé:
+    zablokovaný webhook = ztracené platby, zablokovaný health check =
+    Railway prohlásí deploy za mrtvý a vrátí předchozí verzi."""
+
+    def setUp(self):
+        os.environ['COMING_SOON'] = '1'
+        os.environ['COMING_SOON_TOKEN'] = 'letmein'
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO users (username, display_name, password_hash, email, is_artist) '
+            "VALUES ('inker','Inker','x','i@t.cz',1)")
+        conn.commit()
+        conn.close()
+
+    def tearDown(self):
+        os.unlink(self.db)
+        os.environ.pop('COMING_SOON', None)
+        os.environ.pop('COMING_SOON_TOKEN', None)
+
+    def _as_user(self):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+
+    def test_anonymous_sees_the_gate_not_the_app(self):
+        for path in ('/', '/feed', '/events', '/my-bookings'):
+            r = self.client.get(path)
+            self.assertEqual(r.status_code, 200, path)
+            self.assertIn(b'inklink', r.data.lower())
+            # Skutečná aplikace se nesmí prosypat ven.
+            self.assertIn(b'wlForm', r.data, path)          # waitlist = brána
+
+    def test_health_is_never_gated(self):
+        # Bez tohohle Railway prohlásí deploy za mrtvý.
+        self.assertEqual(self.client.get('/__health').status_code, 200)
+
+    def test_webhooks_and_assets_bypass_the_gate(self):
+        # Testujeme rozhodnutí brány, ne chování handleru za ní — poslat sem
+        # skutečný request znamená stavět Stripe payload jen kvůli routingu.
+        import server
+        for path in ('/api/stripe/webhook', '/uploads/x.jpg', '/theme.css',
+                     '/i18n.js', '/robots.txt', '/api/waitlist'):
+            self.assertTrue(server._gate_is_open_path(path), path)
+        for path in ('/', '/my-bookings', '/api/feed', '/profile/inker'):
+            self.assertFalse(server._gate_is_open_path(path), path)
+
+    def test_login_stays_reachable(self):
+        r = self.client.get('/login')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b'password', r.data.lower())
+
+    def test_logged_in_user_passes_through(self):
+        self._as_user()
+        r = self.client.get('/my-bookings')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn(b'wlForm', r.data)
+
+    def test_preview_token_opens_the_gate_and_sticks(self):
+        r = self.client.get('/?preview=letmein')
+        self.assertEqual(r.status_code, 302)
+        # Cookie drží, takže další prokliky už token v URL nepotřebují.
+        r2 = self.client.get('/my-bookings')
+        self.assertNotIn(b'wlForm', r2.data)
+
+    def test_wrong_preview_token_stays_out(self):
+        self.client.get('/?preview=nope')
+        r = self.client.get('/my-bookings')
+        self.assertIn(b'wlForm', r.data)
+
+    def test_password_unlock_opens_the_gate(self):
+        bad = self.client.post('/api/preview-unlock', json={'password': 'nope'})
+        self.assertEqual(bad.status_code, 403)
+        self.assertIn(b'wlForm', self.client.get('/my-bookings').data)
+
+        ok = self.client.post('/api/preview-unlock', json={'password': 'letmein'})
+        self.assertEqual(ok.status_code, 200)
+        self.assertNotIn(b'wlForm', self.client.get('/my-bookings').data)
+
+    def test_unlock_refuses_when_no_password_configured(self):
+        # Nenastavený token nesmí znamenat "pouštěj všechny".
+        import importlib, server
+        os.environ['COMING_SOON_TOKEN'] = ''
+        importlib.reload(server)
+        try:
+            c = server.app.test_client()
+            self.assertEqual(
+                c.post('/api/preview-unlock', json={'password': ''}).status_code, 403)
+        finally:
+            os.environ['COMING_SOON_TOKEN'] = 'letmein'
+            importlib.reload(server)
+
+    def test_api_gets_json_not_html(self):
+        r = self.client.get('/api/feed')
+        self.assertEqual(r.status_code, 503)
+        self.assertIsNotNone(r.get_json())
+
+    def test_robots_and_sitemap_hide_the_rest(self):
+        robots = self.client.get('/robots.txt').get_data(as_text=True)
+        self.assertIn('Disallow: /', robots)
+        sitemap = self.client.get('/sitemap.xml').get_data(as_text=True)
+        self.assertEqual(sitemap.count('<url>'), 1)
+
+
+class ComingSoonOffTests(unittest.TestCase):
+    """Bez zapnuté proměnné se nesmí změnit vůbec nic."""
+
+    def setUp(self):
+        os.environ.pop('COMING_SOON', None)
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_app_is_open(self):
+        r = self.client.get('/my-bookings')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn(b'wlForm', r.data)
+
+    def test_sitemap_is_full(self):
+        self.assertIn('/events', self.client.get('/sitemap.xml').get_data(as_text=True))
+
+
+class WaitlistTests(unittest.TestCase):
+    """Veřejný nepřihlášený zápis — proto rate limit a proto se odpověď
+    nesmí lišit podle toho, jestli e-mail na seznamu už je."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def _count(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        n = conn.execute('SELECT COUNT(*) FROM waitlist').fetchone()[0]
+        conn.close()
+        return n
+
+    def test_signup_stores_entry(self):
+        r = self.client.post('/api/waitlist',
+                             json={'email': 'Tereza@Studio.CZ', 'role': 'artist'})
+        self.assertEqual(r.status_code, 200)
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        row = conn.execute('SELECT email, role FROM waitlist').fetchone()
+        conn.close()
+        self.assertEqual(row[0], 'tereza@studio.cz')  # normalizované
+        self.assertEqual(row[1], 'artist')
+
+    def test_duplicate_is_idempotent_and_indistinguishable(self):
+        first  = self.client.post('/api/waitlist', json={'email': 'a@b.cz'})
+        second = self.client.post('/api/waitlist', json={'email': 'a@b.cz'})
+        self.assertEqual(first.status_code, second.status_code)
+        self.assertTrue(second.get_json()['ok'])
+        self.assertEqual(self._count(), 1)
+
+    def test_invalid_email_rejected(self):
+        for bad in ('', 'nope', 'a@b', 'a b@c.cz'):
+            self.assertEqual(
+                self.client.post('/api/waitlist', json={'email': bad}).status_code, 400, bad)
+        self.assertEqual(self._count(), 0)
+
+    def test_bogus_role_is_dropped_not_stored(self):
+        self.client.post('/api/waitlist', json={'email': 'x@y.cz', 'role': '<script>'})
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        role = conn.execute('SELECT role FROM waitlist').fetchone()[0]
+        conn.close()
+        self.assertEqual(role, '')
+
+    def test_export_requires_admin(self):
+        self.client.post('/api/waitlist', json={'email': 'a@b.cz'})
+        self.assertEqual(self.client.get('/api/admin/waitlist').status_code, 401)
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        self.assertEqual(self.client.get('/api/admin/waitlist').status_code, 404)
+
+
 class PublicEventsTests(unittest.TestCase):
     """/events je veřejná SEO plocha v sitemapě. Endpointy pod ní musí
     odpovídat i nepřihlášenému — dřív vracely 401, nebo se lámaly na

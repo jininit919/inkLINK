@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>InkLink</title>
+<meta name="description" content="InkLink — a booking platform for tattoo artists. Launching soon.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#faf8f3">
+<!-- Stránka smí být indexovaná: je to současný, pravdivý obsah domény.
+     Zbytek webu je před roboty schovaný přes robots.txt, dokud brána běží. -->
+<meta property="og:title" content="InkLink">
+<meta property="og:description" content="A booking platform for tattoo artists. Launching soon.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/img/inklink-logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf8f3; --bg2:#f5f1e8;
+  --txt:#0a0a0a; --txt2:#2a2a2a; --txt3:#5a5a5a;
+  --border2:#a8a399;
+}
+html,body{background:var(--bg)}
+body{
+  color:var(--txt);
+  font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;
+  min-height:100vh; min-height:100dvh;
+  display:flex; align-items:center; justify-content:center;
+  padding:32px 24px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:360px;width:100%;text-align:center}
+
+/* Logo je průhledné PNG, takže sedí přímo na krémovém pozadí. */
+.logo{
+  width:100%; max-width:300px; height:auto;
+  display:block; margin:0 auto;
+}
+
+.wl{margin-top:40px}
+.wl h1{
+  font-size:15px; font-weight:500;
+  letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--txt2); margin-bottom:16px;
+}
+.wl-row{display:flex;gap:8px}
+.wl-row input{
+  flex:1 1 auto; min-width:0;
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  color:var(--txt);
+  border-radius:8px;
+  padding:14px 15px;
+  font-family:inherit; font-size:15px;
+  outline:none;
+  transition:border-color 0.15s;
+  -webkit-appearance:none; appearance:none;
+}
+.wl-row input::placeholder{color:var(--txt3)}
+.wl-row input:focus{border-color:var(--txt)}
+.wl-row button{
+  flex:0 0 auto; width:50px;
+  background:var(--txt); color:var(--bg);
+  border:none; border-radius:8px;
+  font-family:inherit; font-size:18px; line-height:1;
+  cursor:pointer;
+  transition:opacity 0.15s, transform 0.15s;
+  -webkit-appearance:none; appearance:none;
+}
+.wl-row button:hover:not(:disabled){transform:translateY(-1px)}
+.wl-row button:disabled{opacity:0.45;cursor:not-allowed}
+
+.wl-msg{font-size:13px;line-height:1.6;margin-top:12px;min-height:19px;color:var(--txt3)}
+.wl-msg.err{color:#b3261e}
+.wl-done{font-size:14px;line-height:1.6;color:var(--txt2);padding:14px 0}
+
+.fine{
+  display:inline-block; margin-top:34px;
+  font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--txt3); text-decoration:none;
+}
+.fine:hover{color:var(--txt);text-decoration:underline;text-underline-offset:3px}
+/* Vstup pro nás — má být nenápadný, ne pozvánka pro cizí. */
+.unlock{margin-top:26px}
+.unlock summary{
+  list-style:none; cursor:pointer;
+  font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--txt3); user-select:none;
+}
+.unlock summary::-webkit-details-marker{display:none}
+.unlock summary:hover{color:var(--txt2)}
+.unlock form{display:flex;gap:8px;margin-top:12px}
+.unlock input{
+  flex:1 1 auto; min-width:0;
+  background:var(--bg2); border:1px solid var(--border2); color:var(--txt);
+  border-radius:8px; padding:11px 13px;
+  font-family:inherit; font-size:14px; outline:none;
+  -webkit-appearance:none; appearance:none;
+}
+.unlock input:focus{border-color:var(--txt)}
+.unlock button{
+  flex:0 0 auto; width:50px;
+  background:transparent; border:1px solid var(--border2); color:var(--txt2);
+  border-radius:8px; font-family:inherit; font-size:16px; line-height:1;
+  cursor:pointer; transition:all 0.15s;
+  -webkit-appearance:none; appearance:none;
+}
+.unlock button:hover:not(:disabled){border-color:var(--txt);color:var(--txt)}
+.unlock button:disabled{opacity:0.45;cursor:not-allowed}
+.unlock .msg{font-size:12px;margin-top:9px;min-height:16px;color:#b3261e}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <img class="logo" src="/img/inklink-logo.png" alt="InkLink" width="1464" height="455">
+
+  <div class="wl" id="wlBox">
+    <h1 id="wlHead">Secure Your Early Access</h1>
+    <form class="wl-row" id="wlForm" novalidate>
+      <input type="email" id="wlEmail" inputmode="email" autocomplete="email"
+             placeholder="you@email.com" aria-label="Email" required>
+      <button type="submit" id="wlBtn" aria-label="Join the waitlist">→</button>
+    </form>
+    <div class="wl-msg" id="wlMsg" role="status" aria-live="polite"></div>
+  </div>
+
+  <!-- Jediný text, co na stránce zůstal. Není to popis produktu, ale právní
+       základ pro sběr e-mailu: bez odkazu na zásady bychom sbírali osobní
+       údaj, aniž bychom o tom subjekt informovali. -->
+
+  <details class="unlock" id="unlockBox">
+    <summary id="unlockLabel">Have a password?</summary>
+    <form id="unlockForm" novalidate>
+      <input type="password" id="unlockPwd" autocomplete="current-password"
+             aria-label="Access password" placeholder="••••••••">
+      <button type="submit" id="unlockBtn" aria-label="Unlock">→</button>
+    </form>
+    <div class="msg" id="unlockMsg" role="status" aria-live="polite"></div>
+  </details>
+
+  <a class="fine" href="/privacy">Privacy</a>
+</div>
+
+<script>
+// Stránka je anglicky. Česky se překlápí jen tři hlášky formuláře, když
+// prohlížeč češtinu preferuje — kvůli nim nemá smysl tahat celý slovník.
+var IL_CS = (function () {
+  try { var v = localStorage.getItem('il_lang'); if (v) return v === 'cs'; } catch (e) {}
+  return (navigator.language || '').toLowerCase().indexOf('cs') === 0;
+})();
+
+(function () {
+  var form  = document.getElementById('wlForm');
+  var input = document.getElementById('wlEmail');
+  var btn   = document.getElementById('wlBtn');
+  var msg   = document.getElementById('wlMsg');
+  var box   = document.getElementById('wlBox');
+  var head  = document.getElementById('wlHead');
+  if (!form) return;
+
+  var T = IL_CS ? {
+    invalid: 'Zadej platnou e-mailovou adresu.',
+    failed:  'Nepovedlo se odeslat. Zkus to prosím znovu.',
+    done:    'Díky. Ozveme se, až spustíme.'
+  } : {
+    invalid: 'Enter a valid email address.',
+    failed:  'Could not send that. Please try again.',
+    done:    'Thanks. We will be in touch when we open.'
+  };
+  if (IL_CS) input.placeholder = 'tvuj@email.cz';
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = (input.value || '').trim();
+    // Stejně mírná kontrola jako na serveru — přísná regex odmítá platné adresy.
+    if (!email || email.indexOf('@') < 1 || email.indexOf('.', email.indexOf('@')) < 0) {
+      msg.className = 'wl-msg err'; msg.textContent = T.invalid; input.focus(); return;
+    }
+    btn.disabled = true;
+    msg.className = 'wl-msg'; msg.textContent = '';
+
+    fetch('/api/waitlist', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email: email, source: 'coming-soon'})
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        if (!r.ok) throw new Error((b && b.error) || 'failed');
+        // Nahrazujeme celý blok, ať se nedá odeslat dvakrát.
+        box.innerHTML = '<h1>' + head.textContent + '</h1>' +
+                        '<div class="wl-done">' + T.done + '</div>';
+      });
+    }).catch(function () {
+      btn.disabled = false;
+      msg.className = 'wl-msg err'; msg.textContent = T.failed;
+    });
+  });
+})();
+
+// ── Odemčení pro nás ────────────────────────────────────────────────────────
+// Sdílené heslo, ne účet. Server ho srovnává v konstantním čase a má na tom
+// rate limit; tady jen posíláme a po úspěchu překreslíme.
+(function () {
+  var form = document.getElementById('unlockForm');
+  if (!form) return;
+  var pwd = document.getElementById('unlockPwd');
+  var btn = document.getElementById('unlockBtn');
+  var msg = document.getElementById('unlockMsg');
+
+  if (IL_CS) {
+    document.getElementById('unlockLabel').textContent = 'Máš heslo?';
+  }
+  var T = IL_CS
+    ? {wrong: 'Špatné heslo.', net: 'Nepovedlo se ověřit. Zkus to znovu.'}
+    : {wrong: 'Wrong password.', net: 'Could not verify. Try again.'};
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = (pwd.value || '').trim();
+    if (!v) { pwd.focus(); return; }
+    btn.disabled = true; msg.textContent = '';
+
+    fetch('/api/preview-unlock', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: v})
+    }).then(function (r) {
+      if (r.ok) { location.reload(); return; }
+      btn.disabled = false;
+      pwd.value = ''; pwd.focus();
+      msg.textContent = r.status === 429 ? T.net : T.wrong;
+    }).catch(function () {
+      btn.disabled = false;
+      msg.textContent = T.net;
+    });
+  });
+})();
+</script>
+</body>
+</html>
