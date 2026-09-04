@@ -1941,6 +1941,210 @@ class BookingsPanelTests(unittest.TestCase):
         self.assertNotIn("{ href: '/my-bookings'", src)
 
 
+
+class SketchSizesTests(_Sprint2Base):
+    """Tatér může u jednoho návrhu nabídnout tři velikosti, každou za svou cenu.
+
+    Klíčové je, že se vybraná varianta propíše do rezervace. Kdyby se cena
+    tiše brala z položky, klient by za velké tetování zaplatil cenu malého —
+    a naopak by tatér přišel o peníze."""
+
+    def _mk_item(self, artist_id=1, kind='sketch'):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO portfolio_items (user_id, image, caption, kind) "
+                     "VALUES (?, 'x.png', 'Vlk', ?)", (artist_id, kind))
+        conn.commit()
+        iid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return iid
+
+    def _login_artist(self):
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
+        conn.commit(); conn.close()
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+
+    SIZES = [{'size_label': 'small',  'price_kc': 2500, 'estimated_hours': 2},
+             {'size_label': 'medium', 'price_kc': 4000, 'estimated_hours': 3},
+             {'size_label': 'large',  'price_kc': 6500, 'estimated_hours': 5}]
+
+    def test_price_list_sets_the_from_price(self):
+        """price_kc na položce je "od" cena — čte ji řazení feedu i OG
+        obrázky, takže se nesmí rozejít s ceníkem."""
+        iid = self._mk_item()
+        self._login_artist()
+        r = self.client.patch(f'/api/portfolio/{iid}', json={'sizes': self.SIZES})
+        self.assertEqual(r.status_code, 200)
+        item = r.get_json()['item']
+        self.assertEqual(len(item['sizes']), 3)
+        self.assertEqual(item['price_kc'], 2500)
+        self.assertEqual(item['estimated_hours'], 2)
+        # Pořadí je vždy S→M→L, ne pořadí vložení.
+        self.assertEqual([v['size_label'] for v in item['sizes']],
+                         ['small', 'medium', 'large'])
+
+    def test_rewrite_replaces_the_whole_list(self):
+        iid = self._mk_item()
+        self._login_artist()
+        self.client.patch(f'/api/portfolio/{iid}', json={'sizes': self.SIZES})
+        r = self.client.patch(f'/api/portfolio/{iid}',
+                              json={'sizes': [self.SIZES[2]]})
+        item = r.get_json()['item']
+        self.assertEqual([v['size_label'] for v in item['sizes']], ['large'])
+        self.assertEqual(item['price_kc'], 6500)
+
+    def test_half_filled_row_is_rejected(self):
+        iid = self._mk_item()
+        self._login_artist()
+        r = self.client.patch(f'/api/portfolio/{iid}', json={
+            'sizes': [{'size_label': 'small', 'price_kc': 2500}]})
+        self.assertEqual(r.status_code, 400)
+
+    def test_unknown_size_is_rejected(self):
+        iid = self._mk_item()
+        self._login_artist()
+        r = self.client.patch(f'/api/portfolio/{iid}', json={
+            'sizes': [{'size_label': 'obri', 'price_kc': 1, 'estimated_hours': 1}]})
+        self.assertEqual(r.status_code, 400)
+
+    def test_stranger_cannot_touch_the_list(self):
+        iid = self._mk_item()   # patří tatérovi, přihlášený je klient
+        r = self.client.patch(f'/api/portfolio/{iid}', json={'sizes': self.SIZES})
+        self.assertEqual(r.status_code, 404)
+
+    def test_booking_takes_price_and_length_from_the_chosen_size(self):
+        iid = self._mk_item()
+        self._login_artist()
+        self.client.patch(f'/api/portfolio/{iid}', json={'sizes': self.SIZES})
+        start = self._day_at(10, 9)
+        sid = self._mk_slot(start, start + timedelta(hours=8))
+        _register(self.client, 'client2')
+        r = self.client.post('/api/bookings', json={
+            'slot_id': sid, 'design_note': 'vlk na predlokti',
+            'portfolio_item_id': iid, 'size_label': 'large'})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        b = r.get_json()
+        self.assertEqual(b['total_price_kc'], 6500)
+        self.assertEqual(b['duration_hours'], 5)
+
+    def test_booking_without_a_size_is_refused(self):
+        """Bez zvolené velikosti cena neexistuje. Tiché spadnutí na "od"
+        cenu by klientovi naúčtovalo malé tetování za velké."""
+        iid = self._mk_item()
+        self._login_artist()
+        self.client.patch(f'/api/portfolio/{iid}', json={'sizes': self.SIZES})
+        start = self._day_at(11, 9)
+        sid = self._mk_slot(start, start + timedelta(hours=8))
+        _register(self.client, 'client3')
+        r = self.client.post('/api/bookings', json={
+            'slot_id': sid, 'design_note': 'vlk na predlokti',
+            'portfolio_item_id': iid})
+        self.assertEqual(r.status_code, 400)
+        # Chyba nese ceník, ať ho klient nemusí dohledávat.
+        self.assertEqual(len(r.get_json()['sizes']), 3)
+
+    def test_item_without_a_list_keeps_its_single_price(self):
+        """Starší položky mají jen price_kc. Ty musí fungovat dál beze změny."""
+        import sqlite3
+        iid = self._mk_item()
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE portfolio_items SET price_kc=3000, estimated_hours=2 WHERE id=?',
+                     (iid,))
+        conn.commit(); conn.close()
+        start = self._day_at(12, 9)
+        sid = self._mk_slot(start, start + timedelta(hours=8))
+        r = self.client.post('/api/bookings', json={
+            'slot_id': sid, 'design_note': 'vlk na predlokti',
+            'portfolio_item_id': iid})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        self.assertEqual(r.get_json()['total_price_kc'], 3000)
+
+    def test_deleting_the_item_takes_the_list_with_it(self):
+        """SQLite bez PRAGMA foreign_keys FK nevynucuje, takže potomky
+        musí uklidit kód — jinak ceník přežije svou položku."""
+        import sqlite3
+        iid = self._mk_item()
+        self._login_artist()
+        self.client.patch(f'/api/portfolio/{iid}', json={'sizes': self.SIZES})
+        self.client.delete(f'/api/portfolio/{iid}')
+        conn = sqlite3.connect(self.db)
+        left = conn.execute('SELECT COUNT(*) FROM portfolio_item_sizes WHERE item_id=?',
+                            (iid,)).fetchone()[0]
+        conn.close()
+        self.assertEqual(left, 0)
+
+
+class DesignRequestTests(_Sprint2Base):
+    """Poptávka vlastního návrhu. Nezakládá frontu ani rezervaci —
+    složí strukturovanou zprávu a pošle tatérovi e-mail."""
+
+    def _ask(self, **over):
+        body = {'artist': 'artist1', 'motif': 'Geometricky vlk, fineline',
+                'placement': 'predlokti', 'size_label': 'medium',
+                'budget_kc': 5000, 'timing': 'na jare'}
+        body.update(over)
+        return self.client.post('/api/design-requests', json=body)
+
+    def test_request_lands_as_a_message(self):
+        import sqlite3
+        r = self._ask()
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        self.assertEqual(r.get_json()['thread'], '/messages?user=artist1')
+        conn = sqlite3.connect(self.db)
+        m = conn.execute('SELECT sender_id, receiver_id, content FROM messages '
+                         'ORDER BY id DESC LIMIT 1').fetchone()
+        conn.close()
+        self.assertEqual((m[0], m[1]), (2, 1))
+        for part in ('Custom design request', 'Motif:', 'Placement:', 'Size:', 'Budget:'):
+            self.assertIn(part, m[2])
+
+    def test_optional_fields_are_left_out(self):
+        import sqlite3
+        self._ask(placement='', budget_kc=None, timing='', size_label='')
+        conn = sqlite3.connect(self.db)
+        content = conn.execute('SELECT content FROM messages ORDER BY id DESC LIMIT 1').fetchone()[0]
+        conn.close()
+        self.assertIn('Motif:', content)
+        for gone in ('Placement:', 'Size:', 'Budget:', 'Timing:'):
+            self.assertNotIn(gone, content)
+
+    def test_artist_gets_a_notification(self):
+        import sqlite3
+        self._ask()
+        conn = sqlite3.connect(self.db)
+        n = conn.execute("SELECT user_id, type FROM notifications "
+                         "WHERE type='design_request'").fetchone()
+        conn.close()
+        self.assertEqual(n[0], 1)
+
+    def test_empty_motif_is_refused(self):
+        self.assertEqual(self._ask(motif='vlk').status_code, 400)
+
+    def test_unknown_artist_is_404(self):
+        self.assertEqual(self._ask(artist='nikdo').status_code, 404)
+
+    def test_unknown_size_is_refused(self):
+        self.assertEqual(self._ask(size_label='obri').status_code, 400)
+
+    def test_cannot_ask_yourself(self):
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
+        conn.commit(); conn.close()
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+        self.assertEqual(self._ask().status_code, 400)
+
+    def test_anonymous_is_refused(self):
+        self.client.post('/api/logout')
+        self.assertEqual(self._ask().status_code, 401)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 

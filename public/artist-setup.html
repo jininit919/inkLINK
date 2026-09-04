@@ -2,7 +2,8 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
-<style>html,body{background:#faf8f3;margin:0}</style>
+<style>html,body{background:#faf8f3;margin:0}.sz-hint{font-size:11px;color:var(--txt3);line-height:1.5;margin:2px 0 10px}
+</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf8f3">
@@ -64,26 +65,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 
 .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
 @media(max-width:560px){.gallery{grid-template-columns:repeat(2,1fr)}}
-.gtile{aspect-ratio:1;background:var(--bg3);position:relative;overflow:hidden;cursor:pointer;border-radius:8px}
-.gtile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.25s}
-.gtile:hover img{transform:scale(1.04)}
-.gtile .del{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:24px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:2}
-.gtile .del:hover{background:var(--err)}
-.gtile .kindbadge{position:absolute;top:6px;left:6px;font-size:9px;letter-spacing:0.15em;padding:2px 6px;background:rgba(0,0,0,0.7);color:#fff}
-.gtile .edit-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);color:#fff;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.18em;opacity:0;transition:opacity 0.15s;pointer-events:none}
-.gtile:hover .edit-hint{opacity:1}
 
-#editPortModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-#editPortModal.show{display:flex}
-.epm-card{max-width:460px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto;border-radius:14px}
-.epm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:16px}
-.epm-card .preview{width:100%;aspect-ratio:1;background:var(--bg3);overflow:hidden;margin-bottom:14px;border:1px solid var(--border2)}
-.epm-card .preview img{width:100%;height:100%;object-fit:cover}
-.epm-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-top:14px;margin-bottom:6px;text-transform:uppercase}
-.epm-card label:first-of-type{margin-top:0}
-.epm-card input,.epm-card select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:9px 12px;outline:none}
-.epm-card input:focus,.epm-card select:focus{border-color:var(--red2)}
-.epm-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 
 .slot-list{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .slot-item{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);font-size:12px;border-radius:8px}
@@ -496,27 +478,6 @@ document.addEventListener('il-i18n-applied', function () {
 </div>
 
 
-<div id="editPortModal" onclick="if(event.target===this)closePortEdit()">
-  <div class="epm-card">
-    <h3 data-i18n="as.portfolioItem">Edit portfolio item</h3>
-    <div class="preview"><img id="epm-img" src="" alt=""></div>
-    <label data-i18n="as.itemTitle">Description / design name</label>
-    <input type="text" id="epm-caption" maxlength="500" data-i18n-attr="as.itemTitlePh:placeholder" placeholder="Wolf on the forearm">
-    <label data-i18n="as.type">Type</label>
-    <select id="epm-kind">
-      <option value="done" data-i18n="as.healed">Finished work</option>
-      <option value="sketch" data-i18n="as.sketch">Sketch / tattoo design</option>
-    </select>
-    <label data-i18n="as.price">Price (CZK) — optional</label>
-    <input type="number" id="epm-price" min="0" data-i18n-attr="as.pricePh:placeholder" placeholder="leave empty = no fixed price">
-    <label data-i18n="as.duration">Estimated duration (h) — optional</label>
-    <input type="number" id="epm-hours" min="0.5" max="24" step="0.5" data-i18n-attr="as.durationPh:placeholder" placeholder="e.g. 3">
-    <div class="actions">
-      <button class="btn muted" onclick="closePortEdit()">Cancel</button>
-      <button class="btn" onclick="savePortEdit()">Save</button>
-    </div>
-  </div>
-</div>
 
 <script>
 const ALLOWED_STYLEES = []; let me = null;
@@ -601,8 +562,7 @@ async function init() {
   const profile = await fetch('/api/profile/' + me.username).then(r => r.json()).catch(() => null);
   if (profile) document.getElementById('bio').value = profile.bio || '';
 
-  // Portfolio / sloty / reporty žijí na jiných stránkách (feed FAB / /calendar / /earnings).
-  if (document.getElementById('gallery')) await loadPortfolio();
+  // Portfolio / sloty / reporty žijí jinde (feed FAB / profil / /calendar / /earnings).
   await loadStripeStatus();
   await loadChecklist();
   loadInstagram();
@@ -619,7 +579,7 @@ async function init() {
   // hash routing — odkazy z jiných stránek mohou stále směřovat na #portfolio/#slots/#reports;
   // ty teď žijí jinde, takže redirectneme.
   const hash = (location.hash || '').replace('#', '').toLowerCase();
-  if (hash === 'portfolio') { location.replace('/'); return; }
+  if (hash === 'portfolio') { location.replace('/profile/' + me.username + '#portfolio'); return; }
   if (hash === 'slots')     { location.replace('/calendar'); return; }
   if (hash === 'reports')   { location.replace('/earnings'); return; }
   if (hash === 'payments') document.querySelector('.tab[data-tab="payments"]')?.click();
@@ -1102,136 +1062,6 @@ document.getElementById('profileForm').addEventListener('submit', async e => {
   }
 });
 
-async function loadPortfolio() {
-  const items = await fetch('/api/me/portfolio').then(r => r.json()).catch(() => []);
-  document.getElementById('pCount').textContent = items.length ? `(${items.length})` : '';
-  const g = document.getElementById('gallery');
-  if (!items.length) { g.innerHTML=''; document.getElementById('galleryEmpty').style.display='block'; return; }
-  document.getElementById('galleryEmpty').style.display='none';
-  g.innerHTML = items.map(p => {
-    const priceTxt = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
-    const hoursTxt = p.estimated_hours ? `${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '';
-    const meta = [priceTxt, hoursTxt].filter(Boolean).join(' · ');
-    return `
-    <div class="gtile" onclick="openPortEdit(${p.id})">
-      <div class="kindbadge">${p.kind === 'sketch' ? 'SKETCH' : 'HEALED'}</div>
-      <button class="del" onclick="event.stopPropagation();delPortfolio(${p.id})" title="Delete">×</button>
-      <img src="/uploads/${escapeHtml(p.image)}" alt="">
-      ${meta ? `<div style="position:absolute;bottom:0;left:0;right:0;padding:6px 8px;background:linear-gradient(transparent, rgba(0,0,0,0.85));font-size:10px;color:#fff;letter-spacing:0.05em">${escapeHtml(meta)}</div>` : ''}
-      <div class="edit-hint">UPRAVIT</div>
-    </div>`;
-  }).join('');
-  // cache items pro modal
-  window._portfolioItems = items;
-}
-
-let editingPortId = null;
-function openPortEdit(id) {
-  const p = (window._portfolioItems || []).find(x => x.id === id);
-  if (!p) return;
-  editingPortId = id;
-  document.getElementById('epm-img').src = '/uploads/' + p.image;
-  document.getElementById('epm-caption').value = p.caption || '';
-  document.getElementById('epm-kind').value = p.kind || 'done';
-  document.getElementById('epm-price').value = p.price_kc ?? '';
-  document.getElementById('epm-hours').value = p.estimated_hours ?? '';
-  document.getElementById('editPortModal').classList.add('show');
-}
-function closePortEdit() {
-  document.getElementById('editPortModal').classList.remove('show');
-  editingPortId = null;
-}
-async function savePortEdit() {
-  if (!editingPortId) return;
-  const body = {
-    caption: document.getElementById('epm-caption').value,
-    kind:    document.getElementById('epm-kind').value,
-    price_kc: document.getElementById('epm-price').value || null,
-    estimated_hours: document.getElementById('epm-hours').value || null,
-  };
-  const r = await fetch('/api/portfolio/' + editingPortId, {
-    method: 'PATCH',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(body),
-  });
-  if (r.ok) { closePortEdit(); flash(t('as.saved')); await loadPortfolio(); }
-  else { flash((await r.json()).error || t('as.failed'), 'err'); }
-}
-
-document.getElementById('pImage')?.addEventListener('change', e => {
-  const files = Array.from(e.target.files || []);
-  if (!files.length) { clearImagePreview(); return; }
-  // Validuj velikost
-  for (const f of files) {
-    if (f.size > 12 * 1024 * 1024) {
-      flash(t('as.fileTooBig').replace('{name}', f.name).replace('{size}', (f.size/1024/1024).toFixed(1)), 'err');
-      e.target.value = '';
-      clearImagePreview();
-      return;
-    }
-  }
-  // Max 4 fotky
-  const selected = files.slice(0, 4);
-  if (files.length > 4) {
-    flash(t('as.max4'), 'err');
-  }
-  const grid = document.getElementById('pPreviewGrid');
-  grid.style.display = 'grid';
-  grid.innerHTML = '';
-  selected.forEach((f, i) => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const cell = document.createElement('div');
-      cell.style.cssText = 'aspect-ratio:1;background:var(--bg3);border:1px solid var(--border2);overflow:hidden;position:relative';
-      cell.innerHTML = `<img src="${ev.target.result}" alt="${t('as.previewAlt')} ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block">${i === 0 ? `<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.78);color:#fff;font-size:9px;padding:2px 6px;letter-spacing:0.08em">${t('as.mainPhoto')}</div>` : ''}`;
-      grid.appendChild(cell);
-    };
-    reader.readAsDataURL(f);
-  });
-});
-function clearImagePreview() {
-  document.getElementById('pImage').value = '';
-  const g = document.getElementById('pPreviewGrid');
-  if (g) { g.innerHTML = ''; g.style.display = 'none'; }
-}
-
-document.getElementById('portfolioForm')?.addEventListener('submit', async e => {
-  e.preventDefault();
-  // FormData s `multiple` input zachytí jen 1 file v "image" — musíme rozdělit do image / image2 / image3 / image4
-  const fd = new FormData();
-  const fileInput = document.getElementById('pImage');
-  const files = Array.from(fileInput.files || []).slice(0, 4);
-  if (!files.length) {
-    flash(t('as.pickImage'), 'err');
-    return;
-  }
-  fd.set('image', files[0]);
-  if (files[1]) fd.set('image2', files[1]);
-  if (files[2]) fd.set('image3', files[2]);
-  if (files[3]) fd.set('image4', files[3]);
-  // Ostatní form fields kromě file inputu
-  for (const el of e.target.elements) {
-    if (el.name && el.type !== 'file') fd.set(el.name, el.value);
-  }
-  fd.set('styles', readStyles('pStylesGrid'));
-  const r = await fetch('/api/portfolio', {method:'POST', body: fd});
-  if (r.ok) {
-    flash(t('as.itemAdded'));
-    e.target.reset();
-    clearImagePreview();
-    document.querySelectorAll('#pStylesGrid .style-pill.on').forEach(p=>p.classList.remove('on'));
-    await loadPortfolio();
-  } else {
-    flash((await r.json()).error || t('as.uploadFailed'), 'err');
-  }
-});
-
-async function delPortfolio(id) {
-  if (!confirm(t('as.confirmDelItem'))) return;
-  const r = await fetch('/api/portfolio/' + id, {method:'DELETE'});
-  if (r.ok) { await loadPortfolio(); flash(t('as.deleted')); }
-  else flash(t('as.deleteFailed'), 'err');
-}
 
 
 init();

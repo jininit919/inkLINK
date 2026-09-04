@@ -502,6 +502,28 @@ def _booking_email_html(event, ctx):
         )
         return subject, header + body + footer
 
+    if event == 'design_request_for_artist':
+        subject = f'InkLink — {ctx.get("other_name") or "A client"} wants a custom design'
+        rows = [
+            ('From',      other),
+            ('Motif',     _h(ctx.get('motif') or '')),
+            ('Placement', _h(ctx.get('placement') or '')),
+            ('Size',      _h(ctx.get('size') or '')),
+            ('Budget',    _h(ctx.get('budget') or '')),
+            ('Timing',    _h(ctx.get('timing') or '')),
+        ]
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p><strong>{other}</strong> asked you for a custom design. '
+            f'The full request is waiting in your messages.</p>'
+            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
+            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
+                      f'<td>{v}</td></tr>' for k, v in rows if v)
+            + '</table>'
+            + cta('Reply to the client')
+        )
+        return subject, header + body + footer
+
     if event == 'reminder_for_artist':
         subject = f'InkLink — Tomorrow {ctx.get("other_name") or "a client"} is coming in'
         body = (
@@ -992,6 +1014,24 @@ def init_db():
     add_col('portfolio_items', 'image2 TEXT DEFAULT NULL')
     add_col('portfolio_items', 'image3 TEXT DEFAULT NULL')
     add_col('portfolio_items', 'image4 TEXT DEFAULT NULL')
+
+    # Tatér může u jedné skici nabídnout až tři velikosti, každou za svou
+    # cenu. Vlastní tabulka místo šesti sloupců na položce: velikost je
+    # tím pádem záznam se stejným tvarem jako kdekoliv jinde a přidat
+    # čtvrtou by znamenalo změnit konstantu, ne schéma.
+    #
+    # portfolio_items.price_kc / estimated_hours zůstávají a drží NEJLEVNĚJŠÍ
+    # variantu ("od X Kč"). Bez toho by se rozbilo řazení feedu podle ceny,
+    # OG obrázky i rezervace skic bez variant.
+    c.execute('''CREATE TABLE IF NOT EXISTS portfolio_item_sizes (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id         INTEGER NOT NULL,
+        size_label      TEXT NOT NULL,
+        price_kc        INTEGER NOT NULL,
+        estimated_hours REAL NOT NULL
+    )''')
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_pis_item_size '
+              'ON portfolio_item_sizes(item_id, size_label)')
 
     c.execute('''CREATE TABLE IF NOT EXISTS portfolio_likes (
         user_id     INTEGER NOT NULL,
@@ -2538,19 +2578,21 @@ def feed():
     params.append(offset)
 
     rows = conn.execute(query, params).fetchall()
-    conn.close()
 
     if gps_filter:
         rows = [r for r in rows if r['lat'] is not None and r['lng'] is not None
                 and haversine(flat, flng, r['lat'], r['lng']) <= fradius]
     rows = rows[:20]
 
+    sizes_by_item = _load_item_sizes(conn, [r['id'] for r in rows])
+    conn.close()
     result = []
     for p in rows:
         result.append({
             'id':            p['id'],
             'image':         p['image'],
             'images':        _portfolio_images(p),
+            'sizes':         sizes_by_item.get(p['id'], []),
             'caption':       p['caption'] or '',
             'kind':          p['kind'] or 'done',
             'styles':        p['styles'] or '',
@@ -2609,6 +2651,7 @@ def liked_feed():
     query += ' ORDER BY l.created_at DESC LIMIT 200'
 
     rows = conn.execute(query, params).fetchall()
+    sizes_by_item = _load_item_sizes(conn, [r['id'] for r in rows])
     conn.close()
 
     result = []
@@ -2617,6 +2660,7 @@ def liked_feed():
             'id':            p['id'],
             'image':         p['image'],
             'images':        _portfolio_images(p),
+            'sizes':         sizes_by_item.get(p['id'], []),
             'caption':       p['caption'] or '',
             'kind':          p['kind'] or 'done',
             'styles':        p['styles'] or '',
@@ -2682,12 +2726,14 @@ def sketch_detail(item_id):
         JOIN users u ON u.id = p.user_id
         WHERE p.id = ?
     ''', (uid, item_id)).fetchone()
+    sizes = _load_item_sizes(conn, [item_id]).get(item_id, []) if p else []
     conn.close()
     if not p:
         return jsonify({'error': 'not found'}), 404
     return jsonify({
         'id':            p['id'],
         'image':         p['image'],
+        'sizes':         sizes,
         'caption':       p['caption'] or '',
         'kind':          p['kind'] or 'done',
         'styles':        p['styles'] or '',
@@ -3362,6 +3408,7 @@ def get_profile(username):
         FROM portfolio_items p WHERE p.user_id = ?
         ORDER BY p.created_at DESC
     ''', (uid, u['id'])).fetchall()
+    _pf_sizes = _load_item_sizes(conn, [r['id'] for r in portfolio])
 
     now_iso = datetime.utcnow().isoformat()
     slots = conn.execute('''
@@ -3453,6 +3500,7 @@ def get_profile(username):
             'id':              p['id'],
             'image':           p['image'],
             'images':          _portfolio_images(p),
+            'sizes':           _pf_sizes.get(p['id'], []),
             'caption':         p['caption'] or '',
             'kind':            p['kind'] or 'done',
             'styles':          p['styles'] or '',
@@ -3753,6 +3801,11 @@ def create_portfolio_item():
         except: return None
     price_kc        = _opt_pos_int('price_kc')
     estimated_hours = _opt_pos_float('estimated_hours')
+    # Ceník po velikostech; přijde jako JSON řetězec, protože zbytek
+    # formuláře je multipart kvůli fotkám.
+    size_rows, size_err = _parse_sizes(request.form.get('sizes'))
+    if size_err:
+        return jsonify({'error': size_err}), 400
 
     base_ts = int(time.time() * 1000)
     primary_name = f'portfolio_{session["user_id"]}_{base_ts}.{primary_ext}'
@@ -3782,12 +3835,93 @@ def create_portfolio_item():
                  (session['user_id'], primary_name,
                   extra_names['image2'], extra_names['image3'], extra_names['image4'],
                   caption, kind, styles, price_kc, estimated_hours))
+    # ORDER BY id DESC LIMIT 1 by při dvou souběžných uploadech vrátilo
+    # cizí položku a ceník by se uložil k ní.
+    item_id = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+               else conn.execute('SELECT lastval()').fetchone()[0])
+    if size_rows:
+        _save_item_sizes(conn, item_id, size_rows)
     conn.commit()
-    item_id = conn.execute('SELECT id FROM portfolio_items WHERE user_id=? ORDER BY id DESC LIMIT 1',
-                           (session['user_id'],)).fetchone()['id']
     conn.close()
     return jsonify({'ok': True, 'id': item_id, 'image': primary_name,
                     'images': [primary_name] + [n for n in extra_names.values() if n]})
+
+
+def _load_item_sizes(conn, item_ids):
+    """{item_id: [{size_label, price_kc, estimated_hours}, …]} seřazené S→M→L.
+
+    Bere seznam id, ne jedno — feed vypisuje desítky položek naráz a dotaz
+    na každou zvlášť by z jedné stránky udělal padesát dotazů."""
+    ids = [int(i) for i in item_ids if i]
+    if not ids:
+        return {}
+    marks = ','.join(['?'] * len(ids))
+    rows = conn.execute(
+        f'SELECT item_id, size_label, price_kc, estimated_hours '
+        f'FROM portfolio_item_sizes WHERE item_id IN ({marks})', tuple(ids)).fetchall()
+    order = {k: i for i, k in enumerate(SKETCH_SIZES)}
+    out = {}
+    for r in rows:
+        out.setdefault(r['item_id'], []).append({
+            'size_label':      r['size_label'],
+            'price_kc':        int(r['price_kc']),
+            'estimated_hours': float(r['estimated_hours']),
+        })
+    for v in out.values():
+        v.sort(key=lambda d: order.get(d['size_label'], 99))
+    return out
+
+
+def _parse_sizes(raw):
+    """Vrátí (rows, error). Prázdný vstup = tatér ceník nechce."""
+    if raw in (None, '', []):
+        return [], None
+    if isinstance(raw, str):
+        import json as _json
+        try:
+            raw = _json.loads(raw)
+        except (ValueError, TypeError):
+            return None, 'Špatný formát velikostí.'
+    if not isinstance(raw, list):
+        return None, 'Špatný formát velikostí.'
+    out, seen = [], set()
+    for item in raw[:len(SKETCH_SIZES)]:
+        if not isinstance(item, dict):
+            return None, 'Špatný formát velikostí.'
+        label = (item.get('size_label') or '').strip().lower()
+        if label not in SKETCH_SIZES:
+            return None, 'Neznámá velikost.'
+        if label in seen:
+            return None, 'Každá velikost může být jen jednou.'
+        # Nevyplněný řádek není chyba — tatér nemusí nabízet všechny tři.
+        if item.get('price_kc') in (None, '') and item.get('estimated_hours') in (None, ''):
+            continue
+        try:
+            price = int(item.get('price_kc'))
+            hours = float(item.get('estimated_hours'))
+        except (ValueError, TypeError):
+            return None, 'U každé velikosti vyplň cenu i délku.'
+        if price <= 0 or hours < 0.5 or hours > 24:
+            return None, 'U každé velikosti vyplň cenu i délku.'
+        seen.add(label)
+        out.append({'size_label': label, 'price_kc': price,
+                    'estimated_hours': round(hours, 2)})
+    return out, None
+
+
+def _save_item_sizes(conn, item_id, rows):
+    """Přepíše ceník položky a srovná price_kc/estimated_hours na nejlevnější
+    variantu. Ta dvojice je "od kolika" — čte ji řazení feedu, OG obrázky
+    i rezervace, takže se nesmí rozejít s ceníkem."""
+    conn.execute('DELETE FROM portfolio_item_sizes WHERE item_id=?', (item_id,))
+    for r in rows:
+        conn.execute('INSERT INTO portfolio_item_sizes '
+                     '(item_id, size_label, price_kc, estimated_hours) VALUES (?,?,?,?)',
+                     (item_id, r['size_label'], r['price_kc'], r['estimated_hours']))
+    if rows:
+        cheapest = min(rows, key=lambda r: r['price_kc'])
+        conn.execute('UPDATE portfolio_items SET price_kc=?, estimated_hours=? WHERE id=?',
+                     (cheapest['price_kc'], cheapest['estimated_hours'], item_id))
 
 
 @app.route('/api/portfolio/<int:item_id>', methods=['DELETE'])
@@ -3800,6 +3934,7 @@ def delete_portfolio_item(item_id):
         conn.close()
         return jsonify({'error': 'not found'}), 404
     conn.execute('DELETE FROM portfolio_likes WHERE item_id=?', (item_id,))
+    conn.execute('DELETE FROM portfolio_item_sizes WHERE item_id=?', (item_id,))
     conn.execute('DELETE FROM portfolio_items WHERE id=?', (item_id,))
     conn.commit()
     conn.close()
@@ -3845,16 +3980,25 @@ def update_portfolio_item(item_id):
                 conn.close(); return jsonify({'error': 'Špatná délka'}), 400
             sets.append('estimated_hours=?'); params.append(hv)
 
-    if not sets:
-        conn.close()
-        return jsonify({'ok': True})
+    size_rows = None
+    if 'sizes' in data:
+        size_rows, size_err = _parse_sizes(data['sizes'])
+        if size_err:
+            conn.close(); return jsonify({'error': size_err}), 400
 
-    params.append(item_id)
-    conn.execute(f'UPDATE portfolio_items SET {", ".join(sets)} WHERE id=?', tuple(params))
+    if sets:
+        params.append(item_id)
+        conn.execute(f'UPDATE portfolio_items SET {", ".join(sets)} WHERE id=?', tuple(params))
+    # Až po UPDATE: _save_item_sizes srovnává price_kc na nejlevnější variantu
+    # a opačné pořadí by tu hodnotu hned přepsalo tou z formuláře.
+    if size_rows is not None:
+        _save_item_sizes(conn, item_id, size_rows)
     conn.commit()
     updated = conn.execute('SELECT * FROM portfolio_items WHERE id=?', (item_id,)).fetchone()
+    item = dict(updated)
+    item['sizes'] = _load_item_sizes(conn, [item_id]).get(item_id, [])
     conn.close()
-    return jsonify({'ok': True, 'item': dict(updated)})
+    return jsonify({'ok': True, 'item': item})
 
 
 @app.route('/api/portfolio/<int:item_id>/like', methods=['POST'])
@@ -4466,8 +4610,14 @@ def list_my_portfolio():
     rows = conn.execute('''SELECT * FROM portfolio_items WHERE user_id=?
                            ORDER BY created_at DESC''',
                         (session['user_id'],)).fetchall()
+    sizes_by_item = _load_item_sizes(conn, [r['id'] for r in rows])
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    out = []
+    for r in rows:
+        d = dict(r)
+        d['sizes'] = sizes_by_item.get(r['id'], [])
+        out.append(d)
+    return jsonify(out)
 
 
 @app.route('/api/me/checklist')
@@ -5639,14 +5789,23 @@ def _booking_to_dict(row, slot=None, artist=None, client=None):
     return d
 
 
+# Popisky jsou anglicky — angličtina je zdrojový jazyk. UI je překládá přes
+# klíče `size.*`; server je používá tam, kde se text ukládá natrvalo
+# (zpráva s poptávkou, e-mail), a tam by překlad podle prohlížeče odesílatele
+# jen zmátl příjemce.
 SIZE_PRESETS = {
-    # label: (duration_hours, čj label)
-    'mini':     (1, 'Mini (do 5 cm)'),
-    'small':    (2, 'Malé (5–10 cm)'),
-    'medium':   (3, 'Středně velké (10–20 cm)'),
-    'large':    (5, 'Velké (20–30 cm)'),
-    'xl':       (8, 'Celý den / sleeve'),
+    # label: (duration_hours, label)
+    'mini':     (1, 'Mini (under 5 cm)'),
+    'small':    (2, 'Small (5–10 cm)'),
+    'medium':   (3, 'Medium (10–20 cm)'),
+    'large':    (5, 'Large (20–30 cm)'),
+    'xl':       (8, 'Full day / sleeve'),
 }
+
+# U skici se ceníkem nabízíme tři velikosti. Klíče jsou podmnožina
+# SIZE_PRESETS, aby "střední" znamenalo napříč platformou totéž — jinak
+# by stejné slovo v ceníku a v rezervaci mohlo znamenat jinou délku.
+SKETCH_SIZES = ('small', 'medium', 'large')
 
 
 def _slot_active_bookings(conn, slot_id, exclude_booking_id=None):
@@ -5767,6 +5926,7 @@ def create_booking():
 
     # Pokud klient rezervuje konkrétní portfolio sketch, načti jeho fixní cenu/délku
     portfolio_item = None
+    picked_size    = None   # zvolená varianta ceníku, když ho návrh má
     if portfolio_item_id:
         try:
             portfolio_item_id = int(portfolio_item_id)
@@ -5777,6 +5937,17 @@ def create_booking():
             (portfolio_item_id,)).fetchone()
         if not portfolio_item or portfolio_item['user_id'] != slot['user_id']:
             conn.close(); return jsonify({'error': 'Portfolio návrh nepatří k tomuto tatérovi.'}), 400
+        # Když má návrh ceník po velikostech, cena bez zvolené velikosti
+        # neexistuje. Tiché spadnutí na "od" cenu by klientovi naúčtovalo
+        # malé tetování za velké.
+        item_sizes = _load_item_sizes(conn, [portfolio_item_id]).get(portfolio_item_id, [])
+        if item_sizes:
+            chosen = next((v for v in item_sizes if v['size_label'] == size_label), None)
+            if not chosen:
+                conn.close()
+                return jsonify({'error': 'Vyber velikost tetování.',
+                                'sizes': item_sizes}), 400
+            picked_size = chosen
 
     try:
         slot_start = _naive_dt(slot['start_at'])
@@ -5802,7 +5973,9 @@ def create_booking():
     else:
         # Hodinový blok — klient si vybírá sub-range
         # 1) Spočti duration — pokud je portfolio sketch, použij jeho odhad
-        if portfolio_item and portfolio_item['estimated_hours']:
+        if picked_size:
+            duration_hours = float(picked_size['estimated_hours'])
+        elif portfolio_item and portfolio_item['estimated_hours']:
             duration_hours = float(portfolio_item['estimated_hours'])
         elif size_label and size_label in SIZE_PRESETS:
             duration_hours = float(SIZE_PRESETS[size_label][0])
@@ -5847,8 +6020,10 @@ def create_booking():
                 conn.close()
                 return jsonify({'error': 'Tento čas se kryje s jinou rezervací — vyber jiný začátek.'}), 409
 
-        # 4) Cena: fixní z portfolio sketche (pokud je) jinak duration × hourly
-        if portfolio_item and portfolio_item['price_kc']:
+        # 4) Cena: zvolená velikost návrhu > fixní cena návrhu > duration × hourly
+        if picked_size:
+            total_price = float(picked_size['price_kc'])
+        elif portfolio_item and portfolio_item['price_kc']:
             total_price = float(portfolio_item['price_kc'])
         else:
             total_price = avg_hourly * duration_hours
@@ -6984,6 +7159,8 @@ def _anonymize_user(conn, uid: int) -> None:
         WHERE id = ?
     ''', (placeholder, random_hash, now_iso, uid))
     # Wipe portfolio items (privacy policy: "Portfolio se smaže s účtem")
+    conn.execute('DELETE FROM portfolio_item_sizes WHERE item_id IN '
+                 '(SELECT id FROM portfolio_items WHERE user_id = ?)', (uid,))
     conn.execute('DELETE FROM portfolio_items WHERE user_id = ?', (uid,))
     # Clear active push subscriptions
     conn.execute('DELETE FROM push_subscriptions WHERE user_id = ?', (uid,))
@@ -8507,6 +8684,84 @@ def send_message(other_id):
     conn.close()
 
     return jsonify({'ok': True})
+
+
+# Popis velikosti pro čitelný výpis v poptávce i v e-mailu.
+def _size_label_text(key):
+    preset = SIZE_PRESETS.get(key)
+    return preset[1] if preset else (key or '')
+
+
+@app.route('/api/design-requests', methods=['POST'])
+@limiter.limit('6 per hour')
+def create_design_request():
+    """Klient poptá u tatéra vlastní návrh.
+
+    Nezakládá vlastní frontu: složí strukturovanou zprávu do konverzace
+    a pošle tatérovi e-mail. Poptávka je začátek rozhovoru, ne rezervace —
+    tatér z ní udělá termín tak jako z každé jiné domluvy."""
+    err = require_login()
+    if err: return err
+    uid  = session['user_id']
+    data = request.get_json(silent=True) or {}
+
+    username = (data.get('artist') or '').strip().lower()
+    motif    = (data.get('motif') or '').strip()[:1000]
+    placement = (data.get('placement') or '').strip()[:120]
+    size_label = (data.get('size_label') or '').strip().lower()
+    budget_raw = data.get('budget_kc')
+    timing     = (data.get('timing') or '').strip()[:120]
+
+    if not username:
+        return jsonify({'error': 'Chybí tatér.'}), 400
+    if len(motif) < 10:
+        return jsonify({'error': 'Popiš motiv aspoň pár slovy.'}), 400
+    if size_label and size_label not in SIZE_PRESETS:
+        return jsonify({'error': 'Neznámá velikost.'}), 400
+    budget_kc = None
+    if budget_raw not in (None, ''):
+        try:
+            budget_kc = max(0, int(budget_raw))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Rozpočet zadej jako číslo.'}), 400
+
+    conn = get_db()
+    artist = conn.execute(
+        'SELECT id, username, display_name, is_artist FROM users WHERE LOWER(username)=?',
+        (username,)).fetchone()
+    if not artist or not artist['is_artist']:
+        conn.close(); return jsonify({'error': 'Tatér nenalezen.'}), 404
+    if artist['id'] == uid:
+        conn.close(); return jsonify({'error': 'Sám sobě návrh poptat nemůžeš.'}), 400
+
+    # Text skládá server, ne prohlížeč — zpráva je trvalý záznam a měla by
+    # mít pořád stejný tvar, ať ji odešle kdokoliv odkudkoliv.
+    rows = [('Motif', motif), ('Placement', placement),
+            ('Size', _size_label_text(size_label)),
+            ('Budget', f'{budget_kc:,} CZK'.replace(',', ' ') if budget_kc else ''),
+            ('Timing', timing)]
+    content = 'Custom design request\n' + '\n'.join(
+        f'{k}: {v}' for k, v in rows if v)
+    conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type) '
+                 'VALUES (?,?,?,?)', (uid, artist['id'], content[:2000], 'text'))
+
+    me = conn.execute('SELECT username, display_name FROM users WHERE id=?', (uid,)).fetchone()
+    who = me['display_name'] or me['username']
+    push_notif(conn, artist['id'], uid, 'design_request', uid, 'user',
+               f'{who} žádá o vlastní návrh.')
+    conn.commit()
+
+    send_booking_email(conn, artist['id'], 'design_request_for_artist', {
+        'other_name':  who,
+        'motif':       motif,
+        'placement':   placement,
+        'size':        _size_label_text(size_label),
+        'budget':      f'{budget_kc:,} CZK'.replace(',', ' ') if budget_kc else '',
+        'timing':      timing,
+        'booking_url': f'{APP_BASE_URL}/messages?user={me["username"]}',
+    })
+    conn.close()
+    return jsonify({'ok': True, 'thread': f'/messages?user={artist["username"]}'})
 
 
 @app.route('/api/messages/unread')

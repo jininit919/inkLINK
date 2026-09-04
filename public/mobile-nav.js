@@ -188,7 +188,7 @@
         const useAddModal = onFeed && typeof window.openAddPortfolio === 'function';
         centerItem = useAddModal
           ? { onclick: 'window.openAddPortfolio()', ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') }
-          : { href: '/artist-setup#portfolio',     ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') };
+          : { href: '/?add=1',                     ico: 'i-plus', lbl: T('mnav.add', 'Add'), primary: true, aria: T('mnav.add', 'Add') };
       }
     } else {
       centerItem = onFeed && typeof window.openSearchOverlay === 'function'

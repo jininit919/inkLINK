@@ -870,6 +870,11 @@ function openSearchOverlay() {
 if (new URLSearchParams(location.search).get('search') === '1') {
   document.addEventListener('DOMContentLoaded', () => setTimeout(openSearchOverlay, 100));
 }
+// Stejná cesta pro přidání práce — spodní lišta na jiných stránkách nemá
+// vlastní formulář, takže sem posílá odkaz.
+if (new URLSearchParams(location.search).get('add') === '1') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(openAddPortfolio, 150));
+}
 function closeSearchOverlay() {
   const o = document.getElementById('searchOverlay');
   if (o) o.classList.remove('show');
@@ -1155,7 +1160,7 @@ function openLb(i) {
   const isMine = !!(me && me.username && me.username === username);
   const msgBtn = document.getElementById('lb-message');
   if (isMine) {
-    msgBtn.href = '/artist-setup#portfolio';
+    msgBtn.href = '/profile/' + encodeURIComponent(username) + '#portfolio';
     msgBtn.querySelector('span').textContent = t('fd.editItem');
   } else {
     msgBtn.href = '/messages?user=' + encodeURIComponent(username);

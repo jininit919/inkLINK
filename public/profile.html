@@ -24,6 +24,24 @@
 .cl-all{display:inline-block;margin-top:18px;font-size:11px;letter-spacing:0.1em;
   text-transform:uppercase;color:var(--txt3);text-decoration:none}
 .cl-all:hover{color:var(--txt);text-decoration:underline;text-underline-offset:3px}
+.design-head{grid-column:1/-1;padding:12px 14px;border:1px solid var(--border2);
+  background:var(--bg3);font-size:13px;color:var(--txt);line-height:1.6}
+.design-head-t{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:4px}
+.tile-editbtn{position:absolute;top:8px;right:8px;z-index:3;background:rgba(0,0,0,0.72);
+  color:#fff;border:none;padding:5px 10px;font-family:inherit;font-size:10px;
+  letter-spacing:0.12em;text-transform:uppercase;cursor:pointer}
+.tile-editbtn:hover{background:var(--red2)}
+#itemModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;
+  align-items:center;justify-content:center;z-index:210;padding:20px}
+#itemModal.show{display:flex}
+#itemModal .book-card input,#itemModal .book-card select{width:100%;background:var(--bg3);
+  border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;
+  padding:10px 12px;outline:none}
+#itemModal .book-card input:focus,#itemModal .book-card select:focus{border-color:var(--red2)}
+.sz-grid{display:grid;grid-template-columns:1fr 110px 90px;gap:8px;align-items:center;margin-top:6px}
+.sz-head{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3)}
+.sz-name{font-size:12px;color:var(--txt2)}
 </style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -191,10 +209,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 #lb-counter.show{display:block}
 @media(max-width:560px){.lb-arrow{width:40px;height:40px;font-size:16px}#lb-prev{left:8px}#lb-next{right:8px}}
 
-#bookModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-#bookModal.show{display:flex}
+#bookModal,#askModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#bookModal.show,#askModal.show{display:flex}
+#askModal .book-card input{width:100%;background:var(--bg3);border:1px solid var(--border2);
+  color:var(--txt);font-family:inherit;font-size:13px;padding:10px 12px;outline:none}
+#askModal .book-card input:focus{border-color:var(--red2)}
+.ask-hint{font-size:11px;color:var(--txt3);line-height:1.6;margin-top:14px}
 .book-card{max-width:560px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:28px;max-height:90vh;overflow-y:auto}
-@media(max-width:560px){#bookModal{padding:0}.book-card{max-height:100vh;height:100vh;padding:18px;border:none}}
+@media(max-width:560px){#bookModal,#askModal{padding:0}.book-card{max-height:100vh;height:100vh;padding:18px;border:none}}
 .book-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:24px;letter-spacing:0.12em;margin-bottom:8px}
 .book-card .when{color:var(--txt2);font-size:13px;margin-bottom:6px}
 .book-card .price{color:var(--txt3);font-size:12px;letter-spacing:0.05em;margin-bottom:18px}
@@ -313,6 +335,56 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   <img id="lightbox-img" src="">
   <button id="lb-next" class="lb-arrow" onclick="lbNext()" aria-label="Next">▶</button>
   <div id="lb-counter"></div>
+</div>
+
+<!-- Úprava vlastní práce. Bydlí u portfolia, protože tady ho tatér vidí;
+     v artist-setup byl editor bez markupu, takže se k němu nedalo dostat. -->
+<div id="itemModal" onclick="if(event.target===this)closeItemEdit()">
+  <div class="book-card">
+    <h3 data-i18n="pf.editItemTitle">Edit item</h3>
+    <div id="im-flash"></div>
+    <label for="im-caption" data-i18n="pf.imCaption">Description / design name</label>
+    <input type="text" id="im-caption" maxlength="500" data-i18n-attr="pf.imCaptionPh:placeholder" placeholder="Wolf on the forearm">
+    <label for="im-kind" data-i18n="pf.imKind">Type</label>
+    <select id="im-kind">
+      <option value="done" data-i18n="pf.imDone">Finished work</option>
+      <option value="sketch" data-i18n="pf.imSketch">Sketch / tattoo design</option>
+    </select>
+    <label data-i18n="pf.imPriceList">Price list — optional</label>
+    <p class="ask-hint" style="margin-top:0" data-i18n="pf.imPriceListHint">Fill in only the sizes you offer. The client picks one when booking; it sets both the price and the session length.</p>
+    <div class="sz-grid" id="im-sizes"></div>
+    <div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button class="btn danger" type="button" onclick="deleteItem()" style="margin-right:auto" data-i18n="pf.imDelete">Delete</button>
+      <button class="btn muted" type="button" onclick="closeItemEdit()" data-i18n="pf.askCancel">Cancel</button>
+      <button class="btn" type="button" id="im-submit" onclick="saveItemEdit()" data-i18n="pf.imSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Poptávka vlastního návrhu. Nezakládá frontu ani rezervaci — složí
+     strukturovanou zprávu a pošle tatérovi mail. Je to začátek rozhovoru. -->
+<div id="askModal" onclick="if(event.target===this)closeAsk()">
+  <div class="book-card">
+    <h3 data-i18n="pf.askTitle">Request a custom design</h3>
+    <div class="when" id="ask-who"></div>
+    <div id="ask-flash"></div>
+    <label for="ask-motif" data-i18n="pf.askMotif">What do you want tattooed</label>
+    <textarea id="ask-motif" maxlength="1000" data-i18n-attr="pf.askMotifPh:placeholder"
+              placeholder="Motif, style, references, anything that matters…"></textarea>
+    <label for="ask-placement" data-i18n="pf.askPlacement">Placement on the body</label>
+    <input type="text" id="ask-placement" maxlength="120" data-i18n-attr="pf.askPlacementPh:placeholder" placeholder="forearm, ribs, calf…">
+    <label for="ask-size" data-i18n="pf.askSize">Rough size</label>
+    <select id="ask-size"></select>
+    <label for="ask-budget" data-i18n="pf.askBudget">Budget (CZK) — optional</label>
+    <input type="number" id="ask-budget" min="0" step="500" data-i18n-attr="pf.askBudgetPh:placeholder" placeholder="what you are counting on">
+    <label for="ask-timing" data-i18n="pf.askTiming">When it would suit you — optional</label>
+    <input type="text" id="ask-timing" maxlength="120" data-i18n-attr="pf.askTimingPh:placeholder" placeholder="e.g. sometime in spring, weekends">
+    <p class="ask-hint" data-i18n="pf.askHint">This opens a conversation — the artist replies in messages. Nothing is booked and nothing is charged.</p>
+    <div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <button class="btn muted" type="button" onclick="closeAsk()" data-i18n="pf.askCancel">Cancel</button>
+      <button class="btn" type="button" id="ask-submit" onclick="submitAsk()" data-i18n="pf.askSend">Send request</button>
+    </div>
+  </div>
 </div>
 
 <div id="bookModal" onclick="if(event.target===this)closeBook()">
@@ -541,6 +613,7 @@ function render() {
   } else if (me) {
     actions.innerHTML = `
       <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? tr('pf.following') : tr('pf.follow')}</button>
+      ${profile.is_artist ? `<button class="btn muted" type="button" onclick="openAsk()">${tr('pf.askCta')}</button>` : ''}
       <a class="btn muted" href="/messages?user=${encodeURIComponent(profile.username)}" data-i18n="pf.message">Message</a>
     `;
   } else {
@@ -553,8 +626,14 @@ function render() {
     document.getElementById('portfolioEmpty').style.display = 'block';
   } else {
     grid.innerHTML = profile.portfolio.map((p, i) => {
-      const fixedPrice = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
-      const hoursTxt = p.estimated_hours ? ` · ~${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '';
+      // S ceníkem ukazujeme rozpětí — jedna cena by u tří velikostí lhala.
+      const priceList = p.sizes || [];
+      const fixedPrice = priceList.length > 1
+        ? `${(+priceList[0].price_kc).toLocaleString(locale())}–${(+priceList[priceList.length-1].price_kc).toLocaleString(locale())} CZK`
+        : (p.price_kc ? `${(+p.price_kc).toLocaleString(locale())} CZK` : '');
+      const hoursTxt = priceList.length > 1
+        ? ''
+        : (p.estimated_hours ? ` · ~${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '');
       const canBookThis = !profile.is_own && p.price_kc && p.estimated_hours && profile.slots.length > 0;
       const imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
       return `
@@ -567,6 +646,7 @@ function render() {
           <div class="tile-meta">${escapeHtml(p.caption || '')}</div>
         </div>
         ${canBookThis ? `<button class="tile-bookbtn" onclick="event.stopPropagation();bookPortfolioItem(${p.id})" data-i18n="pf.bookThis">Book this design</button>` : ''}
+        ${profile.is_own ? `<button class="tile-editbtn" type="button" onclick="event.stopPropagation();openItemEdit(${p.id})" title="${tr('pf.editItem')}">${tr('pf.editItem')}</button>` : ''}
       </div>`;
     }).join('');
   }
@@ -897,6 +977,10 @@ let pendingStart = null;    // ISO string
 let pendingPortfolioItem = null;   // null nebo {id, price_kc, estimated_hours, caption}
 let SIZE_PRESETS = [];
 
+function locale() {
+  return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB';
+}
+
 async function loadSizes() {
   if (SIZE_PRESETS.length) return;
   SIZE_PRESETS = await fetch('/api/sizes').then(r => r.json()).catch(() => []);
@@ -955,27 +1039,53 @@ async function bookSlot(id, portfolioItem = null) {
 
   const totalH = ((new Date(slot.end_at) - new Date(slot.start_at)) / 36e5).toFixed(1).replace(/\.0$/,'');
   document.getElementById('bm-when').textContent =
-    `${fmtDate(slot.start_at)} – ${fmtTime(slot.end_at)} (${totalH} h blok) u ${profile.display_name}`;
+    tr('pf.bmWhen').replace('{when}', `${fmtDate(slot.start_at)} – ${fmtTime(slot.end_at)}`)
+                   .replace('{hours}', totalH)
+                   .replace('{name}', profile.display_name);
 
-  const unit = slot.price_unit === 'flat' ? 'celkem' : '/h';
+  const unit = slot.price_unit === 'flat' ? tr('pf.bmTotal') : tr('pf.bmPerHour');
   document.getElementById('bm-price').textContent =
     (slot.price_min || slot.price_max)
-      ? `Sazba ${(slot.price_min||0).toLocaleString('cs-CZ')}–${(slot.price_max||0).toLocaleString('cs-CZ')} Kč${unit} · záloha ${slot.deposit_pct}%`
+      ? tr('pf.bmRate')
+          .replace('{range}', `${(slot.price_min||0).toLocaleString(locale())}–${(slot.price_max||0).toLocaleString(locale())} CZK${unit}`)
+          .replace('{pct}', slot.deposit_pct)
       : tr('pf.priceOnRequest').replace('{pct}', slot.deposit_pct);
 
   const sizesEl = document.getElementById('bm-sizes');
   const minDur = slot.min_duration_hours || 1;
   const free = freeHoursTotal(slot);
 
-  if (portfolioItem) {
-    // Portfolio fixed mode — délka je daná, velikost je "návrh", ukážeme banner
+  const itemSizes = (portfolioItem && portfolioItem.sizes) || [];
+
+  if (portfolioItem && itemSizes.length) {
+    // Návrh s ceníkem — velikost si vybírá klient a ta určuje cenu i délku.
+    pendingSize = null;
+    sizesEl.innerHTML = `
+      <div class="design-head">
+        <div class="design-head-t">${tr('pf.bookingThisDesign')}</div>
+        <b>${escapeHtml(portfolioItem.caption || tr('pf.design'))}</b>
+      </div>` + itemSizes.map(v => {
+        const tooLong = v.estimated_hours < minDur || v.estimated_hours > totalH
+                        || v.estimated_hours > free + 0.01;
+        return `<div class="size-pill ${tooLong ? 'disabled' : ''}" data-key="${v.size_label}"
+                     data-hours="${v.estimated_hours}" data-price="${v.price_kc}"
+                     ${tooLong ? 'style="opacity:0.35;cursor:not-allowed"' : ''}>
+                  <div class="h">${(+v.price_kc).toLocaleString(locale())} CZK</div>
+                  <div class="lbl">${escapeHtml(sizeLabelText(v.size_label))} · ${v.estimated_hours} h</div>
+                </div>`;
+      }).join('');
+    bindSizePills();
+    document.getElementById('bm-note').value = tr('pf.bookingForDesign') + ' ' + (portfolioItem.caption || '') + '\n\n';
+    document.getElementById('bm-starts').innerHTML = `<span class="no-slots">${tr('pf.pickSizeFirst')}</span>`;
+  } else if (portfolioItem) {
+    // Návrh s jednou cenou — délka i cena jsou dané, není z čeho vybírat.
     const lockedH = +portfolioItem.estimated_hours;
     pendingSize = {key: 'fixed', hours: lockedH};
     sizesEl.innerHTML = `
-      <div style="grid-column:1/-1;padding:14px;border:1px solid var(--red2);background:var(--bg3);font-size:12px;color:var(--txt);letter-spacing:0.04em;line-height:1.5">
-        <div style="font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;letter-spacing:0.15em;color:var(--red2);margin-bottom:6px">📌 REZERVUJEŠ KONKRÉTNÍ NÁVRH</div>
+      <div class="design-head">
+        <div class="design-head-t">${tr('pf.bookingThisDesign')}</div>
         <b>${escapeHtml(portfolioItem.caption || tr('pf.design'))}</b><br>
-        Délka: <b>${lockedH} h</b> · Cena: <b>${(+portfolioItem.price_kc).toLocaleString('cs-CZ')} Kč fixně</b> (přepíše hoursovou sazbu)
+        ${lockedH} h · <b>${(+portfolioItem.price_kc).toLocaleString(locale())} CZK</b>
       </div>`;
     document.getElementById('bm-note').value = tr('pf.bookingForDesign') + ' ' + (portfolioItem.caption || '') + '\n\n';
     if (lockedH > free + 0.01) {
@@ -990,18 +1100,10 @@ async function bookSlot(id, portfolioItem = null) {
       return `<div class="size-pill ${disabled?'disabled':''}" data-key="${s.key}" data-hours="${s.hours}"
                    ${disabled ? 'style="opacity:0.35;cursor:not-allowed"' : ''}>
                 <div class="h">${s.hours} h</div>
-                <div class="lbl">${escapeHtml(s.label)}</div>
+                <div class="lbl">${escapeHtml(sizeLabelText(s.key))}</div>
               </div>`;
     }).join('');
-    document.querySelectorAll('#bm-sizes .size-pill').forEach(p => p.addEventListener('click', () => {
-      if (p.classList.contains('disabled')) return;
-      document.querySelectorAll('#bm-sizes .size-pill').forEach(x => x.classList.remove('on'));
-      p.classList.add('on');
-      pendingSize = {key: p.dataset.key, hours: parseFloat(p.dataset.hours)};
-      pendingStart = null;
-      renderStartOptions();
-      refreshDeposit();
-    }));
+    bindSizePills();
     document.getElementById('bm-starts').innerHTML = `<span class="no-slots">${tr('pf.pickSizeFirst')}</span>`;
     document.getElementById('bm-note').value = '';
   }
@@ -1057,12 +1159,156 @@ function renderStartOptions() {
   el.querySelector('.start-pill').click();
 }
 
+// Popisek velikosti se bere z /api/sizes, aby "střední" znamenalo
+// v ceníku totéž co v rezervaci.
+function sizeLabelText(key) {
+  // Server drží mapování velikost→hodiny; popisek se řídí jazykem UI.
+  // Bez toho svítily v anglickém rozhraní české popisky ze SIZE_PRESETS.
+  const translated = tr('size.' + key);
+  if (translated && translated !== 'size.' + key) return translated;
+  const s = SIZE_PRESETS.find(x => x.key === key);
+  return s ? s.label : key;
+}
+
+function bindSizePills() {
+  document.querySelectorAll('#bm-sizes .size-pill').forEach(p => p.addEventListener('click', () => {
+    if (p.classList.contains('disabled')) return;
+    document.querySelectorAll('#bm-sizes .size-pill').forEach(x => x.classList.remove('on'));
+    p.classList.add('on');
+    pendingSize = {key: p.dataset.key, hours: parseFloat(p.dataset.hours),
+                   price_kc: p.dataset.price ? +p.dataset.price : null};
+    pendingStart = null;
+    renderStartOptions();
+    refreshDeposit();
+  }));
+}
+
+// Tři velikosti, u každé cena a odhad délky. Nevyplněné se neposílají —
+// tatér nemusí nabízet všechny.
+const SKETCH_SIZES = ['small', 'medium', 'large'];
+let editingItemId = null;
+
+async function openItemEdit(id) {
+  const p = (profile.portfolio || []).find(x => x.id === id);
+  if (!p) return;
+  await loadSizes();
+  editingItemId = id;
+  document.getElementById('im-caption').value = p.caption || '';
+  document.getElementById('im-kind').value = p.kind || 'done';
+  document.getElementById('im-flash').innerHTML = '';
+  const by = {};
+  (p.sizes || []).forEach(v => { by[v.size_label] = v; });
+  document.getElementById('im-sizes').innerHTML = `
+    <div class="sz-head"></div>
+    <div class="sz-head">${tr('pf.szPrice')}</div>
+    <div class="sz-head">${tr('pf.szHours')}</div>` +
+    SKETCH_SIZES.map(k => `
+      <div class="sz-name">${escapeHtml(sizeLabelText(k))}</div>
+      <input type="number" min="1" step="100" id="im-price-${k}" value="${by[k] ? by[k].price_kc : ''}">
+      <input type="number" min="0.5" max="24" step="0.5" id="im-hours-${k}" value="${by[k] ? by[k].estimated_hours : ''}">
+    `).join('');
+  document.getElementById('itemModal').classList.add('show');
+}
+
+function closeItemEdit() {
+  document.getElementById('itemModal').classList.remove('show');
+  editingItemId = null;
+}
+
+async function saveItemEdit() {
+  if (!editingItemId) return;
+  const btn = document.getElementById('im-submit');
+  btn.disabled = true;
+  const sizes = SKETCH_SIZES.map(k => ({
+    size_label: k,
+    price_kc: document.getElementById('im-price-' + k).value || null,
+    estimated_hours: document.getElementById('im-hours-' + k).value || null,
+  })).filter(r => r.price_kc || r.estimated_hours);
+  try {
+    const r = await fetch('/api/portfolio/' + editingItemId, {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        caption: document.getElementById('im-caption').value,
+        kind:    document.getElementById('im-kind').value,
+        sizes,
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '');
+    closeItemEdit();
+    location.reload();
+  } catch (e) {
+    btn.disabled = false;
+    document.getElementById('im-flash').innerHTML =
+      `<div class="flash-modal err">${escapeHtml(e.message || tr('pf.bookingFailed'))}</div>`;
+  }
+}
+
+async function deleteItem() {
+  if (!editingItemId || !confirm(tr('pf.imConfirmDelete'))) return;
+  const r = await fetch('/api/portfolio/' + editingItemId, {method: 'DELETE'});
+  if (r.ok) { closeItemEdit(); location.reload(); }
+  else document.getElementById('im-flash').innerHTML =
+    `<div class="flash-modal err">${tr('pf.bookingFailed')}</div>`;
+}
+
+async function openAsk() {
+  await loadSizes();
+  document.getElementById('ask-who').textContent =
+    tr('pf.askFor').replace('{name}', profile.display_name || profile.username);
+  document.getElementById('ask-size').innerHTML =
+    `<option value="">${tr('pf.askSizeUnsure')}</option>` +
+    SIZE_PRESETS.map(x => `<option value="${x.key}">${escapeHtml(sizeLabelText(x.key))}</option>`).join('');
+  ['ask-motif', 'ask-placement', 'ask-budget', 'ask-timing']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ask-flash').innerHTML = '';
+  document.getElementById('ask-submit').disabled = false;
+  document.getElementById('askModal').classList.add('show');
+  document.getElementById('ask-motif').focus();
+}
+
+function closeAsk() { document.getElementById('askModal').classList.remove('show'); }
+
+async function submitAsk() {
+  const flash = document.getElementById('ask-flash');
+  const motif = document.getElementById('ask-motif').value.trim();
+  if (motif.length < 10) {
+    flash.innerHTML = `<div class="flash-modal err">${tr('pf.askNeedMotif')}</div>`;
+    document.getElementById('ask-motif').focus();
+    return;
+  }
+  const btn = document.getElementById('ask-submit');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/design-requests', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        artist: profile.username,
+        motif,
+        placement: document.getElementById('ask-placement').value.trim(),
+        size_label: document.getElementById('ask-size').value,
+        budget_kc: document.getElementById('ask-budget').value || null,
+        timing: document.getElementById('ask-timing').value.trim(),
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '');
+    // Rovnou do konverzace — poptávka je zpráva, ne formulář do prázdna.
+    location.href = j.thread;
+  } catch (e) {
+    btn.disabled = false;
+    flash.innerHTML = `<div class="flash-modal err">${escapeHtml(e.message || tr('pf.bookingFailed'))}</div>`;
+  }
+}
+
 function refreshDeposit() {
   const dep = document.getElementById('bm-deposit');
   if (!pendingSize) { dep.innerHTML = tr('pf.pickBoth'); return; }
   // pokud rezervujeme konkrétní portfolio sketch, cena je fixní
   let total;
-  if (pendingPortfolioItem && pendingPortfolioItem.price_kc) {
+  if (pendingSize && pendingSize.price_kc) {
+    total = +pendingSize.price_kc;
+  } else if (pendingPortfolioItem && pendingPortfolioItem.price_kc) {
     total = +pendingPortfolioItem.price_kc;
   } else {
     const avgRate = pendingSlot.price_min && pendingSlot.price_max
@@ -1082,17 +1328,19 @@ function refreshDeposit() {
       : tr('pf.agreedDeposit').replace('{pct}', depPct) + '<br>' + cancelText('pf.cancelPolicy');
     return;
   }
+  const kc = n => n.toLocaleString(locale()) + ' CZK';
+  const head = tr('pf.depHead').replace('{hours}', pendingSize.hours).replace('{total}', kc(totalKc));
   if (payFull) {
     dep.innerHTML = `
-      Délka: <b>${pendingSize.hours} h</b> · Cena: <b>${totalKc.toLocaleString('cs-CZ')} Kč</b><br>
-      <b>Platíš teď celé: ${totalKc.toLocaleString('cs-CZ')} Kč</b> · na místě už nic.<br>
+      ${head}<br>
+      ${tr('pf.depFull').replace('{total}', kc(totalKc))}<br>
       ${cancelText('pf.cancelPolicyRefund')}
     `;
   } else {
     dep.innerHTML = `
-      Délka: <b>${pendingSize.hours} h</b> · Cena: <b>${totalKc.toLocaleString('cs-CZ')} Kč</b><br>
-      Záloha (${depPct}%) <b>${chargedKc.toLocaleString('cs-CZ')} Kč</b> teď přes InkLink.<br>
-      Zbytek <b>${remainingKc.toLocaleString('cs-CZ')} Kč</b> doplatíš na místě (hotově / kartou)
+      ${head}<br>
+      ${tr('pf.depNow').replace('{pct}', depPct).replace('{amount}', kc(chargedKc))}<br>
+      ${tr('pf.depRest').replace('{amount}', kc(remainingKc))}
       ${tr('pf.balanceLater')}<br>
       ${cancelText('pf.cancelPolicy')}
     `;
