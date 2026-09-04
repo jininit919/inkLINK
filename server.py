@@ -10444,11 +10444,6 @@ def stripe_webhook():
 
     return '', 200
 
-@app.route('/payment/success')
-def payment_success():
-    return send_from_directory('public', 'payment_success.html')
-
-
 # ── Tickets (QR) ──────────────────────────────────────────────────────────────
 
 
