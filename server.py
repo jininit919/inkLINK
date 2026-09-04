@@ -11748,6 +11748,18 @@ def __health():
         # Odhalí překlep i mezeru v názvu, která je v Railway UI neviditelná.
         'coming_soon_env_seen': sorted(
             repr(k) for k in os.environ if 'COMING' in k.upper()),
+        # Tiché vypínače. Když některý nesedí, nic nespadne — jen přestanou
+        # chodit maily nebo běhat crony, což se pozná až na chybějící
+        # rezervaci. Hodnoty nikdy neprozrazujeme, jen jestli jsou nastavené.
+        'emails_enabled': bool(RESEND_API_KEY),
+        # Výchozí onboarding@resend.dev doručuje JEN majiteli účtu Resend.
+        # Klientům z něj nikdy nic nepřijde a nikde to nezahlásí.
+        'email_from': RESEND_FROM,
+        'email_from_is_shared_sandbox': 'resend.dev' in RESEND_FROM,
+        'cron_token_set': bool(RECONCILE_TOKEN),
+        'stripe_mode': ('off' if not STRIPE_SECRET_KEY
+                        else 'live' if STRIPE_SECRET_KEY.startswith('sk_live')
+                        else 'test'),
         'commit': os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown'),
         'commit_short': (os.environ.get('RAILWAY_GIT_COMMIT_SHA', 'unknown') or 'unknown')[:7],
         'branch': os.environ.get('RAILWAY_GIT_BRANCH', 'unknown'),
