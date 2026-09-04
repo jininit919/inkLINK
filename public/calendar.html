@@ -169,15 +169,20 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 @media(max-width:768px){.fab-add-slot{display:none}}
 
 /* SHEET MODAL — Apple-style slide up */
-#slotSheet{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:500;opacity:0;pointer-events:none;transition:opacity 0.2s var(--ease)}
-#slotSheet.show{opacity:1;pointer-events:auto}
+#slotSheet,#bookSheet{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:500;opacity:0;pointer-events:none;transition:opacity 0.2s var(--ease)}
+#slotSheet.show,#bookSheet.show{opacity:1;pointer-events:auto}
 .sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:560px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:0;display:flex;flex-direction:column;max-height:90vh;transition:transform 0.34s var(--ease);box-shadow:0 -24px 60px rgba(20,16,8,0.18)}
 @media(min-width:761px){
   .sheet{border-radius:var(--r-lg);bottom:auto;top:50%;transform:translate(-50%, -40%);max-height:85vh}
-  #slotSheet.show .sheet{transform:translate(-50%, -50%)}
+  #slotSheet.show .sheet,#bookSheet.show .sheet{transform:translate(-50%, -50%)}
 }
 @media(max-width:760px){
-  #slotSheet.show .sheet{transform:translateX(-50%) translateY(0)}
+  #slotSheet.show .sheet,#bookSheet.show .sheet{transform:translateX(-50%) translateY(0)}
+  /* Spodní navigační lišta je fixní a překrývala patičku sheetu — tlačítka
+     v ní pak nešla zmáčknout. Sheet proto končí NAD lištou; posouvat jen
+     vnitřní padding nestačilo, protože sheet sám sedí na bottom:0. */
+  .sheet{bottom:calc(76px + env(safe-area-inset-bottom));max-height:calc(86vh - 76px);
+    border-radius:var(--r-lg) var(--r-lg) 0 0}
 }
 .sheet-handle{width:44px;height:5px;background:var(--border2);border-radius:3px;margin:8px auto 0}
 @media(min-width:761px){.sheet-handle{display:none}}
@@ -218,7 +223,25 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .quick-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;padding:6px 11px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;transition:all 0.12s}
 .quick-btn:hover{border-color:var(--txt3);color:var(--txt)}
 
-.sheet-foot{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--border);background:var(--bg2);flex:0 0 auto}
+.sheet-foot{display:flex;flex-wrap:wrap;gap:10px;padding:16px 22px;border-top:1px solid var(--border);background:var(--bg2);flex:0 0 auto}
+.bs-row{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.bs-row:last-of-type{border-bottom:none}
+.bs-row span{color:var(--txt3);font-size:11px;letter-spacing:0.07em;text-transform:uppercase;flex:0 0 auto}
+.bs-row b{font-weight:500;text-align:right;word-break:break-word}
+#bsNoteFlash{margin-left:10px;font-size:11px;color:var(--txt3)}
+.bs-more{display:inline-block;margin-top:2px;font-size:11px;letter-spacing:0.08em;
+  text-transform:uppercase;color:var(--txt3);text-decoration:none}
+.bs-more:hover{color:var(--txt);text-decoration:underline;text-underline-offset:3px}
+.bs-note{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.bs-note label{font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase}
+.bs-note textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);
+  font-family:inherit;font-size:13px;padding:10px 12px;border-radius:8px;outline:none;resize:vertical}
+.bs-note textarea:focus{border-color:var(--txt)}
+.bs-save{align-self:flex-start;margin-top:2px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);
+  font-family:inherit;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:9px 16px;border-radius:8px;cursor:pointer;transition:all 0.12s}
+.bs-save:hover{border-color:var(--txt);background:var(--bg4)}
+#bsFoot .btn{white-space:nowrap}
 .sheet-foot .btn{flex:1;padding:13px 16px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);transition:all 0.12s;font-weight:500}
 .sheet-foot .btn:hover{background:var(--bg4)}
 .sheet-foot .btn.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);flex:1.5}
@@ -292,6 +315,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 <button class="fab-add-slot" id="fabAddSlot" onclick="openSlotSheet()" data-i18n-attr="cal.addSlot:title,cal.addSlot:aria-label" title="Add slot" aria-label="Add slot"><span>+</span></button>
 
 <!-- Sheet Modal — Apple-style -->
+
+<!-- Detail rezervace. Tatér na ni klikne přímo v mřížce a odbaví ji tam,
+     kde ji vidí — nemusí přecházet na jinou stránku a hledat ji v seznamu. -->
+<div id="bookSheet" onclick="if(event.target===this)closeBookSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <h3 data-i18n="cb.title">Booking</h3>
+      <button class="sheet-close" type="button" onclick="closeBookSheet()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="sheet-body" id="bsBody"></div>
+    <div class="sheet-foot" id="bsFoot"></div>
+  </div>
+</div>
+
 <div id="slotSheet" onclick="if(event.target===this)closeSlotSheet()">
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>
@@ -465,6 +503,13 @@ function fmtDayNum(d){ return d.getDate().toString().padStart(2,'0'); }
 function dayName(d){ return d.toLocaleDateString(locale(), {weekday:'short'}).replace('.','').toUpperCase(); }
 function csMonth(d){ return d.toLocaleDateString(locale(), {month:'long'}); }
 function fmtTime(iso){ const d = new Date(iso); return d.toTimeString().slice(0,5); }
+// Pozor: fmtDate() vrací YYYY-MM-DD a bere Date — slouží jako klíč mřížky.
+// Tohle je jeho protějšek pro čtení: bere ISO řetězec a řídí se jazykem.
+function fmtDateLong(iso){
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso).slice(0,10)
+    : d.toLocaleDateString(locale(), {day:'numeric', month:'short', year:'numeric'});
+}
 
 async function init() {
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
@@ -563,7 +608,7 @@ function render() {
       const note = b.design_note || b.size_label || '';
       return `
               <div class="slot-pill booking${b.status === 'pending_payment' ? ' unpaid' : ''}"
-                   onclick="location.href='/my-bookings'"
+                   onclick="openBookSheet('${b.id}')"
                    title="${escapeHtml(who)}${note ? ' · ' + escapeHtml(note) : ''} — ${t('cal.openBooking')}">
                 <span class="t">${fmtTime(b.booking_start_at)}–${fmtTime(b.booking_end_at)}</span>
                 <span class="p">${escapeHtml(who)}</span>
@@ -613,6 +658,95 @@ function render() {
     || blocksData.some(b   => inWeek((b.start_at || '').slice(0, 10)))
     || eventsData.some(e   => inWeek(e.date || ''));
   document.getElementById('emptyHint').style.display = weekHasAnything ? 'none' : 'block';
+}
+
+// ── Detail rezervace přímo v kalendáři ──────────────────────────────────────
+// Tatér odbaví rezervaci tam, kde ji vidí. Těžké operace (přesun s výběrem
+// bloku, refund) zůstávají v Mých rezervacích — sem patří to, co dělá
+// po každém sezení.
+let bsBooking = null;
+
+function openBookSheet(id) {
+  bsBooking = bookingsData.find(b => String(b.id) === String(id));
+  if (!bsBooking) return;
+  renderBookSheet();
+  document.getElementById('bookSheet').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBookSheet() {
+  document.getElementById('bookSheet').classList.remove('show');
+  document.body.style.overflow = '';
+  bsBooking = null;
+}
+
+function renderBookSheet() {
+  const b = bsBooking;
+  const who = (b.client && (b.client.display_name || b.client.username)) || t('cal.noName');
+  const kc = c => c ? (c / 100).toLocaleString(locale()) + ' CZK' : '—';
+  const row = (label, value) => value
+    ? `<div class="bs-row"><span>${escapeHtml(label)}</span><b>${value}</b></div>` : '';
+
+  document.getElementById('bsBody').innerHTML = `
+    ${row(t('cb.client'), escapeHtml(who))}
+    ${row(t('cb.when'), escapeHtml(fmtDateLong(b.booking_start_at)) + ' · ' +
+          escapeHtml(fmtTime(b.booking_start_at)) + '–' + escapeHtml(fmtTime(b.booking_end_at)))}
+    ${row(t('cb.duration'), escapeHtml(String(b.duration_hours || '')) + ' h')}
+    ${row(t('cb.status'), escapeHtml(b.status))}
+    ${row(t('cb.deposit'), kc(b.deposit_cents))}
+    ${row(t('cb.note'), escapeHtml(b.design_note || ''))}
+    <div class="bs-note">
+      <label for="bsNote">${escapeHtml(t('cb.internalNote'))}</label>
+      <textarea id="bsNote" rows="3" placeholder="${escapeHtml(t('cb.internalPh'))}">${escapeHtml(b.internal_note || '')}</textarea>
+      <button type="button" class="bs-save" onclick="saveBookNote()">${escapeHtml(t('cb.saveNote'))}</button>
+      <span id="bsNoteFlash" class="hint"></span>
+    </div>
+    <!-- Přesun s výběrem bloku, další sezení a refund zůstávají v Mých
+         rezervacích — sem patří to, co tatér dělá po každém sezení. -->
+    <a class="bs-more" href="/my-bookings">${escapeHtml(t('cb.openFull'))}</a>`;
+
+  const canComplete = ['confirmed', 'pending_payment'].includes(b.status);
+  const canCancel   = ['confirmed', 'pending_payment'].includes(b.status);
+  document.getElementById('bsFoot').innerHTML = `
+    ${canComplete ? `<button class="btn btn-primary" onclick="completeFromCalendar()">${escapeHtml(t('cb.markDone'))}</button>` : ''}
+    ${canCancel ? `<button class="btn" onclick="cancelFromCalendar()">${escapeHtml(t('cb.cancel'))}</button>` : ''}`;
+}
+
+async function saveBookNote() {
+  const flash = document.getElementById('bsNoteFlash');
+  try {
+    const r = await fetch(`/api/bookings/${bsBooking.id}`, {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({internal_note: document.getElementById('bsNote').value})
+    });
+    if (!r.ok) throw new Error();
+    bsBooking.internal_note = document.getElementById('bsNote').value;
+    flash.textContent = t('cb.noteSaved');
+  } catch (_) { flash.textContent = t('cb.failed'); }
+}
+
+async function completeFromCalendar() {
+  // Doplatek a hotovost na místě se řeší v plném formuláři; tady jde
+  // o rychlé "hotovo", které tatér zmáčkne hned po sezení.
+  try {
+    const r = await fetch(`/api/bookings/${bsBooking.id}/complete`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({onsite_kc: 0, balance_kc: 0})
+    });
+    if (!r.ok) throw new Error();
+    closeBookSheet();
+    loadWeek();
+  } catch (_) { alert(t('cb.failed')); }
+}
+
+async function cancelFromCalendar() {
+  if (!confirm(t('cb.confirmCancel'))) return;
+  try {
+    const r = await fetch(`/api/bookings/${bsBooking.id}/cancel`, {method: 'POST'});
+    if (!r.ok) throw new Error();
+    closeBookSheet();
+    loadWeek();
+  } catch (_) { alert(t('cb.failed')); }
 }
 
 function shiftWeek(dir) {

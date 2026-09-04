@@ -6176,6 +6176,16 @@ def update_booking(bid):
         sets.append('design_note=?'); params.append(note)
         changes.append('popis')
 
+    # internal_note — soukromá poznámka tatéra, klient ji nikdy nevidí
+    # ani needituje. Dřív se pole tiše zahodilo a endpoint vrátil ok,
+    # takže UI hlásilo "uloženo" a v DB nebylo nic.
+    if 'internal_note' in data:
+        if not is_artist:
+            conn.close()
+            return jsonify({'error': 'Soukromou poznámku může měnit jen tatér.'}), 403
+        sets.append('internal_note=?')
+        params.append((data['internal_note'] or '').strip()[:2000])
+
     # booking_start_at + duration_hours — pouze tatér
     wants_time_change = ('booking_start_at' in data) or ('duration_hours' in data) or ('size_label' in data)
     if wants_time_change and not is_artist:

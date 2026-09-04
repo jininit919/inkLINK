@@ -1842,6 +1842,48 @@ class LoginIdentifierTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/me').get_json()['username'], 'client')
 
 
+class InternalNoteTests(_Sprint2Base):
+    """Soukromá poznámka tatéra u rezervace.
+
+    PATCH ji dřív tiše zahodil — neznámé pole prostě přeskočil a vrátil ok,
+    takže UI hlásilo "uloženo" a v databázi nebylo nic. Chyba, kterou by
+    žádná chybová hláška neprozradila."""
+
+    def _booking(self):
+        start = self._day_at(3, 10)
+        sid = self._mk_slot(self._day_at(3, 9), self._day_at(3, 18))
+        self._as_client()
+        r = self._book(sid, start)
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        return r.get_json()['id']
+
+    def test_artist_can_save_internal_note(self):
+        bid = self._booking()
+        self._as_artist()
+        r = self.client.patch(f'/api/bookings/{bid}',
+                              json={'internal_note': 'alergie na latex'})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._booking_row(bid)['internal_note'], 'alergie na latex')
+
+    def test_client_cannot_touch_the_internal_note(self):
+        bid = self._booking()
+        self._as_artist()
+        self.client.patch(f'/api/bookings/{bid}', json={'internal_note': 'jen pro mě'})
+        self._as_client()
+        r = self.client.patch(f'/api/bookings/{bid}', json={'internal_note': 'hacknuto'})
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(self._booking_row(bid)['internal_note'], 'jen pro mě')
+
+    def test_design_note_stays_editable_by_both(self):
+        bid = self._booking()
+        self._as_artist()
+        self.assertEqual(self.client.patch(
+            f'/api/bookings/{bid}', json={'design_note': 'od tatéra'}).status_code, 200)
+        self._as_client()
+        self.assertEqual(self.client.patch(
+            f'/api/bookings/{bid}', json={'design_note': 'od klienta'}).status_code, 200)
+
+
 class InstagramConnectTests(unittest.TestCase):
     """OAuth je jediné místo, kde do appky vstupuje cizí identita, takže
     kontroly kolem `state` a nakládání s tokenem jsou tu podstatnější než
