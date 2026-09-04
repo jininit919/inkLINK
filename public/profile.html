@@ -42,6 +42,9 @@
 .sz-grid{display:grid;grid-template-columns:1fr 110px 90px;gap:8px;align-items:center;margin-top:6px}
 .sz-head{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3)}
 .sz-name{font-size:12px;color:var(--txt2)}
+.ref-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ref-thumb{width:64px;height:64px;object-fit:cover;border:1px solid var(--border2)}
+#askModal .book-card input[type=file]{padding:8px;font-size:12px;background:var(--bg3)}
 </style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -379,6 +382,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <input type="number" id="ask-budget" min="0" step="500" data-i18n-attr="pf.askBudgetPh:placeholder" placeholder="what you are counting on">
     <label for="ask-timing" data-i18n="pf.askTiming">When it would suit you — optional</label>
     <input type="text" id="ask-timing" maxlength="120" data-i18n-attr="pf.askTimingPh:placeholder" placeholder="e.g. sometime in spring, weekends">
+    <label for="ask-photos" data-i18n="pf.askRefs">Reference photos — optional</label>
+    <input type="file" id="ask-photos" accept="image/jpeg,image/png,image/webp,image/gif" multiple onchange="previewRefs()">
+    <div class="ref-strip" id="ask-refs"></div>
     <p class="ask-hint" data-i18n="pf.askHint">This opens a conversation — the artist replies in messages. Nothing is booked and nothing is charged.</p>
     <div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
       <button class="btn muted" type="button" onclick="closeAsk()" data-i18n="pf.askCancel">Cancel</button>
@@ -1259,8 +1265,9 @@ async function openAsk() {
   document.getElementById('ask-size').innerHTML =
     `<option value="">${tr('pf.askSizeUnsure')}</option>` +
     SIZE_PRESETS.map(x => `<option value="${x.key}">${escapeHtml(sizeLabelText(x.key))}</option>`).join('');
-  ['ask-motif', 'ask-placement', 'ask-budget', 'ask-timing']
+  ['ask-motif', 'ask-placement', 'ask-budget', 'ask-timing', 'ask-photos']
     .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ask-refs').innerHTML = '';
   document.getElementById('ask-flash').innerHTML = '';
   document.getElementById('ask-submit').disabled = false;
   document.getElementById('askModal').classList.add('show');
@@ -1268,6 +1275,27 @@ async function openAsk() {
 }
 
 function closeAsk() { document.getElementById('askModal').classList.remove('show'); }
+
+const ASK_REF_MAX = 3;
+const ASK_REF_MAX_BYTES = 12 * 1024 * 1024;
+
+function askPhotos() {
+  return Array.from(document.getElementById('ask-photos').files || []).slice(0, ASK_REF_MAX);
+}
+
+function previewRefs() {
+  const strip = document.getElementById('ask-refs');
+  strip.innerHTML = '';
+  // Náhled je jediná zpětná vazba, že se fotka vybrala — bez něj klient
+  // netuší, jestli mu vůbec něco odejde.
+  askPhotos().forEach(f => {
+    const img = document.createElement('img');
+    img.className = 'ref-thumb';
+    img.src = URL.createObjectURL(f);
+    img.onload = () => URL.revokeObjectURL(img.src);
+    strip.appendChild(img);
+  });
+}
 
 async function submitAsk() {
   const flash = document.getElementById('ask-flash');
@@ -1277,20 +1305,26 @@ async function submitAsk() {
     document.getElementById('ask-motif').focus();
     return;
   }
+  const photos = askPhotos();
+  const tooBig = photos.find(f => f.size > ASK_REF_MAX_BYTES);
+  if (tooBig) {
+    flash.innerHTML = `<div class="flash-modal err">${tr('pf.askRefTooBig').replace('{name}', escapeHtml(tooBig.name))}</div>`;
+    return;
+  }
   const btn = document.getElementById('ask-submit');
   btn.disabled = true;
   try {
-    const r = await fetch('/api/design-requests', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        artist: profile.username,
-        motif,
-        placement: document.getElementById('ask-placement').value.trim(),
-        size_label: document.getElementById('ask-size').value,
-        budget_kc: document.getElementById('ask-budget').value || null,
-        timing: document.getElementById('ask-timing').value.trim(),
-      }),
-    });
+    // multipart kvůli fotkám; bez nich by stačil JSON, ale dvě cesty
+    // k jednomu endpointu znamenají dvě místa k opravě.
+    const fd = new FormData();
+    fd.set('artist', profile.username);
+    fd.set('motif', motif);
+    fd.set('placement', document.getElementById('ask-placement').value.trim());
+    fd.set('size_label', document.getElementById('ask-size').value);
+    fd.set('budget_kc', document.getElementById('ask-budget').value || '');
+    fd.set('timing', document.getElementById('ask-timing').value.trim());
+    photos.forEach(f => fd.append('photos', f));
+    const r = await fetch('/api/design-requests', {method: 'POST', body: fd});
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || '');
     // Rovnou do konverzace — poptávka je zpráva, ne formulář do prázdna.

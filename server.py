@@ -511,6 +511,7 @@ def _booking_email_html(event, ctx):
             ('Size',      _h(ctx.get('size') or '')),
             ('Budget',    _h(ctx.get('budget') or '')),
             ('Timing',    _h(ctx.get('timing') or '')),
+            ('References', f'{ctx["photos"]} photo(s) in the thread' if ctx.get('photos') else ''),
         ]
         body = (
             f'<p>Hi <strong>{name}</strong>,</p>'
@@ -5807,6 +5808,12 @@ SIZE_PRESETS = {
 # by stejné slovo v ceníku a v rezervaci mohlo znamenat jinou délku.
 SKETCH_SIZES = ('small', 'medium', 'large')
 
+# Reference u poptávky. Stejné přípony jako u obrázkové zprávy — chodí
+# stejnou cestou a zobrazují se stejnou bublinou.
+MESSAGE_IMAGE_EXTS       = ('jpg', 'jpeg', 'png', 'webp', 'gif')
+REFERENCE_PHOTO_MAX       = 3
+REFERENCE_PHOTO_MAX_BYTES = 12 * 1024 * 1024
+
 
 def _slot_active_bookings(conn, slot_id, exclude_booking_id=None):
     """Obsazené sub-rangy slotu jako (start_iso, end_iso, buf_before, buf_after).
@@ -8659,7 +8666,7 @@ def send_message(other_id):
     if 'image' in request.files:
         img = request.files['image']
         ext = img.filename.rsplit('.', 1)[-1].lower() if img.filename else ''
-        if ext not in ('jpg', 'jpeg', 'png', 'webp', 'gif'):
+        if ext not in MESSAGE_IMAGE_EXTS:
             return jsonify({'error': 'Unsupported image format'}), 400
         safe   = secure_filename(img.filename)
         unique = f"msg_{session['user_id']}_{int(time.time())}_{safe}"
@@ -8703,7 +8710,9 @@ def create_design_request():
     err = require_login()
     if err: return err
     uid  = session['user_id']
-    data = request.get_json(silent=True) or {}
+    # Referenční fotky nutí formulář do multipartu; JSON zůstává kvůli
+    # klientům, kteří žádnou fotku neposílají.
+    data = request.get_json(silent=True) or request.form
 
     username = (data.get('artist') or '').strip().lower()
     motif    = (data.get('motif') or '').strip()[:1000]
@@ -8725,6 +8734,21 @@ def create_design_request():
         except (ValueError, TypeError):
             return jsonify({'error': 'Rozpočet zadej jako číslo.'}), 400
 
+    # Reference posíláme jako obrázkové zprávy do stejného vlákna — vlastní
+    # úložiště by znamenalo druhou cestu k témuž a v konverzaci by chyběly.
+    photos = [f for f in request.files.getlist('photos') if f and f.filename]
+    if len(photos) > REFERENCE_PHOTO_MAX:
+        return jsonify({'error': f'Nejvýš {REFERENCE_PHOTO_MAX} referenční fotky.'}), 400
+    for f in photos:
+        ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+        if ext not in MESSAGE_IMAGE_EXTS:
+            return jsonify({'error': 'Fotka musí být JPG, PNG, WEBP nebo GIF.'}), 400
+        f.seek(0, os.SEEK_END)
+        size = f.tell()
+        f.seek(0)
+        if size > REFERENCE_PHOTO_MAX_BYTES:
+            return jsonify({'error': 'Fotka je větší než 12 MB.'}), 400
+
     conn = get_db()
     artist = conn.execute(
         'SELECT id, username, display_name, is_artist FROM users WHERE LOWER(username)=?',
@@ -8745,6 +8769,14 @@ def create_design_request():
     conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type) '
                  'VALUES (?,?,?,?)', (uid, artist['id'], content[:2000], 'text'))
 
+    # Fotky až po textu, ať vlákno čte "co chci" a pak "jak to má vypadat".
+    base_ts = int(time.time())
+    for i, f in enumerate(photos):
+        name = f'msg_{uid}_{base_ts}_{i}_{secure_filename(f.filename)}'
+        save_upload(f, name)
+        conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type, image) '
+                     'VALUES (?,?,?,?,?)', (uid, artist['id'], '', 'image', name))
+
     me = conn.execute('SELECT username, display_name FROM users WHERE id=?', (uid,)).fetchone()
     who = me['display_name'] or me['username']
     push_notif(conn, artist['id'], uid, 'design_request', uid, 'user',
@@ -8758,6 +8790,7 @@ def create_design_request():
         'size':        _size_label_text(size_label),
         'budget':      f'{budget_kc:,} CZK'.replace(',', ' ') if budget_kc else '',
         'timing':      timing,
+        'photos':      len(photos),
         'booking_url': f'{APP_BASE_URL}/messages?user={me["username"]}',
     })
     conn.close()

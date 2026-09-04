@@ -2144,6 +2144,48 @@ class DesignRequestTests(_Sprint2Base):
         self.client.post('/api/logout')
         self.assertEqual(self._ask().status_code, 401)
 
+    # — referenční fotky —
+
+    @staticmethod
+    def _png(name='ref.png'):
+        import io
+        return (io.BytesIO(b'\x89PNG\r\n\x1a\n' + b'0' * 64), name)
+
+    def _ask_multipart(self, files, **over):
+        data = {'artist': 'artist1', 'motif': 'Geometricky vlk, fineline',
+                'placement': 'predlokti', 'size_label': 'medium'}
+        data.update(over)
+        data['photos'] = files
+        return self.client.post('/api/design-requests', data=data,
+                                content_type='multipart/form-data')
+
+    def test_references_land_as_image_messages(self):
+        """Reference jdou stejnou cestou jako obrázková zpráva — vlastní
+        úložiště by znamenalo druhou cestu k témuž a v konverzaci by
+        chyběly. Pořadí je text → fotky, ať vlákno čte 'co chci' a pak
+        'jak to má vypadat'."""
+        import sqlite3
+        r = self._ask_multipart([self._png('a.png'), self._png('b.png')])
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        conn = sqlite3.connect(self.db)
+        rows = conn.execute('SELECT content_type, image FROM messages ORDER BY id').fetchall()
+        conn.close()
+        self.assertEqual([x[0] for x in rows], ['text', 'image', 'image'])
+        self.assertTrue(all(x[1] for x in rows[1:]))
+
+    def test_more_than_three_references_is_refused(self):
+        r = self._ask_multipart([self._png(f'{i}.png') for i in range(4)])
+        self.assertEqual(r.status_code, 400)
+
+    def test_non_image_reference_is_refused(self):
+        import io
+        r = self._ask_multipart([(io.BytesIO(b'not an image'), 'virus.exe')])
+        self.assertEqual(r.status_code, 400)
+
+    def test_request_without_references_still_works(self):
+        """Bez fotek se posílá JSON — ta cesta nesmí přestat fungovat."""
+        self.assertEqual(self._ask().status_code, 200)
+
 
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
