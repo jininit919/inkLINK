@@ -2653,6 +2653,161 @@ class DynamicTranslationTests(unittest.TestCase):
         self.assertIn('document.querySelectorAll(I18N_SEL).forEach(applyToEl)', src)
 
 
+class PremiumGateTests(_Sprint2Base):
+    """Premium přidává, nikdy neubírá.
+
+    Denní práce tatéra — kalendář, rezervace, zprávy, nabídky — musí
+    zůstat celá zdarma. Za peníze je jen to, co otevře jednou za měsíc."""
+
+    PAID = ('/api/me/accounting/export', '/api/me/stats')
+    FREE = ('/api/me/slots', '/api/me/bookings/artist', '/api/me/calendar',
+            '/api/messages/conversations', '/api/me/earnings', '/api/clients')
+
+    def _as_artist(self, premium=False):
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
+        if premium:
+            conn.execute('UPDATE users SET premium_until=? WHERE id=1',
+                         ((self._now() + timedelta(days=30)).isoformat(),))
+        conn.commit(); conn.close()
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+
+    def test_daily_work_stays_free(self):
+        self._as_artist(premium=False)
+        for path in self.FREE:
+            r = self.client.get(path)
+            self.assertNotEqual(r.status_code, 402, f'{path} se zamklo za paywall')
+
+    def test_premium_features_are_gated(self):
+        """402, ne 403: 403 znamená 'nemáš právo', tohle znamená
+        'ještě nezaplaceno' a frontend na to umí nabídnout předplatné."""
+        self._as_artist(premium=False)
+        for path in self.PAID:
+            r = self.client.get(path)
+            self.assertEqual(r.status_code, 402, path)
+            self.assertTrue(r.get_json().get('premium_required'), path)
+
+    def test_premium_opens_them(self):
+        self._as_artist(premium=True)
+        for path in self.PAID:
+            self.assertEqual(self.client.get(path).status_code, 200, path)
+
+    def test_expired_premium_closes_again(self):
+        import sqlite3
+        self._as_artist(premium=True)
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET premium_until=? WHERE id=1',
+                     ((self._now() - timedelta(days=1)).isoformat(),))
+        conn.commit(); conn.close()
+        self.assertEqual(self.client.get('/api/me/stats').status_code, 402)
+
+    def test_anonymous_gets_401_not_402(self):
+        """Nepřihlášenému nemá smysl nabízet předplatné."""
+        self.client.post('/api/logout')
+        self.assertEqual(self.client.get('/api/me/stats').status_code, 401)
+
+    def test_me_reports_premium(self):
+        self._as_artist(premium=True)
+        me = self.client.get('/api/me').get_json()
+        self.assertTrue(me['premium'])
+        self.assertTrue(me['premium_until'])
+
+
+class AccountingExportTests(_Sprint2Base):
+    """Export pro účetní. Čísla musí sedět s tím, co vidí tatér ve
+    Výdělcích — dvě různá čísla o stejných penězích jsou horší než žádná."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=?, premium_until=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),
+                      (self._now() + timedelta(days=30)).isoformat()))
+        conn.commit(); conn.close()
+        start = self._day_at(5, 10)
+        slot = self._mk_slot(start, start + timedelta(hours=8))
+        self.client.post('/api/bookings', json={
+            'slot_id': slot, 'design_note': 'vlk na predlokti',
+            'booking_start_at': start.isoformat(), 'duration_hours': 3})
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+        self.day = start.date().isoformat()
+
+    def test_csv_has_bom_and_semicolons(self):
+        """Český Excel jinak rozhodí sloupce i diakritiku."""
+        r = self.client.get(f'/api/me/accounting/export?from={self.day}&to={self.day}')
+        self.assertEqual(r.status_code, 200)
+        body = r.get_data(as_text=True)
+        self.assertTrue(body.startswith('﻿'))
+        self.assertIn(';', body.splitlines()[0])
+        self.assertIn('Čistý příjem', body)
+
+    def test_row_and_total_are_present(self):
+        r = self.client.get(f'/api/me/accounting/export?from={self.day}&to={self.day}&format=json')
+        rows = r.get_json()['rows']
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        # Čistý příjem = co reálně zůstalo po provizi a vrácení.
+        self.assertAlmostEqual(
+            row['net'],
+            row['deposit'] + row['balance_inklink'] + row['onsite']
+            - row['refunded'] - row['commission'], places=2)
+
+    def test_range_outside_returns_nothing(self):
+        r = self.client.get('/api/me/accounting/export?from=2020-01-01&to=2020-01-31&format=json')
+        self.assertEqual(r.get_json()['rows'], [])
+
+    def test_backwards_range_is_refused(self):
+        r = self.client.get('/api/me/accounting/export?from=2026-12-01&to=2026-01-01')
+        self.assertEqual(r.status_code, 400)
+
+    def test_only_own_bookings(self):
+        """Export cizích peněz je to nejhorší, co může účetní sestava udělat."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+                     "VALUES ('artist2','Artist Two','x','a2@t.cz',1)")
+        conn.execute('UPDATE bookings SET artist_id=3')
+        conn.commit(); conn.close()
+        r = self.client.get(f'/api/me/accounting/export?from={self.day}&to={self.day}&format=json')
+        self.assertEqual(r.get_json()['rows'], [])
+
+
+class PremiumStatsTests(_Sprint2Base):
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=?, premium_until=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),
+                      (self._now() + timedelta(days=30)).isoformat()))
+        conn.commit(); conn.close()
+        start = self._day_at(6, 14)
+        slot = self._mk_slot(start, start + timedelta(hours=8))
+        self.client.post('/api/bookings', json={
+            'slot_id': slot, 'design_note': 'test', 'booking_start_at': start.isoformat(),
+            'duration_hours': 2})
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+
+    def test_shape(self):
+        d = self.client.get('/api/me/stats').get_json()
+        for key in ('totals', 'by_month', 'weekday', 'by_hour', 'sketches'):
+            self.assertIn(key, d)
+        self.assertEqual(len(d['weekday']), 7)
+        self.assertEqual(d['totals']['bookings'], 1)
+
+    def test_cancelled_share_needs_a_denominator(self):
+        """Absolutní počet zrušených nic neříká; podíl ano."""
+        d = self.client.get('/api/me/stats').get_json()
+        self.assertIn('cancelled_pct', d['totals'])
+        self.assertEqual(d['totals']['cancelled_pct'], 0.0)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 
