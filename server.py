@@ -4690,7 +4690,7 @@ def my_checklist():
     if err: return err
     uid = session['user_id']
     conn = get_db()
-    u = conn.execute('''SELECT display_name, city, studio, bio, styles,
+    u = conn.execute('''SELECT username, display_name, city, studio, bio, styles,
                                hourly_rate_min, hourly_rate_max,
                                stripe_charges_enabled, is_artist
                         FROM users WHERE id=?''', (uid,)).fetchone()
@@ -4698,7 +4698,8 @@ def my_checklist():
                                     (uid,)).fetchone()[0]
     now_iso = _prague_now_naive().isoformat()
     upcoming_slots = conn.execute('''SELECT COUNT(*) FROM slots
-                                     WHERE user_id=? AND end_at >= ?''',
+                                     WHERE user_id=? AND end_at >= ?
+                                           AND COALESCE(is_private, 0) = 0''',
                                   (uid, now_iso)).fetchone()[0]
     bookings_count = conn.execute(
         '''SELECT COUNT(*) FROM bookings WHERE artist_id=?
@@ -4732,7 +4733,7 @@ def my_checklist():
             'key':  'portfolio',
             'label':'Add at least 3 portfolio items',
             'done': portfolio_count >= 3,
-            'href': '/artist-setup#portfolio',
+            'href': f'/profile/{u["username"]}#portfolio',
             'count': portfolio_count,
         },
         {
@@ -4755,7 +4756,7 @@ def my_checklist():
             'key':  'first_booking',
             'label':'Your first booking',
             'done': bookings_count > 0,
-            'href': '/my-bookings',
+            'href': f'/profile/{u["username"]}#bookings',
             'count': bookings_count,
         },
     ]

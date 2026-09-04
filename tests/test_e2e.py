@@ -2467,6 +2467,18 @@ class BookingOfferTests(_Sprint2Base):
                      ((self._now() - timedelta(days=days)).isoformat(), offer_id))
         conn.commit(); conn.close()
 
+    def test_private_date_does_not_tick_the_onboarding_step(self):
+        """Soukromý termín není "vypsaný termín". Jinak by si tatér
+        odškrtl krok onboardingu, aniž by veřejně cokoliv nabídl."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('DELETE FROM slots')
+        conn.commit(); conn.close()
+        self._as_artist()
+        self._offer_new()
+        steps = {it['key']: it for it in self.client.get('/api/me/checklist').get_json()['items']}
+        self.assertFalse(steps['slot']['done'])
+
     def test_offer_is_valid_for_a_week(self):
         import sqlite3
         self._as_artist()
