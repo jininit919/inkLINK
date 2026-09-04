@@ -232,7 +232,9 @@ function render() {
         </div>
       </a>
       <div class="artist-actions">
-        <a class="btn-msg" href="/messages?user=${encodeURIComponent(u.username)}"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-message"/></svg> Zpráva</a>
+        ${me && me.username === u.username
+          ? `<a class="btn-msg" href="/artist-setup#portfolio"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-settings"/></svg> ${window.InkLinkI18N ? InkLinkI18N.t('fd.editItem') : 'Edit'}</a>`
+          : `<a class="btn-msg" href="/messages?user=${encodeURIComponent(u.username)}"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-message"/></svg> ${window.InkLinkI18N ? InkLinkI18N.t('fd.message') : 'Message'}</a>`}
         <a class="profile-link" href="/profile/${escapeHtml(u.username)}">Profil →</a>
       </div>
     </div>

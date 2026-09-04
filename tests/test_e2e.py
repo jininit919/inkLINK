@@ -1775,6 +1775,48 @@ class I18nKeyTests(unittest.TestCase):
         self.assertEqual(sorted(en - cs), [], 'klíč jen v angličtině')
 
 
+
+class OwnProfileAffordanceTests(unittest.TestCase):
+    """Vlastní práce nesmí nabízet akce mířené na cizího tatéra.
+
+    Server posílá `is_own` správně, ale tři místa ho nečetla: lightbox ve
+    feedu nabízel „Napsat" sám sobě, detail skici totéž a veřejná stránka
+    tatéra nabízela rezervaci u sebe sama. Jsou to čistě frontendové
+    podmínky, takže je hlídá čtení zdroje — jinak je refaktor tiše smaže."""
+
+    @staticmethod
+    def _src(name):
+        return open('public/' + name, encoding='utf-8').read()
+
+    def test_feed_lightbox_checks_owner(self):
+        src = self._src('index.html')
+        self.assertIn("me.username === username", src,
+                      'lightbox nezná rozdíl mezi mojí a cizí prací')
+        # Rezervovat vlastní skicu nedává smysl.
+        self.assertIn('if (isSketch && !isMine)', src)
+
+    def test_sketch_detail_checks_owner(self):
+        src = self._src('sketch.html')
+        self.assertIn('me && me.username === u.username', src)
+        # Tlačítko bylo natvrdo česky, přestože zdrojový jazyk je angličtina.
+        self.assertNotIn('> Zpráva</a>', src)
+
+    def test_public_artist_page_checks_owner(self):
+        src = self._src('book.html')
+        self.assertIn('if (p.is_own)', src,
+                      'sdílený odkaz nabízí tatérovi rezervaci u sebe sama')
+
+    def test_profile_hides_follow_on_own_profile(self):
+        src = self._src('profile.html')
+        i = src.find('id="followBtn"')
+        self.assertNotEqual(i, -1, 'followBtn ve zdroji není')
+        # Tlačítko musí vzniknout ve větvi pro cizí profil. Kdyby se
+        # přesunulo nad ni, tatér by mohl sledovat sám sebe.
+        self.assertGreater(src.rfind('} else if (me) {', 0, i),
+                           src.rfind('if (profile.is_own) {', 0, i),
+                           'follow tlačítko není ve větvi pro cizí profil')
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 

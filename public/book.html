@@ -183,7 +183,11 @@ async function load() {
   const slots = (p.slots || []).filter(s => s.status === 'free' && new Date(s.start_at) > new Date());
   const firstSlot = slots[0];
   let ctaHtml;
-  if (firstSlot) {
+  if (p.is_own) {
+    // Vlastní stránka: rezervovat sám sebe nedává smysl. Tatér se sem
+    // dostane přes "Sdílet odkaz", takže mu nabídneme úpravu profilu.
+    ctaHtml = `<a class="btn" href="/artist-setup"><svg class="ico"><use href="#i-settings"/></svg>Edit profile</a>`;
+  } else if (firstSlot) {
     ctaHtml = `<a class="btn" href="/profile/${esc(p.username)}#slots"><svg class="ico"><use href="#i-calendar"/></svg>Book — od ${fmtDay(firstSlot.start_at)}. ${fmtMonth(firstSlot.start_at).toLowerCase()}${rateTxt ? ` · ${rateTxt}` : ''}</a>`;
   } else {
     ctaHtml = `<button class="btn unavailable" disabled>No available slots${rateTxt ? ` · ${rateTxt}` : ''}</button>`;

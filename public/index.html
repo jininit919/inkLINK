@@ -555,9 +555,9 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
         <span class="lb-pill" id="lb-pill-dur" style="display:none"></span>
       </div>
       <div class="lb-actions">
-        <a class="lb-btn" id="lb-profile" href="#"><svg class="icon"><use href="#i-user"/></svg> Profil</a>
+        <a class="lb-btn" id="lb-profile" href="#"><svg class="icon"><use href="#i-user"/></svg> <span data-i18n="fd.profile">Profile</span></a>
         <a class="lb-btn" id="lb-message" href="#"><svg class="icon"><use href="#i-message"/></svg> <span data-i18n="fd.message">Message</span></a>
-        <a class="lb-btn primary" id="lb-book" href="#" style="display:none"><svg class="icon"><use href="#i-arrow-right"/></svg> Book</a>
+        <a class="lb-btn primary" id="lb-book" href="#" style="display:none"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="fd.book">Book</span></a>
       </div>
     </div>
     <div class="lb-cap" id="lb-cap"></div>
@@ -1150,10 +1150,20 @@ function openLb(i) {
 
   // Action buttons
   document.getElementById('lb-profile').href = profileHref;
-  document.getElementById('lb-message').href = '/messages?user=' + encodeURIComponent(username);
+  // Vlastní práce: napsat sám sobě ani si ji rezervovat nedává smysl.
+  // Místo toho vede rovnou k úpravě položky.
+  const isMine = !!(me && me.username && me.username === username);
+  const msgBtn = document.getElementById('lb-message');
+  if (isMine) {
+    msgBtn.href = '/artist-setup#portfolio';
+    msgBtn.querySelector('span').textContent = t('fd.editItem');
+  } else {
+    msgBtn.href = '/messages?user=' + encodeURIComponent(username);
+    msgBtn.querySelector('span').textContent = t('fd.message');
+  }
   const bookBtn = document.getElementById('lb-book');
   // Book vždy zobrazit pro skicy — pokud chybí cena/hours, profil ukáže fallback modal
-  if (isSketch) {
+  if (isSketch && !isMine) {
     bookBtn.href = `/profile/${encodeURIComponent(username)}#book-${p.id}`;
     bookBtn.style.display = 'inline-flex';
   } else {
