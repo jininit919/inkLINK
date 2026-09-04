@@ -26,23 +26,36 @@ Aktuální stav (co je nastaveno):
 | `CRON_SECRET` | ✅ |
 | `SENTRY_DSN` | ✅ |
 | `R2_*` (5 vars) | ✅ Cloudflare storage |
-| `RESEND_FROM` | ✅ contact@inklink.club |
-| `RESEND_API_KEY` | ❌ **CHYBÍ** — bez toho nejdou žádné emaily (viz sekci níže) |
+| `RESEND_FROM` | ✅ contact@inklink.club — **ne** výchozí `onboarding@resend.dev`, ten doručuje jen majiteli účtu Resend |
+| `RESEND_API_KEY` | ✅ ověřeno přes `/__health` (`emails_enabled: true`) |
 | `ADMIN_USERNAME` | ✅ MGart |
 | `VERIFY_EMAIL` | ✅ 1 |
 | `APNS_*` | ❌ chybí — push pro iOS neaktivní (můžeš odložit) |
 | `VAPID_*` | ✅ web push funguje |
 
+### Jak stav ověřit
+
+Tahle tabulka zastarává. Skutečný stav běžící aplikace vrátí health endpoint —
+hodnoty proměnných neprozrazuje, jen jestli jsou nastavené:
+
+```
+curl -s https://www.inklink.club/__health | python3 -m json.tool
+```
+
+| Pole | Co znamená |
+|---|---|
+| `emails_enabled` | je vidět `RESEND_API_KEY`; bez něj se odesílání tiše přeskočí |
+| `email_from_is_shared_sandbox` | `true` = odesílá se z `resend.dev` a klientům nic nedorazí |
+| `cron_token_set` | je vidět `RECONCILE_TOKEN`; bez něj crony neprojdou autorizací |
+| `stripe_mode` | `off` / `test` / `live` |
+| `coming_soon` | běží brána před veřejností |
+
+Ověřeno 4. 9. 2026: `emails_enabled: true`, `email_from: contact@inklink.club`,
+`cron_token_set: true`, `stripe_mode: test`.
+
 ### Musíš přidat / opravit
 
-1. **`RESEND_API_KEY`** — otevři https://resend.com/api-keys
-   - New API Key → Full access → doména `inklink.club` nebo `inklink.cz`
-   - Zkopíruj klíč `re_...`
-   - Railway → Variables → New Variable → `RESEND_API_KEY=re_...`
-   - Deploy
-   - **Test:** projdi registrací nového klienta → měl by dostat welcome email do minuty
-
-2. **`ENABLE_DIAG`** — **nesmí být set na 1** v produkci. Zkontroluj že tam není. Diag endpointy budou vracet 404.
+1. **`ENABLE_DIAG`** — **nesmí být set na 1** v produkci. Zkontroluj že tam není. Diag endpointy budou vracet 404.
 
 ---
 
@@ -158,7 +171,7 @@ Podle [docs/roadmap.md](roadmap.md):
 ## SUMMARY — Co dodělat před launch
 
 **Musí (Blocker):**
-1. Přidej `RESEND_API_KEY` do Railway env (bez toho žádné emaily)
+1. ~~Přidej `RESEND_API_KEY`~~ — hotovo, ověřeno přes `/__health`
 2. Ověř že `ENABLE_DIAG` NENÍ nastavené v prod
 
 **Silně doporučeno:**
