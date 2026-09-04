@@ -246,6 +246,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
   color:#b3261e;font-family:inherit;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
   padding:9px 16px;border-radius:8px;cursor:pointer;transition:background 0.12s}
 .bs-cancel:hover{background:rgba(179,38,30,0.08)}
+.bs-done{display:flex;flex-direction:column;gap:4px;margin-top:4px;
+  padding:14px 0 4px;border-top:1px solid var(--border)}
+.bs-done[hidden]{display:none}
+.bs-done label{font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase;margin-top:8px}
+.bs-done input{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);
+  padding:9px 10px;font-family:inherit;font-size:14px;width:100%}
+.bs-done .hint{font-size:11px;color:var(--txt3)}
 .bs-move-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:4px}
 .bs-more{display:inline-block;margin-top:2px;font-size:11px;letter-spacing:0.08em;
   text-transform:uppercase;color:var(--txt3);text-decoration:none}
@@ -489,6 +496,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 <script>
 let me = null;
 let weekStart = startOfWeek(new Date());  // monday
+
+// /calendar#b<id>@<YYYY-MM-DD> — odkaz z Mých rezervací. Datum v odkazu
+// šetří dotaz navíc: bez něj bychom nevěděli, který týden načíst.
+function pendingDeepLink() {
+  const m = /^#b(\d+)(?:@(\d{4}-\d{2}-\d{2}))?$/.exec(location.hash || '');
+  if (!m) return null;
+  return {id: m[1], date: m[2] || null};
+}
 const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
 function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
 // Mřížka se skládá v JS — po přepnutí jazyka ji musíme překreslit.
@@ -555,7 +570,17 @@ async function init() {
     b.addEventListener('click', () => b.classList.toggle('on'));
   });
 
+  // Hluboký odkaz otevře týden rezervace, ne aktuální.
+  const deep = pendingDeepLink();
+  if (deep && deep.date) weekStart = startOfWeek(new Date(deep.date + 'T12:00:00'));
+
   await loadWeek();
+
+  if (deep) {
+    openBookSheet(deep.id);
+    // Hash pryč, ať zpětné tlačítko nezavře jen sheet a nenechá stránku stát.
+    history.replaceState(null, '', location.pathname);
+  }
 }
 
 async function loadWeek() {
@@ -720,6 +745,9 @@ function renderBookSheet() {
   const b = bsBooking;
   const canComplete = ['confirmed', 'pending_payment'].includes(b.status);
   const canCancel   = ['confirmed', 'pending_payment'].includes(b.status);
+  // Další sezení se plánuje ze stejného výběru jako přesun — endpoint bere
+  // úplně stejná pole, takže druhé tlačítko nepotřebuje vlastní formulář.
+  const canFollowUp = ['confirmed', 'completed'].includes(b.status);
   const kc = c => c ? (c / 100).toLocaleString(locale()) + ' CZK' : '—';
   const who = (b.client && (b.client.display_name || b.client.username)) || t('cal.noName');
   const row = (label, value) => value
@@ -759,8 +787,18 @@ function renderBookSheet() {
       <button type="button" class="bs-save" onclick="saveBookNote()">${escapeHtml(t('cb.saveNote'))}</button>
       <span id="bsNoteFlash" class="hint"></span>
     </div>
+    ${canComplete ? `<div class="bs-done" id="bsDone" hidden>
+      <div class="bs-edit-title">${escapeHtml(t('cb.markDone'))}</div>
+      <label for="bsOnsite">${escapeHtml(t('cb.onsite'))}</label>
+      <input type="number" id="bsOnsite" min="0" step="1" placeholder="0">
+      <span class="hint">${escapeHtml(t('cb.onsiteHint'))}</span>
+      <label for="bsBalance">${escapeHtml(t('cb.balance'))}</label>
+      <input type="number" id="bsBalance" min="0" step="1" placeholder="0">
+      <span class="hint">${escapeHtml(t('cb.balanceHint'))}</span>
+      <button type="button" class="bs-save" onclick="completeFromCalendar()">${escapeHtml(t('cb.confirmDone'))}</button>
+    </div>` : ''}
     <div class="bs-edit" id="bsEdit">
-      <div class="bs-edit-title">${escapeHtml(t('cb.reschedule'))}</div>
+      <div class="bs-edit-title">${escapeHtml(t('cb.planTitle'))}</div>
       <label for="bsSlot">${escapeHtml(t('cb.pickSlot'))}</label>
       <select id="bsSlot" onchange="renderMoveStarts()"></select>
       <label for="bsStart">${escapeHtml(t('cb.pickStart'))}</label>
@@ -770,6 +808,7 @@ function renderBookSheet() {
       <p class="hint">${escapeHtml(t('cb.tellClient'))}</p>
       <div class="bs-move-actions">
         <button type="button" class="bs-save" onclick="submitMove()">${escapeHtml(t('cb.confirmMove'))}</button>
+        ${canFollowUp ? `<button type="button" class="bs-save" onclick="submitFollowUp()">${escapeHtml(t('cb.nextSession'))}</button>` : ''}
         ${b.client && b.client.username
           ? `<a class="bs-more" href="/messages?user=${encodeURIComponent(b.client.username)}">${escapeHtml(t('cb.message'))}</a>`
           : ''}
@@ -783,7 +822,7 @@ function renderBookSheet() {
   fillMoveSlots();
 
   document.getElementById('bsFoot').innerHTML = `
-    ${canComplete ? `<button class="btn btn-primary" onclick="completeFromCalendar()">${escapeHtml(t('cb.markDone'))}</button>` : ''}
+    ${canComplete ? `<button class="btn btn-primary" onclick="revealDone()">${escapeHtml(t('cb.markDone'))}</button>` : ''}
 `;
 }
 
@@ -852,6 +891,26 @@ function renderMoveStarts() {
   sel.innerHTML = opts.join('') || `<option value="">${escapeHtml(t('cb.slotTooShort'))}</option>`;
 }
 
+async function submitFollowUp() {
+  const flash = document.getElementById('bsMoveFlash');
+  const slot  = movableSlots()[document.getElementById('bsSlot').value];
+  const start = document.getElementById('bsStart').value;
+  if (!slot || !start) { flash.textContent = t('cb.noFreeSlots'); return; }
+  try {
+    const r = await fetch(`/api/bookings/${bsBooking.id}/follow-up`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        new_slot_id: slot.id, booking_start_at: start,
+        duration_hours: bsBooking.duration_hours,
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '');
+    flash.textContent = t('cb.sessionPlanned');
+    setTimeout(() => { closeBookSheet(); loadWeek(); }, 700);
+  } catch (e) { bsError(e.message); }
+}
+
 async function submitMove() {
   const flash = document.getElementById('bsMoveFlash');
   const slot = movableSlots()[document.getElementById('bsSlot').value];
@@ -884,18 +943,39 @@ async function saveBookNote() {
   } catch (_) { flash.textContent = t('cb.failed'); }
 }
 
+// Nejčastější případ je "hotovo, nic nedoplácí", proto jsou částky
+// schované za tlačítkem a předvyplněné nulou — kdo nic nezadá, potvrdí
+// dvěma klepnutími.
+function revealDone() {
+  const el = document.getElementById('bsDone');
+  if (!el) return;
+  el.hidden = false;
+  // Patka nese stejný popisek jako odkrytý blok — dva stejné nápisy na
+  // obrazovce vypadají jako dvě různé akce.
+  document.getElementById('bsFoot').innerHTML = '';
+  el.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  document.getElementById('bsOnsite').focus();
+}
+
 async function completeFromCalendar() {
-  // Doplatek a hotovost na místě se řeší v plném formuláři; tady jde
-  // o rychlé "hotovo", které tatér zmáčkne hned po sezení.
+  const num = id => Math.max(0, parseInt(document.getElementById(id).value, 10) || 0);
   try {
     const r = await fetch(`/api/bookings/${bsBooking.id}/complete`, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({onsite_kc: 0, balance_kc: 0})
+      body: JSON.stringify({onsite_kc: num('bsOnsite'), balance_kc: num('bsBalance')})
     });
-    if (!r.ok) throw new Error();
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '');
+    // Doplatek se vystavuje zvlášť a může selhat i po úspěšném dokončení —
+    // tichý úspěch by tatéra nechal v domnění, že klient dostal odkaz.
+    if (j.balance_charge && j.balance_charge.error) {
+      throw new Error(j.balance_charge.error);
+    }
     closeBookSheet();
     loadWeek();
-  } catch (_) { bsError(); }
+    if (j.balance_charge && j.balance_charge.demo_mode) alert(t('cb.balanceDemo'));
+    else if (j.balance_charge && j.balance_charge.payment_url) alert(t('cb.balanceMailed'));
+  } catch (e) { bsError(e.message); }
 }
 
 async function cancelFromCalendar() {

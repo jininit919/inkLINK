@@ -1817,6 +1817,52 @@ class OwnProfileAffordanceTests(unittest.TestCase):
                            'follow tlačítko není ve větvi pro cizí profil')
 
 
+
+class BookingActionsLiveInCalendarTests(unittest.TestCase):
+    """Rezervaci tatér odbaví na jednom místě — v kalendáři.
+
+    Dřív byly stejné akce i v Mých rezervacích, takže každá oprava se
+    musela udělat dvakrát a karta měla pět tlačítek pod sebou. Tenhle test
+    hlídá, že se nevrátí — a hlavně že se s nimi neztratilo účtování
+    doplatku, které v Mých rezervacích jako jediné existovalo."""
+
+    @staticmethod
+    def _src(name):
+        with open('public/' + name, encoding='utf-8') as f:
+            return f.read()
+
+    def test_artist_card_has_single_action(self):
+        src = self._src('my-bookings.html')
+        self.assertIn("bk.openInCalendar", src)
+        # Zeď tlačítek u tatéra: dokončení a další sezení patří do kalendáře.
+        for gone in ('openFollowUp', 'openComplete', 'confirmComplete', 'completeModal'):
+            self.assertNotIn(gone, src, f'{gone} zůstalo v Mých rezervacích')
+
+    def test_calendar_sheet_covers_what_was_removed(self):
+        src = self._src('calendar.html')
+        # Další sezení jede přes stejný výběr termínu jako přesun.
+        self.assertIn('submitFollowUp', src)
+        self.assertIn('/follow-up', src)
+        # Doplatek a hotovost na místě — bez nich by se peníze nedaly zapsat.
+        self.assertIn("num('bsOnsite')", src)
+        self.assertIn("num('bsBalance')", src)
+        # Selhání doplatku se nesmí spolknout: rezervace je dokončená,
+        # ale klientovi žádný odkaz nedorazil.
+        self.assertIn('j.balance_charge.error', src)
+
+    def test_calendar_deep_link_is_parsed(self):
+        src = self._src('calendar.html')
+        self.assertIn('pendingDeepLink', src)
+        # Bez data v odkazu bychom nevěděli, který týden načíst.
+        self.assertIn('weekStart = startOfWeek(new Date(deep.date', src)
+
+    def test_client_keeps_its_own_actions(self):
+        """Klient kalendář nemá — jemu se tlačítka brát nesmí."""
+        src = self._src('my-bookings.html')
+        for kept in ('openReschedule', 'cancelBooking', 'openEditBook', 'openRefund'):
+            self.assertIn(kept, src)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 
