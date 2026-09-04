@@ -1,263 +1,38 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-<meta charset="UTF-8">
-<style>html,body{background:#faf8f3;margin:0}</style>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#faf8f3">
-<meta name="apple-mobile-web-app-title" content="InkLink">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>My bookings — InkLink</title>
-<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
-<link rel="stylesheet" href="/theme.css">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg: #faf8f3;--bg2: #f5f1e8;--bg3: #ede8db;--bg4: #e3ddca;
-  --red: #1a1a1a;--red2: #0a0a0a;--red3: #000;
-  --txt: #0a0a0a;--txt2: #2a2a2a;--txt3: #5a5a5a;
-  --border: #d4cfbf;--border2: #a8a399;
-  --ok:#7fd391;--warn:#e8c87f;--err:#e58787;
-}
-body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh}
-a{color:inherit;text-decoration:none}
+/**
+ * Rezervace — klientské i tatérské. Bydlí jako záložka na profilu; vlastní
+ * stránka /my-bookings zůstala jen jako přesměrování, aby odkazy z e-mailů
+ * a notifikací dál fungovaly.
+ *
+ * Použití:  InkLinkBookings.mount(document.getElementById('tab-bookings'))
+ *
+ * Styly jsou zaprefixované .il-bookings, protože profil má vlastní .tabs,
+ * .tab i .empty — bez prefixu by je panel přebarvil. Ze stejného důvodu
+ * je všechno uvnitř IIFE: profil má vlastní `me`, `fmtDate` i `escapeHtml`
+ * a druhá deklarace v globálu by stránku shodila.
+ */
+window.InkLinkBookings = (function () {
+  const CSS = ".il-bookings .cal-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}\n.il-bookings .cal-tools .btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}\n.il-bookings .cal-sync-head{margin-top:40px;padding-top:20px;border-top:1px solid var(--border);\n  font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}\n.il-bookings .btn.muted{border-color:var(--border2);color:var(--txt2)}\n.il-bookings .btn.muted:hover{background:transparent;color:var(--red2);border-color:var(--red2)}\n.il-bookings .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}\n.il-bookings .tabs::-webkit-scrollbar{display:none}\n.il-bookings .tab{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}\n.il-bookings .tab.active{color:var(--red2);border-bottom-color:var(--red2)}\n.il-bookings .tab .count{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;color:var(--txt3);margin-left:6px}\n@media(max-width:560px){}\n.il-bookings .empty{text-align:center;padding:80px 20px;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.6}\n.il-bookings .empty .b{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.18em;color:var(--red2);margin-bottom:12px}\n.il-bookings .list{display:flex;flex-direction:column;gap:10px}\n.il-bookings .b-row{display:grid;grid-template-columns:140px 1fr auto;gap:14px;padding:16px;background:var(--bg2);border:1px solid var(--border)}\n@media(max-width:560px){.il-bookings .b-row{grid-template-columns:1fr}\n}\n.il-bookings .b-when{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.06em}\n.il-bookings .b-mid{display:flex;flex-direction:column;gap:5px;min-width:0}\n.il-bookings .b-who{display:flex;align-items:center;gap:8px;font-size:13px}\n.il-bookings .b-avatar{width:28px;height:28px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}\n.il-bookings .b-avatar img{width:100%;height:100%;object-fit:cover}\n.il-bookings .b-note{font-size:12px;color:var(--txt2);line-height:1.5;white-space:pre-wrap;word-break:break-word}\n.il-bookings .b-money{font-size:11px;color:var(--txt3);letter-spacing:0.04em}\n.il-bookings .b-money b{color:var(--txt);font-weight:400}\n.il-bookings .b-status{padding:3px 10px;border:1px solid var(--border2);font-size:10px;letter-spacing:0.12em;color:var(--txt3);align-self:flex-start;white-space:nowrap}\n.il-bookings .b-status.confirmed{color:var(--ok);border-color:rgba(127,211,145,0.3)}\n.il-bookings .b-status.pending_payment{color:var(--warn);border-color:rgba(232,200,127,0.3)}\n.il-bookings .b-status.completed{color:var(--txt2);border-color:var(--border2)}\n.il-bookings .b-status.cancelled_client, .il-bookings .b-status.cancelled_artist{color:var(--err);border-color:rgba(229,135,135,0.3)}\n.il-bookings .b-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;justify-content:center}\n@media(max-width:560px){.il-bookings .b-actions{align-items:flex-start;flex-direction:row;flex-wrap:wrap}\n}\n.il-bookings .btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}\n.il-bookings .btn:hover{background:var(--red2);color:var(--bg)}\n.il-bookings .btn.danger{border-color:var(--err);color:var(--err)}\n.il-bookings .btn.danger:hover{background:var(--err);color:#fff}\n.il-bookings .btn.muted{border-color:var(--border2);color:var(--txt3)}\n.il-bookings .btn.muted:hover{border-color:var(--txt3);color:var(--txt2);background:transparent}\n.il-bookings .demo-banner{background:rgba(232,200,127,0.08);border:1px solid rgba(232,200,127,0.3);padding:10px 14px;color:#e8c87f;font-size:12px;letter-spacing:0.04em;margin-bottom:18px;line-height:1.5}\n.il-bookings #reviewModal, .il-bookings #respondModal, .il-bookings #refundModal, .il-bookings #editBookModal, .il-bookings #rescheduleModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}\n.il-bookings #reviewModal.show, .il-bookings #respondModal.show, .il-bookings #refundModal.show, .il-bookings #editBookModal.show, .il-bookings #rescheduleModal.show{display:flex}\n.il-bookings .cm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}\n.il-bookings .cm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}\n.il-bookings .cm-card p{color:var(--txt2);font-size:12px;line-height:1.5;margin-bottom:14px;letter-spacing:0.04em}\n.il-bookings .cm-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-bottom:6px;text-transform:uppercase;margin-top:14px}\n.il-bookings .cm-card label:first-of-type{margin-top:0}\n.il-bookings .cm-card input, .il-bookings .cm-card textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:9px 12px;outline:none}\n.il-bookings .cm-card textarea{min-height:90px;resize:vertical}\n.il-bookings .cm-card input:focus, .il-bookings .cm-card textarea:focus{border-color:var(--red2)}\n.il-bookings .cm-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}\n.il-bookings .star-pick{display:flex;gap:6px;font-size:32px;line-height:1;margin:6px 0 4px;cursor:pointer}\n.il-bookings .star-pick span{color:var(--txt3);transition:color 0.1s;user-select:none}\n.il-bookings .star-pick span.on{color:var(--warn)}\n.il-bookings .star-pick span:hover{color:var(--warn)}\n.il-bookings .star-static{display:inline-flex;gap:2px;font-size:14px;color:var(--warn);letter-spacing:0.02em;line-height:1}\n.il-bookings .star-static .empty{color:var(--border2)}\n.il-bookings .b-review{margin-top:8px;padding:10px 12px;background:var(--bg3);border-left:2px solid var(--warn);font-size:11px;color:var(--txt2);line-height:1.5;letter-spacing:0.03em;word-break:break-word}\n.il-bookings .b-review b{color:var(--txt);font-weight:400}\n.il-bookings .b-review .resp{margin-top:8px;padding-top:8px;border-top:1px solid var(--border2);color:var(--txt3)}\n.il-bookings .b-review .resp b{color:var(--txt2)}\n";
+  const HTML = "  <div id=\"content\" style=\"display:none\">\n    <div id=\"calSubBox\" style=\"display:none;margin:14px 0;padding:14px;background:var(--bg2);border:1px solid var(--border2);font-size:11px;letter-spacing:0.04em;color:var(--txt2);line-height:1.7\">\n      <div style=\"margin-bottom:8px;color:var(--txt)\"><span data-i18n=\"bk.subscribeHint\">Continuous sync URL \u2014 paste into Apple/Google Calendar (Subscribe to calendar):</span></div>\n      <input id=\"calSubUrl\" readonly style=\"width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:8px 10px;letter-spacing:0.02em\" onclick=\"this.select()\">\n      <div style=\"margin-top:10px;display:flex;gap:8px\">\n        <button class=\"btn muted\" onclick=\"InkLinkBookings.copyCalSubUrl()\" style=\"font-size:10px\" data-i18n=\"bk.copy\">Copy</button>\n        <button class=\"btn muted\" onclick=\"InkLinkBookings.regenerateCalToken()\" style=\"font-size:10px;color:var(--bad)\" data-i18n=\"bk.regenerate\">Regenerate (old URL stops working)</button>\n      </div>\n    </div>\n\n    <div class=\"tabs\">\n      <div class=\"tab active\" data-tab=\"client\" id=\"tabClient\"><span data-i18n=\"bk.asClient\">As a client</span><span class=\"count\" id=\"cntClient\"></span></div>\n      <div class=\"tab\" data-tab=\"artist\" id=\"tabArtist\"><span data-i18n=\"bk.asArtist\">As an artist</span><span class=\"count\" id=\"cntArtist\"></span></div>\n    </div>\n\n    <div id=\"tab-client\">\n      <div class=\"list\" id=\"clientList\"></div>\n      <div class=\"empty\" id=\"clientEmpty\" style=\"display:none\">\n        <div class=\"b\" data-i18n=\"bk.noneYet\">No bookings yet</div>\n        <span data-i18n=\"bk.clientEmpty\">Find an artist in the feed and pick an open slot.</span>\n        <div style=\"margin-top:16px\"><a class=\"btn\" href=\"/\" data-i18n=\"bk.browseFeed\">Browse the feed</a></div>\n      </div>\n    </div>\n\n    <div id=\"tab-artist\" style=\"display:none\">\n      <div class=\"list\" id=\"artistList\"></div>\n      <div class=\"empty\" id=\"artistEmpty\" style=\"display:none\">\n        <div class=\"b\" data-i18n=\"bk.none\">No bookings</div>\n        <span data-i18n=\"bk.artistEmpty\">Nobody has booked with you yet.</span><br>\n        <span data-i18n=\"bk.artistEmptyCta\">Publish open slots in your calendar so clients can find you.</span>\n        <!-- M\u00ed\u0159\u00ed na /calendar: term\u00edny se od Sprintu 2 spravuj\u00ed tam,\n             v artist-setup ta sekce u\u017e nen\u00ed. -->\n        <div style=\"margin-top:16px\"><a class=\"btn\" href=\"/calendar\" data-i18n=\"bk.goToCalendar\">Open the calendar</a></div>\n      </div>\n    </div>\n\n    <!-- Napojen\u00ed na Apple/Google kalend\u00e1\u0159 se nastav\u00ed jednou. Bylo to nad\n         rezervacemi, tedy na nejcenn\u011bj\u0161\u00edm m\u00edst\u011b str\u00e1nky. -->\n    <div class=\"cal-sync-head\" data-i18n=\"bk.calSync\">Sync with your calendar app</div>\n    <div class=\"cal-tools\" id=\"calTools\">\n      <a class=\"btn muted\" href=\"/api/me/calendar.ics\" download=\"inklink.ics\" data-i18n=\"bk.downloadIcs\">\u21e9 Download .ics</a>\n      <button class=\"btn muted\" onclick=\"InkLinkBookings.showCalendarSubscribe()\" data-i18n=\"bk.subscribeUrl\">\u2337 Subscribe URL</button>\n    </div>\n\n<div id=\"reviewModal\" onclick=\"if(event.target===this)InkLinkBookings.closeReview()\">\n  <div class=\"cm-card\">\n    <h3 data-i18n=\"bk.mRate\">Rate the tattoo</h3>\n    <p id=\"rmHint\"><span data-i18n=\"bk.mRateHint\">Your rating will be visible to other clients on the artist's profile. You can edit it anytime.</span></p>\n    <label data-i18n=\"bk.mStars\">Stars *</label>\n    <div class=\"star-pick\" id=\"rmStars\" data-rating=\"0\">\n      <span data-v=\"1\">\u2605</span><span data-v=\"2\">\u2605</span><span data-v=\"3\">\u2605</span>\n      <span data-v=\"4\">\u2605</span><span data-v=\"5\">\u2605</span>\n    </div>\n    <label data-i18n=\"bk.mComment\">Comment (optional)</label>\n    <textarea id=\"rmText\" maxlength=\"1000\" data-i18n-attr=\"bk.mCommentPh:placeholder\" placeholder=\"How was the session? Communication, hygiene, result\u2026\"></textarea>\n    <div id=\"rmFlash\" style=\"margin-top:10px\"></div>\n    <div class=\"actions\">\n      <button class=\"btn danger\" id=\"rmDelete\" onclick=\"InkLinkBookings.deleteReview()\" style=\"margin-right:auto;display:none\" data-i18n=\"bk.deleteRating\">Delete rating</button>\n      <button class=\"btn muted\" onclick=\"InkLinkBookings.closeReview()\">${t('bk.cancel')}</button>\n      <button class=\"btn\" onclick=\"InkLinkBookings.submitReview()\" data-i18n=\"bk.save\">Save</button>\n    </div>\n  </div>\n</div>\n\n<div id=\"respondModal\" onclick=\"if(event.target===this)InkLinkBookings.closeRespond()\">\n  <div class=\"cm-card\">\n    <h3 data-i18n=\"bk.mReply\">Reply to review</h3>\n    <p><span data-i18n=\"bk.mReplyHint\">Your reply will appear under the client's review on your profile.</span></p>\n    <div id=\"respClientReview\" style=\"margin-bottom:12px\"></div>\n    <label data-i18n=\"bk.mYourReply\">Your reply</label>\n    <textarea id=\"respText\" maxlength=\"500\" data-i18n-attr=\"bk.mReplyPh:placeholder\" placeholder=\"Thanks for the review!\"></textarea>\n    <div id=\"respFlash\" style=\"margin-top:10px\"></div>\n    <div class=\"actions\">\n      <button class=\"btn muted\" onclick=\"InkLinkBookings.closeRespond()\">${t('bk.cancel')}</button>\n      <button class=\"btn\" onclick=\"InkLinkBookings.submitResponse()\" data-i18n=\"bk.mSendReply\">Send reply</button>\n    </div>\n  </div>\n</div>\n\n<div id=\"editBookModal\" onclick=\"if(event.target===this)InkLinkBookings.closeEditBook()\">\n  <div class=\"cm-card\">\n    <h3 id=\"ebmTitle\" data-i18n=\"bk.mEdit\">Edit booking</h3>\n    <p id=\"ebmHint\" class=\"hint\" style=\"font-size:11px;color:var(--txt3);margin-bottom:14px\"><span data-i18n=\"bk.mEditHint\">Edit the tattoo description. Use \u201cReschedule\u201d to move the appointment.</span></p>\n    <label data-i18n=\"bk.mDesc\">Tattoo description</label>\n    <textarea id=\"ebmNote\" maxlength=\"1000\"></textarea>\n    <div id=\"ebmFlash\" style=\"margin-top:10px\"></div>\n    <div class=\"actions\">\n      <button class=\"btn muted\" onclick=\"InkLinkBookings.closeEditBook()\">${t('bk.cancel')}</button>\n      <button class=\"btn\" onclick=\"InkLinkBookings.submitEditBook()\" data-i18n=\"bk.saveChanges\">Save changes</button>\n    </div>\n  </div>\n</div>\n\n<!-- P\u0159esun rezervace: klient \u226548 h p\u0159edem hned, jinak \u017e\u00e1dost tat\u00e9rovi -->\n<div id=\"rescheduleModal\" onclick=\"if(event.target===this)InkLinkBookings.closeReschedule()\">\n  <div class=\"cm-card\">\n    <h3 id=\"rsTitle\" data-i18n=\"bk.mMove\">Reschedule booking</h3>\n    <p id=\"rsHint\" class=\"hint\" style=\"font-size:11px;color:var(--txt3);margin-bottom:14px\"></p>\n    <label data-i18n=\"bk.mArtistSlot\">Artist's open slot</label>\n    <select id=\"rsSlot\" onchange=\"InkLinkBookings.renderRescheduleStarts()\"></select>\n    <label data-i18n=\"bk.startAt\">Start</label>\n    <select id=\"rsStart\"></select>\n    <div id=\"rsFlash\" style=\"margin-top:10px\"></div>\n    <div class=\"actions\">\n      <button class=\"btn muted\" onclick=\"InkLinkBookings.closeReschedule()\" data-i18n=\"bk.back\">Back</button>\n      <button class=\"btn\" id=\"rsSubmit\" onclick=\"InkLinkBookings.submitReschedule()\">${t('bk.reschedule')}</button>\n    </div>\n  </div>\n</div>\n\n<div id=\"refundModal\" onclick=\"if(event.target===this)InkLinkBookings.closeRefund()\">\n  <div class=\"cm-card\">\n    <h3 id=\"rfTitle\" data-i18n=\"bk.mRefund\">Refund request</h3>\n    <p id=\"rfHint\" style=\"font-size:13px;color:var(--txt3);letter-spacing:0\">The artist will review your request \u2014 if approved, the money will be refunded to your card within 5\u201310 days.</p>\n    <div id=\"rfMaxLine\" style=\"font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin:6px 0 4px\"></div>\n    <label>\u010c\u00e1stka (K\u010d) <span style=\"color:var(--txt3);text-transform:none;letter-spacing:0\" data-i18n=\"bk.amountBlank\">\u2014 leave blank = full paid amount</span></label>\n    <input type=\"number\" id=\"rfAmount\" min=\"1\" data-i18n-attr=\"bk.mAmountPh:placeholder\" placeholder=\"full paid amount\">\n    <label style=\"margin-top:14px\">Reason (min 10 chars)</label>\n    <textarea id=\"rfReason\" rows=\"4\" style=\"width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:10px;font-family:inherit;font-size:14px;resize:vertical\" data-i18n-attr=\"bk.reasonPh:placeholder\" placeholder=\"Briefly what happened\u2026\"></textarea>\n    <div id=\"rfFlash\" style=\"margin-top:10px\"></div>\n    <div class=\"actions\">\n      <button class=\"btn muted\" onclick=\"InkLinkBookings.closeRefund()\" data-i18n=\"bk.close\">Close</button>\n      <button class=\"btn\" onclick=\"InkLinkBookings.submitRefund()\" data-i18n=\"bk.mSendRequest\">Send request</button>\n    </div>\n  </div>\n</div>\n\n";
 
-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
-.nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;letter-spacing:0;color:var(--ink);line-height:0.9;font-weight:400;flex:1}
-.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);font-size:14px}
-.nav-icon:hover{color:var(--red2);background:var(--bg3)}
+  let mounted = false;
+  let root = null;   // kořen panelu — profil má vlastní .tabs a .tab
 
-.wrap{max-width:880px;margin:0 auto;padding:100px 24px 80px}
-h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;letter-spacing:0.1em;margin-bottom:24px}
-.cal-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
-.cal-tools .btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-.cal-sync-head{margin-top:40px;padding-top:20px;border-top:1px solid var(--border);
-  font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
-.btn.muted{border-color:var(--border2);color:var(--txt2)}
-.btn.muted:hover{background:transparent;color:var(--red2);border-color:var(--red2)}
+  function mount(container) {
+    if (!container || mounted) return;
+    mounted = true;
+    if (!document.getElementById('il-bookings-css')) {
+      const s = document.createElement('style');
+      s.id = 'il-bookings-css';
+      s.textContent = CSS;
+      document.head.appendChild(s);
+    }
+    root = container;
+    container.classList.add('il-bookings');
+    container.innerHTML = HTML;
+    if (window.InkLinkI18N) InkLinkI18N.apply(container);
+    return init();
+  }
 
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tab{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
-.tab.active{color:var(--red2);border-bottom-color:var(--red2)}
-.tab .count{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;color:var(--txt3);margin-left:6px}
-@media(max-width:560px){
-  .wrap{padding:92px 14px 80px !important}
-  h1{font-size:28px !important}
-}
-
-.empty{text-align:center;padding:80px 20px;color:var(--txt3);font-size:13px;letter-spacing:0.04em;line-height:1.6}
-.empty .b{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.18em;color:var(--red2);margin-bottom:12px}
-
-.list{display:flex;flex-direction:column;gap:10px}
-.b-row{display:grid;grid-template-columns:140px 1fr auto;gap:14px;padding:16px;background:var(--bg2);border:1px solid var(--border)}
-@media(max-width:560px){.b-row{grid-template-columns:1fr}}
-.b-when{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.06em}
-.b-mid{display:flex;flex-direction:column;gap:5px;min-width:0}
-.b-who{display:flex;align-items:center;gap:8px;font-size:13px}
-.b-avatar{width:28px;height:28px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--red2);overflow:hidden;flex-shrink:0}
-.b-avatar img{width:100%;height:100%;object-fit:cover}
-.b-note{font-size:12px;color:var(--txt2);line-height:1.5;white-space:pre-wrap;word-break:break-word}
-.b-money{font-size:11px;color:var(--txt3);letter-spacing:0.04em}
-.b-money b{color:var(--txt);font-weight:400}
-.b-status{padding:3px 10px;border:1px solid var(--border2);font-size:10px;letter-spacing:0.12em;color:var(--txt3);align-self:flex-start;white-space:nowrap}
-.b-status.confirmed{color:var(--ok);border-color:rgba(127,211,145,0.3)}
-.b-status.pending_payment{color:var(--warn);border-color:rgba(232,200,127,0.3)}
-.b-status.completed{color:var(--txt2);border-color:var(--border2)}
-.b-status.cancelled_client,.b-status.cancelled_artist{color:var(--err);border-color:rgba(229,135,135,0.3)}
-.b-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;justify-content:center}
-@media(max-width:560px){.b-actions{align-items:flex-start;flex-direction:row;flex-wrap:wrap}}
-
-.btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--red2);color:var(--red2);cursor:pointer;text-transform:uppercase}
-.btn:hover{background:var(--red2);color:var(--bg)}
-.btn.danger{border-color:var(--err);color:var(--err)}
-.btn.danger:hover{background:var(--err);color:#fff}
-.btn.muted{border-color:var(--border2);color:var(--txt3)}
-.btn.muted:hover{border-color:var(--txt3);color:var(--txt2);background:transparent}
-
-.demo-banner{background:rgba(232,200,127,0.08);border:1px solid rgba(232,200,127,0.3);padding:10px 14px;color:#e8c87f;font-size:12px;letter-spacing:0.04em;margin-bottom:18px;line-height:1.5}
-
-#reviewModal,#respondModal,#refundModal,#editBookModal,#rescheduleModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-#reviewModal.show,#respondModal.show,#refundModal.show,#editBookModal.show,#rescheduleModal.show{display:flex}
-.cm-card{max-width:480px;width:100%;background:var(--bg2);border:1px solid var(--border);padding:24px;max-height:90vh;overflow-y:auto}
-.cm-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:22px;letter-spacing:0.12em;margin-bottom:6px}
-.cm-card p{color:var(--txt2);font-size:12px;line-height:1.5;margin-bottom:14px;letter-spacing:0.04em}
-.cm-card label{display:block;font-size:11px;letter-spacing:0.1em;color:var(--txt3);margin-bottom:6px;text-transform:uppercase;margin-top:14px}
-.cm-card label:first-of-type{margin-top:0}
-.cm-card input,.cm-card textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:9px 12px;outline:none}
-.cm-card textarea{min-height:90px;resize:vertical}
-.cm-card input:focus,.cm-card textarea:focus{border-color:var(--red2)}
-.cm-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
-
-.star-pick{display:flex;gap:6px;font-size:32px;line-height:1;margin:6px 0 4px;cursor:pointer}
-.star-pick span{color:var(--txt3);transition:color 0.1s;user-select:none}
-.star-pick span.on{color:var(--warn)}
-.star-pick span:hover{color:var(--warn)}
-.star-static{display:inline-flex;gap:2px;font-size:14px;color:var(--warn);letter-spacing:0.02em;line-height:1}
-.star-static .empty{color:var(--border2)}
-
-.b-review{margin-top:8px;padding:10px 12px;background:var(--bg3);border-left:2px solid var(--warn);font-size:11px;color:var(--txt2);line-height:1.5;letter-spacing:0.03em;word-break:break-word}
-.b-review b{color:var(--txt);font-weight:400}
-.b-review .resp{margin-top:8px;padding-top:8px;border-top:1px solid var(--border2);color:var(--txt3)}
-.b-review .resp b{color:var(--txt2)}
-</style>
-</head>
-<body data-theme="dark">
-
-<nav>
-  <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-icon" href="/" data-i18n-attr="as.backToFeed:title" title="Back to feed"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
-  <a class="nav-icon" id="profileLink" href="#" data-i18n-attr="fd.myProfile:title" title="My profile"><svg class="icon"><use href="#i-bookmark"/></svg></a>
-  <a class="nav-icon" href="/messages" data-i18n-attr="fd.navMessages:title" title="Messages"><svg class="icon"><use href="#i-message"/></svg></a>
-  <a class="nav-icon" href="/artist-setup" data-i18n-attr="fd.artistSettings:title" title="Artist settings">⚙</a>
-</nav>
-<script src="/notifs.js?v=5"></script>
-<script src="/i18n.js"></script>
-<script src="/mobile-nav.js?v=14"></script>
-<script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
-
-<div class="wrap">
-  <h1 data-i18n="bk.pageTitle">My bookings</h1>
-
-  <div id="loginNeeded" style="display:none">
-    <div class="empty">
-      <div class="b" data-i18n="bk.signIn">Sign in</div>
-      <span data-i18n="bk.signInBody">You need to sign in to see your bookings.</span><br><br>
-      <a class="btn" href="/login" data-i18n="bk.signInCta">Sign in / register</a>
-    </div>
-  </div>
-
-  <div id="content" style="display:none">
-    <div id="calSubBox" style="display:none;margin:14px 0;padding:14px;background:var(--bg2);border:1px solid var(--border2);font-size:11px;letter-spacing:0.04em;color:var(--txt2);line-height:1.7">
-      <div style="margin-bottom:8px;color:var(--txt)"><span data-i18n="bk.subscribeHint">Continuous sync URL — paste into Apple/Google Calendar (Subscribe to calendar):</span></div>
-      <input id="calSubUrl" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:8px 10px;letter-spacing:0.02em" onclick="this.select()">
-      <div style="margin-top:10px;display:flex;gap:8px">
-        <button class="btn muted" onclick="copyCalSubUrl()" style="font-size:10px" data-i18n="bk.copy">Copy</button>
-        <button class="btn muted" onclick="regenerateCalToken()" style="font-size:10px;color:var(--bad)" data-i18n="bk.regenerate">Regenerate (old URL stops working)</button>
-      </div>
-    </div>
-
-    <div class="tabs">
-      <div class="tab active" data-tab="client" id="tabClient"><span data-i18n="bk.asClient">As a client</span><span class="count" id="cntClient"></span></div>
-      <div class="tab" data-tab="artist" id="tabArtist"><span data-i18n="bk.asArtist">As an artist</span><span class="count" id="cntArtist"></span></div>
-    </div>
-
-    <div id="tab-client">
-      <div class="list" id="clientList"></div>
-      <div class="empty" id="clientEmpty" style="display:none">
-        <div class="b" data-i18n="bk.noneYet">No bookings yet</div>
-        <span data-i18n="bk.clientEmpty">Find an artist in the feed and pick an open slot.</span>
-        <div style="margin-top:16px"><a class="btn" href="/" data-i18n="bk.browseFeed">Browse the feed</a></div>
-      </div>
-    </div>
-
-    <div id="tab-artist" style="display:none">
-      <div class="list" id="artistList"></div>
-      <div class="empty" id="artistEmpty" style="display:none">
-        <div class="b" data-i18n="bk.none">No bookings</div>
-        <span data-i18n="bk.artistEmpty">Nobody has booked with you yet.</span><br>
-        <span data-i18n="bk.artistEmptyCta">Publish open slots in your calendar so clients can find you.</span>
-        <!-- Míří na /calendar: termíny se od Sprintu 2 spravují tam,
-             v artist-setup ta sekce už není. -->
-        <div style="margin-top:16px"><a class="btn" href="/calendar" data-i18n="bk.goToCalendar">Open the calendar</a></div>
-      </div>
-    </div>
-
-    <!-- Napojení na Apple/Google kalendář se nastaví jednou. Bylo to nad
-         rezervacemi, tedy na nejcennějším místě stránky. -->
-    <div class="cal-sync-head" data-i18n="bk.calSync">Sync with your calendar app</div>
-    <div class="cal-tools" id="calTools">
-      <a class="btn muted" href="/api/me/calendar.ics" download="inklink.ics" data-i18n="bk.downloadIcs">⇩ Download .ics</a>
-      <button class="btn muted" onclick="showCalendarSubscribe()" data-i18n="bk.subscribeUrl">⌷ Subscribe URL</button>
-    </div>
-  </div>
-</div>
-
-<div id="reviewModal" onclick="if(event.target===this)closeReview()">
-  <div class="cm-card">
-    <h3 data-i18n="bk.mRate">Rate the tattoo</h3>
-    <p id="rmHint"><span data-i18n="bk.mRateHint">Your rating will be visible to other clients on the artist's profile. You can edit it anytime.</span></p>
-    <label data-i18n="bk.mStars">Stars *</label>
-    <div class="star-pick" id="rmStars" data-rating="0">
-      <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
-      <span data-v="4">★</span><span data-v="5">★</span>
-    </div>
-    <label data-i18n="bk.mComment">Comment (optional)</label>
-    <textarea id="rmText" maxlength="1000" data-i18n-attr="bk.mCommentPh:placeholder" placeholder="How was the session? Communication, hygiene, result…"></textarea>
-    <div id="rmFlash" style="margin-top:10px"></div>
-    <div class="actions">
-      <button class="btn danger" id="rmDelete" onclick="deleteReview()" style="margin-right:auto;display:none" data-i18n="bk.deleteRating">Delete rating</button>
-      <button class="btn muted" onclick="closeReview()">${t('bk.cancel')}</button>
-      <button class="btn" onclick="submitReview()" data-i18n="bk.save">Save</button>
-    </div>
-  </div>
-</div>
-
-<div id="respondModal" onclick="if(event.target===this)closeRespond()">
-  <div class="cm-card">
-    <h3 data-i18n="bk.mReply">Reply to review</h3>
-    <p><span data-i18n="bk.mReplyHint">Your reply will appear under the client's review on your profile.</span></p>
-    <div id="respClientReview" style="margin-bottom:12px"></div>
-    <label data-i18n="bk.mYourReply">Your reply</label>
-    <textarea id="respText" maxlength="500" data-i18n-attr="bk.mReplyPh:placeholder" placeholder="Thanks for the review!"></textarea>
-    <div id="respFlash" style="margin-top:10px"></div>
-    <div class="actions">
-      <button class="btn muted" onclick="closeRespond()">${t('bk.cancel')}</button>
-      <button class="btn" onclick="submitResponse()" data-i18n="bk.mSendReply">Send reply</button>
-    </div>
-  </div>
-</div>
-
-<div id="editBookModal" onclick="if(event.target===this)closeEditBook()">
-  <div class="cm-card">
-    <h3 id="ebmTitle" data-i18n="bk.mEdit">Edit booking</h3>
-    <p id="ebmHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px"><span data-i18n="bk.mEditHint">Edit the tattoo description. Use “Reschedule” to move the appointment.</span></p>
-    <label data-i18n="bk.mDesc">Tattoo description</label>
-    <textarea id="ebmNote" maxlength="1000"></textarea>
-    <div id="ebmFlash" style="margin-top:10px"></div>
-    <div class="actions">
-      <button class="btn muted" onclick="closeEditBook()">${t('bk.cancel')}</button>
-      <button class="btn" onclick="submitEditBook()" data-i18n="bk.saveChanges">Save changes</button>
-    </div>
-  </div>
-</div>
-
-<!-- Přesun rezervace: klient ≥48 h předem hned, jinak žádost tatérovi -->
-<div id="rescheduleModal" onclick="if(event.target===this)closeReschedule()">
-  <div class="cm-card">
-    <h3 id="rsTitle" data-i18n="bk.mMove">Reschedule booking</h3>
-    <p id="rsHint" class="hint" style="font-size:11px;color:var(--txt3);margin-bottom:14px"></p>
-    <label data-i18n="bk.mArtistSlot">Artist's open slot</label>
-    <select id="rsSlot" onchange="renderRescheduleStarts()"></select>
-    <label data-i18n="bk.startAt">Start</label>
-    <select id="rsStart"></select>
-    <div id="rsFlash" style="margin-top:10px"></div>
-    <div class="actions">
-      <button class="btn muted" onclick="closeReschedule()" data-i18n="bk.back">Back</button>
-      <button class="btn" id="rsSubmit" onclick="submitReschedule()">${t('bk.reschedule')}</button>
-    </div>
-  </div>
-</div>
-
-<div id="refundModal" onclick="if(event.target===this)closeRefund()">
-  <div class="cm-card">
-    <h3 id="rfTitle" data-i18n="bk.mRefund">Refund request</h3>
-    <p id="rfHint" style="font-size:13px;color:var(--txt3);letter-spacing:0">The artist will review your request — if approved, the money will be refunded to your card within 5–10 days.</p>
-    <div id="rfMaxLine" style="font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin:6px 0 4px"></div>
-    <label>Částka (Kč) <span style="color:var(--txt3);text-transform:none;letter-spacing:0" data-i18n="bk.amountBlank">— leave blank = full paid amount</span></label>
-    <input type="number" id="rfAmount" min="1" data-i18n-attr="bk.mAmountPh:placeholder" placeholder="full paid amount">
-    <label style="margin-top:14px">Reason (min 10 chars)</label>
-    <textarea id="rfReason" rows="4" style="width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:10px;font-family:inherit;font-size:14px;resize:vertical" data-i18n-attr="bk.reasonPh:placeholder" placeholder="Briefly what happened…"></textarea>
-    <div id="rfFlash" style="margin-top:10px"></div>
-    <div class="actions">
-      <button class="btn muted" onclick="closeRefund()" data-i18n="bk.close">Close</button>
-      <button class="btn" onclick="submitRefund()" data-i18n="bk.mSendRequest">Send request</button>
-    </div>
-  </div>
-</div>
-
-<script>
 let me = null, demoMode = false;
 
 const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
@@ -284,34 +59,34 @@ function statusLabel(s){return ({
 })[s] || (s||'').toUpperCase();}
 
 function showTab(which) {
-  document.querySelectorAll('.tab').forEach(x =>
+  root.querySelectorAll('.tab').forEach(x =>
     x.classList.toggle('active', x.dataset.tab === which));
   document.getElementById('tab-client').style.display = which === 'client' ? 'block' : 'none';
   document.getElementById('tab-artist').style.display = which === 'artist' ? 'block' : 'none';
 }
 
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-  showTab(t.dataset.tab);
-}));
-
 async function init() {
+  // Panel se montuje jen vlastníkovi profilu, ale role rozhoduje o výchozí
+  // záložce a demo režimu — proto se na sebe pořád ptáme.
   me = await fetch('/api/me').then(r => r.json()).catch(() => null);
-  if (!me) {
-    document.getElementById('loginNeeded').style.display = 'block';
-    return;
-  }
+  if (!me) return;
+
+  root.querySelectorAll('.tab').forEach(el => el.addEventListener('click', () => {
+    showTab(el.dataset.tab);
+  }));
+  bindStars();
+
   document.getElementById('content').style.display = 'block';
-  document.getElementById('profileLink').href = '/profile/' + me.username;
-  // Tatér otevírá tuhle stránku kvůli SVÝM rezervacím. Výchozí klientská
-  // záložka mu ukazovala "žádné rezervace", i když jako tatér nějaké měl —
-  // a musel přepínat při každé návštěvě.
+  // Tatér sem chodí kvůli SVÝM rezervacím. Výchozí klientská záložka mu
+  // ukazovala "žádné rezervace", i když jako tatér nějaké měl.
   if (me.is_artist) showTab('artist');
   demoMode = !me.can_accept_bookings;
   if (demoMode) {
     const banner = document.createElement('div');
     banner.className = 'demo-banner';
     banner.textContent = t('bk.demoBanner');
-    document.getElementById('content').insertBefore(banner, document.querySelector('.tabs'));
+    const content = document.getElementById('content');
+    content.insertBefore(banner, content.querySelector('.tabs'));
   }
   await Promise.all([loadRefundRequests(), loadRescheduleRequests()]);
   await Promise.all([loadClient(), loadArtist()]); syncTabs();
@@ -351,7 +126,7 @@ let nClient = 0, nArtist = 0;
 // poloprázdnou záložku koukal při každé návštěvě.
 function syncTabs() {
   const both = nClient > 0 && nArtist > 0;
-  document.querySelector('.tabs').style.display = both ? '' : 'none';
+  root.querySelector('.tabs').style.display = both ? '' : 'none';
   if (both) return;
   // Při nule na obou stranách rozhoduje role — tatér chce vidět tu svoji.
   showTab(nArtist > 0 ? 'artist' : nClient > 0 ? 'client' : (me.is_artist ? 'artist' : 'client'));
@@ -426,12 +201,12 @@ function renderRow(b, view) {
       // ukázat existing review v řádku
       reviewBlock = renderReviewBlock(b.review, view, b.id);
       if (view === 'client') {
-        reviewCta = `<button class="btn muted" onclick="openReview(${b.id}, ${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Edit ★</button>`;
+        reviewCta = `<button class="btn muted" onclick="InkLinkBookings.openReview(${b.id}, ${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">Edit ★</button>`;
       } else if (view === 'artist' && !b.review.response) {
-        reviewCta = `<button class="btn" onclick="openRespond(${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">${t('bk.reply')}</button>`;
+        reviewCta = `<button class="btn" onclick="InkLinkBookings.openRespond(${b.review.id}, ${b.review.rating}, ${JSON.stringify(b.review.text).replace(/"/g,'&quot;')})">${t('bk.reply')}</button>`;
       }
     } else if (view === 'client') {
-      reviewCta = `<button class="btn" onclick="openReview(${b.id}, null, 0, '')">★ Write a review</button>`;
+      reviewCta = `<button class="btn" onclick="InkLinkBookings.openReview(${b.id}, null, 0, '')">★ Write a review</button>`;
     }
   }
 
@@ -472,8 +247,8 @@ function renderRow(b, view) {
     const when = fmtDate(rs.new_booking_start_at);
     rescheduleHint = `<div class="b-money" style="color:#e8c87f">${t('bk.rescheduleAsk').replace('{when}', escapeHtml(when))}${
       view === 'artist'
-        ? ` <button class="btn" style="margin-left:8px" onclick="decideReschedule(${rs.id},'approve')">${t('bk.approve')}</button>
-            <button class="btn danger" onclick="decideReschedule(${rs.id},'reject')">${t('bk.reject')}</button>`
+        ? ` <button class="btn" style="margin-left:8px" onclick="InkLinkBookings.decideReschedule(${rs.id},'approve')">${t('bk.approve')}</button>
+            <button class="btn danger" onclick="InkLinkBookings.decideReschedule(${rs.id},'reject')">${t('bk.reject')}</button>`
         : t('bk.waitingArtist')}</div>`;
   }
 
@@ -487,8 +262,8 @@ function renderRow(b, view) {
       refundBlock = `<div class="b-money" style="color:#e8c87f">⏳ Refund request ${amt} — awaiting artist decision</div>`;
       if (view === 'artist') {
         refundCta = `
-          <button class="btn" onclick="decideRefund(${rr.id}, 'approve')">${t('bk.approveRefund')}</button>
-          <button class="btn danger" onclick="decideRefund(${rr.id}, 'reject')">${t('bk.reject')}</button>`;
+          <button class="btn" onclick="InkLinkBookings.decideRefund(${rr.id}, 'approve')">${t('bk.approveRefund')}</button>
+          <button class="btn danger" onclick="InkLinkBookings.decideRefund(${rr.id}, 'reject')">${t('bk.reject')}</button>`;
       }
     } else if (rr.status === 'approved') {
       refundBlock = `<div class="b-money" style="color:#7fd391">✓ Refund ${amt} approved${rr.decision_note ? ' — ' + escapeHtml(rr.decision_note) : ''}</div>`;
@@ -504,7 +279,7 @@ function renderRow(b, view) {
   if (refundable) {
     const maxKc = Math.max(0, Math.floor(((b.deposit_cents || 0) + (b.balance_paid_cents || 0) - (b.refund_cents || 0)) / 100));
     if (maxKc > 0) {
-      refundCta = `<button class="btn muted" onclick="openRefund(${b.id}, ${maxKc})">${t('bk.mRefund')}</button>`;
+      refundCta = `<button class="btn muted" onclick="InkLinkBookings.openRefund(${b.id}, ${maxKc})">${t('bk.mRefund')}</button>`;
     }
   }
 
@@ -538,9 +313,9 @@ function renderRow(b, view) {
         <span class="b-status ${b.status}">${statusLabel(b.status)}</span>
         ${payCta}
         ${view === 'artist' ? calendarCta : `
-        ${isEditable ? `<button class="btn muted" onclick='openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>${t('bk.edit')}</button>` : ''}
-        ${isCancellable ? `<button class="btn muted" onclick='openReschedule(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>${t('bk.reschedule')}</button>` : ''}
-        ${isCancellable ? `<button class="btn danger" onclick="cancelBooking(${b.id})">${t('bk.cancel')}</button>` : ''}`}
+        ${isEditable ? `<button class="btn muted" onclick='InkLinkBookings.openEditBook(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>${t('bk.edit')}</button>` : ''}
+        ${isCancellable ? `<button class="btn muted" onclick='InkLinkBookings.openReschedule(${JSON.stringify(b).replace(/'/g, "&#39;")}, "${view}")'>${t('bk.reschedule')}</button>` : ''}
+        ${isCancellable ? `<button class="btn danger" onclick="InkLinkBookings.cancelBooking(${b.id})">${t('bk.cancel')}</button>` : ''}`}
         ${reviewCta}
         ${refundCta}
       </div>
@@ -814,18 +589,24 @@ function setStarPick(r) {
   });
 }
 
-document.getElementById('rmStars').addEventListener('click', e => {
-  if (e.target.dataset && e.target.dataset.v) setStarPick(parseInt(e.target.dataset.v));
-});
-document.getElementById('rmStars').addEventListener('mouseover', e => {
-  if (e.target.dataset && e.target.dataset.v) {
-    const v = parseInt(e.target.dataset.v);
-    [...e.currentTarget.querySelectorAll('span')].forEach(s => {
-      s.classList.toggle('on', parseInt(s.dataset.v) <= v);
-    });
-  }
-});
-document.getElementById('rmStars').addEventListener('mouseleave', () => setStarPick(reviewRating));
+// Hvězdičky vznikají až s panelem, takže se nedají navěsit při načtení
+// skriptu — na samostatné stránce markup existoval hned, tady ne.
+function bindStars() {
+  const stars = document.getElementById('rmStars');
+  if (!stars) return;
+  stars.addEventListener('click', e => {
+    if (e.target.dataset && e.target.dataset.v) setStarPick(parseInt(e.target.dataset.v));
+  });
+  stars.addEventListener('mouseover', e => {
+    if (e.target.dataset && e.target.dataset.v) {
+      const v = parseInt(e.target.dataset.v);
+      [...e.currentTarget.querySelectorAll('span')].forEach(s => {
+        s.classList.toggle('on', parseInt(s.dataset.v) <= v);
+      });
+    }
+  });
+  stars.addEventListener('mouseleave', () => setStarPick(reviewRating));
+}
 
 function closeReview() {
   document.getElementById('reviewModal').classList.remove('show');
@@ -925,11 +706,5 @@ async function regenerateCalToken() {
   }
 }
 
-init();
-</script>
-<script src="/icons.js?v=2"></script>
-<script src="/ink-trail.js?v=1"></script>
-<script src="/cookie-consent.js?v=1"></script>
-<script src="/native.js?v=1"></script>
-</body>
-</html>
+  return {mount, cancelBooking, closeEditBook, closeRefund, closeReschedule, closeRespond, closeReview, copyCalSubUrl, decideRefund, decideReschedule, deleteReview, openEditBook, openRefund, openReschedule, openRespond, openReview, regenerateCalToken, renderRescheduleStarts, showCalendarSubscribe, submitEditBook, submitRefund, submitReschedule, submitResponse, submitReview};
+})();

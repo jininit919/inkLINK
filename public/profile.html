@@ -237,7 +237,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 </nav>
 <script src="/notifs.js?v=5"></script>
 <script src="/i18n.js"></script>
-<script src="/mobile-nav.js?v=14"></script>
+<script src="/mobile-nav.js?v=15"></script>
+<script src="/bookings-panel.js?v=3"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <div class="wrap">
@@ -260,9 +261,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       </div>
     </div>
 
-    <div class="tabs">
+    <div class="tabs" id="profileTabs">
       <div class="tab active" data-tab="portfolio"><span data-i18n="pf.portfolio">Portfolio</span> <span id="portfolioCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
       <div class="tab" data-tab="slots" id="slotsTab"><span data-i18n="pf.calendar">Calendar</span> <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="bookings" id="bookingsTab" style="display:none"><span data-i18n="pf.bookings">Bookings</span></div>
       <div class="tab" data-tab="clients" id="clientsTab" style="display:none"><span data-i18n="pf.clients">Clients</span> <span id="clientsCount" style="color:var(--txt3);font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
       <div class="tab" data-tab="reviews" id="reviewsTab"><span data-i18n="pf.reviews">Reviews</span> <span id="reviewsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
     </div>
@@ -280,6 +282,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       <div class="slots-list" id="slots"></div>
       <div class="empty" id="slotsEmpty" style="display:none" data-i18n="pf.noSlots">No available slots.</div>
     </div>
+
+    <!-- Obsah dodá bookings-panel.js až při prvním otevření záložky.
+         Dřív to byla samostatná stránka /my-bookings; ta zůstala jen jako
+         přesměrování sem, kvůli odkazům v e-mailech a notifikacích. -->
+    <div id="tab-bookings" style="display:none"></div>
 
     <div id="tab-clients" style="display:none">
       <div id="clientsList" class="cl-cards"></div>
@@ -568,9 +575,16 @@ function render() {
   else loadProfileEvents();
   // Klientela je pracovní nástroj, ne výkladní skříň — vidí ji jen tatér
   // na svém vlastním profilu.
+  if (profile.is_own) {
+    document.getElementById('bookingsTab').style.display = '';
+  }
   if (profile.is_own && profile.is_artist) {
     document.getElementById('clientsTab').style.display = '';
   }
+  // Až tady jsou vidět všechny záložky, které smí vlastník otevřít —
+  // dřív by openTab() narazil na skrytou a tiše nic neudělal.
+  if (location.hash.length > 1) openTab(location.hash.slice(1));
+
   document.getElementById('slotsCount').textContent = profile.slots.length;
   const slotsEl = document.getElementById('slots');
   if (!profile.slots.length) {
@@ -669,17 +683,30 @@ async function loadProfileClients() {
   }).join('');
 }
 
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+document.querySelectorAll('#profileTabs .tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('#profileTabs .tab').forEach(x => x.classList.remove('active'));
   t.classList.add('active');
   const tab = t.dataset.tab;
   document.getElementById('tab-portfolio').style.display = tab === 'portfolio' ? 'block' : 'none';
   document.getElementById('tab-slots').style.display = tab === 'slots' ? 'block' : 'none';
   document.getElementById('tab-clients').style.display = tab === 'clients' ? 'block' : 'none';
+  document.getElementById('tab-bookings').style.display = tab === 'bookings' ? 'block' : 'none';
   document.getElementById('tab-reviews').style.display = tab === 'reviews' ? 'block' : 'none';
   if (tab === 'reviews' && !window._reviewsLoaded) loadReviews();
   if (tab === 'clients' && !window._clientsLoaded) loadProfileClients();
+  if (tab === 'bookings') InkLinkBookings.mount(document.getElementById('tab-bookings'));
 }));
+
+// /profile/<já>#bookings — sem míří přesměrování z /my-bookings i odkazy
+// z e-mailů o rezervacích.
+function openTab(name) {
+  const el = document.querySelector(`#profileTabs .tab[data-tab="${name}"]`);
+  if (!el || el.style.display === 'none') return;
+  el.click();
+  // Lišta se na mobilu posouvá vodorovně — bez tohohle by aktivní záložka
+  // zůstala za okrajem a vypadalo by to, že se nic nestalo.
+  el.scrollIntoView({block: 'nearest', inline: 'center'});
+}
 
 async function loadSimilar(username) {
   try {

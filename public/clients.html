@@ -102,7 +102,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <nav>
   <a href="/" class="nav-logo">inklink</a>
-  <a href="/my-bookings" class="nav-icon" data-i18n-attr="clients.backToList:title" title="Back">←</a>
+  <a href="/" class="nav-icon" id="clBack" data-i18n-attr="clients.backToList:title" title="Back">←</a>
 </nav>
 
 <div class="wrap" id="root">
@@ -115,6 +115,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 <script src="/i18n.js"></script>
 <script src="/mobile-nav.js"></script>
 <script>InkLinkMobileNav.init();</script>
+<script>
+// Zpátky patří tam, odkud se sem chodí — na záložku Klienti v profilu.
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(m => {
+  if (m && m.username) document.getElementById('clBack').href = '/profile/' + m.username + '#clients';
+}).catch(() => {});
+</script>
 <script>
 const root  = document.getElementById('root');
 const toast = document.getElementById('toast');

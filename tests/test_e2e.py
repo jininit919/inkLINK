@@ -1730,8 +1730,17 @@ class I18nKeyTests(unittest.TestCase):
     def _used(known_prefixes):
         import re, glob
         used = set()
-        for f in glob.glob('public/*.html'):
+        # I skripty: markup rezervací se přestěhoval do bookings-panel.js,
+        # takže by jeho klíče jinak vypadly z kontroly.
+        for f in glob.glob('public/*.html') + glob.glob('public/*.js'):
+            if f.endswith('i18n.js'):
+                continue
             txt = open(f, encoding='utf-8').read()
+            if f.endswith('.js'):
+                # Markup v JS je uložený jako řetězec, takže uvozovky
+                # atributů jsou odescapované — bez tohohle by regexy níž
+                # nenašly ani jeden data-i18n.
+                txt = txt.replace('\\"', '"')
             used |= set(re.findall(r'data-i18n(?:-html)?="([^"]+)"', txt))
             for attr in re.findall(r'data-i18n-attr="([^"]+)"', txt):
                 for pair in attr.split(','):
@@ -1753,7 +1762,7 @@ class I18nKeyTests(unittest.TestCase):
 
     def test_no_i18n_on_element_with_children(self):
         """apply() dělá el.textContent = t(key), takže data-i18n na prvku,
-        který má potomky, je smaže. V my-bookings takhle zmizel span
+        který má potomky, je smaže. V rezervacích takhle zmizel span
         s počtem rezervací a loadArtist() pak padal na null. Popisek musí mít
         vlastní span."""
         import re, glob
@@ -1832,7 +1841,7 @@ class BookingActionsLiveInCalendarTests(unittest.TestCase):
             return f.read()
 
     def test_artist_card_has_single_action(self):
-        src = self._src('my-bookings.html')
+        src = self._src('bookings-panel.js')
         self.assertIn("bk.openInCalendar", src)
         # Zeď tlačítek u tatéra: dokončení a další sezení patří do kalendáře.
         for gone in ('openFollowUp', 'openComplete', 'confirmComplete', 'completeModal'):
@@ -1858,9 +1867,78 @@ class BookingActionsLiveInCalendarTests(unittest.TestCase):
 
     def test_client_keeps_its_own_actions(self):
         """Klient kalendář nemá — jemu se tlačítka brát nesmí."""
-        src = self._src('my-bookings.html')
+        src = self._src('bookings-panel.js')
         for kept in ('openReschedule', 'cancelBooking', 'openEditBook', 'openRefund'):
             self.assertIn(kept, src)
+
+
+
+class BookingsPanelTests(unittest.TestCase):
+    """Rezervace se ze samostatné stránky přestěhovaly na profil.
+
+    URL /my-bookings musí přežít jako přesměrování: míří na ni odkazy
+    v už odeslaných e-mailech, in-app notifikace i zástupce v manifestu."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    @staticmethod
+    def _src(name):
+        with open('public/' + name, encoding='utf-8') as f:
+            return f.read()
+
+    def test_old_url_redirects_to_the_profile_tab(self):
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('INSERT INTO users (username, display_name, password_hash, email) '
+                     "VALUES ('inker','Inker',?,'i@t.cz')",
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
+        conn.commit(); conn.close()
+        self.client.post('/api/login', json={'username': 'inker', 'password': 'pass1234'})
+        r = self.client.get('/my-bookings')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/profile/inker#bookings', r.headers['Location'])
+
+    def test_anonymous_is_sent_to_login(self):
+        r = self.client.get('/my-bookings')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/login', r.headers['Location'])
+
+    def test_panel_styles_are_scoped(self):
+        """Profil má vlastní .tabs, .tab i .empty. Nezaprefixovaný styl
+        panelu by je přebarvil — proto se hlídá, že prefix nezmizel."""
+        src = self._src('bookings-panel.js')
+        i = src.index('const CSS = ')
+        css = src[i:src.index('\n', i)]
+        for sel in ('.tabs{', '.tab{', '.empty{', '.b-row{'):
+            self.assertNotIn('\\n' + sel, css, f'{sel} není zakotvené v .il-bookings')
+        self.assertIn('.il-bookings .b-row{', css)
+
+    def test_panel_does_not_touch_page_globals(self):
+        """Profil deklaruje vlastní `me`, `fmtDate` i `escapeHtml`. Druhá
+        deklarace v globálu shodí celou stránku, proto je panel v IIFE."""
+        src = self._src('bookings-panel.js')
+        self.assertIn('window.InkLinkBookings = (function () {', src)
+        self.assertTrue(src.rstrip().endswith('})();'))
+
+    def test_profile_hosts_the_tab(self):
+        src = self._src('profile.html')
+        self.assertIn('id="tab-bookings"', src)
+        self.assertIn('InkLinkBookings.mount', src)
+        # Cizí rezervace na profil nepatří.
+        self.assertIn("if (profile.is_own) {\n    document.getElementById('bookingsTab')", src)
+
+    def test_house_icon_is_the_feed(self):
+        """Domeček znamená feed. Tatérovi pod ním chvíli byly rezervace."""
+        src = self._src('mobile-nav.js')
+        i = src.index("ico: 'i-home'")
+        line_start = src.rindex('\n', 0, i)
+        self.assertIn("href: '/'", src[line_start:i])
+        self.assertNotIn("{ href: '/my-bookings'", src)
 
 
 class LoginIdentifierTests(unittest.TestCase):
@@ -2243,7 +2321,7 @@ class ComingSoonGateTests(unittest.TestCase):
 
     def test_logged_in_user_passes_through(self):
         self._as_user()
-        r = self.client.get('/my-bookings')
+        r = self.client.get('/calendar')
         self.assertEqual(r.status_code, 200)
         self.assertNotIn(b'wlForm', r.data)
 
@@ -2251,12 +2329,12 @@ class ComingSoonGateTests(unittest.TestCase):
         r = self.client.get('/?preview=letmein')
         self.assertEqual(r.status_code, 302)
         # Cookie drží, takže další prokliky už token v URL nepotřebují.
-        r2 = self.client.get('/my-bookings')
+        r2 = self.client.get('/calendar')
         self.assertNotIn(b'wlForm', r2.data)
 
     def test_wrong_preview_token_stays_out(self):
         self.client.get('/?preview=nope')
-        r = self.client.get('/my-bookings')
+        r = self.client.get('/calendar')
         self.assertIn(b'wlForm', r.data)
 
     def test_api_gets_json_not_html(self):
@@ -2282,7 +2360,7 @@ class ComingSoonOffTests(unittest.TestCase):
         os.unlink(self.db)
 
     def test_app_is_open(self):
-        r = self.client.get('/my-bookings')
+        r = self.client.get('/calendar')
         self.assertEqual(r.status_code, 200)
         self.assertNotIn(b'wlForm', r.data)
 

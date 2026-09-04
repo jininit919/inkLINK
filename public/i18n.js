@@ -260,7 +260,6 @@
       'invite.goHome':       'Domů',
 
       // ── ARTIST NAV ──────────────────────────────────────────────────────────
-      'anav.bookings':  'Rezervace',
       'anav.calendar':  'Kalendář',
       'anav.clients':   'Klienti',
       'anav.earnings':  'Výdělky',
@@ -269,6 +268,7 @@
       'mnav.liked':     'Oblíbené',
       'mnav.messages':  'Zprávy',
       'mnav.profile':   'Profil',
+      'mnav.feed':             'Feed',
       'mnav.signIn':    'Přihlásit',
       'mnav.add':       'Přidat',
       'mnav.search':    'Hledat',
@@ -449,6 +449,7 @@
       'pf.calendar':           'Kalendář',
       'pf.reviews':            'Recenze',
       'pf.clients':            'Klienti',
+      'pf.bookings':           'Rezervace',
       'pf.clientsEmpty':       'Zatím žádní klienti. Přibudou, jakmile si u tebe někdo zarezervuje termín.',
       'pf.clientsAll':         'Spravovat klienty →',
       'pf.sessions':           'sezení',
@@ -881,12 +882,8 @@
       'cal.notePh':       'Realismus, konzultace předem',
 
       // ── MY BOOKINGS ─────────────────────────────────────────────────────────
-      'bk.pageTitle':     'Moje rezervace',
       'bk.asClient':      'Jako klient',
       'bk.asArtist':      'Jako tatér',
-      'bk.signIn':        'Přihlásit se',
-      'bk.signInBody':    'Pro zobrazení rezervací se musíš přihlásit.',
-      'bk.signInCta':     'Přihlásit se / registrovat',
       'bk.noneYet':       'Zatím žádné rezervace',
       'bk.none':          'Žádné rezervace',
       'bk.clientEmpty':   'Najdi si tatéra ve feedu a klikni na volný termín.',
@@ -1325,7 +1322,6 @@
       'invite.goHome':       'Home',
 
       // ── ARTIST NAV ──────────────────────────────────────────────────────────
-      'anav.bookings':  'Bookings',
       'anav.calendar':  'Calendar',
       'anav.clients':   'Clients',
       'anav.earnings':  'Earnings',
@@ -1334,6 +1330,7 @@
       'mnav.liked':     'Liked',
       'mnav.messages':  'Messages',
       'mnav.profile':   'Profile',
+      'mnav.feed':             'Feed',
       'mnav.signIn':    'Sign in',
       'mnav.add':       'Add',
       'mnav.search':    'Search',
@@ -1514,6 +1511,7 @@
       'pf.calendar':           'Calendar',
       'pf.reviews':            'Reviews',
       'pf.clients':            'Clients',
+      'pf.bookings':           'Bookings',
       'pf.clientsEmpty':       'No clients yet. They appear once someone books with you.',
       'pf.clientsAll':         'Manage clients →',
       'pf.sessions':           'sessions',
@@ -1946,12 +1944,8 @@
       'cal.notePh':       'Realism, consultation first',
 
       // ── MY BOOKINGS ─────────────────────────────────────────────────────────
-      'bk.pageTitle':     'My bookings',
       'bk.asClient':      'As a client',
       'bk.asArtist':      'As an artist',
-      'bk.signIn':        'Sign in',
-      'bk.signInBody':    'You need to sign in to see your bookings.',
-      'bk.signInCta':     'Sign in / register',
       'bk.noneYet':       'No bookings yet',
       'bk.none':          'No bookings',
       'bk.clientEmpty':   'Find an artist in the feed and pick an open slot.',

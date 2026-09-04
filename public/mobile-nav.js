@@ -9,8 +9,8 @@
  *   <script>InkLinkMobileNav.init();</script>
  *
  * Layout podle role (5 slotů, center=primary akce):
- *   Tatér   : ⌂ Feed · ♥ Lajknuté · [+ Přidat] · ✉ Zprávy · ◉ Profil
- *   Klient  : ⌂ Feed · ♥ Lajknuté · ◷ Rezervace · ✉ Zprávy · ◉ Profil
+ *   Tatér   : ⌂ Feed · ▦ Kalendář · [+ Přidat] · ✉ Zprávy · ◉ Profil
+ *   Klient  : ⌂ Feed · ♥ Lajknuté · 🔍 Hledat · ✉ Zprávy · ◉ Profil
  *   Neauth  : stejný layout jako klient; chráněné kliky → /login
  *
  * Notifikační badge je nalepený na profile ikonu (vpravo nahoře).
@@ -196,14 +196,12 @@
         : { href: '/?search=1',                   ico: 'i-search', lbl: T('mnav.search', 'Search'), primary: true, aria: T('mnav.search', 'Search') };
     }
 
-    // Lišta má pět míst a role je vyplňují jinak. Tatér tu dřív měl Feed
-    // a Oblíbené — obojí je prohlížení cizí práce, ne jeho vlastní. Jeho denní
-    // práce (rezervace, kalendář) přitom v liště nebyla vůbec: /calendar
-    // nebyl v žádné navigaci a k penězům se šlo jen přes rozbalovací menu
-    // pod avatarem. Feed a Oblíbené zůstávají tatérovi v horní liště.
+    // Lišta má pět míst a role je vyplňují jinak. Domeček je všude feed —
+    // u tatéra pod ním chvíli byly rezervace, což ikona neříkala. Rezervace
+    // se přestěhovaly na profil jako záložka, kalendář zabral druhé místo.
     if (isArtist) {
       return [
-        { href: '/my-bookings', ico: 'i-home',     lbl: T('anav.bookings', 'Bookings') },
+        { href: '/',            ico: 'i-home',     lbl: T('mnav.feed', 'Feed') },
         { href: '/calendar',    ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
         centerItem,
         { href: '/messages',    ico: 'i-message',  lbl: T('mnav.messages', 'Messages'), badgeId: 'il-mnav-msg-badge' },
@@ -212,7 +210,7 @@
     }
 
     return [
-      { href: '/',         ico: 'i-home',    lbl: 'Feed' },
+      { href: '/',         ico: 'i-home',    lbl: T('mnav.feed', 'Feed') },
       { href: '/liked',    ico: 'i-heart',   lbl: T('mnav.liked', 'Liked') },
       centerItem,
       { href: '/messages', ico: 'i-message', lbl: T('mnav.messages', 'Messages'), badgeId: 'il-mnav-msg-badge' },
@@ -234,7 +232,6 @@
   // Klienti tu nejsou schválně — bydlí jako záložka na profilu tatéra,
   // protože je to jeho pracovní kartotéka, ne další sekce navigace.
   const ARTIST_LINKS = () => [
-    { href: '/my-bookings',  ico: 'i-home',     lbl: T('anav.bookings', 'Bookings') },
     { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
     { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
     { href: '/artist-setup', ico: 'i-settings', lbl: T('anav.profile',  'Profile & portfolio') },

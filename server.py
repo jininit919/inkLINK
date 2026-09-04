@@ -1896,7 +1896,18 @@ def artist_setup_page():
 
 @app.route('/my-bookings')
 def my_bookings_page():
-    return send_from_directory('public', 'my-bookings.html')
+    """Rezervace se přestěhovaly na profil jako záložka. URL zůstává, protože
+    na ni míří odkazy v odeslaných e-mailech, in-app notifikacích i zástupce
+    v manifestu — ty už zpětně nezměníme."""
+    uid = session.get('user_id')
+    if not uid:
+        return redirect('/login?next=/my-bookings')
+    conn = get_db()
+    row = conn.execute('SELECT username FROM users WHERE id=?', (uid,)).fetchone()
+    conn.close()
+    if not row:
+        return redirect('/login')
+    return redirect(f"/profile/{row['username']}#bookings")
 
 
 @app.route('/calendar')
