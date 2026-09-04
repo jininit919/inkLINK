@@ -56,7 +56,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
 /* WEEK GRID */
 .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:24px}
-@media(max-width:760px){.week-grid{grid-template-columns:1fr;gap:6px}}
 .day-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 12px;min-height:200px;display:flex;flex-direction:column;gap:8px;transition:border-color 0.15s,background 0.15s}
 .day-col.today{background:linear-gradient(180deg, rgba(10,132,255,0.05) 0%, var(--bg2) 100%);border-color:rgba(10,132,255,0.3)}
 .day-col.past{opacity:0.5}
@@ -107,6 +106,58 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .add-event-link:hover{background:rgba(175,82,222,0.14);border-color:#af52de}
 .day-col .empty-day{color:var(--txt3);font-size:10px;letter-spacing:0.06em;text-align:center;padding:20px 0;border:1px dashed var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
 .day-col .empty-day:hover{border-color:var(--accent);color:var(--accent);background:rgba(10,132,255,0.05)}
+
+/* ── Mobilní zobrazení: den = řádek, ne dlaždice ────────────────────────────
+   Inspirováno seznamem v iOS kalendáři. Sedmisloupcová mřížka se na mobilu
+   lámala do jednoho sloupce a každý den si držel min-height 200px, takže
+   týden znamenal 1400 px scrollování většinou prázdnem. Tady má den výšku
+   podle toho, co v něm je, oddělovačem je vlasová linka místo rámečku
+   a dnešek nese číslo v plném kolečku. */
+@media(max-width:760px){
+  .week-grid{grid-template-columns:1fr;gap:0;margin-bottom:18px}
+
+  /* Grid, ne flex-row: datum je první sloupec, obsah druhý — a položky
+     dne se v něm skládají POD SEBE. Ve flexu ležely vedle sebe a při
+     třech a víc by se zmáčkly na nečitelné proužky. */
+  .day-col{
+    background:none;border:none;border-radius:0;
+    border-bottom:1px solid var(--border);
+    min-height:0;padding:12px 2px;
+    display:grid;grid-template-columns:42px 1fr;
+    column-gap:10px;row-gap:6px;align-items:start;
+  }
+  .day-col > .day-head{grid-column:1;grid-row:1}
+  .day-col > *:not(.day-head){grid-column:2}
+  .day-col:last-child{border-bottom:none}
+  .day-col:hover{border-color:var(--border)}
+  .day-col.today{background:none;border-color:var(--border)}
+  /* Minulé dny týdne tatér neřeší — zabíraly půlku obrazovky. */
+  .day-col.past{display:none}
+
+  .day-head{
+    flex:0 0 42px;flex-direction:column;align-items:center;gap:1px;
+    border-bottom:none;padding-bottom:0;margin-bottom:0;padding-top:2px;
+  }
+  .day-name{font-size:10px;letter-spacing:0.1em}
+  .day-num{font-size:19px;margin-top:1px;line-height:26px}
+  /* Dnešek: číslo v plném kolečku jako v iOS. */
+  .day-col.today .day-num{
+    color:var(--bg);background:var(--txt);
+    width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .day-col.today .day-name{color:var(--txt)}
+
+  .day-col > *{min-width:0}
+
+  /* Prázdný den je jeden tichý řádek, ale pořád klikatelný — je to
+     nejrychlejší cesta k vypsání termínu. */
+  .day-col .empty-day{
+    padding:5px 0;font-size:10px;text-align:left;
+    border:none;color:var(--txt3);opacity:0.55;
+  }
+  .day-col .empty-day:hover{background:none;border:none;color:var(--txt)}
+}
 
 /* FAB ADD */
 .fab-add-slot{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3);display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;box-shadow:0 12px 32px rgba(20,16,8,0.18),0 2px 6px rgba(20,16,8,0.08);transition:transform 0.18s var(--ease),box-shadow 0.18s;z-index:200;border:none;font-family:'Bristol','Caveat',cursive;font-size:54px;line-height:1;padding:0;overflow:hidden}
@@ -552,10 +603,15 @@ function render() {
       </div>`;
   }
   // Prázdno je až když v týdnu není opravdu nic — ne když chybí jen sloty.
-  const weekHasAnything = totalSlots > 0 || bookingsData.some(b => {
-    const k = (b.booking_start_at || '').slice(0, 10);
-    return k >= fmtDate(weekStart) && k <= fmtDate(addDays(weekStart, 6));
-  });
+  // "Prázdný týden" znamená opravdu nic — ne jen "žádné volné termíny".
+  // Dřív to hlásilo prázdno i v týdnu, kde měl tatér blokaci nebo akci.
+  const from = fmtDate(weekStart), to = fmtDate(addDays(weekStart, 6));
+  const inWeek = d => d >= from && d <= to;
+  const weekHasAnything =
+       totalSlots > 0
+    || bookingsData.some(b => inWeek((b.booking_start_at || '').slice(0, 10)))
+    || blocksData.some(b   => inWeek((b.start_at || '').slice(0, 10)))
+    || eventsData.some(e   => inWeek(e.date || ''));
   document.getElementById('emptyHint').style.display = weekHasAnything ? 'none' : 'block';
 }
 
