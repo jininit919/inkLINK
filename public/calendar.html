@@ -229,6 +229,19 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .bs-row span{color:var(--txt3);font-size:11px;letter-spacing:0.07em;text-transform:uppercase;flex:0 0 auto}
 .bs-row b{font-weight:500;text-align:right;word-break:break-word}
 #bsNoteFlash{margin-left:10px;font-size:11px;color:var(--txt3)}
+.bs-edit{display:flex;flex-direction:column;gap:6px;margin-top:4px;
+  border-top:1px solid var(--border);padding-top:14px}
+.bs-edit[hidden]{display:none}
+.bs-edit-title{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:2px}
+.bs-edit label{font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase}
+.bs-edit select{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);
+  font-family:inherit;font-size:13px;padding:10px 12px;border-radius:8px;outline:none}
+.bs-edit .hint{font-size:11px;color:var(--txt3);margin-top:2px}
+.bs-cancel{align-self:flex-start;margin-top:14px;background:transparent;border:1px solid #d99;
+  color:#b3261e;font-family:inherit;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:9px 16px;border-radius:8px;cursor:pointer;transition:background 0.12s}
+.bs-cancel:hover{background:rgba(179,38,30,0.08)}
+.bs-move-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:4px}
 .bs-more{display:inline-block;margin-top:2px;font-size:11px;letter-spacing:0.08em;
   text-transform:uppercase;color:var(--txt3);text-decoration:none}
 .bs-more:hover{color:var(--txt);text-decoration:underline;text-underline-offset:3px}
@@ -682,6 +695,8 @@ function closeBookSheet() {
 
 function renderBookSheet() {
   const b = bsBooking;
+  const canComplete = ['confirmed', 'pending_payment'].includes(b.status);
+  const canCancel   = ['confirmed', 'pending_payment'].includes(b.status);
   const who = (b.client && (b.client.display_name || b.client.username)) || t('cal.noName');
   const kc = c => c ? (c / 100).toLocaleString(locale()) + ' CZK' : '—';
   const row = (label, value) => value
@@ -701,15 +716,95 @@ function renderBookSheet() {
       <button type="button" class="bs-save" onclick="saveBookNote()">${escapeHtml(t('cb.saveNote'))}</button>
       <span id="bsNoteFlash" class="hint"></span>
     </div>
-    <!-- Přesun s výběrem bloku, další sezení a refund zůstávají v Mých
-         rezervacích — sem patří to, co tatér dělá po každém sezení. -->
+    <div class="bs-edit" id="bsEdit" hidden>
+      <div class="bs-edit-title">${escapeHtml(t('cb.reschedule'))}</div>
+      <label for="bsSlot">${escapeHtml(t('cb.pickSlot'))}</label>
+      <select id="bsSlot" onchange="renderMoveStarts()"></select>
+      <label for="bsStart">${escapeHtml(t('cb.pickStart'))}</label>
+      <select id="bsStart"></select>
+      <!-- Přesun klientovi neposílá oznámení; ať to tatér neřeší až potom,
+           kdy klient nedorazí. -->
+      <p class="hint">${escapeHtml(t('cb.tellClient'))}</p>
+      <div class="bs-move-actions">
+        <button type="button" class="bs-save" onclick="submitMove()">${escapeHtml(t('cb.confirmMove'))}</button>
+        ${b.client && b.client.username
+          ? `<a class="bs-more" href="/messages?user=${encodeURIComponent(b.client.username)}">${escapeHtml(t('cb.message'))}</a>`
+          : ''}
+      </div>
+      <span id="bsMoveFlash" class="hint"></span>
+
+      ${canCancel ? `<button type="button" class="bs-cancel" onclick="cancelFromCalendar()">${escapeHtml(t('cb.cancel'))}</button>` : ''}
+    </div>
+    <!-- Další sezení a refund zůstávají v Mých rezervacích. -->
     <a class="bs-more" href="/my-bookings">${escapeHtml(t('cb.openFull'))}</a>`;
 
-  const canComplete = ['confirmed', 'pending_payment'].includes(b.status);
-  const canCancel   = ['confirmed', 'pending_payment'].includes(b.status);
+  fillMoveSlots();
+
   document.getElementById('bsFoot').innerHTML = `
     ${canComplete ? `<button class="btn btn-primary" onclick="completeFromCalendar()">${escapeHtml(t('cb.markDone'))}</button>` : ''}
-    ${canCancel ? `<button class="btn" onclick="cancelFromCalendar()">${escapeHtml(t('cb.cancel'))}</button>` : ''}`;
+    ${(canCancel || canComplete) ? `<button class="btn" id="bsEditBtn" aria-expanded="false" onclick="toggleBookEdit()">${escapeHtml(t('cb.edit'))}</button>` : ''}`;
+}
+
+// Nabídka pro přesun se staví z tatérových VLASTNÍCH slotů, které už
+// v kalendáři máme — žádný další dotaz na server.
+function movableSlots() {
+  return slotsData
+    .filter(s => s.status !== 'booked')
+    .sort((a, b) => a.start_at.localeCompare(b.start_at));
+}
+
+function toggleBookEdit() {
+  const box = document.getElementById('bsEdit');
+  const btn = document.getElementById('bsEditBtn');
+  box.hidden = !box.hidden;
+  btn.setAttribute('aria-expanded', String(!box.hidden));
+  if (!box.hidden) box.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+
+function fillMoveSlots() {
+  const sel = document.getElementById('bsSlot');
+  if (!sel) return;
+  const slots = movableSlots();
+  sel.innerHTML = slots.map((s, i) =>
+    `<option value="${i}">${escapeHtml(fmtDateLong(s.start_at))} · ${fmtTime(s.start_at)}–${fmtTime(s.end_at)}</option>`
+  ).join('') || `<option value="">${escapeHtml(t('cb.noFreeSlots'))}</option>`;
+  renderMoveStarts();
+}
+
+function renderMoveStarts() {
+  const slots = movableSlots();
+  const slot = slots[document.getElementById('bsSlot').value];
+  const sel = document.getElementById('bsStart');
+  if (!slot) { sel.innerHTML = ''; return; }
+  // Půlhodinové kroky; poslední možný start je konec bloku minus délka.
+  const dur = Number(bsBooking.duration_hours) || 1;
+  const start = new Date(slot.start_at), end = new Date(slot.end_at);
+  const last = new Date(end.getTime() - dur * 3600 * 1000);
+  const opts = [];
+  for (let x = new Date(start); x <= last; x = new Date(x.getTime() + 30 * 60 * 1000)) {
+    const iso = new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+    opts.push(`<option value="${iso}">${iso.slice(11, 16)}</option>`);
+  }
+  sel.innerHTML = opts.join('') || `<option value="">${escapeHtml(t('cb.slotTooShort'))}</option>`;
+}
+
+async function submitMove() {
+  const flash = document.getElementById('bsMoveFlash');
+  const slot = movableSlots()[document.getElementById('bsSlot').value];
+  const start = document.getElementById('bsStart').value;
+  if (!slot || !start) { flash.textContent = t('cb.noFreeSlots'); return; }
+  try {
+    const r = await fetch(`/api/bookings/${bsBooking.id}/reschedule`, {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({new_slot_id: slot.id, booking_start_at: start})
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '');
+    flash.textContent = t('cb.moved');
+    setTimeout(() => { closeBookSheet(); loadWeek(); }, 800);
+  } catch (e) {
+    flash.textContent = e.message || t('cb.failed');
+  }
 }
 
 async function saveBookNote() {

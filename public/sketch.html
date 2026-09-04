@@ -232,7 +232,7 @@ function render() {
         </div>
       </a>
       <div class="artist-actions">
-        <a class="btn-msg" href="/messages?to=${encodeURIComponent(u.username)}"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-message"/></svg> Zpráva</a>
+        <a class="btn-msg" href="/messages?user=${encodeURIComponent(u.username)}"><svg class="icon icon-sm" style="vertical-align:-2px;margin-right:4px"><use href="#i-message"/></svg> Zpráva</a>
         <a class="profile-link" href="/profile/${escapeHtml(u.username)}">Profil →</a>
       </div>
     </div>
