@@ -231,10 +231,11 @@
   const T = (key, fallback) =>
     (window.InkLinkI18N && window.InkLinkI18N.t(key) !== key) ? window.InkLinkI18N.t(key) : fallback;
 
+  // Klienti tu nejsou schválně — bydlí jako záložka na profilu tatéra,
+  // protože je to jeho pracovní kartotéka, ne další sekce navigace.
   const ARTIST_LINKS = () => [
     { href: '/my-bookings',  ico: 'i-home',     lbl: T('anav.bookings', 'Bookings') },
     { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
-    { href: '/clients',      ico: 'i-users',    lbl: T('anav.clients',  'Clients') },
     { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
     { href: '/artist-setup', ico: 'i-settings', lbl: T('anav.profile',  'Profile & portfolio') },
   ];

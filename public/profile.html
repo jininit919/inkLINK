@@ -5,6 +5,25 @@
 <style>html,body{background:#faf8f3;margin:0}#instaLink{align-items:center;color:var(--txt3);margin-left:10px;vertical-align:middle;transition:color 0.15s}
 #instaLink:hover{color:var(--txt)}
 #instaLink .icon{width:15px;height:15px;display:block}
+.cl-cards{display:flex;flex-direction:column;gap:8px}
+.cl-card{display:flex;align-items:center;gap:13px;padding:12px 14px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:10px;text-decoration:none;color:inherit;
+  transition:border-color 0.15s,transform 0.12s}
+.cl-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.cl-av{width:42px;height:42px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--txt);
+  overflow:hidden;flex-shrink:0}
+.cl-av img{width:100%;height:100%;object-fit:cover}
+.cl-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.cl-name{font-size:15px;letter-spacing:0.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-sub{font-size:11px;color:var(--txt3);letter-spacing:0.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-msg{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
+  border-radius:8px;color:var(--txt3);flex-shrink:0;cursor:pointer;transition:all 0.15s}
+.cl-msg:hover{background:var(--bg3);color:var(--txt)}
+.cl-msg .icon{width:17px;height:17px}
+.cl-all{display:inline-block;margin-top:18px;font-size:11px;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--txt3);text-decoration:none}
+.cl-all:hover{color:var(--txt);text-decoration:underline;text-underline-offset:3px}
 </style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -244,6 +263,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div class="tabs">
       <div class="tab active" data-tab="portfolio"><span data-i18n="pf.portfolio">Portfolio</span> <span id="portfolioCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
       <div class="tab" data-tab="slots" id="slotsTab"><span data-i18n="pf.calendar">Calendar</span> <span id="slotsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
+      <div class="tab" data-tab="clients" id="clientsTab" style="display:none"><span data-i18n="pf.clients">Clients</span> <span id="clientsCount" style="color:var(--txt3);font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
       <div class="tab" data-tab="reviews" id="reviewsTab"><span data-i18n="pf.reviews">Reviews</span> <span id="reviewsCount" style="color:var(--txt3);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.05em;margin-left:6px"></span></div>
     </div>
 
@@ -259,6 +279,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       </div>
       <div class="slots-list" id="slots"></div>
       <div class="empty" id="slotsEmpty" style="display:none" data-i18n="pf.noSlots">No available slots.</div>
+    </div>
+
+    <div id="tab-clients" style="display:none">
+      <div id="clientsList" class="cl-cards"></div>
+      <div class="empty" id="clientsEmpty" style="display:none" data-i18n="pf.clientsEmpty">No clients yet. They appear once someone books with you.</div>
+      <a class="cl-all" href="/clients" data-i18n="pf.clientsAll">Manage clients →</a>
     </div>
 
     <div id="tab-reviews" style="display:none">
@@ -508,7 +534,7 @@ function render() {
   } else if (me) {
     actions.innerHTML = `
       <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? tr('pf.following') : tr('pf.follow')}</button>
-      <a class="btn muted" href="/messages?to=${encodeURIComponent(profile.username)}" data-i18n="pf.message">Message</a>
+      <a class="btn muted" href="/messages?user=${encodeURIComponent(profile.username)}" data-i18n="pf.message">Message</a>
     `;
   } else {
     actions.innerHTML = `<a class="btn" href="/login" data-i18n="pf.signInToBook">Sign in to book</a>`;
@@ -540,6 +566,11 @@ function render() {
 
   if (!profile.is_artist) document.getElementById('slotsTab').style.display = 'none';
   else loadProfileEvents();
+  // Klientela je pracovní nástroj, ne výkladní skříň — vidí ji jen tatér
+  // na svém vlastním profilu.
+  if (profile.is_own && profile.is_artist) {
+    document.getElementById('clientsTab').style.display = '';
+  }
   document.getElementById('slotsCount').textContent = profile.slots.length;
   const slotsEl = document.getElementById('slots');
   if (!profile.slots.length) {
@@ -603,14 +634,51 @@ function fmtEventDate(d) {
   return `${day}. ${MON[m - 1]} ${y}`;
 }
 
+// Klienti na vlastním profilu. Karta je profil klienta: avatar, jméno,
+// štítky a počet sezení — plus napsat mu, což je nejčastější akce.
+// Detail, poznámky a GDPR zůstávají na /clients.
+async function loadProfileClients() {
+  window._clientsLoaded = true;
+  let d;
+  try { d = await fetch('/api/clients?limit=100&sort=recent').then(r => r.json()); }
+  catch (_) { return; }
+  const list = d.clients || [];
+  document.getElementById('clientsCount').textContent = d.total ?? list.length;
+  if (!list.length) {
+    document.getElementById('clientsEmpty').style.display = 'block';
+    return;
+  }
+  document.getElementById('clientsList').innerHTML = list.map(c => {
+    const initials = (c.name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const sub = [c.tags, c.city].filter(Boolean).join(' · ');
+    return `
+      <a class="cl-card" href="/clients#/klient/${c.id}">
+        <span class="cl-av">${c.avatar_url
+          ? `<img src="${escapeHtml(c.avatar_url)}" alt="">`
+          : escapeHtml(initials)}</span>
+        <span class="cl-meta">
+          <span class="cl-name">${escapeHtml(c.name || tr('clients.noName'))}</span>
+          ${sub ? `<span class="cl-sub">${escapeHtml(sub)}</span>` : ''}
+        </span>
+        ${c.username && !c.anonymized_at
+          ? `<span class="cl-msg" title="${escapeHtml(tr('clients.message'))}"
+                   onclick="event.preventDefault();event.stopPropagation();location.href='/messages?user=${encodeURIComponent(c.username)}'"
+              ><svg class="icon"><use href="#i-message"/></svg></span>`
+          : ''}
+      </a>`;
+  }).join('');
+}
+
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
   t.classList.add('active');
   const tab = t.dataset.tab;
   document.getElementById('tab-portfolio').style.display = tab === 'portfolio' ? 'block' : 'none';
   document.getElementById('tab-slots').style.display = tab === 'slots' ? 'block' : 'none';
+  document.getElementById('tab-clients').style.display = tab === 'clients' ? 'block' : 'none';
   document.getElementById('tab-reviews').style.display = tab === 'reviews' ? 'block' : 'none';
   if (tab === 'reviews' && !window._reviewsLoaded) loadReviews();
+  if (tab === 'clients' && !window._clientsLoaded) loadProfileClients();
 }));
 
 async function loadSimilar(username) {
