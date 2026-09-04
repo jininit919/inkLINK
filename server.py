@@ -5795,11 +5795,11 @@ def _booking_to_dict(row, slot=None, artist=None, client=None):
 # jen zmátl příjemce.
 SIZE_PRESETS = {
     # label: (duration_hours, label)
-    'mini':     (1, 'Mini (under 5 cm)'),
-    'small':    (2, 'Small (5–10 cm)'),
-    'medium':   (3, 'Medium (10–20 cm)'),
-    'large':    (5, 'Large (20–30 cm)'),
-    'xl':       (8, 'Full day / sleeve'),
+    'mini':     (1, 'Mini'),
+    'small':    (2, 'Small'),
+    'medium':   (3, 'Medium'),
+    'large':    (5, 'Large'),
+    'xl':       (8, 'Full day'),
 }
 
 # U skici se ceníkem nabízíme tři velikosti. Klíče jsou podmnožina
