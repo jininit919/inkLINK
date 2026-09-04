@@ -914,8 +914,10 @@ def init_db():
         note             TEXT DEFAULT '',
         status           TEXT DEFAULT 'pending',
         booking_id       INTEGER DEFAULT NULL,
+        created_slot     INTEGER DEFAULT 0,
         created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    add_col('booking_offers', 'created_slot INTEGER DEFAULT 0')
     c.execute('CREATE INDEX IF NOT EXISTS idx_offers_pair '
               'ON booking_offers(artist_id, client_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_offers_client '
@@ -1113,6 +1115,10 @@ def init_db():
     # rozestup mezi rezervacemi/blokacemi, nemusí se vejít do slotu samotného.
     add_col('slots', 'buffer_before_minutes INTEGER DEFAULT 0')
     add_col('slots', 'buffer_after_minutes INTEGER DEFAULT 0')
+    # Soukromý termín vzniká z nabídky v chatu a je jen pro toho klienta.
+    # Nikde se veřejně nenabízí — jinak by ho mezitím vzal někdo jiný a
+    # tatér by slíbil čas, který už nemá.
+    add_col('slots', 'is_private INTEGER DEFAULT 0')
 
     # ── Blokace volna (dovolená, nemoc, jednorázové "tady nejsem") ─────────
     # Vlastní tabulka, ne status na slots: kontrola překryvů je tu v rozsahu
@@ -3463,6 +3469,7 @@ def get_profile(username):
     slots = conn.execute('''
         SELECT * FROM slots
         WHERE user_id = ? AND status IN ('free','held') AND start_at >= ?
+              AND COALESCE(is_private, 0) = 0
         ORDER BY start_at ASC
         LIMIT 60
     ''', (u['id'], now_iso)).fetchall()
@@ -8931,11 +8938,11 @@ def create_booking_offer():
 
     try:
         client_id = int(data.get('client_id') or 0)
-        slot_id   = int(data.get('slot_id') or 0)
+        slot_id   = int(data.get('slot_id') or 0)   # 0 = termín teprve vytvoříme
     except (ValueError, TypeError):
         return jsonify({'error': 'Špatný klient nebo termín.'}), 400
-    if not client_id or not slot_id:
-        return jsonify({'error': 'Chybí klient nebo termín.'}), 400
+    if not client_id:
+        return jsonify({'error': 'Chybí klient.'}), 400
     if client_id == uid:
         return jsonify({'error': 'Sám sobě termín nabídnout nemůžeš.'}), 400
 
@@ -8951,11 +8958,46 @@ def create_booking_offer():
     note = (data.get('note') or '').strip()[:500]
 
     conn = get_db()
+    if not conn.execute('SELECT 1 FROM users WHERE id=?', (client_id,)).fetchone():
+        conn.close(); return jsonify({'error': 'Klient nenalezen.'}), 404
+
+    # Tatér může termín rovnou vytvořit, když žádný vypsaný nemá. Vzniká
+    # soukromý blok přesně na délku sezení — veřejně se nenabízí, takže ho
+    # mezitím nikdo jiný nevezme.
+    created_slot = 0
+    if not slot_id:
+        raw_start = (data.get('booking_start_at') or '').strip()
+        if not raw_start:
+            conn.close(); return jsonify({'error': 'Vyber termín, nebo zadej datum a čas.'}), 400
+        try:
+            start = _naive_dt(raw_start)
+        except ValueError:
+            conn.close(); return jsonify({'error': 'Špatný formát začátku.'}), 400
+        end = start + timedelta(hours=duration_hours)
+        if start <= _prague_now_naive():
+            conn.close(); return jsonify({'error': 'Termín už je v minulosti.'}), 400
+        if _artist_blocked_overlap(conn, uid, start, end):
+            conn.close(); return jsonify({'error': 'V tuhle dobu máš blokované volno.'}), 409
+        # Kolize s čímkoliv, co už v ten čas máš — jinak by nový blok
+        # slíbil čas, na kterém už někdo sedí.
+        clash = conn.execute(
+            "SELECT 1 FROM bookings WHERE artist_id=? AND status IN ('pending_payment','confirmed') "
+            "AND booking_start_at < ? AND booking_end_at > ? LIMIT 1",
+            (uid, end.isoformat(), start.isoformat())).fetchone()
+        if clash:
+            conn.close(); return jsonify({'error': 'Tenhle čas se kryje s jinou rezervací.'}), 409
+        conn.execute(
+            'INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max, '
+            "price_unit, min_duration_hours, note, is_private) "
+            "VALUES (?,?,?,'free',0,0,'hour',1,?,1)",
+            (uid, start.isoformat(), end.isoformat(), note[:200]))
+        slot_id = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+                   else conn.execute('SELECT lastval()').fetchone()[0])
+        created_slot = 1
+
     slot = conn.execute('SELECT * FROM slots WHERE id=?', (slot_id,)).fetchone()
     if not slot or slot['user_id'] != uid:
         conn.close(); return jsonify({'error': 'Termín nenalezen.'}), 404
-    if not conn.execute('SELECT 1 FROM users WHERE id=?', (client_id,)).fetchone():
-        conn.close(); return jsonify({'error': 'Klient nenalezen.'}), 404
 
     try:
         slot_start = _naive_dt(slot['start_at'])
@@ -8987,9 +9029,10 @@ def create_booking_offer():
                  "WHERE artist_id=? AND client_id=? AND status='pending'", (uid, client_id))
     conn.execute(
         'INSERT INTO booking_offers '
-        '(artist_id, client_id, slot_id, booking_start_at, duration_hours, price_kc, note) '
-        'VALUES (?,?,?,?,?,?,?)',
-        (uid, client_id, slot_id, start.isoformat(), duration_hours, price_kc, note))
+        '(artist_id, client_id, slot_id, booking_start_at, duration_hours, price_kc, note, '
+        ' created_slot) VALUES (?,?,?,?,?,?,?,?)',
+        (uid, client_id, slot_id, start.isoformat(), duration_hours, price_kc, note,
+         created_slot))
     offer_id = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
                 else conn.execute('SELECT lastval()').fetchone()[0])
 
@@ -9028,6 +9071,16 @@ def decline_booking_offer(offer_id):
         conn.close(); return jsonify({'error': 'S touhle nabídkou už se nedá nic dělat.'}), 409
     new_status = 'cancelled' if uid == row['artist_id'] else 'declined'
     conn.execute('UPDATE booking_offers SET status=? WHERE id=?', (new_status, offer_id))
+    # Termín vyrobený kvůli téhle nabídce nemá bez ní důvod existovat.
+    # Mazat ho smíme jen dokud je prázdný — jinak bychom smazali blok,
+    # na kterém už sedí jiná rezervace.
+    if row['created_slot']:
+        busy = conn.execute(
+            "SELECT 1 FROM bookings WHERE slot_id=? AND status IN "
+            "('pending_payment','confirmed') LIMIT 1", (row['slot_id'],)).fetchone()
+        if not busy:
+            conn.execute('DELETE FROM slots WHERE id=? AND COALESCE(is_private,0)=1',
+                         (row['slot_id'],))
     other = row['client_id'] if uid == row['artist_id'] else row['artist_id']
     push_notif(conn, other, uid, 'booking_offer_' + new_status, offer_id, 'user',
                'Nabídka termínu byla zrušena.' if new_status == 'cancelled'

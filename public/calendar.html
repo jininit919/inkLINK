@@ -2,7 +2,11 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
-<style>html,body{background:#faf8f3;margin:0}</style>
+<style>html,body{background:#faf8f3;margin:0}/* Soukromý termín vznikl z nabídky v chatu a veřejně se nenabízí —
+   bez odlišení by tatér nevěděl, proč ho klienti nevidí. */
+.slot-pill.private{border-style:dashed;background:transparent}
+.slot-pill.private .p{font-style:italic}
+</style>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -687,9 +691,12 @@ function render() {
         ${blockPills}
         ${daySlots.length
           ? daySlots.map(s => `
-              <div class="slot-pill ${s.status==='booked'?'booked':''}">
+              <div class="slot-pill ${s.status==='booked'?'booked':''}${s.is_private?' private':''}"
+                   title="${s.is_private ? t('cal.privateSlotHint') : ''}">
                 <span class="t">${fmtTime(s.start_at)}–${fmtTime(s.end_at)}</span>
-                <span class="p">${s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} CZK/h` : t('cal.priceOnRequest')}</span>
+                <span class="p">${s.is_private
+                  ? t('cal.privateSlot')
+                  : (s.price_min || s.price_max ? `${s.price_min||0}–${s.price_max||0} CZK/h` : t('cal.priceOnRequest'))}</span>
                 ${s.status === 'free' ? `<button class="del" onclick="event.stopPropagation();delSlot(${s.id})" title="${t('cal.delete')}">×</button>` : ''}
               </div>`).join('')
           : ((dayBlocks.length || dayEvents.length || dayBookings.length) ? '' : (isPast

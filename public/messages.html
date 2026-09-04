@@ -45,6 +45,12 @@
 .of-card select:focus,.of-card input:focus,.of-card textarea:focus{border-color:var(--txt)}
 .of-flash{font-size:11px;color:var(--err);min-height:15px;margin-top:10px}
 .of-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.of-mode{display:flex;gap:0;border:1px solid var(--border2);margin-bottom:4px}
+.of-mode-btn{flex:1;font-family:inherit;font-size:10px;letter-spacing:0.08em;
+  text-transform:uppercase;padding:9px 8px;background:transparent;border:none;
+  color:var(--txt3);cursor:pointer}
+.of-mode-btn.active{background:var(--txt);color:var(--bg)}
+#ofNewMode[hidden],#ofStartWrap[hidden]{display:none}
 </style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -252,12 +258,27 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
   <div class="of-card">
     <h3 data-i18n="ms.ofNew">Offer a date</h3>
     <p class="of-hint" data-i18n="ms.ofIntro">Send a specific date and the price you agreed on. The slot is taken once the client pays the deposit.</p>
-    <label for="ofSlot" data-i18n="ms.ofSlot">Open block</label>
-    <select id="ofSlot" onchange="renderOfferStarts()"></select>
+    <div class="of-mode">
+      <button type="button" class="of-mode-btn active" id="ofModeSlot" onclick="setOfferMode('slot')" data-i18n="ms.ofFromSlot">From an open block</button>
+      <button type="button" class="of-mode-btn" id="ofModeNew" onclick="setOfferMode('new')" data-i18n="ms.ofNewDate">New date</button>
+    </div>
+    <div id="ofSlotMode">
+      <label for="ofSlot" data-i18n="ms.ofSlot">Open block</label>
+      <select id="ofSlot" onchange="renderOfferStarts()"></select>
+    </div>
+    <div id="ofNewMode" hidden>
+      <label for="ofDate" data-i18n="ms.ofDate">Date</label>
+      <input type="date" id="ofDate">
+      <label for="ofTime" data-i18n="ms.ofTime">Start</label>
+      <input type="time" id="ofTime" step="900" value="10:00">
+      <p class="of-hint" style="margin:8px 0 0" data-i18n="ms.ofPrivateHint">This date is created just for this client. It is not offered publicly, so nobody else can take it.</p>
+    </div>
     <label for="ofDuration" data-i18n="ms.ofDuration">Length (h)</label>
     <input type="number" id="ofDuration" min="0.5" max="24" step="0.5" value="3" onchange="renderOfferStarts()">
-    <label for="ofStart" data-i18n="ms.ofStart">Start</label>
-    <select id="ofStart"></select>
+    <div id="ofStartWrap">
+      <label for="ofStart" data-i18n="ms.ofStart">Start</label>
+      <select id="ofStart"></select>
+    </div>
     <label for="ofPrice" data-i18n="ms.ofPrice">Agreed price (CZK)</label>
     <input type="number" id="ofPrice" min="1" step="100" data-i18n-attr="ms.ofPricePh:placeholder" placeholder="total for the whole work">
     <label for="ofNote" data-i18n="ms.ofNote">Note for the client — optional</label>
@@ -524,10 +545,27 @@ async function openOfferModal() {
     `<option value="${i}">${esc(fmtOfferWhen(s.start_at))} – ${esc(fmtOfferWhen(s.end_at).split('· ')[1] || '')}</option>`
   ).join('') || `<option value="">${mt('ms.ofNoSlots', 'No open slots — publish one in the calendar first.')}</option>`;
   renderOfferStarts();
+  // Bez vypsaného bloku nemá smysl nabízet výběr z ničeho.
+  setOfferMode(offerSlots.length ? 'slot' : 'new');
+  const d = new Date(Date.now() + 7 * 864e5);
+  document.getElementById('ofDate').value = d.toISOString().slice(0, 10);
   m.classList.add('show');
 }
 
 function closeOfferModal() { document.getElementById('offerModal').classList.remove('show'); }
+
+let offerMode = 'slot';
+
+function setOfferMode(mode) {
+  offerMode = mode;
+  document.getElementById('ofModeSlot').classList.toggle('active', mode === 'slot');
+  document.getElementById('ofModeNew').classList.toggle('active', mode === 'new');
+  document.getElementById('ofSlotMode').hidden = mode !== 'slot';
+  document.getElementById('ofNewMode').hidden  = mode === 'slot';
+  // U nového termínu je začátek přímo v poli s časem, výběr půlhodin
+  // z existujícího bloku by tam nedával smysl.
+  document.getElementById('ofStartWrap').hidden = mode !== 'slot';
+}
 
 function renderOfferStarts() {
   const slot = offerSlots[document.getElementById('ofSlot').value];
@@ -546,10 +584,19 @@ function renderOfferStarts() {
 
 async function submitOffer() {
   const flash = document.getElementById('ofFlash');
-  const slot  = offerSlots[document.getElementById('ofSlot').value];
-  const start = document.getElementById('ofStart').value;
   const price = document.getElementById('ofPrice').value;
-  if (!slot || !start) { flash.textContent = mt('ms.ofNoSlots', 'No open slots.'); return; }
+  let slotId = null, start;
+  if (offerMode === 'slot') {
+    const slot = offerSlots[document.getElementById('ofSlot').value];
+    start = document.getElementById('ofStart').value;
+    if (!slot || !start) { flash.textContent = mt('ms.ofNoSlots', 'No open slots.'); return; }
+    slotId = slot.id;
+  } else {
+    const date = document.getElementById('ofDate').value;
+    const time = document.getElementById('ofTime').value;
+    if (!date || !time) { flash.textContent = mt('ms.ofNeedDate', 'Pick a date and time.'); return; }
+    start = `${date}T${time}:00`;
+  }
   if (!price || +price <= 0) { flash.textContent = mt('ms.ofNeedPrice', 'Enter the agreed price.'); return; }
   const btn = document.getElementById('ofSubmit');
   btn.disabled = true;
@@ -557,7 +604,7 @@ async function submitOffer() {
     const r = await fetch('/api/booking-offers', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        client_id: activeUserId, slot_id: slot.id, booking_start_at: start,
+        client_id: activeUserId, slot_id: slotId, booking_start_at: start,
         duration_hours: document.getElementById('ofDuration').value,
         price_kc: price, note: document.getElementById('ofNote').value.trim(),
       }),

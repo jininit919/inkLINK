@@ -2364,6 +2364,100 @@ class BookingOfferTests(_Sprint2Base):
         self.client.post('/api/logout')
         self.assertEqual(self._offer().status_code, 401)
 
+    # — termín vytvořený tatérem —
+
+    def _offer_new(self, **over):
+        """Nabídka bez slot_id — termín vznikne rovnou z ní."""
+        body = {'client_id': 2,
+                'booking_start_at': self._day_at(20, 11).isoformat(),
+                'duration_hours': 5, 'price_kc': 12000, 'note': 'Celodenní custom'}
+        body.update(over)
+        return self.client.post('/api/booking-offers', json=body)
+
+    def _slots(self, **where):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = sqlite3.Row
+        sql = 'SELECT * FROM slots'
+        if where:
+            sql += ' WHERE ' + ' AND '.join(f'{k}=?' for k in where)
+        rows = conn.execute(sql, tuple(where.values())).fetchall()
+        conn.close()
+        return rows
+
+    def test_artist_can_create_the_date_with_the_offer(self):
+        self._as_artist()
+        r = self._offer_new()
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        made = self._slots(is_private=1)
+        self.assertEqual(len(made), 1)
+        # Blok je přesně na délku sezení, ne na celý den.
+        self.assertEqual(made[0]['start_at'], self._day_at(20, 11).isoformat())
+        self.assertEqual(made[0]['end_at'], self._day_at(20, 16).isoformat())
+
+    def test_created_date_is_not_offered_publicly(self):
+        """Kdyby se soukromý termín objevil na profilu, vzal by ho mezitím
+        někdo jiný a tatér by slíbil čas, který už nemá."""
+        self._as_artist()
+        self._offer_new()
+        self.client.post('/api/logout')
+        public = self.client.get('/api/profile/artist1').get_json()['slots']
+        self.assertNotIn(self._day_at(20, 11).isoformat(), [s['start_at'] for s in public])
+
+    def test_declined_offer_takes_its_date_with_it(self):
+        """Termín vyrobený kvůli nabídce nemá bez ní důvod existovat."""
+        self._as_artist()
+        oid = self._offer_new().get_json()['offer_id']
+        self._as_client()
+        self.client.post(f'/api/booking-offers/{oid}/decline')
+        self.assertEqual(self._slots(is_private=1), [])
+
+    def test_accepted_offer_keeps_its_date(self):
+        self._as_artist()
+        oid = self._offer_new().get_json()['offer_id']
+        self._as_client()
+        r = self.client.post('/api/bookings', json={'offer_id': oid})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        self.assertEqual(r.get_json()['total_price_kc'], 12000)
+        self.assertEqual(len(self._slots(is_private=1)), 1)
+
+    def test_created_date_respects_blocked_time(self):
+        self._as_artist()
+        day = self._day_at(20, 8)
+        self.client.post('/api/blocked-time', json={
+            'start_at': day.isoformat(),
+            'end_at': (day + timedelta(hours=12)).isoformat(),
+            'reason': 'dovolená'})
+        self.assertEqual(self._offer_new().status_code, 409)
+
+    def test_created_date_cannot_collide_with_a_booking(self):
+        self._as_client()
+        self.client.post('/api/bookings', json={
+            'slot_id': self.slot, 'design_note': 'uz zabrano',
+            'booking_start_at': self.start.isoformat(), 'duration_hours': 3})
+        self._as_artist()
+        r = self._offer_new(booking_start_at=self.start.isoformat(), duration_hours=2)
+        self.assertEqual(r.status_code, 409)
+
+    def test_created_date_cannot_be_in_the_past(self):
+        self._as_artist()
+        past = (self._now() - timedelta(days=1)).replace(microsecond=0)
+        self.assertEqual(self._offer_new(booking_start_at=past.isoformat()).status_code, 400)
+
+    def test_offer_needs_a_slot_or_a_date(self):
+        self._as_artist()
+        r = self.client.post('/api/booking-offers', json={
+            'client_id': 2, 'duration_hours': 3, 'price_kc': 5000})
+        self.assertEqual(r.status_code, 400)
+
+    def test_bad_client_leaves_no_orphan_date(self):
+        """Klienta ověřujeme dřív, než vyrobíme termín — jinak by po
+        neplatném id zůstal v kalendáři osiřelý blok."""
+        self._as_artist()
+        self.assertEqual(self._offer_new(client_id=9999).status_code, 404)
+        self.assertEqual(self._slots(is_private=1), [])
+
+
 
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
