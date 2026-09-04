@@ -525,6 +525,28 @@ def _booking_email_html(event, ctx):
         )
         return subject, header + body + footer
 
+    if event == 'booking_offer_for_client':
+        subject = f'InkLink — {ctx.get("other_name") or "Your artist"} offers you a date'
+        rows = [
+            ('Artist',   other),
+            ('When',     when),
+            ('Duration', _h(ctx.get('duration') or '')),
+            ('Price',    _h(ctx.get('price') or '')),
+            ('Note',     note),
+        ]
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p><strong>{other}</strong> offered you a specific date for the work '
+            f'you agreed on. It is yours once you pay the deposit — until then the '
+            f'time stays open to everyone.</p>'
+            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
+            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
+                      f'<td>{v}</td></tr>' for k, v in rows if v)
+            + '</table>'
+            + cta('Open the offer')
+        )
+        return subject, header + body + footer
+
     if event == 'reminder_for_artist':
         subject = f'InkLink — Tomorrow {ctx.get("other_name") or "a client"} is coming in'
         body = (
@@ -872,6 +894,32 @@ def init_db():
         FOREIGN KEY (sender_id)   REFERENCES users(id),
         FOREIGN KEY (receiver_id) REFERENCES users(id)
     )''')
+
+    # Zpráva může nést nabídku termínu — pak ji vlákno vykreslí jako kartu
+    # místo bubliny. Odkaz na zprávě (ne naopak) drží pořadí v konverzaci
+    # bez slučování dvou seznamů.
+    add_col('messages', 'offer_id INTEGER DEFAULT NULL')
+
+    # Nabídka termínu: tatér se s klientem domluví v chatu na custom práci
+    # a pošle mu konkrétní termín a cenu. Slot zabere až přijetí — držet ho
+    # od odeslání by z každé zapomenuté nabídky udělalo díru v kalendáři.
+    c.execute('''CREATE TABLE IF NOT EXISTS booking_offers (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        artist_id        INTEGER NOT NULL,
+        client_id        INTEGER NOT NULL,
+        slot_id          INTEGER NOT NULL,
+        booking_start_at TEXT NOT NULL,
+        duration_hours   REAL NOT NULL,
+        price_kc         INTEGER NOT NULL,
+        note             TEXT DEFAULT '',
+        status           TEXT DEFAULT 'pending',
+        booking_id       INTEGER DEFAULT NULL,
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_offers_pair '
+              'ON booking_offers(artist_id, client_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_offers_client '
+              'ON booking_offers(client_id, status)')
 
     c.execute('''CREATE TABLE IF NOT EXISTS favorite_cities (
         user_id  INTEGER NOT NULL,
@@ -5906,13 +5954,37 @@ def create_booking():
     duration_raw      = data.get('duration_hours')
     portfolio_item_id = data.get('portfolio_item_id')
     pay_full          = bool(data.get('pay_full'))
+    offer_id          = data.get('offer_id')
 
-    if not slot_id:
+    # Přijetí nabídky termínu: parametry jsou dané dohodou v chatu, klient
+    # do nich nesahá. Načítáme je až po otevření spojení, viz níž.
+    offer = None
+
+    if not offer_id and not slot_id:
         return jsonify({'error': 'slot_id je povinný'}), 400
-    if not design_note:
+    # U nabídky popis nechceme — co se dělá, je domluvené v chatu a text
+    # nese sama nabídka.
+    if not offer_id and not design_note:
         return jsonify({'error': 'Popiš tatérovi co chceš (lokace, motiv, velikost…).'}), 400
 
     conn = get_db()
+
+    if offer_id:
+        offer = conn.execute('SELECT * FROM booking_offers WHERE id=?', (offer_id,)).fetchone()
+        if not offer or offer['client_id'] != session['user_id']:
+            conn.close(); return jsonify({'error': 'not found'}), 404
+        state = _offer_state(offer)
+        if state != 'pending':
+            conn.close()
+            return jsonify({'error': 'Tahle nabídka už neplatí.', 'status': state}), 409
+        # Nabídka přebíjí vstup z formuláře — cena i čas jsou domluvené.
+        slot_id           = offer['slot_id']
+        booking_start_raw = offer['booking_start_at']
+        duration_raw      = offer['duration_hours']
+        size_label        = ''
+        portfolio_item_id = None
+        design_note       = design_note or (offer['note'] or 'Custom design')
+
     slot = conn.execute('SELECT * FROM slots WHERE id=?', (slot_id,)).fetchone()
     if not slot:
         conn.close()
@@ -5975,7 +6047,7 @@ def create_booking():
         duration_hours = round(slot_total_hours, 2)
         booking_start  = slot_start
         booking_end    = slot_end
-        total_price    = avg_price                    # v Kč (celkem)
+        total_price    = float(offer['price_kc']) if offer else avg_price   # v Kč (celkem)
         deposit_cents  = int(round(total_price * deposit_pct / 100)) * 100
     else:
         # Hodinový blok — klient si vybírá sub-range
@@ -6027,8 +6099,10 @@ def create_booking():
                 conn.close()
                 return jsonify({'error': 'Tento čas se kryje s jinou rezervací — vyber jiný začátek.'}), 409
 
-        # 4) Cena: zvolená velikost návrhu > fixní cena návrhu > duration × hourly
-        if picked_size:
+        # 4) Cena: nabídka > zvolená velikost návrhu > fixní cena návrhu > duration × hourly
+        if offer:
+            total_price = float(offer['price_kc'])
+        elif picked_size:
             total_price = float(picked_size['price_kc'])
         elif portfolio_item and portfolio_item['price_kc']:
             total_price = float(portfolio_item['price_kc'])
@@ -6207,6 +6281,12 @@ def create_booking():
         bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
     else:
         bid = conn.execute('SELECT lastval()').fetchone()[0]
+
+    if offer:
+        # Až tady: kdyby vložení rezervace spadlo, nabídka zůstane přijatelná.
+        conn.execute("UPDATE booking_offers SET status='accepted', booking_id=? WHERE id=?",
+                     (bid, offer['id']))
+        conn.commit()
 
     # CRM: rezervace zakládá (nebo najde) klientský řádek u daného tatéra.
     # Nesmí shodit rezervaci, když se něco pokazí — je to odvozený záznam.
@@ -8606,7 +8686,7 @@ def conversations():
         'display_name': r['display_name'],
         'avatar':       r['avatar'],
         'initials':     initials(r['display_name']),
-        'last_msg':     r['last_msg'] if r['last_msg'] else '📷 Fotka',
+        'last_msg':     r['last_msg'] if r['last_msg'] else '📷 Fotka',   # nabídka nese text v content
         'last_at':      time_ago(r['last_at']),
         'unread':       r['unread'],
     } for r in rows])
@@ -8632,6 +8712,13 @@ def get_messages(other_id):
     ''', (session['user_id'], other_id, other_id, session['user_id'])).fetchall()
 
     other = conn.execute('SELECT id, username, display_name, avatar FROM users WHERE id=?', (other_id,)).fetchone()
+    offers = {
+        r['id']: _offer_dict(r, session['user_id'])
+        for r in conn.execute(
+            'SELECT * FROM booking_offers WHERE (artist_id=? AND client_id=?) '
+            'OR (artist_id=? AND client_id=?)',
+            (session['user_id'], other_id, other_id, session['user_id'])).fetchall()
+    }
     conn.close()
 
     if not other:
@@ -8650,6 +8737,7 @@ def get_messages(other_id):
             'content':      m['content'],
             'content_type': m['content_type'] or 'text',
             'image':        m['image'] or '',
+            'offer':        offers.get(m['offer_id']) if m['offer_id'] else None,
             'mine':         m['sender_id'] == session['user_id'],
             'created_at':   time_ago(m['created_at']),
         } for m in rows]
@@ -8795,6 +8883,157 @@ def create_design_request():
     })
     conn.close()
     return jsonify({'ok': True, 'thread': f'/messages?user={artist["username"]}'})
+
+
+# ── Nabídky termínu ───────────────────────────────────────────────────────
+#
+# Tatér se s klientem domluví v chatu na custom práci a pošle mu konkrétní
+# termín a cenu. Klient přijme → vznikne běžná rezervace se zálohou.
+#
+# Slot zabere až přijetí. Držet ho od odeslání by z každé zapomenuté
+# nabídky udělalo díru v kalendáři a nikdo by ji neuklidil.
+
+def _offer_state(row, now=None):
+    """Nabídka na termín, který už začal, je mrtvá — bez ohledu na status.
+    Počítá se za běhu, aby nebylo co uklízet cronem."""
+    if row['status'] != 'pending':
+        return row['status']
+    now = now or _prague_now_naive()
+    try:
+        if _naive_dt(row['booking_start_at']) <= now:
+            return 'expired'
+    except (ValueError, TypeError):
+        pass
+    return 'pending'
+
+
+def _offer_dict(row, uid):
+    return {
+        'id':               row['id'],
+        'status':           _offer_state(row),
+        'mine':             row['artist_id'] == uid,
+        'booking_start_at': row['booking_start_at'],
+        'duration_hours':   float(row['duration_hours']),
+        'price_kc':         int(row['price_kc']),
+        'note':             row['note'] or '',
+        'booking_id':       row['booking_id'],
+    }
+
+
+@app.route('/api/booking-offers', methods=['POST'])
+@limiter.limit('30 per hour')
+def create_booking_offer():
+    """Tatér nabídne klientovi konkrétní termín za dohodnutou cenu."""
+    err = require_login()
+    if err: return err
+    uid  = session['user_id']
+    data = request.get_json(silent=True) or {}
+
+    try:
+        client_id = int(data.get('client_id') or 0)
+        slot_id   = int(data.get('slot_id') or 0)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Špatný klient nebo termín.'}), 400
+    if not client_id or not slot_id:
+        return jsonify({'error': 'Chybí klient nebo termín.'}), 400
+    if client_id == uid:
+        return jsonify({'error': 'Sám sobě termín nabídnout nemůžeš.'}), 400
+
+    try:
+        duration_hours = float(data.get('duration_hours') or 0)
+        price_kc       = int(data.get('price_kc') or 0)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Cena a délka musí být čísla.'}), 400
+    if duration_hours < 0.5 or duration_hours > 24:
+        return jsonify({'error': 'Délka musí být mezi 0,5 a 24 hodinami.'}), 400
+    if price_kc <= 0:
+        return jsonify({'error': 'Zadej dohodnutou cenu.'}), 400
+    note = (data.get('note') or '').strip()[:500]
+
+    conn = get_db()
+    slot = conn.execute('SELECT * FROM slots WHERE id=?', (slot_id,)).fetchone()
+    if not slot or slot['user_id'] != uid:
+        conn.close(); return jsonify({'error': 'Termín nenalezen.'}), 404
+    if not conn.execute('SELECT 1 FROM users WHERE id=?', (client_id,)).fetchone():
+        conn.close(); return jsonify({'error': 'Klient nenalezen.'}), 404
+
+    try:
+        slot_start = _naive_dt(slot['start_at'])
+        slot_end   = _naive_dt(slot['end_at'])
+        raw_start  = (data.get('booking_start_at') or '').strip()
+        start      = _naive_dt(raw_start) if raw_start else slot_start
+    except ValueError:
+        conn.close(); return jsonify({'error': 'Špatný formát začátku.'}), 400
+    end = start + timedelta(hours=duration_hours)
+
+    if start <= _prague_now_naive():
+        conn.close(); return jsonify({'error': 'Termín už je v minulosti.'}), 400
+    if start < slot_start - timedelta(minutes=1) or end > slot_end + timedelta(minutes=1):
+        conn.close(); return jsonify({'error': 'Termín se nevejde do bloku.'}), 400
+
+    # Stejná kolizní kontrola jako u běžné rezervace — nabízet obsazený čas
+    # znamená slíbit něco, co při přijetí stejně spadne.
+    buf_before = slot['buffer_before_minutes'] or 0
+    buf_after  = slot['buffer_after_minutes'] or 0
+    for s_iso, e_iso, ex_before, ex_after in _slot_active_bookings(conn, slot_id):
+        if _padded_overlap(start, end, buf_before, buf_after,
+                           _naive_dt(s_iso), _naive_dt(e_iso), ex_before, ex_after):
+            conn.close()
+            return jsonify({'error': 'Tenhle čas se kryje s jinou rezervací.'}), 409
+
+    # Nová nabídka ruší předchozí — platí ta, na které jste se domluvili
+    # naposled. Jinak by klient mohl přijmout tu starou a levnější.
+    conn.execute("UPDATE booking_offers SET status='cancelled' "
+                 "WHERE artist_id=? AND client_id=? AND status='pending'", (uid, client_id))
+    conn.execute(
+        'INSERT INTO booking_offers '
+        '(artist_id, client_id, slot_id, booking_start_at, duration_hours, price_kc, note) '
+        'VALUES (?,?,?,?,?,?,?)',
+        (uid, client_id, slot_id, start.isoformat(), duration_hours, price_kc, note))
+    offer_id = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+                else conn.execute('SELECT lastval()').fetchone()[0])
+
+    me = conn.execute('SELECT username, display_name FROM users WHERE id=?', (uid,)).fetchone()
+    who = me['display_name'] or me['username']
+    conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type, offer_id) '
+                 'VALUES (?,?,?,?,?)',
+                 (uid, client_id, note or 'Booking offer', 'offer', offer_id))
+    push_notif(conn, client_id, uid, 'booking_offer', offer_id, 'user',
+               f'{who} ti nabízí termín.')
+    conn.commit()
+
+    send_booking_email(conn, client_id, 'booking_offer_for_client', {
+        'other_name':  who,
+        'when':        start.strftime('%d.%m.%Y %H:%M'),
+        'duration':    f'{duration_hours:g} h',
+        'price':       f'{price_kc:,} CZK'.replace(',', ' '),
+        'design_note': note,
+        'booking_url': f'{APP_BASE_URL}/messages?user={me["username"]}',
+    })
+    conn.close()
+    return jsonify({'ok': True, 'offer_id': offer_id})
+
+
+@app.route('/api/booking-offers/<int:offer_id>/decline', methods=['POST'])
+def decline_booking_offer(offer_id):
+    """Odmítnout smí klient, zrušit tatér — obojí končí mrtvou nabídkou."""
+    err = require_login()
+    if err: return err
+    uid  = session['user_id']
+    conn = get_db()
+    row = conn.execute('SELECT * FROM booking_offers WHERE id=?', (offer_id,)).fetchone()
+    if not row or uid not in (row['artist_id'], row['client_id']):
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if _offer_state(row) != 'pending':
+        conn.close(); return jsonify({'error': 'S touhle nabídkou už se nedá nic dělat.'}), 409
+    new_status = 'cancelled' if uid == row['artist_id'] else 'declined'
+    conn.execute('UPDATE booking_offers SET status=? WHERE id=?', (new_status, offer_id))
+    other = row['client_id'] if uid == row['artist_id'] else row['artist_id']
+    push_notif(conn, other, uid, 'booking_offer_' + new_status, offer_id, 'user',
+               'Nabídka termínu byla zrušena.' if new_status == 'cancelled'
+               else 'Klient nabídku termínu odmítl.')
+    conn.commit(); conn.close()
+    return jsonify({'ok': True, 'status': new_status})
 
 
 @app.route('/api/messages/unread')

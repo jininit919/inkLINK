@@ -1778,6 +1778,19 @@ class I18nKeyTests(unittest.TestCase):
                 bad.append(f'{f}: <{m.group(1)} data-i18n=…>{m.group(2).strip()[:30]}<{m.group(3)}…')
         self.assertEqual(bad, [])
 
+    def test_no_duplicate_keys(self):
+        """Dvakrát stejný klíč v jednom objektu je tichá chyba: platí
+        poslední a rozdíl nikdo nevidí. Vzniklo to při vkládání klíče,
+        který ve slovníku už byl."""
+        import re
+        src = open('public/i18n.js', encoding='utf-8').read()
+        i_cs, i_en = src.index('    cs: {'), src.index('    en: {')
+        i_end = src.index('\n  };', i_en)
+        for name, block in (('cs', src[i_cs:i_en]), ('en', src[i_en:i_end])):
+            keys = re.findall(r"^ +'([\w.]+)':", block, re.M)
+            dupes = sorted({k for k in keys if keys.count(k) > 1})
+            self.assertEqual(dupes, [], f'duplicitní klíče v {name}')
+
     def test_dictionaries_are_symmetric(self):
         cs, en = self._dicts()
         self.assertEqual(sorted(cs - en), [], 'klíč jen v češtině')
@@ -2185,6 +2198,171 @@ class DesignRequestTests(_Sprint2Base):
     def test_request_without_references_still_works(self):
         """Bez fotek se posílá JSON — ta cesta nesmí přestat fungovat."""
         self.assertEqual(self._ask().status_code, 200)
+
+
+class BookingOfferTests(_Sprint2Base):
+    """Tatér se domluví v chatu na custom práci a pošle konkrétní termín
+    s cenou. Klient přijme → vznikne běžná rezervace se zálohou.
+
+    Slot zabere až přijetí. Držet ho od odeslání by z každé zapomenuté
+    nabídky udělalo díru v kalendáři a nikdo by ji neuklidil."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
+        conn.commit(); conn.close()
+        self.start = self._day_at(9, 10)
+        self.slot  = self._mk_slot(self.start, self.start + timedelta(hours=8))
+
+    def _as_artist(self):
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+
+    def _as_client(self):
+        self.client.post('/api/login', json={'username': 'client1', 'password': 'pass1234'})
+
+    def _offer(self, **over):
+        body = {'client_id': 2, 'slot_id': self.slot,
+                'booking_start_at': self.start.isoformat(),
+                'duration_hours': 3, 'price_kc': 7500, 'note': 'Custom vlk'}
+        body.update(over)
+        return self.client.post('/api/booking-offers', json=body)
+
+    def test_offer_reaches_the_thread(self):
+        import sqlite3
+        self._as_artist()
+        r = self._offer()
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        conn = sqlite3.connect(self.db)
+        m = conn.execute('SELECT sender_id, receiver_id, content_type, offer_id '
+                         'FROM messages ORDER BY id DESC LIMIT 1').fetchone()
+        conn.close()
+        self.assertEqual((m[0], m[1], m[2]), (1, 2, 'offer'))
+        self.assertEqual(m[3], r.get_json()['offer_id'])
+
+    def test_offer_does_not_block_the_slot(self):
+        """Nabídka je nabídka. Kdyby držela čas, každá zapomenutá by ubrala
+        z kalendáře a nikdo by ji neuklidil."""
+        self._as_artist()
+        self._offer()
+        self._as_client()
+        # Někdo jiný si stejný čas pořád může vzít běžnou cestou.
+        r = self.client.post('/api/bookings', json={
+            'slot_id': self.slot, 'design_note': 'jiny motiv',
+            'booking_start_at': self.start.isoformat(), 'duration_hours': 3})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+
+    def test_accepting_creates_a_booking_at_the_agreed_price(self):
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        self._as_client()
+        r = self.client.post('/api/bookings', json={'offer_id': oid})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        b = r.get_json()
+        self.assertEqual(b['total_price_kc'], 7500)
+        self.assertEqual(b['duration_hours'], 3)
+
+    def test_accepted_offer_records_the_booking(self):
+        import sqlite3
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        self._as_client()
+        bid = self.client.post('/api/bookings', json={'offer_id': oid}).get_json()['id']
+        conn = sqlite3.connect(self.db)
+        row = conn.execute('SELECT status, booking_id FROM booking_offers WHERE id=?',
+                           (oid,)).fetchone()
+        conn.close()
+        self.assertEqual(row, ('accepted', bid))
+
+    def test_offer_cannot_be_accepted_twice(self):
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        self._as_client()
+        self.client.post('/api/bookings', json={'offer_id': oid})
+        r = self.client.post('/api/bookings', json={'offer_id': oid})
+        self.assertEqual(r.status_code, 409)
+
+    def test_only_the_addressee_can_accept(self):
+        """404, ne 403 — jinak by se dalo hádáním id zjistit, že nabídka
+        existuje."""
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        r = self.client.post('/api/bookings', json={'offer_id': oid})   # pořád tatér
+        self.assertEqual(r.status_code, 404)
+
+    def test_client_declines(self):
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        self._as_client()
+        r = self.client.post(f'/api/booking-offers/{oid}/decline')
+        self.assertEqual(r.get_json()['status'], 'declined')
+        self.assertEqual(self.client.post('/api/bookings', json={'offer_id': oid}).status_code, 409)
+
+    def test_artist_cancels(self):
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        r = self.client.post(f'/api/booking-offers/{oid}/decline')
+        self.assertEqual(r.get_json()['status'], 'cancelled')
+
+    def test_stranger_sees_nothing(self):
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        _register(self.client, 'kolemjdouci')
+        self.assertEqual(self.client.post(f'/api/booking-offers/{oid}/decline').status_code, 404)
+
+    def test_new_offer_cancels_the_previous_one(self):
+        """Platí ta, na které jste se domluvili naposled. Jinak by klient
+        mohl přijmout tu starou a levnější."""
+        self._as_artist()
+        first = self._offer().get_json()['offer_id']
+        self._offer(price_kc=9000)
+        self._as_client()
+        self.assertEqual(self.client.post('/api/bookings', json={'offer_id': first}).status_code, 409)
+
+    def test_offer_must_fit_the_block(self):
+        self._as_artist()
+        self.assertEqual(self._offer(duration_hours=12).status_code, 400)
+
+    def test_offer_cannot_collide(self):
+        """Nabízet obsazený čas znamená slíbit něco, co při přijetí spadne."""
+        self._as_client()
+        self.client.post('/api/bookings', json={
+            'slot_id': self.slot, 'design_note': 'uz zabrano',
+            'booking_start_at': self.start.isoformat(), 'duration_hours': 3})
+        self._as_artist()
+        self.assertEqual(self._offer().status_code, 409)
+
+    def test_offer_needs_a_price(self):
+        self._as_artist()
+        self.assertEqual(self._offer(price_kc=0).status_code, 400)
+
+    def test_offer_only_from_own_slot(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+                     "VALUES ('artist2','Artist Two','x','a2@t.cz',1)")
+        conn.commit(); conn.close()
+        other_slot = self._mk_slot(self.start, self.start + timedelta(hours=8), artist_id=3)
+        self._as_artist()
+        self.assertEqual(self._offer(slot_id=other_slot).status_code, 404)
+
+    def test_thread_carries_the_offer(self):
+        self._as_artist()
+        oid = self._offer().get_json()['offer_id']
+        self._as_client()
+        msgs = self.client.get('/api/messages/1').get_json()['messages']
+        offer = next(m['offer'] for m in msgs if m['offer'])
+        self.assertEqual(offer['id'], oid)
+        self.assertEqual(offer['status'], 'pending')
+        self.assertFalse(offer['mine'])
+        self.assertEqual(offer['price_kc'], 7500)
+
+    def test_anonymous_cannot_offer(self):
+        self.client.post('/api/logout')
+        self.assertEqual(self._offer().status_code, 401)
 
 
 class LoginIdentifierTests(unittest.TestCase):

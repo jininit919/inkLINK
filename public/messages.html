@@ -2,7 +2,50 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<style>html,body{background:#faf8f3;margin:0}</style>
+<style>html,body{background:#faf8f3;margin:0}
+/* Nabídka termínu — karta místo bubliny, ať se nedá přehlédnout mezi
+   běžnými zprávami. */
+.offer-row{max-width:100%}
+.offer-card{max-width:280px;border:1px solid var(--txt);background:var(--bg2);
+  padding:12px 14px;font-size:11px;letter-spacing:0.03em;line-height:1.6}
+.offer-card.accepted{border-color:var(--ok)}
+.offer-card.declined,.offer-card.cancelled,.offer-card.expired{opacity:0.6;border-color:var(--border2)}
+.offer-head{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px}
+.offer-when{font-size:14px;letter-spacing:0.04em;margin-bottom:2px}
+.offer-meta{color:var(--txt2)}
+.offer-meta b{color:var(--txt);font-weight:400}
+.offer-note{margin-top:8px;color:var(--txt2);white-space:pre-wrap;overflow-wrap:anywhere}
+.offer-hint{margin-top:8px;font-size:10px;color:var(--txt3);line-height:1.5}
+.offer-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.offer-wait{font-size:10px;color:var(--txt3);letter-spacing:0.06em}
+.offer-btn{font-family:inherit;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:7px 12px;background:transparent;border:1px solid var(--border2);color:var(--txt2);cursor:pointer}
+.offer-btn:hover{border-color:var(--txt);color:var(--txt)}
+.offer-btn.primary{background:var(--txt);border-color:var(--txt);color:var(--bg)}
+.offer-btn.primary:hover{opacity:0.85}
+.offer-btn:disabled{opacity:0.45;cursor:not-allowed}
+.offer-cta{margin-left:auto;font-family:inherit;font-size:10px;letter-spacing:0.1em;
+  text-transform:uppercase;padding:7px 12px;background:transparent;
+  border:1px solid var(--txt);color:var(--txt);cursor:pointer;white-space:nowrap}
+.offer-cta:hover{background:var(--txt);color:var(--bg)}
+
+#offerModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;
+  align-items:center;justify-content:center;z-index:400;padding:20px}
+#offerModal.show{display:flex}
+.of-card{max-width:420px;width:100%;background:var(--bg2);border:1px solid var(--border);
+  padding:24px;max-height:90vh;overflow-y:auto}
+.of-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:20px;
+  letter-spacing:0.12em;margin-bottom:6px}
+.of-hint{font-size:11px;color:var(--txt3);line-height:1.6;margin-bottom:14px}
+.of-card label{display:block;font-size:10px;letter-spacing:0.1em;color:var(--txt3);
+  margin:14px 0 6px;text-transform:uppercase}
+.of-card select,.of-card input,.of-card textarea{width:100%;background:var(--bg3);
+  border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;
+  padding:9px 11px;outline:none}
+.of-card select:focus,.of-card input:focus,.of-card textarea:focus{border-color:var(--txt)}
+.of-flash{font-size:11px;color:var(--err);min-height:15px;margin-top:10px}
+.of-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf8f3">
@@ -172,7 +215,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
       <button class="new-msg-btn" onclick="openNewMsg()">+ New</button>
     </div>
     <div class="conv-search">
-      <input type="text" id="convSearch" placeholder="Search conversations...">
+      <input type="text" id="convSearch" data-i18n-attr="ms.searchPh:placeholder" placeholder="Search conversations...">
     </div>
     <div class="conv-list" id="convList">
       <div class="il-loading-row"><span class="il-spinner"></span> Loading conversations…</div>
@@ -205,11 +248,34 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
   </div>
 </div>
 
+<div id="offerModal" onclick="if(event.target===this)closeOfferModal()">
+  <div class="of-card">
+    <h3 data-i18n="ms.ofNew">Offer a date</h3>
+    <p class="of-hint" data-i18n="ms.ofIntro">Send a specific date and the price you agreed on. The slot is taken once the client pays the deposit.</p>
+    <label for="ofSlot" data-i18n="ms.ofSlot">Open block</label>
+    <select id="ofSlot" onchange="renderOfferStarts()"></select>
+    <label for="ofDuration" data-i18n="ms.ofDuration">Length (h)</label>
+    <input type="number" id="ofDuration" min="0.5" max="24" step="0.5" value="3" onchange="renderOfferStarts()">
+    <label for="ofStart" data-i18n="ms.ofStart">Start</label>
+    <select id="ofStart"></select>
+    <label for="ofPrice" data-i18n="ms.ofPrice">Agreed price (CZK)</label>
+    <input type="number" id="ofPrice" min="1" step="100" data-i18n-attr="ms.ofPricePh:placeholder" placeholder="total for the whole work">
+    <label for="ofNote" data-i18n="ms.ofNote">Note for the client — optional</label>
+    <textarea id="ofNote" rows="3" maxlength="500" data-i18n-attr="ms.ofNotePh:placeholder" placeholder="What you agreed on"></textarea>
+    <div id="ofFlash" class="of-flash"></div>
+    <div class="of-actions">
+      <button class="offer-btn" type="button" onclick="closeOfferModal()" data-i18n="ms.ofBack">Cancel</button>
+      <button class="offer-btn primary" type="button" id="ofSubmit" onclick="submitOffer()" data-i18n="ms.ofSend">Send offer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let myId        = null;
 let myInitials  = '';
 let myAvatar    = '';
 let activeUserId = null;
+let meIsArtist   = false;
 let allConvs    = [];
 let pollTimer   = null;
 
@@ -220,6 +286,7 @@ async function init() {
   myId       = me.id;
   myInitials = (me.display_name || '??').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   myAvatar   = me.avatar_url || '';
+  meIsArtist = !!me.is_artist;
 
   await loadConversations();
 
@@ -231,6 +298,10 @@ async function init() {
   }
 
   document.getElementById('convSearch').addEventListener('input', e => filterConvs(e.target.value));
+  // Vlákno se skládá v JS, takže ho po přepnutí jazyka musíme překreslit.
+  document.addEventListener('il-i18n-applied', () => {
+    if (activeUserId) fetchMessages(activeUserId);
+  });
 }
 
 // ── Conversations ─────────────────────────────────────────────────────────────
@@ -251,7 +322,7 @@ function renderConvs(convs) {
     el.innerHTML = `
       <div class="conv-empty">
         <div style="font-size:36px;opacity:0.15;margin-bottom:12px">✉</div>
-        <div style="font-size:13px;color:var(--txt);letter-spacing:0.02em;margin-bottom:6px">No messages yet</div>
+        <div style="font-size:13px;color:var(--txt);letter-spacing:0.02em;margin-bottom:6px" data-i18n="ms.none">No messages yet</div>
         <div style="font-size:11px;line-height:1.6;margin-bottom:18px">Message an artist you're interested in.<br>Conversations will appear here.</div>
         <a href="/" style="display:inline-block;padding:9px 18px;background:var(--txt);color:var(--bg);text-decoration:none;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;border-radius:6px">Browse artists</a>
       </div>`;
@@ -347,8 +418,9 @@ async function openChat(userId, name, ini, avatar, username) {
         ${avatar ? `<img src="/uploads/${esc(avatar)}" alt="">` : esc(ini)}
       </a>
       <div class="chat-name"><a href="/profile/${esc(username)}">${esc(name)}</a></div>
+      ${meIsArtist ? `<button class="offer-cta" type="button" onclick="openOfferModal()">${mt('ms.ofNew', 'Offer a date')}</button>` : ''}
     </div>
-    <div class="chat-messages" id="chatMessages"><div class="il-loading-row"><span class="il-spinner"></span> Loading messages…</div></div>
+    <div class="chat-messages" id="chatMessages"><div class="il-loading-row"><span class="il-spinner"></span> ${mt('ms.loading', 'Loading messages…')}</div></div>
     <div class="chat-input-bar">
       <div class="emoji-picker" id="emojiPicker">${buildEmojiPicker()}</div>
       <div class="img-preview-bar" id="imgPreviewBar">
@@ -361,7 +433,7 @@ async function openChat(userId, name, ini, avatar, username) {
         <label class="input-btn" title="Send photo" style="cursor:pointer">
           📷<input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
         </label>
-        <textarea class="chat-input" id="chatInput" placeholder="Write a message..." rows="1" onkeydown="inputKeydown(event)"></textarea>
+        <textarea class="chat-input" id="chatInput" placeholder="${mt('ms.writePh', 'Write a message…')}" rows="1" onkeydown="inputKeydown(event)"></textarea>
         <button class="send-btn" onclick="sendMsg()" id="sendBtn">↑</button>
       </div>
     </div>`;
@@ -374,6 +446,156 @@ async function openChat(userId, name, ini, avatar, username) {
 
   await fetchMessages(userId);
   pollMessages(userId);
+}
+
+// ── Nabídka termínu ────────────────────────────────────────────────────
+// Tatér se v chatu domluví na custom práci a pošle konkrétní termín
+// s cenou. Slot zabere až přijetí — držet ho od odeslání by z každé
+// zapomenuté nabídky udělalo díru v kalendáři.
+let offerSlots = [];
+
+function fmtOfferWhen(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(msgLocale(), {day: 'numeric', month: 'short', year: 'numeric'})
+         + ' · ' + d.toLocaleTimeString(msgLocale(), {hour: '2-digit', minute: '2-digit'});
+  } catch { return iso; }
+}
+
+function msgLocale() {
+  return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB';
+}
+
+function mt(key, fallback) {
+  const v = window.InkLinkI18N ? InkLinkI18N.t(key) : key;
+  return v === key ? fallback : v;
+}
+
+function offerCard(o) {
+  const price = o.price_kc.toLocaleString(msgLocale()) + ' CZK';
+  // Čekající nabídka odznak nemá — stav je vidět z tlačítek pod ní.
+  // Pozor na `||`: prázdný popisek by přes něj propadl na syrový status.
+  const BADGES = {
+    accepted:  mt('ms.ofAccepted', 'Accepted'),
+    declined:  mt('ms.ofDeclined', 'Declined'),
+    cancelled: mt('ms.ofCancelled', 'Cancelled'),
+    expired:   mt('ms.ofExpired', 'Expired'),
+  };
+  const badge = o.status === 'pending' ? '' : (BADGES[o.status] || o.status);
+
+  let actions = '';
+  if (o.status === 'pending' && !o.mine) {
+    actions = `<div class="offer-actions">
+      <button class="offer-btn primary" onclick="acceptOffer(${o.id})">${mt('ms.ofAccept', 'Accept & pay deposit')}</button>
+      <button class="offer-btn" onclick="declineOffer(${o.id})">${mt('ms.ofDecline', 'Decline')}</button>
+    </div>`;
+  } else if (o.status === 'pending' && o.mine) {
+    actions = `<div class="offer-actions">
+      <span class="offer-wait">${mt('ms.ofWaiting', 'Waiting for the client')}</span>
+      <button class="offer-btn" onclick="declineOffer(${o.id})">${mt('ms.ofCancel', 'Cancel offer')}</button>
+    </div>`;
+  }
+
+  return `<div class="offer-card ${o.status}">
+    <div class="offer-head">${mt('ms.ofTitle', 'Booking offer')}${badge ? ` · <b>${esc(badge)}</b>` : ''}</div>
+    <div class="offer-when">${esc(fmtOfferWhen(o.booking_start_at))}</div>
+    <div class="offer-meta">${o.duration_hours} h · <b>${esc(price)}</b></div>
+    ${o.note ? `<div class="offer-note">${esc(o.note)}</div>` : ''}
+    ${o.status === 'pending' ? `<div class="offer-hint">${mt('ms.ofHint', 'The time is yours once the deposit is paid.')}</div>` : ''}
+    ${actions}
+  </div>`;
+}
+
+async function openOfferModal() {
+  const m = document.getElementById('offerModal');
+  document.getElementById('ofFlash').innerHTML = '';
+  document.getElementById('ofPrice').value = '';
+  document.getElementById('ofNote').value = '';
+  document.getElementById('ofDuration').value = '3';
+  // Nabízet se dá jen z vlastních vypsaných termínů — jinak by nabídka
+  // slibovala čas, který v kalendáři neexistuje.
+  offerSlots = await fetch('/api/me/slots').then(r => r.ok ? r.json() : []).catch(() => []);
+  const now = new Date();
+  offerSlots = offerSlots
+    .filter(s => s.status !== 'booked' && new Date(s.end_at) > now)
+    .sort((a, b) => a.start_at.localeCompare(b.start_at));
+  const sel = document.getElementById('ofSlot');
+  sel.innerHTML = offerSlots.map((s, i) =>
+    `<option value="${i}">${esc(fmtOfferWhen(s.start_at))} – ${esc(fmtOfferWhen(s.end_at).split('· ')[1] || '')}</option>`
+  ).join('') || `<option value="">${mt('ms.ofNoSlots', 'No open slots — publish one in the calendar first.')}</option>`;
+  renderOfferStarts();
+  m.classList.add('show');
+}
+
+function closeOfferModal() { document.getElementById('offerModal').classList.remove('show'); }
+
+function renderOfferStarts() {
+  const slot = offerSlots[document.getElementById('ofSlot').value];
+  const sel  = document.getElementById('ofStart');
+  if (!slot) { sel.innerHTML = ''; return; }
+  const dur = parseFloat(document.getElementById('ofDuration').value) || 1;
+  const start = new Date(slot.start_at), end = new Date(slot.end_at);
+  const last = new Date(end.getTime() - dur * 3600 * 1000);
+  const opts = [];
+  for (let x = new Date(start); x <= last; x = new Date(x.getTime() + 30 * 60 * 1000)) {
+    const iso = new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+    opts.push(`<option value="${iso}">${iso.slice(11, 16)}</option>`);
+  }
+  sel.innerHTML = opts.join('') || `<option value="">${mt('ms.ofTooShort', 'This block is too short')}</option>`;
+}
+
+async function submitOffer() {
+  const flash = document.getElementById('ofFlash');
+  const slot  = offerSlots[document.getElementById('ofSlot').value];
+  const start = document.getElementById('ofStart').value;
+  const price = document.getElementById('ofPrice').value;
+  if (!slot || !start) { flash.textContent = mt('ms.ofNoSlots', 'No open slots.'); return; }
+  if (!price || +price <= 0) { flash.textContent = mt('ms.ofNeedPrice', 'Enter the agreed price.'); return; }
+  const btn = document.getElementById('ofSubmit');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/booking-offers', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        client_id: activeUserId, slot_id: slot.id, booking_start_at: start,
+        duration_hours: document.getElementById('ofDuration').value,
+        price_kc: price, note: document.getElementById('ofNote').value.trim(),
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '');
+    closeOfferModal();
+    await fetchMessages(activeUserId);
+  } catch (e) {
+    flash.textContent = e.message || mt('ms.ofFailed', 'That did not work.');
+  }
+  btn.disabled = false;
+}
+
+async function acceptOffer(id) {
+  // Přijetí je běžná rezervace — cena i čas jdou z nabídky, takže klient
+  // pokračuje stejnou platební cestou jako u kteréhokoliv termínu.
+  try {
+    const r = await fetch('/api/bookings', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({offer_id: id}),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || '');
+    if (j.payment_url) { location.href = j.payment_url; return; }
+    location.href = '/pay/' + j.id;
+  } catch (e) {
+    alert(e.message || mt('ms.ofFailed', 'That did not work.'));
+    fetchMessages(activeUserId);
+  }
+}
+
+async function declineOffer(id) {
+  try {
+    const r = await fetch(`/api/booking-offers/${id}/decline`, {method: 'POST'});
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '');
+    await fetchMessages(activeUserId);
+  } catch (e) { alert(e.message || mt('ms.ofFailed', 'That did not work.')); }
 }
 
 async function openByUsername(username) {
@@ -401,7 +623,7 @@ async function fetchMessages(userId) {
   if (!el) return;
 
   if (!data.messages.length) {
-    el.innerHTML = '<div style="text-align:center;color:var(--txt3);font-size:10px;padding:20px 0;letter-spacing:0.06em">No messages yet 👋</div>';
+    el.innerHTML = '<div style="text-align:center;color:var(--txt3);font-size:10px;padding:20px 0;letter-spacing:0.06em">' + mt('ms.emptyThread', 'No messages yet 👋') + '</div>';
     return;
   }
 
@@ -411,6 +633,7 @@ async function fetchMessages(userId) {
       : (data.other.avatar
           ? `<div class="msg-avatar"><img src="/uploads/${esc(data.other.avatar)}" alt=""></div>`
           : `<div class="msg-avatar">${esc(data.other.initials)}</div>`);
+    if (m.offer) return `<div class="msg-row ${m.mine ? 'mine' : ''} offer-row">${offerCard(m.offer)}</div>`;
     const bubbleContent = m.content_type === 'image' && m.image
       ? `<img class="msg-image" src="/uploads/${esc(m.image)}" alt="foto" onclick="openImgFull(this.src)">`
       : esc(m.content);
@@ -628,7 +851,8 @@ async function pollUnread() {
 init().then(() => pollUnread());
 </script>
 
-<script src="/mobile-nav.js?v=14"></script>
+<script src="/i18n.js"></script>
+<script src="/mobile-nav.js?v=15"></script>
 <script>InkLinkMobileNav && InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
 <script src="/icons.js?v=2"></script>
