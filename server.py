@@ -483,6 +483,25 @@ def _booking_email_html(event, ctx):
         )
         return subject, header + body + footer
 
+    if event == 'reschedule_requested_for_artist':
+        subject = f'InkLink — {ctx.get("other_name") or "A client"} asks to move a booking'
+        rows = [
+            ('Client',   other),
+            ('Currently', _h(ctx.get('current_when') or '')),
+            ('Asks for', when),
+        ]
+        body = (
+            f'<p>Hi <strong>{name}</strong>,</p>'
+            f'<p><strong>{other}</strong> asked to move a booking. '
+            f'Nothing changes until you approve it.</p>'
+            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
+            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
+                      f'<td>{v}</td></tr>' for k, v in rows)
+            + '</table>'
+            + cta('Review the request')
+        )
+        return subject, header + body + footer
+
     if event == 'reminder_for_artist':
         subject = f'InkLink — Tomorrow {ctx.get("other_name") or "a client"} is coming in'
         body = (
@@ -6588,6 +6607,20 @@ def reschedule_booking(bid):
         push_notif(conn, b['artist_id'], uid, 'reschedule_requested', bid, 'booking',
                    f'Klient žádá o přesun rezervace na {target["start"].strftime("%d.%m. %H:%M")}.')
         conn.commit()
+
+        # Mail navíc k in-app notifikaci: žádost čeká na tatéra a dokud ji
+        # nevyřídí, termín se nehne. Kdyby se o ní dozvěděl až při příštím
+        # otevření appky, může to být po původním termínu.
+        # send_booking_email nikdy nevyhazuje — výpadek Resendu nesmí shodit
+        # samotnou žádost, ta je už uložená a commitnutá.
+        requester = conn.execute('SELECT display_name, username FROM users WHERE id=?',
+                                 (uid,)).fetchone()
+        send_booking_email(conn, b['artist_id'], 'reschedule_requested_for_artist', {
+            'other_name':   (requester['display_name'] or requester['username']) if requester else '',
+            'current_when': _fmt_booking_when(b['booking_start_at'], b['duration_hours']),
+            'when':         _fmt_booking_when(target['start'].isoformat(), b['duration_hours']),
+            'booking_url':  APP_BASE_URL + '/calendar',
+        })
         conn.close()
         return jsonify({'ok': True, 'applied': False, 'status': 'pending',
                         'request_id': rid, 'hours_before': round(hours_before, 1)})

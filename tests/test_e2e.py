@@ -1884,6 +1884,79 @@ class InternalNoteTests(_Sprint2Base):
             f'/api/bookings/{bid}', json={'design_note': 'od klienta'}).status_code, 200)
 
 
+class RescheduleEmailTests(_Sprint2Base):
+    """Žádost o přesun čeká na tatéra a dokud ji nevyřídí, termín se nehne.
+    In-app notifikace na to nestačí — kdyby ji uviděl až při příštím otevření
+    appky, může to být po původním termínu."""
+
+    def setUp(self):
+        super().setUp()
+        from unittest.mock import patch
+        import server
+        self.patch, self.server = patch, server
+
+    def _late_booking(self):
+        """Rezervace do 48 h → přesun klientem vytvoří žádost, neaplikuje se."""
+        sid = self._mk_slot(self._day_at(1, 9), self._day_at(1, 18))
+        self._as_client()
+        r = self._book(sid, self._day_at(1, 10))
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        return r.get_json()['id'], sid
+
+    def test_request_sends_email_to_artist(self):
+        bid, sid = self._late_booking()
+        with self.patch.object(self.server, 'send_booking_email') as mail:
+            r = self.client.patch(f'/api/bookings/{bid}/reschedule',
+                                  json={'new_slot_id': sid,
+                                        'booking_start_at': self._day_at(1, 14).isoformat()})
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.get_json()['applied'])   # žádost, ne přesun
+        self.assertTrue(mail.called, 'tatérovi se neodeslal mail')
+        args = mail.call_args[0]
+        self.assertEqual(args[1], 1)                             # artist_id
+        self.assertEqual(args[2], 'reschedule_requested_for_artist')
+        # Mail musí říct, odkud kam — jinak musí tatér otevřít appku,
+        # aby vůbec věděl, o čem rozhoduje.
+        ctx = mail.call_args[0][3]
+        self.assertTrue(ctx['current_when'])
+        self.assertTrue(ctx['when'])
+        self.assertNotEqual(ctx['current_when'], ctx['when'])
+        self.assertIn('/calendar', ctx['booking_url'])
+
+    def test_failing_email_does_not_lose_the_request(self):
+        """Resend může být dole. Žádost je v tu chvíli uložená a commitnutá,
+        takže výpadek mailu ji nesmí zahodit."""
+        bid, sid = self._late_booking()
+        with self.patch.object(self.server, 'send_booking_email', side_effect=RuntimeError('resend down')):
+            try:
+                self.client.patch(f'/api/bookings/{bid}/reschedule',
+                                  json={'new_slot_id': sid,
+                                        'booking_start_at': self._day_at(1, 14).isoformat()})
+            except RuntimeError:
+                pass
+        self._as_artist()
+        pending = [r for r in self.client.get('/api/reschedule-requests').get_json()
+                   if r['status'] == 'pending']
+        self.assertEqual(len(pending), 1, 'žádost se ztratila při výpadku mailu')
+
+    def test_artist_moving_directly_sends_no_request_email(self):
+        """Tatér přesouvá rovnou, takže není co schvalovat a mail
+        o žádosti by byl nesmysl."""
+        sid = self._mk_slot(self._day_at(9, 9), self._day_at(9, 18))
+        self._as_client()
+        bid = self._book(sid, self._day_at(9, 10)).get_json()['id']
+        self._as_artist()
+        with self.patch.object(self.server, 'send_booking_email') as mail:
+            r = self.client.patch(f'/api/bookings/{bid}/reschedule',
+                                  json={'new_slot_id': sid,
+                                        'booking_start_at': self._day_at(9, 14).isoformat()})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.get_json()['applied'])
+        sent = [c for c in mail.call_args_list
+                if c[0][2] == 'reschedule_requested_for_artist']
+        self.assertEqual(sent, [])
+
+
 class InstagramConnectTests(unittest.TestCase):
     """OAuth je jediné místo, kde do appky vstupuje cizí identita, takže
     kontroly kolem `state` a nakládání s tokenem jsou tu podstatnější než
