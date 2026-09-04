@@ -1052,6 +1052,8 @@
       'clients.setupProfile':   'Nastav si profil tatéra',
       'clients.genericError':   'Něco se pokazilo.',
       'clients.newClient':      'Nový klient',
+      'clients.message':       'Napsat',
+      'clients.noAccountMsg':  'Tenhle klient nemá účet na InkLinku — ozvi se mu na telefon nebo e-mail výš.',
     },
 
     en: {
@@ -2094,6 +2096,8 @@
       'clients.setupProfile':   'Set up your artist profile',
       'clients.genericError':   'Something went wrong.',
       'clients.newClient':      'New client',
+      'clients.message':       'Message',
+      'clients.noAccountMsg':  'This client has no InkLink account — reach them on the phone or email above.',
     },
   };
 
