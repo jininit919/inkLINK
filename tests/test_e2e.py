@@ -2925,6 +2925,107 @@ class CampaignTests(_Sprint2Base):
         self.assertEqual(self._count(), 0)
 
 
+class CompletionBalanceTests(_Sprint2Base):
+    """Součet záloha + doplatek + hotovost musí dát konečnou cenu.
+
+    Dřív šlo dokončit s nulami: rezervace za 3 500 se zálohou 1 050 se
+    uzavřela a 2 450 Kč zůstalo navždy nedoplacených. Tatér to zjistil
+    až od účetní, nebo vůbec."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        start = self._day_at(3, 10)
+        self.slot = self._mk_slot(start, start + timedelta(hours=8))
+        r = self.client.post('/api/bookings', json={
+            'slot_id': self.slot, 'design_note': 'vlk', 'duration_hours': 3,
+            'booking_start_at': start.isoformat()})
+        self.bid = r.get_json()['id']
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
+        conn.commit(); conn.close()
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+        self.info = self.client.get(f'/api/bookings/{self.bid}/completion-info').get_json()
+
+    def test_outstanding_is_reported(self):
+        """Bez tohohle čísla tatér při dokončování hádá."""
+        self.assertEqual(self.info['outstanding_kc'],
+                         self.info['total_kc'] - self.info['deposit_kc'])
+        self.assertGreater(self.info['outstanding_kc'], 0)
+
+    def test_completing_with_zero_is_refused(self):
+        r = self.client.post(f'/api/bookings/{self.bid}/complete',
+                             json={'onsite_kc': 0, 'balance_kc': 0})
+        self.assertEqual(r.status_code, 400)
+        j = r.get_json()
+        self.assertEqual(j['outstanding_kc'], self.info['outstanding_kc'])
+
+    def test_completing_with_too_little_is_refused(self):
+        r = self.client.post(f'/api/bookings/{self.bid}/complete',
+                             json={'onsite_kc': self.info['outstanding_kc'] - 100,
+                                   'balance_kc': 0})
+        self.assertEqual(r.status_code, 400)
+
+    def test_full_amount_on_site_completes(self):
+        r = self.client.post(f'/api/bookings/{self.bid}/complete',
+                             json={'onsite_kc': self.info['outstanding_kc'], 'balance_kc': 0})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        after = self.client.get(f'/api/bookings/{self.bid}/completion-info').get_json()
+        self.assertEqual(after['outstanding_kc'], 0)
+
+    def test_split_between_cash_and_inklink(self):
+        owed = self.info['outstanding_kc']
+        r = self.client.post(f'/api/bookings/{self.bid}/complete',
+                             json={'onsite_kc': owed - 500, 'balance_kc': 500})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+
+    def test_discount_lowers_the_price_and_balances(self):
+        """Konečná cena se od domluvené může lišit — sleva, kratší práce."""
+        lower = self.info['deposit_kc'] + 300
+        r = self.client.post(f'/api/bookings/{self.bid}/complete',
+                             json={'final_price_kc': lower, 'onsite_kc': 300, 'balance_kc': 0})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        after = self.client.get(f'/api/bookings/{self.bid}/completion-info').get_json()
+        self.assertEqual(after['total_kc'], lower)
+        self.assertEqual(after['outstanding_kc'], 0)
+
+    def test_price_below_deposit_is_refused(self):
+        """Přeplatek se vrací refundem, ne snížením ceny pod zálohu —
+        jinak by v účetnictví vznikla záporná pohledávka."""
+        r = self.client.post(f'/api/bookings/{self.bid}/complete',
+                             json={'final_price_kc': 1, 'onsite_kc': 0, 'balance_kc': 0})
+        self.assertEqual(r.status_code, 400)
+
+    def test_legacy_booking_without_price_still_completes(self):
+        """Starší rezervace mají total_price_cents = 0; není z čeho počítat,
+        takže se nic nevymáhá."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE bookings SET total_price_cents=0 WHERE id=?', (self.bid,))
+        conn.commit(); conn.close()
+        r = self.client.post(f'/api/bookings/{self.bid}/complete',
+                             json={'onsite_kc': 0, 'balance_kc': 0})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+
+    def test_completion_info_is_artist_only(self):
+        self.client.post('/api/login', json={'username': 'client1', 'password': 'pass1234'})
+        self.assertEqual(
+            self.client.get(f'/api/bookings/{self.bid}/completion-info').status_code, 403)
+
+    def test_export_shows_what_is_still_owed(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET premium_until=? WHERE id=1',
+                     ((self._now() + timedelta(days=30)).isoformat(),))
+        conn.commit(); conn.close()
+        day = self._day_at(3, 10).date().isoformat()
+        rows = self.client.get(
+            f'/api/me/accounting/export?from={day}&to={day}&format=json').get_json()['rows']
+        self.assertEqual(rows[0]['outstanding'], float(self.info['outstanding_kc']))
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 

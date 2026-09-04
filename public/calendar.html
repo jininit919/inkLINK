@@ -6,6 +6,10 @@
    bez odlišení by tatér nevěděl, proč ho klienti nevidí. */
 .slot-pill.private{border-style:dashed;background:transparent}
 .slot-pill.private .p{font-style:italic}
+.bs-owed{font-size:12px;letter-spacing:0.03em;padding:8px 10px;margin-bottom:4px;
+  border:1px solid var(--border2);background:var(--bg3);line-height:1.5}
+.bs-owed.ok{border-color:var(--txt);color:var(--txt)}
+.bs-owed.warn{border-color:#d99;color:#a33}
 </style>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -799,11 +803,15 @@ function renderBookSheet() {
     </div>
     ${canComplete ? `<div class="bs-done" id="bsDone" hidden>
       <div class="bs-edit-title">${escapeHtml(t('cb.markDone'))}</div>
+      <div class="bs-owed" id="bsOwed"></div>
+      <label for="bsFinal">${escapeHtml(t('cb.finalPrice'))}</label>
+      <input type="number" id="bsFinal" min="0" step="10" oninput="recalcOwed()">
+      <span class="hint">${escapeHtml(t('cb.finalPriceHint'))}</span>
       <label for="bsOnsite">${escapeHtml(t('cb.onsite'))}</label>
-      <input type="number" id="bsOnsite" min="0" step="1" placeholder="0">
+      <input type="number" id="bsOnsite" min="0" step="1" value="0" oninput="recalcOwed()">
       <span class="hint">${escapeHtml(t('cb.onsiteHint'))}</span>
       <label for="bsBalance">${escapeHtml(t('cb.balance'))}</label>
-      <input type="number" id="bsBalance" min="0" step="1" placeholder="0">
+      <input type="number" id="bsBalance" min="0" step="1" value="0" oninput="recalcOwed()">
       <span class="hint">${escapeHtml(t('cb.balanceHint'))}</span>
       <button type="button" class="bs-save" onclick="completeFromCalendar()">${escapeHtml(t('cb.confirmDone'))}</button>
     </div>` : ''}
@@ -956,15 +964,45 @@ async function saveBookNote() {
 // Nejčastější případ je "hotovo, nic nedoplácí", proto jsou částky
 // schované za tlačítkem a předvyplněné nulou — kdo nic nezadá, potvrdí
 // dvěma klepnutími.
-function revealDone() {
+let bsOwedKc = 0;
+
+async function revealDone() {
   const el = document.getElementById('bsDone');
   if (!el) return;
   el.hidden = false;
   // Patka nese stejný popisek jako odkrytý blok — dva stejné nápisy na
   // obrazovce vypadají jako dvě různé akce.
   document.getElementById('bsFoot').innerHTML = '';
+
+  // Předvyplníme, co zbývá doplatit. Bez toho tatér typicky nechá nulu
+  // a rezervace navždy visí nedoplacená.
+  const info = await fetch(`/api/bookings/${bsBooking.id}/completion-info`)
+    .then(r => r.ok ? r.json() : null).catch(() => null);
+  if (info) {
+    document.getElementById('bsFinal').value = info.total_kc || '';
+    bsOwedKc = info.outstanding_kc || 0;
+    document.getElementById('bsOnsite').value = bsOwedKc;
+  }
+  recalcOwed();
   el.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   document.getElementById('bsOnsite').focus();
+}
+
+function recalcOwed() {
+  const num = id => Math.max(0, parseInt(document.getElementById(id).value, 10) || 0);
+  const final = num('bsFinal');
+  const dep = Math.round(((bsBooking && bsBooking.deposit_cents) || 0) / 100);
+  const owed = Math.max(0, final - dep);
+  const entered = num('bsOnsite') + num('bsBalance');
+  const el = document.getElementById('bsOwed');
+  if (!el) return;
+  const diff = entered - owed;
+  el.textContent = diff === 0
+    ? t('cb.owedOk').replace('{amount}', owed.toLocaleString(locale()))
+    : t('cb.owedDiff').replace('{amount}', owed.toLocaleString(locale()))
+                      .replace('{diff}', Math.abs(diff).toLocaleString(locale()))
+                      .replace('{dir}', diff > 0 ? t('cb.owedOver') : t('cb.owedUnder'));
+  el.className = 'bs-owed' + (diff === 0 ? ' ok' : ' warn');
 }
 
 async function completeFromCalendar() {
@@ -972,7 +1010,8 @@ async function completeFromCalendar() {
   try {
     const r = await fetch(`/api/bookings/${bsBooking.id}/complete`, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({onsite_kc: num('bsOnsite'), balance_kc: num('bsBalance')})
+      body: JSON.stringify({onsite_kc: num('bsOnsite'), balance_kc: num('bsBalance'),
+                            final_price_kc: num('bsFinal')})
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || '');

@@ -7933,12 +7933,56 @@ def decide_refund_request(rid):
     return jsonify({'ok': True, 'status': new_status, 'stripe_refund_id': refund_id})
 
 
+def _booking_outstanding_cents(b):
+    """Kolik z celkové ceny ještě není zaplaceno.
+
+    Záloha + doplatky přes InkLink + hotovost na místě se musí sečíst do
+    celkové ceny, jinak vyúčtování nesedí a tatér to zjistí až od účetní.
+    Starší rezervace mají total_price_cents = 0 (cena se tehdy neukládala);
+    u nich nemáme z čeho počítat, takže nic nevymáháme."""
+    total = b['total_price_cents'] or 0
+    if total <= 0:
+        return None
+    paid = (b['deposit_cents'] or 0) + (b['balance_paid_cents'] or 0) \
+           + (b['onsite_amount_cents'] or 0)
+    return max(0, total - paid)
+
+
+@app.route('/api/bookings/<int:bid>/completion-info')
+def booking_completion_info(bid):
+    """Co zbývá doplatit. Bez tohohle čísla tatér při dokončování hádá a
+    typicky nechá nulu — a rezervace pak navždy visí nedoplacená."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if session['user_id'] != b['artist_id']:
+        conn.close(); return jsonify({'error': 'forbidden'}), 403
+    conn.close()
+    outstanding = _booking_outstanding_cents(b)
+    return jsonify({
+        'total_kc':       (b['total_price_cents'] or 0) // 100,
+        'deposit_kc':     (b['deposit_cents'] or 0) // 100,
+        'balance_paid_kc': (b['balance_paid_cents'] or 0) // 100,
+        'onsite_kc':      (b['onsite_amount_cents'] or 0) // 100,
+        'outstanding_kc': None if outstanding is None else outstanding // 100,
+    })
+
+
 @app.route('/api/bookings/<int:bid>/complete', methods=['POST'])
 def complete_booking(bid):
     """Tatér potvrdí, že rezervace proběhla. Přijímá:
        - onsite_kc          → hotovost / karta vybraná na místě (mimo platformu)
        - balance_kc         → částka, kterou si tatér vyžádá od klienta přes InkLink
                               (vytvoří se balance-charge a klient dostane mail s linkem)
+       - final_price_kc     → skutečná konečná cena, když se od domluvené liší
+                              (sleva, kratší práce, doobjednávka)
+
+    Součet záloha + doplatek + hotovost musí dát konečnou cenu. Kdyby to
+    nemuselo sedět, rezervace by zůstávaly navždy nedoplacené a tatér by
+    to zjistil až od účetní.
     """
     err = require_login()
     if err: return err
@@ -7948,6 +7992,13 @@ def complete_booking(bid):
         balance_kc = max(0, int(data.get('balance_kc') or 0))
     except (ValueError, TypeError):
         return jsonify({'error': 'Neplatná částka'}), 400
+    final_price_raw = data.get('final_price_kc')
+    final_price_kc = None
+    if final_price_raw not in (None, ''):
+        try:
+            final_price_kc = max(0, int(final_price_raw))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Neplatná konečná cena'}), 400
     onsite_cents = onsite_kc * 100
 
     conn = get_db()
@@ -7958,6 +8009,34 @@ def complete_booking(bid):
         conn.close(); return jsonify({'error': 'Pouze tatér může označit rezervaci jako dokončenou.'}), 403
     if b['status'] not in ('confirmed', 'pending_payment'):
         conn.close(); return jsonify({'error': 'Tuto rezervaci nelze dokončit.'}), 409
+
+    # Konečná cena se od domluvené může lišit — sleva, kratší práce,
+    # doobjednávka. Zapisujeme ji dřív, než z ní počítáme, co zbývá.
+    if final_price_kc is not None and final_price_kc * 100 != (b['total_price_cents'] or 0):
+        deposit = b['deposit_cents'] or 0
+        if final_price_kc * 100 < deposit:
+            conn.close()
+            return jsonify({'error': 'Konečná cena je nižší než zaplacená záloha. '
+                                     'Rozdíl vrať přes refund, ne přes cenu.'}), 400
+        conn.execute('UPDATE bookings SET total_price_cents=?, balance_due_cents=? WHERE id=?',
+                     (final_price_kc * 100, max(0, final_price_kc * 100 - deposit), bid))
+        conn.commit()
+        b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+
+    # Účetnictví musí sedět z principu, ne z dobré vůle. Když si tatér
+    # spočítá jinak, řekneme mu o kolik — ať to opraví částkami, nebo
+    # konečnou cenou.
+    outstanding = _booking_outstanding_cents(b)
+    if outstanding is not None and (onsite_kc + balance_kc) * 100 != outstanding:
+        diff = (onsite_kc + balance_kc) * 100 - outstanding
+        conn.close()
+        return jsonify({
+            'error': ('Zadané částky nesedí na to, co zbývá doplatit '
+                      f'({outstanding // 100} Kč). Rozdíl je {abs(diff) // 100} Kč '
+                      f'{"navíc" if diff > 0 else "chybí"}.'),
+            'outstanding_kc': outstanding // 100,
+            'entered_kc': onsite_kc + balance_kc,
+        }), 400
 
     # Pokud tatér chce vystavit balance, spusť to PŘED dokončením — když selže
     # (např. částka přesahuje zbytek), zachová se status='confirmed' a tatér může retry.
@@ -10563,6 +10642,7 @@ ACCOUNTING_COLUMNS = [
     ('onsite',      'Zaplaceno na místě'),
     ('refunded',    'Vráceno'),
     ('commission',  'Provize InkLink'),
+    ('outstanding', 'Zbývá doplatit'),
     ('net',         'Čistý příjem'),
 ]
 
@@ -10594,6 +10674,9 @@ def _accounting_rows(conn, artist_id, date_from, date_to):
         # Čistý příjem = co tatérovi reálně zůstalo. Provize se strhává jen
         # z toho, co prošlo platformou; hotovost na místě je celá jeho.
         net = round(deposit + balance + onsite - refund - fee, 2)
+        # U dokončených vyjde vždycky nula — dokončit jinak nejde. U těch,
+        # co teprve proběhnou, je to očekávaný zbytek, ne díra v účetnictví.
+        outstanding = max(0.0, round(kc(b['total_price_cents']) - deposit - balance - onsite, 2))
         out.append({
             'date':        (b['booking_start_at'] or b['created_at'] or '')[:10],
             'booking_id':  b['id'],
@@ -10607,6 +10690,7 @@ def _accounting_rows(conn, artist_id, date_from, date_to):
             'onsite':      onsite,
             'refunded':    refund,
             'commission':  fee,
+            'outstanding': outstanding,
             'net':         net,
         })
     return out
@@ -10655,6 +10739,7 @@ def accounting_export():
                 str(total('onsite')).replace('.', ','),
                 str(total('refunded')).replace('.', ','),
                 str(total('commission')).replace('.', ','),
+                str(total('outstanding')).replace('.', ','),
                 str(total('net')).replace('.', ',')])
 
     safe = (u['username'] or 'tater').replace('/', '_')
