@@ -5874,7 +5874,8 @@ SKETCH_SIZES = ('small', 'medium', 'large')
 # stejnou cestou a zobrazují se stejnou bublinou.
 MESSAGE_IMAGE_EXTS       = ('jpg', 'jpeg', 'png', 'webp', 'gif')
 REFERENCE_PHOTO_MAX       = 3
-REFERENCE_PHOTO_MAX_BYTES = 12 * 1024 * 1024
+MESSAGE_IMAGE_MAX_BYTES   = 12 * 1024 * 1024
+REFERENCE_PHOTO_MAX_BYTES = MESSAGE_IMAGE_MAX_BYTES
 
 
 def _slot_active_bookings(conn, slot_id, exclude_booking_id=None):
@@ -8767,32 +8768,53 @@ def get_messages(other_id):
 def send_message(other_id):
     err = require_login()
     if err: return err
+    uid = session['user_id']
+
+    # Příjemce musí existovat a nesmí to být pisatel sám. Bez téhle kontroly
+    # se zpráva na neexistující id uložila, vrátila ok:true a pak zmizela —
+    # výpis konverzací ji odfiltruje JOINem na users. A monolog sám se sebou
+    # se v tom výpisu naopak objevil jako plnohodnotná konverzace.
+    if other_id == uid:
+        return jsonify({'error': 'Sám sobě psát nemůžeš.'}), 400
+    conn = get_db()
+    if not conn.execute('SELECT 1 FROM users WHERE id=?', (other_id,)).fetchone():
+        conn.close()
+        return jsonify({'error': 'Uživatel nenalezen.'}), 404
 
     # image message
     if 'image' in request.files:
         img = request.files['image']
-        ext = img.filename.rsplit('.', 1)[-1].lower() if img.filename else ''
+        ext = img.filename.rsplit('.', 1)[-1].lower() if '.' in (img.filename or '') else ''
         if ext not in MESSAGE_IMAGE_EXTS:
+            conn.close()
             return jsonify({'error': 'Unsupported image format'}), 400
-        safe   = secure_filename(img.filename)
-        unique = f"msg_{session['user_id']}_{int(time.time())}_{safe}"
+        # Bez stropu projde cokoliv až do MAX_CONTENT_LENGTH (500 MB) —
+        # rovnou do R2 a rovnou do vlákna, které se pak nenačte.
+        img.seek(0, os.SEEK_END)
+        size = img.tell()
+        img.seek(0)
+        if size > MESSAGE_IMAGE_MAX_BYTES:
+            conn.close()
+            return jsonify({'error': 'Fotka je větší než 12 MB.'}), 400
+        safe   = secure_filename(img.filename) or f'photo.{ext}'
+        unique = f"msg_{uid}_{int(time.time())}_{safe}"
         save_upload(img, unique)
-        conn = get_db()
         conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type, image) VALUES (?, ?, ?, ?, ?)',
-                     (session['user_id'], other_id, '', 'image', unique))
+                     (uid, other_id, '', 'image', unique))
         conn.commit(); conn.close()
         return jsonify({'ok': True})
 
     data    = request.get_json(silent=True) or {}
     content = data.get('content', '').strip()
     if not content:
+        conn.close()
         return jsonify({'error': 'Message cannot be empty'}), 400
     if len(content) > 2000:
+        conn.close()
         return jsonify({'error': 'Message is too long'}), 400
 
-    conn = get_db()
     conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type) VALUES (?, ?, ?, ?)',
-                 (session['user_id'], other_id, content, 'text'))
+                 (uid, other_id, content, 'text'))
     conn.commit()
     conn.close()
 

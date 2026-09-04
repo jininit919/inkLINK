@@ -28,7 +28,7 @@
   background:var(--bg3);font-size:13px;color:var(--txt);line-height:1.6}
 .design-head-t{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
   color:var(--txt3);margin-bottom:4px}
-.tile-editbtn{position:absolute;top:8px;right:8px;z-index:3;background:rgba(0,0,0,0.72);
+.tile-editbtn{position:absolute;bottom:6px;right:6px;z-index:3;background:rgba(0,0,0,0.72);
   color:#fff;border:none;padding:5px 10px;font-family:inherit;font-size:10px;
   letter-spacing:0.12em;text-transform:uppercase;cursor:pointer}
 .tile-editbtn:hover{background:var(--red2)}
@@ -180,11 +180,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .tile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.3s}
 .tile:hover img{transform:scale(1.04)}
 .tile-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;padding:8px;opacity:0;transition:opacity 0.2s;background:linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)}
-.tile-imgs-badge{position:absolute;bottom:6px;left:6px;font-size:10px;letter-spacing:0.06em;padding:2px 6px;background:rgba(0,0,0,0.78);color:#fff;line-height:1.4}
+.tile-imgs-badge{position:absolute;top:6px;right:6px;font-size:10px;letter-spacing:0.06em;padding:2px 6px;background:rgba(0,0,0,0.78);color:#fff;line-height:1.4}
 .tile:hover .tile-overlay{opacity:1}
 .tile-meta{font-size:11px;color:#fff;letter-spacing:0.04em}
 .tile-kind{position:absolute;top:6px;left:6px;font-size:9px;letter-spacing:0.15em;padding:2px 6px;background:rgba(0,0,0,0.7);color:#fff}
-.tile-price{position:absolute;top:6px;right:6px;font-size:10px;letter-spacing:0.06em;padding:3px 8px;background:var(--red2);color:var(--bg);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;line-height:1}
+.tile-price{position:absolute;bottom:6px;left:6px;right:auto;max-width:calc(100% - 12px);
+  letter-spacing:0.06em;padding:3px 8px;background:var(--red2);color:var(--bg);
+  font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile-bookbtn{position:absolute;bottom:6px;left:6px;right:6px;padding:6px 10px;background:var(--red2);color:var(--bg);border:none;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;opacity:0;transition:opacity 0.15s}
 .tile:hover .tile-bookbtn{opacity:0.95}
 .tile-bookbtn:hover{opacity:1!important}
@@ -620,7 +623,7 @@ function render() {
     actions.innerHTML = `
       <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? tr('pf.following') : tr('pf.follow')}</button>
       ${profile.is_artist ? `<button class="btn muted" type="button" onclick="openAsk()">${tr('pf.askCta')}</button>` : ''}
-      <a class="btn muted" href="/messages?user=${encodeURIComponent(profile.username)}" data-i18n="pf.message">Message</a>
+      <a class="btn muted" href="/messages?user=${encodeURIComponent(profile.username)}">${tr('pf.message')}</a>
     `;
   } else {
     actions.innerHTML = `<a class="btn" href="/login" data-i18n="pf.signInToBook">Sign in to book</a>`;
@@ -632,11 +635,10 @@ function render() {
     document.getElementById('portfolioEmpty').style.display = 'block';
   } else {
     grid.innerHTML = profile.portfolio.map((p, i) => {
-      // S ceníkem ukazujeme rozpětí — jedna cena by u tří velikostí lhala.
       const priceList = p.sizes || [];
-      const fixedPrice = priceList.length > 1
-        ? `${(+priceList[0].price_kc).toLocaleString(locale())}–${(+priceList[priceList.length-1].price_kc).toLocaleString(locale())} CZK`
-        : (p.price_kc ? `${(+p.price_kc).toLocaleString(locale())} CZK` : '');
+      const fixedPrice = profile.is_own ? '' : (priceList.length > 1
+        ? tr('pf.fromPrice').replace('{price}', (+priceList[0].price_kc).toLocaleString(locale()))
+        : (p.price_kc ? `${(+p.price_kc).toLocaleString(locale())} CZK` : ''));
       const hoursTxt = priceList.length > 1
         ? ''
         : (p.estimated_hours ? ` · ~${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '');

@@ -2548,6 +2548,77 @@ class BookingOfferTests(_Sprint2Base):
 
 
 
+class MessageValidationTests(_Sprint2Base):
+    """Zpráva se ukládala komukoliv, i neexistujícímu id.
+
+    Vrátila ok:true, řádek v databázi vznikl a pak zmizel — výpis
+    konverzací ho odfiltruje JOINem na users. Monolog sám se sebou se
+    v tom výpisu naopak objevil jako plnohodnotná konverzace."""
+
+    def test_recipient_must_exist(self):
+        import sqlite3
+        r = self.client.post('/api/messages/999999', json={'content': 'do prazdna'})
+        self.assertEqual(r.status_code, 404)
+        conn = sqlite3.connect(self.db)
+        n = conn.execute('SELECT COUNT(*) FROM messages').fetchone()[0]
+        conn.close()
+        self.assertEqual(n, 0, 'zpráva se uložila i tak')
+
+    def test_cannot_message_yourself(self):
+        r = self.client.post('/api/messages/2', json={'content': 'monolog'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_normal_message_still_works(self):
+        r = self.client.post('/api/messages/1', json={'content': 'ahoj'})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+
+    def test_photo_has_a_size_limit(self):
+        """Bez stropu projde cokoliv až do MAX_CONTENT_LENGTH (500 MB) —
+        rovnou do úložiště a rovnou do vlákna, které se pak nenačte."""
+        import io, server
+        big = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * (server.MESSAGE_IMAGE_MAX_BYTES + 1))
+        r = self.client.post('/api/messages/1', data={'image': (big, 'huge.png')},
+                             content_type='multipart/form-data')
+        self.assertEqual(r.status_code, 400)
+
+    def test_small_photo_passes(self):
+        import io
+        small = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 512)
+        r = self.client.post('/api/messages/1', data={'image': (small, 'ok.png')},
+                             content_type='multipart/form-data')
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+
+    def test_photo_to_a_stranger_is_refused(self):
+        import io
+        img = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 64)
+        r = self.client.post('/api/messages/999999', data={'image': (img, 'a.png')},
+                             content_type='multipart/form-data')
+        self.assertEqual(r.status_code, 404)
+
+
+class DynamicTranslationTests(unittest.TestCase):
+    """Půlka UI vzniká až po načtení dat (profil, seznamy, modaly).
+
+    apply() při startu ty uzly ještě nevidí, takže 54 klíčů napříč devíti
+    stránkami zůstávalo anglicky, dokud uživatel ručně nepřepnul jazyk.
+    Řeší to observer v i18n.js — volat apply() po každém renderu je
+    křehké, na desátý render se zapomene."""
+
+    def test_observer_translates_new_nodes(self):
+        src = open('public/i18n.js', encoding='utf-8').read()
+        self.assertIn('MutationObserver', src)
+        self.assertIn('translateTree', src)
+        # Bez téhle pojistky by nastavení textContent spustilo observer
+        # znovu na vlastní textový uzel — nekonečná smyčka.
+        self.assertIn("node.nodeType !== 1", src)
+
+    def test_apply_and_observer_share_one_path(self):
+        """Dvě různé implementace překladu by se rozešly."""
+        src = open('public/i18n.js', encoding='utf-8').read()
+        self.assertEqual(src.count('function applyToEl'), 1)
+        self.assertIn('document.querySelectorAll(I18N_SEL).forEach(applyToEl)', src)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 

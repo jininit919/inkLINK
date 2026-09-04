@@ -51,6 +51,8 @@
   color:var(--txt3);cursor:pointer}
 .of-mode-btn.active{background:var(--txt);color:var(--bg)}
 #ofNewMode[hidden],#ofStartWrap[hidden]{display:none}
+.msg-img-gone{padding:10px 12px;border:1px dashed var(--border2);color:var(--txt3);
+  font-size:11px;letter-spacing:0.03em}
 </style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -684,7 +686,9 @@ async function fetchMessages(userId) {
           : `<div class="msg-avatar">${esc(data.other.initials)}</div>`);
     if (m.offer) return `<div class="msg-row ${m.mine ? 'mine' : ''} offer-row">${offerCard(m.offer)}</div>`;
     const bubbleContent = m.content_type === 'image' && m.image
-      ? `<img class="msg-image" src="/uploads/${esc(m.image)}" alt="foto" onclick="openImgFull(this.src)">`
+      ? `<img class="msg-image" src="/uploads/${esc(m.image)}" alt="${mt('ms.photo', 'Photo')}"
+             onclick="openImgFull(this.src)"
+             onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'msg-img-gone',textContent:'${mt('ms.photoGone', 'Photo is no longer available')}'}))">`
       : esc(m.content);
     return `<div class="msg-row ${m.mine ? 'mine' : ''}">
       ${avatarHTML}

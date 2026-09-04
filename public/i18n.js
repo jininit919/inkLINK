@@ -273,6 +273,8 @@
       'mnav.search':    'Hledat',
       'ms.searchPh':           'Hledat v konverzacích…',
       'ms.none':               'Zatím žádné zprávy',
+      'ms.photo':              'Fotka',
+      'ms.photoGone':          'Fotka už není dostupná',
       'ms.loading':            'Načítám zprávy…',
       'ms.writePh':            'Napiš zprávu…',
       'ms.emptyThread':        'Zatím žádné zprávy 👋',
@@ -546,6 +548,7 @@
       'pf.following':          'Sleduji',
       'pf.book':               'Rezervovat',
       'pf.bookThis':           'Rezervovat tento návrh',
+      'pf.fromPrice':          'od {price} CZK',
       'pf.confirmBooking':     'Potvrdit rezervaci',
       'pf.payInFull':          'Zaplatit celou částku',
       'pf.tattooSize':         'Velikost tetování *',
@@ -1424,6 +1427,8 @@
       'mnav.search':    'Search',
       'ms.searchPh':           'Search conversations…',
       'ms.none':               'No messages yet',
+      'ms.photo':              'Photo',
+      'ms.photoGone':          'Photo is no longer available',
       'ms.loading':            'Loading messages…',
       'ms.writePh':            'Write a message…',
       'ms.emptyThread':        'No messages yet 👋',
@@ -1697,6 +1702,7 @@
       'pf.following':          'Following',
       'pf.book':               'Book',
       'pf.bookThis':           'Book this design',
+      'pf.fromPrice':          'from {price} CZK',
       'pf.confirmBooking':     'Confirm booking',
       'pf.payInFull':          'Pay in full now',
       'pf.tattooSize':         'Tattoo size *',
@@ -2345,32 +2351,55 @@
     return key;
   }
 
-  function apply() {
-    document.documentElement.lang = lang;
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
-      el.textContent = t(key);
-    });
-    document.querySelectorAll('[data-i18n-html]').forEach(el => {
-      const key = el.getAttribute('data-i18n-html');
-      el.innerHTML = t(key);
-    });
-    document.querySelectorAll('[data-i18n-attr]').forEach(el => {
-      const pairs = (el.getAttribute('data-i18n-attr') || '').split(',');
-      pairs.forEach(p => {
+  const I18N_SEL = '[data-i18n],[data-i18n-html],[data-i18n-attr],[data-i18n-switch]';
+
+  function applyToEl(el) {
+    const key = el.getAttribute('data-i18n');
+    if (key !== null) el.textContent = t(key);
+
+    const html = el.getAttribute('data-i18n-html');
+    if (html !== null) el.innerHTML = t(html);
+
+    const attr = el.getAttribute('data-i18n-attr');
+    if (attr !== null) {
+      attr.split(',').forEach(p => {
         const idx = p.indexOf(':');
         if (idx < 0) return;
-        const k = p.slice(0, idx).trim();
-        const a = p.slice(idx + 1).trim();
-        el.setAttribute(a, t(k));
+        el.setAttribute(p.slice(idx + 1).trim(), t(p.slice(0, idx).trim()));
       });
-    });
-    // Update language switcher UI if present
-    document.querySelectorAll('[data-i18n-switch]').forEach(b => {
-      b.classList.toggle('active', b.getAttribute('data-i18n-switch') === lang);
-    });
+    }
+
+    const sw = el.getAttribute('data-i18n-switch');
+    if (sw !== null) el.classList.toggle('active', sw === lang);
+  }
+
+  function translateTree(node) {
+    if (!node || node.nodeType !== 1) return;   // text uzly přeskoč — jinak smyčka
+    if (node.matches(I18N_SEL)) applyToEl(node);
+    node.querySelectorAll(I18N_SEL).forEach(applyToEl);
+  }
+
+  function apply() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll(I18N_SEL).forEach(applyToEl);
     // Dispatch event so animations can re-trigger if needed
     document.dispatchEvent(new CustomEvent('il-i18n-applied', { detail: { lang } }));
+  }
+
+  // Stránky skládají půlku UI až po načtení dat — profil, seznamy, modaly.
+  // apply() při startu ty uzly ještě nevidí, takže data-i18n uvnitř JS
+  // šablon zůstalo anglicky, dokud uživatel ručně nepřepnul jazyk. Volat
+  // apply() po každém renderu je křehké: na desátý render se zapomene.
+  // Observer to řeší jednou pro všechny stránky.
+  //
+  // Bez smyčky: applyToEl mění textContent, což přidá TEXTOVÝ uzel, a ten
+  // translateTree hned na začátku zahodí.
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(muts => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) translateTree(n);
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
   }
 
   function set(newLang) {
