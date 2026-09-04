@@ -2170,11 +2170,24 @@ def login():
     identifier = data.get('username', '').strip().lower()
     password   = data.get('password', '')
 
+    # Prázdný identifikátor musí skončit hned. Bez téhle kontroly se dotaz
+    # níž ptá na `phone = ''` — a protože telefon je nepovinný a defaultně
+    # prázdný, napáruje se na PRVNÍHO uživatele bez telefonu. Odesláním
+    # prázdného jména se tak dá přihlásit k cizímu účtu, když má útočník
+    # heslo, které k němu sedí.
+    if not identifier or not password:
+        return jsonify({'error': 'Invalid credentials'}), 401
+
     conn = get_db()
     # Accept username, email, or phone — users forget usernames but remember
-    # the contact detail they registered with.
+    # the contact detail they registered with. Prázdné sloupce se nesmí
+    # párovat ani kdyby identifier prošel jinudy.
     user = conn.execute(
-        'SELECT * FROM users WHERE LOWER(username) = ? OR LOWER(email) = ? OR phone = ? LIMIT 1',
+        """SELECT * FROM users
+           WHERE LOWER(username) = ?
+              OR (email <> '' AND LOWER(email) = ?)
+              OR (phone <> '' AND phone = ?)
+           LIMIT 1""",
         (identifier, identifier, identifier)
     ).fetchone()
     conn.close()

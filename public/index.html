@@ -566,6 +566,9 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 
 <script>
 let me = null, items = [], styleFilter = '', cityFilter = '', searchQuery = '', kindFilter = 'done', sortBy = 'price';
+// Automatický přeskok na neprázdnou záložku smí proběhnout jen jednou —
+// jinak by uživateli přepínal záložku pod rukama při každém filtrování.
+let feedTabAutoSwitched = false;
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -908,6 +911,25 @@ async function loadFeed() {
     const r = await fetch('/api/feed?' + params.toString());
     if (!r.ok) throw new Error('HTTP ' + r.status);
     items = await r.json();
+
+    // Výchozí záložka je Done (hotové práce prodávají líp než skica).
+    // Než se ale portfolia naplní, může být prázdná — a návštěvník by
+    // přistál na prázdném feedu, i když obsah o záložku vedle je.
+    // Přepneme jen při PRVNÍM načtení a jen když je druhá záložka plná;
+    // jakmile hotové práce přibudou, tohle se samo přestane spouštět.
+    if (!items.length && !feedTabAutoSwitched && !styleFilter && !cityFilter && !searchQuery) {
+      feedTabAutoSwitched = true;
+      const other = kindFilter === 'done' ? 'sketch' : 'done';
+      try {
+        const alt = await fetch('/api/feed?kind=' + other).then(x => x.json());
+        if (alt.length) {
+          kindFilter = other;
+          document.querySelectorAll('.feed-tab').forEach(x =>
+            x.classList.toggle('active', x.dataset.kind === other));
+          items = alt;
+        }
+      } catch (_) { /* zůstaneme na prázdné záložce, není to chyba */ }
+    }
     render();
   } catch (e) {
     items = [];

@@ -1775,6 +1775,73 @@ class I18nKeyTests(unittest.TestCase):
         self.assertEqual(sorted(en - cs), [], 'klíč jen v angličtině')
 
 
+class LoginIdentifierTests(unittest.TestCase):
+    """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
+
+    Telefon je nepovinný a defaultně prázdný řetězec, takže dotaz
+    `phone = ''` se napároval na PRVNÍHO uživatele bez telefonu. Odeslání
+    prázdného jména se správně uhodnutým heslem tedy přihlásilo k cizímu
+    účtu. Našlo se to náhodou, když testovací volání posílalo špatný název
+    pole a server přesto vrátil ok:true."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        pw = generate_password_hash('pass1234', method='pbkdf2:sha256')
+        conn = sqlite3.connect(self.db)
+        # Ani jeden nemá telefon — přesně stav, který chybu spouštěl.
+        conn.execute('INSERT INTO users (username, display_name, password_hash, email, phone) '
+                     "VALUES ('artist','Artist',?, 'a@t.cz', '')", (pw,))
+        conn.execute('INSERT INTO users (username, display_name, password_hash, email, phone) '
+                     "VALUES ('client','Client',?, 'c@t.cz', '')", (pw,))
+        conn.commit()
+        conn.close()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_empty_identifier_is_rejected(self):
+        r = self.client.post('/api/login', json={'username': '', 'password': 'pass1234'})
+        self.assertEqual(r.status_code, 401)
+        self.assertIsNone(self.client.get('/api/me').get_json())
+
+    def test_missing_identifier_field_is_rejected(self):
+        r = self.client.post('/api/login', json={'password': 'pass1234'})
+        self.assertEqual(r.status_code, 401)
+
+    def test_empty_password_is_rejected(self):
+        r = self.client.post('/api/login', json={'username': 'artist', 'password': ''})
+        self.assertEqual(r.status_code, 401)
+
+    def test_empty_email_column_does_not_match(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET email='' WHERE username='artist'")
+        conn.commit()
+        conn.close()
+        r = self.client.post('/api/login', json={'username': '', 'password': 'pass1234'})
+        self.assertEqual(r.status_code, 401)
+
+    def test_login_still_works_by_username_email_and_phone(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET phone='777123456' WHERE username='client'")
+        conn.commit()
+        conn.close()
+        for ident in ('artist', 'a@t.cz', '777123456'):
+            self.client.post('/api/logout')
+            r = self.client.post('/api/login', json={'username': ident, 'password': 'pass1234'})
+            self.assertEqual(r.status_code, 200, ident)
+            self.assertIsNotNone(self.client.get('/api/me').get_json(), ident)
+
+    def test_logging_in_as_someone_else_switches_the_session(self):
+        self.client.post('/api/login', json={'username': 'artist', 'password': 'pass1234'})
+        self.assertEqual(self.client.get('/api/me').get_json()['username'], 'artist')
+        self.client.post('/api/login', json={'username': 'client', 'password': 'pass1234'})
+        self.assertEqual(self.client.get('/api/me').get_json()['username'], 'client')
+
+
 class InstagramConnectTests(unittest.TestCase):
     """OAuth je jediné místo, kde do appky vstupuje cizí identita, takže
     kontroly kolem `state` a nakládání s tokenem jsou tu podstatnější než
