@@ -229,6 +229,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .bs-row span{color:var(--txt3);font-size:11px;letter-spacing:0.07em;text-transform:uppercase;flex:0 0 auto}
 .bs-row b{font-weight:500;text-align:right;word-break:break-word}
 #bsNoteFlash{margin-left:10px;font-size:11px;color:var(--txt3)}
+.bs-err{background:rgba(179,38,30,0.08);border:1px solid #d99;color:#b3261e;
+  border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5}
+.bs-req{background:var(--bg3);border:1px solid var(--border2);border-radius:9px;
+  padding:12px 14px;display:flex;flex-direction:column;gap:7px;font-size:13px;line-height:1.5}
+.bs-req-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
 .bs-edit{display:flex;flex-direction:column;gap:6px;margin-top:4px;
   border-top:1px solid var(--border);padding-top:14px}
 .bs-edit[hidden]{display:none}
@@ -493,6 +498,7 @@ let slotsData = [];
 let blocksData = [];
 let eventsData = [];
 let bookingsData = [];
+let moveReqs = [], refundReqs = [];
 
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -556,11 +562,13 @@ async function loadWeek() {
   // Akce se narozdíl od slotů a blokací tahají po týdnech — proto se
   // loadWeek() volá i při přepnutí týdne, ne jen při startu.
   const from = fmtDate(weekStart), to = fmtDate(addDays(weekStart, 6));
-  const [rSlots, rBlocks, rEvents, rBookings] = await Promise.all([
+  const [rSlots, rBlocks, rEvents, rBookings, rMoveReqs, rRefundReqs] = await Promise.all([
     fetch('/api/me/slots'),
     fetch('/api/me/blocked-time'),
     fetch(`/api/events?from=${from}&to=${to}`),
     fetch('/api/me/bookings/artist'),
+    fetch('/api/reschedule-requests'),
+    fetch('/api/refund-requests'),
   ]);
   slotsData = rSlots.ok ? await rSlots.json() : [];
   blocksData = rBlocks.ok ? await rBlocks.json() : [];
@@ -572,6 +580,11 @@ async function loadWeek() {
     ? (await rBookings.json()).filter(b =>
         ['confirmed', 'completed', 'pending_payment'].includes(b.status))
     : [];
+  // Čekající žádosti klientů — schvalují se rovnou v detailu rezervace.
+  moveReqs = rMoveReqs.ok
+    ? (await rMoveReqs.json()).filter(r => r.status === 'pending') : [];
+  refundReqs = rRefundReqs.ok
+    ? (await rRefundReqs.json()).filter(r => r.status === 'pending' && r.role === 'artist') : [];
   render();
 }
 
@@ -693,16 +706,46 @@ function closeBookSheet() {
   bsBooking = null;
 }
 
+// Chyba patří k akci, ne do systémového alertu — ten na mobilu vypadá
+// jako chyba prohlížeče a nedá se z něj nic vyčíst.
+function bsError(msg) {
+  const el = document.getElementById('bsErr');
+  if (!el) return;
+  el.textContent = msg || t('cb.failed');
+  el.style.display = 'block';
+  el.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+
 function renderBookSheet() {
   const b = bsBooking;
   const canComplete = ['confirmed', 'pending_payment'].includes(b.status);
   const canCancel   = ['confirmed', 'pending_payment'].includes(b.status);
-  const who = (b.client && (b.client.display_name || b.client.username)) || t('cal.noName');
   const kc = c => c ? (c / 100).toLocaleString(locale()) + ' CZK' : '—';
+  const who = (b.client && (b.client.display_name || b.client.username)) || t('cal.noName');
   const row = (label, value) => value
     ? `<div class="bs-row"><span>${escapeHtml(label)}</span><b>${value}</b></div>` : '';
 
+  const mv = moveReqs.find(r => String(r.booking_id) === String(b.id));
+  const rf = refundReqs.find(r => String(r.booking_id) === String(b.id));
+
   document.getElementById('bsBody').innerHTML = `
+    <div id="bsErr" class="bs-err" style="display:none"></div>
+    ${mv ? `<div class="bs-req">
+        <div>${escapeHtml(t('cb.pendingMove').replace('{when}', fmtDateLong(mv.new_booking_start_at) + ' · ' + fmtTime(mv.new_booking_start_at)))}</div>
+        <div class="bs-req-actions">
+          <button type="button" class="bs-save" onclick="decideMove(${mv.id}, 'approve')">${escapeHtml(t('cb.approve'))}</button>
+          <button type="button" class="bs-cancel" style="margin-top:0" onclick="decideMove(${mv.id}, 'reject')">${escapeHtml(t('cb.reject'))}</button>
+        </div>
+      </div>` : ''}
+    ${rf ? `<div class="bs-req">
+        <div><b>${escapeHtml(t('cb.refundTitle'))}</b></div>
+        <div>${escapeHtml(t('cb.refundAsk').replace('{amount}', kc(rf.amount_cents)))}</div>
+        ${rf.reason ? `<div class="hint">${escapeHtml(t('cb.refundReason'))}: ${escapeHtml(rf.reason)}</div>` : ''}
+        <div class="bs-req-actions">
+          <button type="button" class="bs-save" onclick="decideRefundReq(${rf.id}, 'approve')">${escapeHtml(t('cb.approve'))}</button>
+          <button type="button" class="bs-cancel" style="margin-top:0" onclick="decideRefundReq(${rf.id}, 'reject')">${escapeHtml(t('cb.reject'))}</button>
+        </div>
+      </div>` : ''}
     ${row(t('cb.client'), escapeHtml(who))}
     ${row(t('cb.when'), escapeHtml(fmtDateLong(b.booking_start_at)) + ' · ' +
           escapeHtml(fmtTime(b.booking_start_at)) + '–' + escapeHtml(fmtTime(b.booking_end_at)))}
@@ -716,7 +759,7 @@ function renderBookSheet() {
       <button type="button" class="bs-save" onclick="saveBookNote()">${escapeHtml(t('cb.saveNote'))}</button>
       <span id="bsNoteFlash" class="hint"></span>
     </div>
-    <div class="bs-edit" id="bsEdit" hidden>
+    <div class="bs-edit" id="bsEdit">
       <div class="bs-edit-title">${escapeHtml(t('cb.reschedule'))}</div>
       <label for="bsSlot">${escapeHtml(t('cb.pickSlot'))}</label>
       <select id="bsSlot" onchange="renderMoveStarts()"></select>
@@ -741,7 +784,7 @@ function renderBookSheet() {
 
   document.getElementById('bsFoot').innerHTML = `
     ${canComplete ? `<button class="btn btn-primary" onclick="completeFromCalendar()">${escapeHtml(t('cb.markDone'))}</button>` : ''}
-    ${(canCancel || canComplete) ? `<button class="btn" id="bsEditBtn" aria-expanded="false" onclick="toggleBookEdit()">${escapeHtml(t('cb.edit'))}</button>` : ''}`;
+`;
 }
 
 // Nabídka pro přesun se staví z tatérových VLASTNÍCH slotů, které už
@@ -752,12 +795,34 @@ function movableSlots() {
     .sort((a, b) => a.start_at.localeCompare(b.start_at));
 }
 
-function toggleBookEdit() {
-  const box = document.getElementById('bsEdit');
-  const btn = document.getElementById('bsEditBtn');
-  box.hidden = !box.hidden;
-  btn.setAttribute('aria-expanded', String(!box.hidden));
-  if (!box.hidden) box.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+async function decideMove(rid, decision) {
+  try {
+    const r = await fetch(`/api/reschedule-requests/${rid}/decide`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({decision})
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '');
+    closeBookSheet();
+    loadWeek();
+  } catch (e) { bsError(e.message); }
+}
+
+async function decideRefundReq(rid, decision) {
+  let note = '';
+  if (decision === 'reject') {
+    note = prompt(t('cb.rejectReason')) || '';
+  } else if (!confirm(t('cb.confirmRefund'))) {
+    return;
+  }
+  try {
+    const r = await fetch(`/api/refund-requests/${rid}/decide`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({decision, note})
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '');
+    closeBookSheet();
+    loadWeek();
+  } catch (e) { bsError(e.message); }
 }
 
 function fillMoveSlots() {
@@ -830,7 +895,7 @@ async function completeFromCalendar() {
     if (!r.ok) throw new Error();
     closeBookSheet();
     loadWeek();
-  } catch (_) { alert(t('cb.failed')); }
+  } catch (_) { bsError(); }
 }
 
 async function cancelFromCalendar() {
@@ -840,7 +905,7 @@ async function cancelFromCalendar() {
     if (!r.ok) throw new Error();
     closeBookSheet();
     loadWeek();
-  } catch (_) { alert(t('cb.failed')); }
+  } catch (_) { bsError(); }
 }
 
 function shiftWeek(dir) {
