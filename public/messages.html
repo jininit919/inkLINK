@@ -522,7 +522,9 @@ function offerCard(o) {
     <div class="offer-when">${esc(fmtOfferWhen(o.booking_start_at))}</div>
     <div class="offer-meta">${o.duration_hours} h · <b>${esc(price)}</b></div>
     ${o.note ? `<div class="offer-note">${esc(o.note)}</div>` : ''}
-    ${o.status === 'pending' ? `<div class="offer-hint">${mt('ms.ofHint', 'The time is yours once the deposit is paid.')}</div>` : ''}
+    ${o.status === 'pending' ? `<div class="offer-hint">${mt('ms.ofHint', 'The time is yours once the deposit is paid.')}${
+      o.expires_at ? ' ' + mt('ms.ofValid', 'Valid until {date}.').replace('{date}', fmtOfferWhen(o.expires_at).split(' · ')[0]) : ''
+    }</div>` : ''}
     ${actions}
   </div>`;
 }

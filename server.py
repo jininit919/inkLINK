@@ -532,6 +532,7 @@ def _booking_email_html(event, ctx):
             ('When',     when),
             ('Duration', _h(ctx.get('duration') or '')),
             ('Price',    _h(ctx.get('price') or '')),
+            ('Valid until', _h(ctx.get('valid_until') or '')),
             ('Note',     note),
         ]
         body = (
@@ -918,6 +919,9 @@ def init_db():
         created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     add_col('booking_offers', 'created_slot INTEGER DEFAULT 0')
+    # Nabídka platí týden. Bez toho by termín nabídnutý na příští jaro
+    # visel v kalendáři půl roku, než by ho vypršení samo uklidilo.
+    add_col('booking_offers', 'expires_at TEXT DEFAULT NULL')
     c.execute('CREATE INDEX IF NOT EXISTS idx_offers_pair '
               'ON booking_offers(artist_id, client_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_offers_client '
@@ -4404,6 +4408,7 @@ def list_my_slots():
     err = require_login()
     if err: return err
     conn = get_db()
+    _reap_expired_offers(conn, session['user_id'])
     rows = conn.execute('''SELECT * FROM slots WHERE user_id=?
                            ORDER BY start_at DESC LIMIT 200''',
                         (session['user_id'],)).fetchall()
@@ -4434,6 +4439,7 @@ def my_calendar():
     week_end   = week_start + timedelta(days=7)
 
     conn = get_db()
+    _reap_expired_offers(conn, session['user_id'])
     slots = conn.execute('''SELECT * FROM slots
                             WHERE user_id=? AND start_at < ? AND end_at > ?
                             ORDER BY start_at ASC''',
@@ -8719,6 +8725,10 @@ def get_messages(other_id):
     ''', (session['user_id'], other_id, other_id, session['user_id'])).fetchall()
 
     other = conn.execute('SELECT id, username, display_name, avatar FROM users WHERE id=?', (other_id,)).fetchone()
+    # Prošlá nabídka nemá ve vlákně vypadat jako živá — a je to zároveň
+    # jediné místo, kde ji uvidí i klient.
+    _reap_expired_offers(conn, session['user_id'])
+    _reap_expired_offers(conn, other_id)
     offers = {
         r['id']: _offer_dict(r, session['user_id'])
         for r in conn.execute(
@@ -8900,24 +8910,57 @@ def create_design_request():
 # Slot zabere až přijetí. Držet ho od odeslání by z každé zapomenuté
 # nabídky udělalo díru v kalendáři a nikdo by ji neuklidil.
 
+OFFER_VALID_DAYS = 7
+
+
 def _offer_state(row, now=None):
-    """Nabídka na termín, který už začal, je mrtvá — bez ohledu na status.
-    Počítá se za běhu, aby nebylo co uklízet cronem."""
+    """Nabídka je mrtvá, když vypršela platnost nebo když už začal
+    nabízený termín. Počítá se za běhu — stav v databázi by mohl zaostat."""
     if row['status'] != 'pending':
         return row['status']
     now = now or _prague_now_naive()
-    try:
-        if _naive_dt(row['booking_start_at']) <= now:
-            return 'expired'
-    except (ValueError, TypeError):
-        pass
+    for field in ('expires_at', 'booking_start_at'):
+        raw = row[field] if field in row.keys() else None
+        if not raw:
+            continue
+        try:
+            if _naive_dt(raw) <= now:
+                return 'expired'
+        except (ValueError, TypeError):
+            pass
     return 'pending'
+
+
+def _reap_expired_offers(conn, artist_id):
+    """Označí prošlé nabídky a uklidí po nich soukromé termíny.
+
+    Běží při čtení tatérova kalendáře, ne cronem: mrtvý blok má zmizet
+    přesně ve chvíli, kdy se na kalendář někdo dívá. Maže jen prázdné
+    termíny — na tom s rezervací už nezáleží, jestli nabídka propadla."""
+    now = _prague_now_naive().isoformat()
+    rows = conn.execute(
+        "SELECT * FROM booking_offers WHERE artist_id=? AND status='pending' "
+        "AND (COALESCE(expires_at, booking_start_at) <= ? OR booking_start_at <= ?)",
+        (artist_id, now, now)).fetchall()
+    if not rows:
+        return
+    for r in rows:
+        conn.execute("UPDATE booking_offers SET status='expired' WHERE id=?", (r['id'],))
+        if r['created_slot']:
+            busy = conn.execute(
+                "SELECT 1 FROM bookings WHERE slot_id=? AND status IN "
+                "('pending_payment','confirmed') LIMIT 1", (r['slot_id'],)).fetchone()
+            if not busy:
+                conn.execute('DELETE FROM slots WHERE id=? AND COALESCE(is_private,0)=1',
+                             (r['slot_id'],))
+    conn.commit()
 
 
 def _offer_dict(row, uid):
     return {
         'id':               row['id'],
         'status':           _offer_state(row),
+        'expires_at':       row['expires_at'] if 'expires_at' in row.keys() else None,
         'mine':             row['artist_id'] == uid,
         'booking_start_at': row['booking_start_at'],
         'duration_hours':   float(row['duration_hours']),
@@ -9027,12 +9070,13 @@ def create_booking_offer():
     # naposled. Jinak by klient mohl přijmout tu starou a levnější.
     conn.execute("UPDATE booking_offers SET status='cancelled' "
                  "WHERE artist_id=? AND client_id=? AND status='pending'", (uid, client_id))
+    expires_at = min(_prague_now_naive() + timedelta(days=OFFER_VALID_DAYS), start)
     conn.execute(
         'INSERT INTO booking_offers '
         '(artist_id, client_id, slot_id, booking_start_at, duration_hours, price_kc, note, '
-        ' created_slot) VALUES (?,?,?,?,?,?,?,?)',
+        ' created_slot, expires_at) VALUES (?,?,?,?,?,?,?,?,?)',
         (uid, client_id, slot_id, start.isoformat(), duration_hours, price_kc, note,
-         created_slot))
+         created_slot, expires_at.isoformat()))
     offer_id = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
                 else conn.execute('SELECT lastval()').fetchone()[0])
 
@@ -9048,6 +9092,7 @@ def create_booking_offer():
     send_booking_email(conn, client_id, 'booking_offer_for_client', {
         'other_name':  who,
         'when':        start.strftime('%d.%m.%Y %H:%M'),
+        'valid_until': expires_at.strftime('%d.%m.%Y'),
         'duration':    f'{duration_hours:g} h',
         'price':       f'{price_kc:,} CZK'.replace(',', ' '),
         'design_note': note,

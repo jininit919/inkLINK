@@ -2457,6 +2457,83 @@ class BookingOfferTests(_Sprint2Base):
         self.assertEqual(self._offer_new(client_id=9999).status_code, 404)
         self.assertEqual(self._slots(is_private=1), [])
 
+    # — platnost nabídky —
+
+    def _age_offer(self, offer_id, days):
+        """Posune platnost do minulosti, jako by nabídka ležela `days` dní."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE booking_offers SET expires_at=? WHERE id=?',
+                     ((self._now() - timedelta(days=days)).isoformat(), offer_id))
+        conn.commit(); conn.close()
+
+    def test_offer_is_valid_for_a_week(self):
+        import sqlite3
+        self._as_artist()
+        oid = self._offer_new().get_json()['offer_id']
+        conn = sqlite3.connect(self.db)
+        exp = conn.execute('SELECT expires_at FROM booking_offers WHERE id=?', (oid,)).fetchone()[0]
+        conn.close()
+        from datetime import datetime as _dt
+        delta = (_dt.fromisoformat(exp) - self._now()).days
+        self.assertEqual(delta, 7 - 1)   # 6 celých dní + zbytek dneška
+
+    def test_validity_never_outlives_the_date_itself(self):
+        """Nabídka na termín za tři dny nemůže platit týden."""
+        import sqlite3
+        self._as_artist()
+        soon = self._day_at(3, 12)
+        oid = self._offer_new(booking_start_at=soon.isoformat()).get_json()['offer_id']
+        conn = sqlite3.connect(self.db)
+        exp = conn.execute('SELECT expires_at FROM booking_offers WHERE id=?', (oid,)).fetchone()[0]
+        conn.close()
+        self.assertEqual(exp, soon.isoformat())
+
+    def test_expired_offer_cannot_be_accepted(self):
+        self._as_artist()
+        oid = self._offer_new().get_json()['offer_id']
+        self._age_offer(oid, 1)
+        self._as_client()
+        r = self.client.post('/api/bookings', json={'offer_id': oid})
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.get_json()['status'], 'expired')
+
+    def test_expired_offer_releases_its_date(self):
+        """Mrtvý blok má zmizet přesně ve chvíli, kdy se na kalendář někdo
+        dívá — proto úklid běží při čtení, ne cronem."""
+        self._as_artist()
+        oid = self._offer_new().get_json()['offer_id']
+        self._age_offer(oid, 1)
+        self.assertEqual(len(self._slots(is_private=1)), 1)
+        self.client.get('/api/me/slots')          # tatér otevře kalendář
+        self.assertEqual(self._slots(is_private=1), [])
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        st = conn.execute('SELECT status FROM booking_offers WHERE id=?', (oid,)).fetchone()[0]
+        conn.close()
+        self.assertEqual(st, 'expired')
+
+    def test_expired_offer_keeps_a_booked_date(self):
+        """Když už na termínu sedí rezervace, propadlá nabídka ho nesmí vzít."""
+        self._as_artist()
+        oid = self._offer_new().get_json()['offer_id']
+        self._as_client()
+        self.client.post('/api/bookings', json={'offer_id': oid})
+        self._age_offer(oid, 1)
+        self._as_artist()
+        self.client.get('/api/me/slots')
+        self.assertEqual(len(self._slots(is_private=1)), 1)
+
+    def test_thread_shows_the_offer_as_expired(self):
+        self._as_artist()
+        oid = self._offer_new().get_json()['offer_id']
+        self._age_offer(oid, 1)
+        self._as_client()
+        msgs = self.client.get('/api/messages/1').get_json()['messages']
+        offer = next(m['offer'] for m in msgs if m['offer'])
+        self.assertEqual(offer['status'], 'expired')
+
+
 
 
 class LoginIdentifierTests(unittest.TestCase):
