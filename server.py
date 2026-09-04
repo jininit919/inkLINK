@@ -1131,6 +1131,16 @@ def init_db():
     add_col('users', 'premium_customer_id TEXT DEFAULT NULL')
     add_col('users', 'premium_subscription_id TEXT DEFAULT NULL')
     add_col('users', 'premium_cancel_at_period_end INTEGER DEFAULT 0')
+    c.execute('''CREATE TABLE IF NOT EXISTS campaigns (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        artist_id  INTEGER NOT NULL,
+        subject    TEXT NOT NULL,
+        body       TEXT NOT NULL,
+        tag        TEXT DEFAULT '',
+        recipients INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_campaigns_artist ON campaigns(artist_id)')
 
     # ── Blokace volna (dovolená, nemoc, jednorázové "tady nejsem") ─────────
     # Vlastní tabulka, ne status na slots: kontrola překryvů je tu v rozsahu
@@ -1329,6 +1339,9 @@ def init_db():
         FOREIGN KEY (artist_id) REFERENCES users(id),
         FOREIGN KEY (user_id)   REFERENCES users(id)
     )''')
+    # Odhlášení z rozesílek. Váže se na dvojici klient–tatér, ne na adresu:
+    # souhlas dal klient konkrétnímu tatérovi, ne celé platformě.
+    add_col('clients', 'marketing_optout_at TEXT DEFAULT NULL')
     c.execute('CREATE INDEX IF NOT EXISTS idx_clients_artist ON clients(artist_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_clients_user ON clients(user_id)')
     # Částečný unikátní index: bez něj dvě souběžné rezervace téhož klienta
@@ -2075,6 +2088,11 @@ def my_bookings_page():
 @app.route('/calendar')
 def calendar_page():
     return send_from_directory('public', 'calendar.html')
+
+
+@app.route('/premium')
+def premium_page():
+    return send_from_directory('public', 'premium.html')
 
 
 @app.route('/liked')
@@ -10260,6 +10278,188 @@ def _reconcile_card_country(conn, booking_id, pi_obj):
         conn.commit()
     except Exception as e:
         print(f'[card-country] reconcile failed for booking {booking_id}: {e}')
+
+
+# ── Premium: rozesílání klientům ──────────────────────────────────────────
+#
+# Právní základ je oprávněný zájem podle §7 zákona o některých službách
+# informační společnosti: obchodní sdělení vlastním zákazníkům o obdobné
+# službě. Drží to jen při třech podmínkách, a všechny tři jsou vynucené
+# kódem, ne dobrou vůlí odesílatele:
+#
+#   1. příjemce u toho tatéra opravdu byl (rezervace, ne jen poptávka),
+#   2. v každém mailu je jednoklikové odhlášení bez přihlášení,
+#   3. odhlášení platí okamžitě a napořád.
+#
+# Rozesílá se jen VLASTNÍM klientům, ne klientům kolegů ze studia —
+# souhlas se váže na vztah s konkrétním tatérem, ne na adresu studia.
+
+CAMPAIGN_MAX_RECIPIENTS = 500
+CAMPAIGN_MIN_INTERVAL_MINUTES = 30
+
+
+def _campaign_token(client_id):
+    """Podpis přes SECRET_KEY: odkaz musí fungovat bez přihlášení, ale
+    nesmí jít uhodnout ani odvodit pro cizí id."""
+    import hashlib, hmac
+    key = (app.secret_key if isinstance(app.secret_key, bytes)
+           else str(app.secret_key).encode())
+    return hmac.new(key, f'campaign:{client_id}'.encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def _campaign_recipients(conn, artist_id, tag=None):
+    """Klienti, kterým se smí psát. Bez e-mailu, po odhlášení nebo po
+    výmazu se nepíše — a bez proběhlé rezervace taky ne, ta je tím
+    zákaznickým vztahem, o který se oprávněný zájem opírá."""
+    sql = '''
+        SELECT c.id, c.name, c.email, c.tags, c.user_id
+        FROM clients c
+        WHERE c.artist_id = ?
+          AND c.anonymized_at IS NULL
+          AND c.marketing_optout_at IS NULL
+          AND COALESCE(NULLIF(c.email, ''), (SELECT email FROM users WHERE id = c.user_id)) <> ''
+          AND EXISTS (SELECT 1 FROM bookings b
+                       WHERE b.artist_id = c.artist_id
+                         AND b.client_id = c.user_id
+                         AND b.status IN ('confirmed','completed'))
+    '''
+    params = [artist_id]
+    if tag:
+        sql += ' AND c.tags LIKE ?'
+        params.append(f'%{tag}%')
+    rows = conn.execute(sql, tuple(params)).fetchall()
+    out = []
+    for r in rows:
+        email = (r['email'] or '').strip()
+        if not email and r['user_id']:
+            u = conn.execute('SELECT email FROM users WHERE id=?', (r['user_id'],)).fetchone()
+            email = (u['email'] or '').strip() if u else ''
+        if email:
+            out.append({'client_id': r['id'], 'name': r['name'] or '', 'email': email})
+    return out
+
+
+@app.route('/api/me/campaigns/recipients')
+def campaign_recipients():
+    err = require_premium()
+    if err: return err
+    conn = get_db()
+    rows = _campaign_recipients(conn, session['user_id'],
+                               (request.args.get('tag') or '').strip() or None)
+    conn.close()
+    # Adresy nevracíme — tatér je zná, ale výpis by z toho udělal
+    # exportovatelný seznam a to není potřeba k ničemu.
+    return jsonify({'count': len(rows),
+                    'names': [r['name'] for r in rows if r['name']][:20],
+                    'max': CAMPAIGN_MAX_RECIPIENTS})
+
+
+@app.route('/api/me/campaigns', methods=['POST'])
+@limiter.limit('6 per hour')
+def send_campaign():
+    err = require_premium()
+    if err: return err
+    uid  = session['user_id']
+    data = request.get_json(silent=True) or {}
+    subject = (data.get('subject') or '').strip()[:150]
+    body    = (data.get('body') or '').strip()[:4000]
+    tag     = (data.get('tag') or '').strip() or None
+    if len(subject) < 3:
+        return jsonify({'error': 'Doplň předmět.'}), 400
+    if len(body) < 20:
+        return jsonify({'error': 'Napiš aspoň pár vět.'}), 400
+    if not RESEND_API_KEY:
+        return jsonify({'error': 'Odesílání e-mailů není nastavené.'}), 503
+
+    conn = get_db()
+    # Odstup mezi rozesílkami: bez něj by jeden překlep znamenal pět
+    # stejných mailů a odhlášení celé klientely.
+    last = conn.execute('SELECT created_at FROM campaigns WHERE artist_id=? '
+                        'ORDER BY id DESC LIMIT 1', (uid,)).fetchone()
+    if last:
+        try:
+            if _naive_dt(last['created_at']) > _prague_now_naive() - timedelta(
+                    minutes=CAMPAIGN_MIN_INTERVAL_MINUTES):
+                conn.close()
+                return jsonify({'error': f'Další rozesílku můžeš poslat za '
+                                         f'{CAMPAIGN_MIN_INTERVAL_MINUTES} minut.'}), 429
+        except (ValueError, TypeError):
+            pass
+
+    recipients = _campaign_recipients(conn, uid, tag)
+    if not recipients:
+        conn.close()
+        return jsonify({'error': 'Nikdo, komu by se dalo napsat.'}), 400
+    if len(recipients) > CAMPAIGN_MAX_RECIPIENTS:
+        conn.close()
+        return jsonify({'error': f'Nejvýš {CAMPAIGN_MAX_RECIPIENTS} příjemců.'}), 400
+
+    artist = conn.execute('SELECT username, display_name FROM users WHERE id=?',
+                          (uid,)).fetchone()
+    who = artist['display_name'] or artist['username']
+    conn.execute('INSERT INTO campaigns (artist_id, subject, body, tag, recipients) '
+                 'VALUES (?,?,?,?,?)', (uid, subject, body, tag or '', len(recipients)))
+    conn.commit()
+    conn.close()
+
+    sent = failed = 0
+    for r in recipients:
+        html = _campaign_email_html(who, artist['username'], subject, body, r)
+        if send_email(r['email'], f'{who}: {subject}', html):
+            sent += 1
+        else:
+            failed += 1
+    return jsonify({'ok': True, 'sent': sent, 'failed': failed})
+
+
+def _campaign_email_html(who, username, subject, body, recipient):
+    from html import escape as _h
+    unsub = (f'{APP_BASE_URL}/unsubscribe?c={recipient["client_id"]}'
+             f'&t={_campaign_token(recipient["client_id"])}')
+    greeting = f'Ahoj {_h(recipient["name"].split()[0])},' if recipient['name'] else 'Ahoj,'
+    return (
+        '<div style="background:#faf8f3;color:#1a1a1a;font-family:Helvetica,Arial,sans-serif;'
+        'padding:40px;max-width:520px;margin:0 auto">'
+        f'<div style="font-size:22px;letter-spacing:0.12em;margin-bottom:24px">{_h(who)}</div>'
+        f'<p>{greeting}</p>'
+        f'<div style="font-size:14px;line-height:1.7;white-space:pre-wrap">{_h(body)}</div>'
+        f'<p style="margin-top:28px"><a href="{_h(APP_BASE_URL)}/profile/{_h(username)}" '
+        'style="display:inline-block;background:#0a0a0a;color:#faf8f3;padding:12px 22px;'
+        'text-decoration:none;font-size:13px;letter-spacing:0.1em">REZERVOVAT TERMÍN</a></p>'
+        '<p style="color:#8a8a8a;font-size:11px;line-height:1.7;margin-top:36px;'
+        'border-top:1px solid #ddd6c8;padding-top:16px">'
+        f'Tenhle e-mail ti přišel, protože jsi byl(a) na tetování u {_h(who)}.<br>'
+        f'<a href="{_h(unsub)}" style="color:#8a8a8a">Nechci už dostávat nabídky</a> — '
+        'odhlášení platí okamžitě.</p></div>'
+    )
+
+
+@app.route('/unsubscribe')
+def unsubscribe_page():
+    """Bez přihlášení a na jeden klik. Odhlašovací odkaz, který po někom
+    chce heslo, není odhlašovací odkaz."""
+    try:
+        cid = int(request.args.get('c') or 0)
+    except (TypeError, ValueError):
+        cid = 0
+    token = (request.args.get('t') or '').strip()
+    import hmac as _hmac
+    ok = cid and token and _hmac.compare_digest(token, _campaign_token(cid))
+    if ok:
+        conn = get_db()
+        conn.execute('UPDATE clients SET marketing_optout_at=? WHERE id=?',
+                     (_prague_now_naive().isoformat(), cid))
+        conn.commit(); conn.close()
+    msg = ('Odhlášeno. Už ti nebudeme posílat nabídky.' if ok
+           else 'Odkaz je neplatný nebo prošlý.')
+    return Response(
+        '<!doctype html><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>InkLink</title>'
+        '<div style="font-family:Helvetica,Arial,sans-serif;background:#faf8f3;color:#1a1a1a;'
+        'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px">'
+        f'<div style="max-width:380px;text-align:center;line-height:1.7">{msg}</div></div>',
+        mimetype='text/html')
 
 
 # ── Premium: statistiky ───────────────────────────────────────────────────

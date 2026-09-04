@@ -2808,6 +2808,123 @@ class PremiumStatsTests(_Sprint2Base):
         self.assertEqual(d['totals']['cancelled_pct'], 0.0)
 
 
+class SchemaOrderTests(unittest.TestCase):
+    """add_col na tabulku, která ještě neexistuje, tiše propadne.
+
+    Chyba se pak ukáže až za běhu, na produkci, u prvního uživatele, co
+    ten sloupec potřebuje — a v logu bude "no such column" bez náznaku,
+    že migrace vůbec proběhla."""
+
+    def test_columns_are_added_after_their_table(self):
+        import re
+        src = open('server.py', encoding='utf-8').read().splitlines()
+        created = {}
+        for i, line in enumerate(src):
+            m = re.search(r"CREATE TABLE IF NOT EXISTS (\w+)", line)
+            if m and m.group(1) not in created:
+                created[m.group(1)] = i
+        late = []
+        for i, line in enumerate(src):
+            m = re.search(r"add_col\('(\w+)'", line)
+            if not m:
+                continue
+            table = m.group(1)
+            if table in created and i < created[table]:
+                late.append(f'{table} (řádek {i + 1}, tabulka až na {created[table] + 1})')
+        self.assertEqual(late, [], 'add_col před CREATE TABLE')
+
+
+class CampaignTests(_Sprint2Base):
+    """Rozesílání klientům. Právní základ je oprávněný zájem — obchodní
+    sdělení vlastním zákazníkům o obdobné službě. Drží jen při třech
+    podmínkách a všechny tři musí vynutit kód, ne dobrá vůle odesílatele."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=?, premium_until=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),
+                      (self._now() + timedelta(days=30)).isoformat()))
+        conn.commit(); conn.close()
+        # Klient s proběhlou rezervací = zákaznický vztah.
+        start = self._day_at(4, 10)
+        slot = self._mk_slot(start, start + timedelta(hours=6))
+        self.client.post('/api/bookings', json={
+            'slot_id': slot, 'design_note': 'test', 'booking_start_at': start.isoformat(),
+            'duration_hours': 2})
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+
+    def _count(self):
+        return self.client.get('/api/me/campaigns/recipients').get_json()['count']
+
+    def test_client_with_a_booking_is_a_recipient(self):
+        self.assertEqual(self._count(), 1)
+
+    def test_recipients_never_expose_addresses(self):
+        """Výpis by z klientely udělal exportovatelný adresář."""
+        d = self.client.get('/api/me/campaigns/recipients').get_json()
+        self.assertNotIn('emails', d)
+        self.assertNotIn('@', json.dumps(d))
+
+    def test_mere_enquiry_is_not_a_customer(self):
+        """Oprávněný zájem stojí na tom, že u tatéra opravdu byli. Kdo si
+        jen napsal, zákazník není."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('DELETE FROM bookings')
+        conn.commit(); conn.close()
+        self.assertEqual(self._count(), 0)
+
+    def test_unsubscribe_needs_a_valid_token(self):
+        import sqlite3, server
+        conn = sqlite3.connect(self.db)
+        cid = conn.execute('SELECT id FROM clients LIMIT 1').fetchone()[0]
+        conn.close()
+        self.assertIn('neplatný',
+                      self.client.get(f'/unsubscribe?c={cid}&t=spatny').get_data(as_text=True))
+        self.assertEqual(self._count(), 1, 'špatný token přesto odhlásil')
+
+    def test_unsubscribe_works_without_login_and_is_immediate(self):
+        """Odhlašovací odkaz, který po někom chce heslo, není odhlašovací
+        odkaz."""
+        import sqlite3, server
+        conn = sqlite3.connect(self.db)
+        cid = conn.execute('SELECT id FROM clients LIMIT 1').fetchone()[0]
+        conn.close()
+        token = server._campaign_token(cid)
+        fresh = server.app.test_client()          # bez přihlášení
+        r = fresh.get(f'/unsubscribe?c={cid}&t={token}')
+        self.assertIn('Odhlášeno', r.get_data(as_text=True))
+        self.assertEqual(self._count(), 0)
+
+    def test_token_is_not_guessable_from_another_id(self):
+        import server
+        self.assertNotEqual(server._campaign_token(1), server._campaign_token(2))
+
+    def test_short_body_is_refused(self):
+        r = self.client.post('/api/me/campaigns', json={'subject': 'Flash day', 'body': 'ahoj'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_free_artist_cannot_send(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET premium_until=NULL WHERE id=1')
+        conn.commit(); conn.close()
+        self.assertEqual(self.client.get('/api/me/campaigns/recipients').status_code, 402)
+
+    def test_only_own_clients(self):
+        """Souhlas dal klient konkrétnímu tatérovi, ne studiu."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email, is_artist) "
+                     "VALUES ('artist2','Artist Two','x','a2@t.cz',1)")
+        conn.execute('UPDATE clients SET artist_id=3')
+        conn.commit(); conn.close()
+        self.assertEqual(self._count(), 0)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 
