@@ -2596,6 +2596,40 @@ class MessageValidationTests(_Sprint2Base):
         self.assertEqual(r.status_code, 404)
 
 
+class SharedScriptVersionTests(unittest.TestCase):
+    """Sdílené skripty musí mít všude stejnou verzi.
+
+    Verze se udržovaly ručně a rozešly se: mobile-nav.js měl na osmi
+    stránkách v=14, na dvou v=15 a na jedné žádnou; i18n.js byl na osmi
+    stránkách bez verze. Obojí se přitom měnilo, takže vracející se
+    uživatel dostal na většině stránek starou lištu a starý slovník —
+    a na kterých, to záviselo na tom, kudy chodil."""
+
+    SHARED = ('i18n.js', 'mobile-nav.js', 'notifs.js', 'icons.js', 'nav-avatar.js',
+              'ink-trail.js', 'cookie-consent.js', 'native.js', 'legal.js',
+              'bookings-panel.js')
+
+    def _refs(self):
+        import re, glob
+        found = {}
+        for f in glob.glob('public/*.html'):
+            src = open(f, encoding='utf-8').read()
+            for name, ver in re.findall(r'src="/([a-z0-9-]+\.js)(\?v=\d+)?"', src):
+                if name in self.SHARED:
+                    found.setdefault(name, set()).add(ver or '(bez verze)')
+        return found
+
+    def test_one_version_per_script(self):
+        for name, versions in self._refs().items():
+            self.assertEqual(len(versions), 1,
+                             f'{name} má napříč stránkami víc verzí: {sorted(versions)}')
+
+    def test_nothing_is_unversioned(self):
+        """Bez verze prohlížeč drží starou kopii, dokud si ji sám nezahodí."""
+        for name, versions in self._refs().items():
+            self.assertNotIn('(bez verze)', versions, f'{name} je někde bez verze')
+
+
 class DynamicTranslationTests(unittest.TestCase):
     """Půlka UI vzniká až po načtení dat (profil, seznamy, modaly).
 
