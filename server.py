@@ -1312,6 +1312,12 @@ def init_db():
     add_col('bookings', 'studio_id INTEGER DEFAULT NULL')
     # Klient může sekvenci hojení kdykoliv zastavit; platí pro tuhle rezervaci.
     add_col('bookings', 'aftercare_optout_at TEXT DEFAULT NULL')
+    # Kolik z rezervace pokryl kredit a kolik kvůli tomu dlužíme tatérovi.
+    # Držet to na rezervaci, ne dopočítávat: až se to bude vyrovnávat,
+    # musí být jasné za co.
+    add_col('bookings', 'credit_used_cents INTEGER DEFAULT 0')
+    add_col('bookings', 'platform_owes_artist_cents INTEGER DEFAULT 0')
+    add_col('bookings', 'platform_settled_at TEXT DEFAULT NULL')
     c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_studio ON bookings(studio_id)')
     # CRM (Sprint 3) i historie klienta jezdí po obou těchhle sloupcích.
     c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_artist ON bookings(artist_id)')
@@ -1428,6 +1434,39 @@ def init_db():
     # bookings as if it were a discount. Refilled when referrer's referred
     # client completes their first booking.
     add_col('users', 'account_credit_cents INTEGER DEFAULT 0')
+    # Kniha pohybů kreditu. Zůstatek na uživateli je jen rychlé čtení —
+    # doložit, odkud cizí peníze přišly a kam šly, umí jen tohle.
+    c.execute('''CREATE TABLE IF NOT EXISTS credit_ledger (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL,
+        delta_cents INTEGER NOT NULL,
+        reason      TEXT NOT NULL,
+        ref_type    TEXT DEFAULT '',
+        ref_id      INTEGER DEFAULT NULL,
+        note        TEXT DEFAULT '',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_credit_ledger_user '
+              'ON credit_ledger(user_id, id)')
+
+    # Dárkové poukazy. Neuplatněné jsou závazek, ne tržba — dokud je někdo
+    # neutratí, dlužíme jejich hodnotu.
+    c.execute('''CREATE TABLE IF NOT EXISTS vouchers (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        code           TEXT NOT NULL UNIQUE,
+        amount_cents   INTEGER NOT NULL,
+        buyer_id       INTEGER,
+        recipient_name TEXT DEFAULT '',
+        message        TEXT DEFAULT '',
+        status         TEXT DEFAULT 'awaiting_payment',
+        payment_intent TEXT DEFAULT NULL,
+        redeemed_by    INTEGER DEFAULT NULL,
+        redeemed_at    TEXT DEFAULT NULL,
+        expires_at     TEXT NOT NULL,
+        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_vouchers_buyer ON vouchers(buyer_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_vouchers_status ON vouchers(status)')
 
     # ── economics_snapshots — immutable per-booking ledger entry ───────────
     # Created at PaymentIntent creation. NEVER updated — refunds/disputes
@@ -6071,6 +6110,7 @@ def create_booking():
     duration_raw      = data.get('duration_hours')
     portfolio_item_id = data.get('portfolio_item_id')
     pay_full          = bool(data.get('pay_full'))
+    use_credit        = bool(data.get('use_credit'))
     offer_id          = data.get('offer_id')
 
     # Přijetí nabídky termínu: parametry jsou dané dohodou v chatu, klient
@@ -6456,6 +6496,26 @@ def create_booking():
         except Exception as e:
             print(f'[economics-snapshot] persist failed for booking {bid}: {e}')
 
+    # ── Kredit ────────────────────────────────────────────────────────────
+    # Kredit snižuje, co klient platí kartou — ale NE to, co dostane tatér.
+    # Rozdíl doplácíme my z peněz, které za kredit držíme. Kdybychom místo
+    # toho poslali tatérovi míň, zaplatil by cizí dárkový poukaz on.
+    credit_used_cents = 0
+    if use_credit:
+        available = _credit_balance(conn, session['user_id'])
+        chargeable = total_price_cents if payment_mode == 'full' else deposit_cents
+        credit_used_cents = min(available, chargeable)
+        if credit_used_cents > 0:
+            if _credit_move(conn, session['user_id'], -credit_used_cents,
+                            'booking_spend', 'booking', bid) is None:
+                credit_used_cents = 0
+            else:
+                conn.execute(
+                    'UPDATE bookings SET credit_used_cents=?, platform_owes_artist_cents=? '
+                    'WHERE id=?',
+                    (credit_used_cents, credit_used_cents, bid))
+                conn.commit()
+
     push_notif(conn, slot['user_id'], session['user_id'], 'booking',
                bid, 'booking', f'Nová rezervace ({duration_hours} h): {design_note[:60]}')
     conn.commit()
@@ -6480,6 +6540,8 @@ def create_booking():
     if not demo_mode and enable_deposit_pi:
         try:
             charge_cents = total_price_cents if payment_mode == 'full' else deposit_cents
+            # Kartou se strhává jen to, co kredit nepokryl.
+            charge_cents = max(0, charge_cents - credit_used_cents)
             day = int(time.time() // 86400)
             pi = stripe.PaymentIntent.create(
                 amount=charge_cents,
@@ -6522,6 +6584,7 @@ def create_booking():
         'deposit_cents': deposit_cents,
         'platform_fee_cents': platform_fee_cents,
         'balance_due_cents': balance_due_cents,
+        'credit_used_kc':   credit_used_cents // 100,
         'total_price_cents': total_price_cents,
         'duration_hours': duration_hours,
         'booking_start_at': booking_start.isoformat(),
@@ -8129,10 +8192,8 @@ def complete_booking(bid):
             if (prior['c'] or 0) == 0:
                 from pricing.config import REFERRAL_BONUS_CZK
                 bonus_cents = int(REFERRAL_BONUS_CZK * 100)
-                conn.execute(
-                    'UPDATE users SET account_credit_cents = COALESCE(account_credit_cents, 0) + ? WHERE id = ?',
-                    (bonus_cents, ref_row['referrer_user_id'])
-                )
+                _credit_move(conn, ref_row['referrer_user_id'], bonus_cents,
+                             'referral_bonus', 'booking', bid)
                 conn.execute(
                     "UPDATE referrals SET credit_granted_at = CURRENT_TIMESTAMP WHERE id = ?",
                     (ref_row['id'],)
@@ -10378,6 +10439,264 @@ def _reconcile_card_country(conn, booking_id, pi_obj):
         conn.commit()
     except Exception as e:
         print(f'[card-country] reconcile failed for booking {booking_id}: {e}')
+
+
+# ── Kredit ────────────────────────────────────────────────────────────────
+#
+# Kredit jsou cizí peníze, které držíme my. To znamená dvě povinnosti:
+# umět kdykoliv doložit, odkud přišly a kam šly, a nezapomenout, že
+# nejsou naše. Proto účetní kniha (credit_ledger) a ne jen číslo na
+# uživateli — číslo se dá přepsat, kniha ne.
+#
+# users.account_credit_cents zůstává jako rychlý zůstatek pro čtení, ale
+# zdrojem pravdy je kniha. Test hlídá, že se nerozejdou.
+
+CREDIT_REASONS = (
+    'referral_bonus',    # bonus za doporučení
+    'voucher_redeem',    # uplatněný dárkový poukaz
+    'booking_spend',     # utraceno při rezervaci (záporné)
+    'booking_refund',    # vráceno zpět při zrušení
+    'admin_adjust',      # ruční oprava
+)
+
+
+def _credit_balance(conn, user_id):
+    row = conn.execute('SELECT COALESCE(account_credit_cents, 0) AS c FROM users WHERE id=?',
+                       (user_id,)).fetchone()
+    return (row['c'] if row else 0) or 0
+
+
+def _credit_move(conn, user_id, delta_cents, reason, ref_type=None, ref_id=None, note=''):
+    """Zapíše pohyb do knihy a srovná zůstatek. Nikdy nepustí zůstatek pod
+    nulu — utratit se dá jen to, co tam je.
+
+    Vrací nový zůstatek, nebo None když by šel do minusu."""
+    if reason not in CREDIT_REASONS:
+        raise ValueError(f'neznámý důvod pohybu kreditu: {reason}')
+    delta = int(delta_cents)
+    if delta == 0:
+        return _credit_balance(conn, user_id)
+    current = _credit_balance(conn, user_id)
+    if current + delta < 0:
+        return None
+    conn.execute(
+        'INSERT INTO credit_ledger (user_id, delta_cents, reason, ref_type, ref_id, note) '
+        'VALUES (?,?,?,?,?,?)',
+        (user_id, delta, reason, ref_type or '', ref_id, note[:200]))
+    conn.execute('UPDATE users SET account_credit_cents = COALESCE(account_credit_cents, 0) + ? '
+                 'WHERE id = ?', (delta, user_id))
+    return current + delta
+
+
+@app.route('/api/me/credit')
+def my_credit():
+    err = require_login()
+    if err: return err
+    uid  = session['user_id']
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT delta_cents, reason, ref_type, ref_id, note, created_at '
+        'FROM credit_ledger WHERE user_id=? ORDER BY id DESC LIMIT 50', (uid,)).fetchall()
+    balance = _credit_balance(conn, uid)
+    conn.close()
+    return jsonify({
+        'balance_kc': balance / 100,
+        'history': [{
+            'amount_kc': r['delta_cents'] / 100,
+            'reason':    r['reason'],
+            'ref_type':  r['ref_type'] or '',
+            'ref_id':    r['ref_id'],
+            'note':      r['note'] or '',
+            'at':        r['created_at'],
+        } for r in rows],
+    })
+
+
+# ── Dárkové poukazy ───────────────────────────────────────────────────────
+#
+# Poukaz je koupený kredit. Platí u kteréhokoliv tatéra a peníze do
+# uplatnění držíme my — to je rozhodnutí produktu, ne technické. Plyne
+# z něj, že nesplacené poukazy jsou náš závazek, ne tržba: dokud je někdo
+# neutratí, dlužíme jejich hodnotu. Admin proto vidí součet zvlášť.
+#
+# Kód se nepočítá z ničeho, co by šlo uhodnout. Nula, O, I a jednička
+# v abecedě nejsou schválně — poukaz se opisuje z papíru.
+
+VOUCHER_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+VOUCHER_VALID_MONTHS = 12
+VOUCHER_MIN_KC = 500
+VOUCHER_MAX_KC = 50000
+
+
+def _voucher_code():
+    import secrets
+    raw = ''.join(secrets.choice(VOUCHER_ALPHABET) for _ in range(12))
+    return f'{raw[:4]}-{raw[4:8]}-{raw[8:]}'
+
+
+@app.route('/api/vouchers', methods=['POST'])
+@limiter.limit('10 per hour')
+def create_voucher():
+    """Založí poukaz. V demo režimu (bez Stripe) je rovnou platný, jinak
+    čeká na zaplacení — poukaz, za který nikdo nezaplatil, by byl kredit
+    z ničeho."""
+    err = require_login()
+    if err: return err
+    uid  = session['user_id']
+    data = request.get_json(silent=True) or {}
+    try:
+        amount_kc = int(data.get('amount_kc') or 0)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Zadej částku.'}), 400
+    if amount_kc < VOUCHER_MIN_KC or amount_kc > VOUCHER_MAX_KC:
+        return jsonify({'error': f'Poukaz může být na {VOUCHER_MIN_KC}–'
+                                 f'{VOUCHER_MAX_KC} Kč.'}), 400
+    recipient = (data.get('recipient_name') or '').strip()[:80]
+    message   = (data.get('message') or '').strip()[:300]
+
+    conn = get_db()
+    expires = (_prague_now_naive() + timedelta(days=30 * VOUCHER_VALID_MONTHS)).isoformat()
+    demo = not STRIPE_SECRET_KEY
+    for _ in range(5):                      # kolize kódu jsou nepravděpodobné, ne nemožné
+        code = _voucher_code()
+        try:
+            conn.execute(
+                'INSERT INTO vouchers (code, amount_cents, buyer_id, recipient_name, '
+                'message, status, expires_at) VALUES (?,?,?,?,?,?,?)',
+                (code, amount_kc * 100, uid, recipient, message,
+                 'active' if demo else 'awaiting_payment', expires))
+            conn.commit()
+            break
+        except Exception:
+            code = None
+    if not code:
+        conn.close(); return jsonify({'error': 'Nepovedlo se vygenerovat kód.'}), 500
+    vid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+           else conn.execute('SELECT lastval()').fetchone()[0])
+    conn.close()
+    return jsonify({'ok': True, 'id': vid, 'code': code, 'amount_kc': amount_kc,
+                    'expires_at': expires, 'status': 'active' if demo else 'awaiting_payment',
+                    'print_url': f'/vouchers/{code}'})
+
+
+@app.route('/api/vouchers/redeem', methods=['POST'])
+@limiter.limit('20 per hour')
+def redeem_voucher():
+    err = require_login()
+    if err: return err
+    uid  = session['user_id']
+    code = (request.get_json(silent=True) or {}).get('code', '')
+    code = code.strip().upper().replace(' ', '')
+    if len(code) < 8:
+        return jsonify({'error': 'Zadej kód z poukazu.'}), 400
+
+    conn = get_db()
+    v = conn.execute('SELECT * FROM vouchers WHERE code=?', (code,)).fetchone()
+    if not v:
+        conn.close(); return jsonify({'error': 'Takový poukaz neznáme.'}), 404
+    if v['status'] == 'redeemed':
+        conn.close(); return jsonify({'error': 'Tenhle poukaz už byl uplatněný.'}), 409
+    if v['status'] != 'active':
+        conn.close(); return jsonify({'error': 'Poukaz zatím není platný.'}), 409
+    try:
+        if _naive_dt(v['expires_at']) <= _prague_now_naive():
+            conn.close(); return jsonify({'error': 'Poukazu vypršela platnost.'}), 409
+    except (ValueError, TypeError):
+        pass
+
+    # Označit dřív, než připíšeme kredit: kdyby to spadlo mezi tím, radši
+    # neuplatněný poukaz než kredit ze vzduchu.
+    changed = conn.execute(
+        "UPDATE vouchers SET status='redeemed', redeemed_by=?, redeemed_at=? "
+        "WHERE id=? AND status='active'",
+        (uid, _prague_now_naive().isoformat(), v['id'])).rowcount
+    conn.commit()
+    if not changed:
+        conn.close(); return jsonify({'error': 'Tenhle poukaz už byl uplatněný.'}), 409
+
+    balance = _credit_move(conn, uid, v['amount_cents'], 'voucher_redeem', 'voucher', v['id'])
+    conn.commit(); conn.close()
+    return jsonify({'ok': True, 'amount_kc': v['amount_cents'] // 100,
+                    'balance_kc': (balance or 0) / 100})
+
+
+@app.route('/api/vouchers/mine')
+def my_vouchers():
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT id, code, amount_cents, recipient_name, status, expires_at, created_at '
+        'FROM vouchers WHERE buyer_id=? ORDER BY id DESC LIMIT 50',
+        (session['user_id'],)).fetchall()
+    conn.close()
+    return jsonify([{
+        'id': r['id'], 'code': r['code'], 'amount_kc': r['amount_cents'] // 100,
+        'recipient_name': r['recipient_name'] or '', 'status': r['status'],
+        'expires_at': r['expires_at'], 'created_at': r['created_at'],
+        'print_url': f'/vouchers/{r["code"]}',
+    } for r in rows])
+
+
+@app.route('/vouchers/<code>')
+def voucher_print(code):
+    """Poukaz k vytisknutí i k poslání odkazem. Bez přihlášení — dárce ho
+    posílá dál a obdarovaný účet mít nemusí, dokud kód neuplatní."""
+    from html import escape as _h
+    conn = get_db()
+    v = conn.execute('SELECT * FROM vouchers WHERE code=?',
+                     (code.strip().upper(),)).fetchone()
+    conn.close()
+    if not v or v['status'] == 'awaiting_payment':
+        return _plain_page('Takový poukaz neznáme.'), 404
+
+    amount = f'{v["amount_cents"] // 100:,}'.replace(',', ' ')
+    try:
+        exp = _naive_dt(v['expires_at']).strftime('%d. %m. %Y')
+    except (ValueError, TypeError):
+        exp = ''
+    used = v['status'] == 'redeemed'
+    return Response(f'''<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dárkový poukaz — InkLink</title>
+<style>
+  @page {{ margin: 18mm; }}
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:#e9e4d8;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    color:#0a0a0a;display:flex;align-items:center;justify-content:center;
+    min-height:100vh;padding:24px}}
+  .v{{background:#faf8f3;border:1px solid #0a0a0a;max-width:520px;width:100%;padding:44px 40px;
+    text-align:center;position:relative}}
+  .brand{{font-size:12px;letter-spacing:0.34em;text-transform:uppercase;color:#5a5a5a}}
+  .t{{font-size:15px;letter-spacing:0.2em;text-transform:uppercase;margin:26px 0 6px}}
+  .amt{{font-size:58px;letter-spacing:0.02em;line-height:1}}
+  .cur{{font-size:20px;letter-spacing:0.16em;color:#5a5a5a;margin-top:4px}}
+  .to{{margin-top:24px;font-size:15px;line-height:1.7}}
+  .msg{{margin-top:10px;font-size:13px;color:#2a2a2a;line-height:1.7;
+    white-space:pre-wrap;font-style:italic}}
+  .code{{margin-top:30px;padding:16px;border:1px dashed #a8a399;background:#f1ece0;
+    font-size:24px;letter-spacing:0.24em}}
+  .fine{{margin-top:22px;font-size:11px;color:#5a5a5a;line-height:1.8}}
+  .used{{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:30px;letter-spacing:0.2em;color:rgba(198,40,40,0.5);
+    transform:rotate(-14deg);pointer-events:none}}
+  @media print {{ body{{background:#fff;padding:0}} .v{{border-color:#000}} }}
+</style>
+<div class="v">
+  {'<div class="used">UPLATNĚNO</div>' if used else ''}
+  <div class="brand">inklink</div>
+  <div class="t">Dárkový poukaz</div>
+  <div class="amt">{amount}</div>
+  <div class="cur">Kč</div>
+  {f'<div class="to">Pro <b>{_h(v["recipient_name"])}</b></div>' if v['recipient_name'] else ''}
+  {f'<div class="msg">{_h(v["message"])}</div>' if v['message'] else ''}
+  <div class="code">{_h(v['code'])}</div>
+  <div class="fine">
+    Uplatníš na <b>{_h(APP_BASE_URL.replace('https://', ''))}</b> — v profilu zadáš kód
+    a částka se ti připíše jako kredit.<br>
+    Platí u kteréhokoliv tatéra na InkLinku{f' do {exp}' if exp else ''}.
+  </div>
+</div>''', mimetype='text/html')
 
 
 # ── Premium: hojení ───────────────────────────────────────────────────────

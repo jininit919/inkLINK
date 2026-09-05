@@ -3195,6 +3195,233 @@ class AftercareTests(_Sprint2Base):
         self.assertEqual(self.client.get('/api/me/aftercare').status_code, 401)
 
 
+class CreditLedgerTests(_Sprint2Base):
+    """Kredit jsou cizí peníze, které držíme my. Musíme umět kdykoliv
+    doložit, odkud přišly a kam šly — číslo na uživateli se dá přepsat,
+    kniha ne."""
+
+    def _bal(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        b = conn.execute('SELECT COALESCE(account_credit_cents,0) FROM users WHERE id=2').fetchone()[0]
+        led = conn.execute('SELECT COALESCE(SUM(delta_cents),0) FROM credit_ledger '
+                           'WHERE user_id=2').fetchone()[0]
+        conn.close()
+        return b, led
+
+    def _move(self, delta, reason='admin_adjust'):
+        import server
+        conn = server.get_db()
+        out = server._credit_move(conn, 2, delta, reason)
+        conn.commit(); conn.close()
+        return out
+
+    def test_balance_always_matches_the_ledger(self):
+        """Rozejít se nesmí ani o korunu — pak už nevíme, komu co dlužíme."""
+        self._move(50000)
+        self._move(-20000, 'booking_spend')
+        self._move(3000, 'referral_bonus')
+        bal, led = self._bal()
+        self.assertEqual(bal, led)
+        self.assertEqual(bal, 33000)
+
+    def test_cannot_go_negative(self):
+        """Utratit se dá jen to, co tam je."""
+        self._move(1000)
+        self.assertIsNone(self._move(-5000, 'booking_spend'))
+        bal, led = self._bal()
+        self.assertEqual((bal, led), (1000, 1000))
+
+    def test_unknown_reason_is_refused(self):
+        """Pohyb bez důvodu se v knize dohledat nedá."""
+        import server
+        conn = server.get_db()
+        with self.assertRaises(ValueError):
+            server._credit_move(conn, 2, 100, 'protoze_ano')
+        conn.close()
+
+    def test_history_is_visible_to_the_owner(self):
+        self._move(2500, 'voucher_redeem')
+        d = self.client.get('/api/me/credit').get_json()
+        self.assertEqual(d['balance_kc'], 25.0)
+        self.assertEqual(d['history'][0]['reason'], 'voucher_redeem')
+
+    def test_credit_requires_login(self):
+        self.client.post('/api/logout')
+        self.assertEqual(self.client.get('/api/me/credit').status_code, 401)
+
+
+class VoucherTests(_Sprint2Base):
+    """Dárkový poukaz je koupený kredit. Neuplatněné poukazy jsou závazek,
+    ne tržba — dokud je někdo neutratí, dlužíme jejich hodnotu."""
+
+    def _buy(self, **over):
+        body = {'amount_kc': 3000, 'recipient_name': 'Jan Novák', 'message': 'Hodně štěstí'}
+        body.update(over)
+        return self.client.post('/api/vouchers', json=body)
+
+    def test_buy_and_redeem(self):
+        code = self._buy().get_json()['code']
+        r = self.client.post('/api/vouchers/redeem', json={'code': code})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        self.assertEqual(r.get_json()['balance_kc'], 3000.0)
+
+    def test_code_is_case_and_space_tolerant(self):
+        """Kód se opisuje z papíru — velikost písmen ani mezery řešit nemá."""
+        code = self._buy().get_json()['code']
+        r = self.client.post('/api/vouchers/redeem',
+                             json={'code': f'  {code.lower()} '})
+        self.assertEqual(r.status_code, 200)
+
+    def test_code_avoids_confusable_characters(self):
+        """Nula a O, jednička a I se z papíru opsat nedají."""
+        import server
+        for _ in range(30):
+            code = server._voucher_code().replace('-', '')
+            for ch in '01OI':
+                self.assertNotIn(ch, code)
+
+    def test_cannot_be_redeemed_twice(self):
+        code = self._buy().get_json()['code']
+        self.client.post('/api/vouchers/redeem', json={'code': code})
+        r = self.client.post('/api/vouchers/redeem', json={'code': code})
+        self.assertEqual(r.status_code, 409)
+
+    def test_double_redeem_does_not_double_the_credit(self):
+        """Závod na dvou zařízeních nesmí udělat kredit ze vzduchu."""
+        import sqlite3
+        code = self._buy().get_json()['code']
+        self.client.post('/api/vouchers/redeem', json={'code': code})
+        self.client.post('/api/vouchers/redeem', json={'code': code})
+        conn = sqlite3.connect(self.db)
+        total = conn.execute('SELECT COALESCE(SUM(delta_cents),0) FROM credit_ledger '
+                             "WHERE reason='voucher_redeem'").fetchone()[0]
+        conn.close()
+        self.assertEqual(total, 300000)
+
+    def test_expired_voucher_is_refused(self):
+        import sqlite3
+        code = self._buy().get_json()['code']
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE vouchers SET expires_at=? WHERE code=?',
+                     ((self._now() - timedelta(days=1)).isoformat(), code))
+        conn.commit(); conn.close()
+        r = self.client.post('/api/vouchers/redeem', json={'code': code})
+        self.assertEqual(r.status_code, 409)
+
+    def test_unknown_code_is_404(self):
+        r = self.client.post('/api/vouchers/redeem', json={'code': 'AAAA-BBBB-CCCC'})
+        self.assertEqual(r.status_code, 404)
+
+    def test_amount_limits(self):
+        self.assertEqual(self._buy(amount_kc=100).status_code, 400)
+        self.assertEqual(self._buy(amount_kc=999999).status_code, 400)
+
+    def test_unpaid_voucher_cannot_be_redeemed(self):
+        """Poukaz, za který nikdo nezaplatil, by byl kredit z ničeho."""
+        import sqlite3
+        code = self._buy().get_json()['code']
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE vouchers SET status='awaiting_payment' WHERE code=?", (code,))
+        conn.commit(); conn.close()
+        r = self.client.post('/api/vouchers/redeem', json={'code': code})
+        self.assertEqual(r.status_code, 409)
+
+    def test_printable_page_works_without_login(self):
+        """Dárce ho posílá dál; obdarovaný účet mít nemusí, dokud
+        kód neuplatní."""
+        import server
+        code = self._buy().get_json()['code']
+        fresh = server.app.test_client()
+        body = fresh.get(f'/vouchers/{code}').get_data(as_text=True)
+        self.assertIn(code, body)
+        self.assertIn('3 000', body)
+        self.assertIn('Jan Novák', body)
+
+    def test_unpaid_voucher_is_not_printable(self):
+        import sqlite3, server
+        code = self._buy().get_json()['code']
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE vouchers SET status='awaiting_payment' WHERE code=?", (code,))
+        conn.commit(); conn.close()
+        self.assertEqual(server.app.test_client().get(f'/vouchers/{code}').status_code, 404)
+
+    def test_redeemed_voucher_is_marked_on_the_print(self):
+        code = self._buy().get_json()['code']
+        self.client.post('/api/vouchers/redeem', json={'code': code})
+        self.assertIn('UPLATNĚNO', self.client.get(f'/vouchers/{code}').get_data(as_text=True))
+
+
+class CreditSpendTests(_Sprint2Base):
+    """Kredit snižuje, co platí klient — ne to, co dostane tatér.
+    Rozdíl doplácíme my z peněz, které za kredit držíme."""
+
+    def setUp(self):
+        super().setUp()
+        import server
+        conn = server.get_db()
+        server._credit_move(conn, 2, 200000, 'voucher_redeem')
+        conn.commit(); conn.close()
+        self.start = self._day_at(4, 10)
+        self.slot = self._mk_slot(self.start, self.start + timedelta(hours=8))
+
+    def _book(self, use_credit):
+        return self.client.post('/api/bookings', json={
+            'slot_id': self.slot, 'design_note': 'vlk', 'duration_hours': 3,
+            'booking_start_at': self.start.isoformat(), 'use_credit': use_credit})
+
+    def test_credit_is_not_spent_unless_asked(self):
+        """Kredit je klientův; utratit ho bez jeho vědomí nesmíme."""
+        r = self._book(False)
+        self.assertEqual(r.get_json()['credit_used_kc'], 0)
+
+    def test_credit_covers_part_of_the_deposit(self):
+        j = self._book(True).get_json()
+        self.assertGreater(j['credit_used_kc'], 0)
+        self.assertLessEqual(j['credit_used_kc'] * 100, j['deposit_cents'])
+
+    def test_artist_is_kept_whole(self):
+        """Kdybychom tatérovi poslali míň, zaplatil by cizí poukaz on."""
+        import sqlite3
+        bid = self._book(True).get_json()['id']
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = sqlite3.Row
+        b = conn.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+        conn.close()
+        self.assertEqual(b['platform_owes_artist_cents'], b['credit_used_cents'])
+        self.assertGreater(b['platform_owes_artist_cents'], 0)
+
+    def test_spend_is_recorded_in_the_ledger(self):
+        import sqlite3
+        bid = self._book(True).get_json()['id']
+        conn = sqlite3.connect(self.db)
+        row = conn.execute("SELECT delta_cents, ref_id FROM credit_ledger "
+                           "WHERE reason='booking_spend'").fetchone()
+        conn.close()
+        self.assertLess(row[0], 0)
+        self.assertEqual(row[1], bid)
+
+    def test_spends_at_most_what_is_there(self):
+        """Kredit menší než záloha se utratí celý, ale ani o korunu víc —
+        jinak by zůstatek šel do minusu a my bychom dlužili sami sobě."""
+        import sqlite3, server
+        conn = server.get_db()
+        conn.execute('UPDATE users SET account_credit_cents=5000 WHERE id=2')
+        conn.execute('DELETE FROM credit_ledger')
+        conn.execute('INSERT INTO credit_ledger (user_id, delta_cents, reason) '
+                     "VALUES (2, 5000, 'admin_adjust')")
+        conn.commit(); conn.close()
+        j = self._book(True).get_json()
+        self.assertEqual(j['credit_used_kc'], 50)
+        self.assertLess(j['credit_used_kc'] * 100, j['deposit_cents'])
+        conn = sqlite3.connect(self.db)
+        bal = conn.execute('SELECT account_credit_cents FROM users WHERE id=2').fetchone()[0]
+        led = conn.execute('SELECT SUM(delta_cents) FROM credit_ledger WHERE user_id=2').fetchone()[0]
+        conn.close()
+        self.assertEqual(bal, 0)
+        self.assertEqual(bal, led)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 
