@@ -178,7 +178,10 @@ _GATE_ALWAYS_OPEN = (
     # základ zrušil.
     '/privacy', '/terms',
 )
-_GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/')
+# /vouchers/ je záměrně veřejné: dárce odkaz pošle dál a obdarovaný
+# účet mít nemusí. Za bránou by místo dárku našel coming-soon stránku.
+_GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/',
+                       '/vouchers/')
 _GATE_OPEN_API = (
     '/api/login', '/api/register', '/api/logout', '/api/me',
     '/api/verify', '/api/forgot-password', '/api/reset-password',
@@ -11128,16 +11131,49 @@ def _voucher_render(v, tpl, preview=False):
     transform:rotate(-14deg);pointer-events:none}}
   .fine{{margin-top:14px;max-width:640px;font-size:11px;color:#5a5a5a;line-height:1.8;
     text-align:center}}
+  /* Ovládání jen na obrazovce. Na papíře nemá tlačítko co dělat. */
+  .bar{{margin:16px auto 0;max-width:640px;display:flex;gap:8px;justify-content:center;
+    flex-wrap:wrap}}
+  .bar button,.bar a{{font-family:inherit;font-size:11px;letter-spacing:0.1em;
+    text-transform:uppercase;padding:10px 16px;border:1px solid #0a0a0a;background:none;
+    color:#0a0a0a;cursor:pointer;text-decoration:none;border-radius:4px}}
+  .bar button:hover,.bar a:hover{{background:#0a0a0a;color:#faf8f3}}
+  .bar .go{{background:#0a0a0a;color:#faf8f3}}
   @media print {{
     body{{background:#fff;padding:0;display:block}}
     .v{{max-width:none;margin:0 auto}}
     .fine{{margin:10px auto 0}}
+    .bar{{display:none}}
   }}
 </style>
 <div>
   <div class="{card_class}">{inner}</div>
   <div class="fine">{fine}</div>
-</div>'''
+  <div class="bar">
+    <button class="go" onclick="window.print()">Vytisknout</button>
+    <button id="cp" onclick="copyLink()">Zkopírovat odkaz</button>
+    <a href="/">Zpět na InkLink</a>
+  </div>
+</div>
+<script>
+function copyLink() {{
+  var b = document.getElementById('cp');
+  var done = function () {{ b.textContent = 'Zkopírováno'; setTimeout(function () {{
+    b.textContent = 'Zkopírovat odkaz'; }}, 2000); }};
+  // clipboard API neexistuje na http mimo localhost — výběr textu funguje všude.
+  if (navigator.clipboard && window.isSecureContext) {{
+    navigator.clipboard.writeText(location.href).then(done, fallback);
+  }} else {{ fallback(); }}
+  function fallback() {{
+    var t = document.createElement('textarea');
+    t.value = location.href; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    try {{ document.execCommand('copy'); done(); }}
+    catch (e) {{ b.textContent = location.href; }}
+    document.body.removeChild(t);
+  }}
+}}
+</script>'''
 
 
 @app.route('/vouchers/<code>')

@@ -309,8 +309,10 @@
           return '<div class="ilv-vrow"><div><b>' + esc(money(v.amount_kc, v.currency)) + '</b>'
             + (who ? ' <span class="w">' + who + '</span>' : '')
             + '<div class="c">' + (v.code ? esc(v.code) : '—') + ' · ' + st + '</div></div>'
+            // Ve stejné záložce: nová se dá zablokovat a poukaz má vlastní
+            // cestu zpátky.
             + (v.print_url
-                ? '<a class="p" href="' + esc(v.print_url) + '" target="_blank" rel="noopener">'
+                ? '<a class="p" href="' + esc(v.print_url) + '">'
                   + t('gv.minePrint', 'Otevřít') + '</a>'
                 : '') + '</div>';
         }).join('');

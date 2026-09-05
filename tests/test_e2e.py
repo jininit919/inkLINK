@@ -4494,6 +4494,23 @@ class ComingSoonGateTests(unittest.TestCase):
         for path in ('/', '/my-bookings', '/api/feed', '/profile/inker'):
             self.assertFalse(server._gate_is_open_path(path), path)
 
+    def test_voucher_link_stays_reachable(self):
+        """Dárce odkaz na poukaz pošle dál a obdarovaný účet mít nemusí.
+        Za bránou by místo dárku našel waitlist."""
+        import sqlite3, server
+        from datetime import datetime, timedelta
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO vouchers (code, amount_cents, buyer_id, status, expires_at, currency) '
+            "VALUES ('AAAA-BBBB-CCCC', 200000, 1, 'active', ?, 'CZK')",
+            ((datetime.now() + timedelta(days=300)).isoformat(),))
+        conn.commit(); conn.close()
+        self.assertTrue(server._gate_is_open_path('/vouchers/AAAA-BBBB-CCCC'))
+        r = self.client.get('/vouchers/AAAA-BBBB-CCCC')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn(b'wlForm', r.data)                 # ne brána, ale poukaz
+        self.assertIn(b'AAAA-BBBB-CCCC', r.data)
+
     def test_login_stays_reachable(self):
         r = self.client.get('/login')
         self.assertEqual(r.status_code, 200)
