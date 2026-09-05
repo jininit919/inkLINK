@@ -3050,10 +3050,14 @@ class AftercareTests(_Sprint2Base):
         conn.commit(); conn.close()
 
     def _complete_days_ago(self, days):
+        """completed_at ukládá produkce v UTC (datetime.utcnow), takže i
+        testovací data musí být v UTC — jinak se testuje jiný čas, než
+        jaký kód uvidí."""
         import sqlite3
+        from datetime import datetime as _dt
         conn = sqlite3.connect(self.db)
         conn.execute("UPDATE bookings SET status='completed', completed_at=? WHERE id=?",
-                     ((self._now() - timedelta(days=days, hours=1)).isoformat(), self.bid))
+                     ((_dt.utcnow() - timedelta(days=days, hours=1)).isoformat(), self.bid))
         conn.commit(); conn.close()
 
     def _run(self):
@@ -3745,6 +3749,194 @@ class CreditCurrencyTests(_Sprint2Base):
                            'LIMIT 1').fetchone()[0]
         conn.close()
         self.assertIn(cur, server.CURRENCIES)
+
+
+class _FakeStripe:
+    """Minimální náhrada Stripe — testuje naši logiku, ne jejich API."""
+
+    class Session:
+        last = None
+
+        def __init__(self, **kw):
+            self.kw = kw
+            self.id = 'cs_test_%d' % (abs(hash(repr(sorted(kw.items(), key=str)))) % 10 ** 10)
+            self.url = 'https://checkout.stripe.test/' + self.id
+
+        @classmethod
+        def create(cls, **kw):
+            cls.last = cls(**kw)
+            return cls.last
+
+    def __init__(self):
+        self.checkout = type('checkout', (), {'Session': _FakeStripe.Session})
+
+
+class VoucherCheckoutTests(_Sprint2Base):
+    """Placená cesta poukazu. Peníze jdou na náš účet, ne přes Connect:
+    poukaz je náš závazek, dokud ho někdo neuplatní."""
+
+    def setUp(self):
+        super().setUp()
+        import server
+        self._real_key = server.STRIPE_SECRET_KEY
+        self._real_stripe = server.stripe
+        server.STRIPE_SECRET_KEY = 'sk_test_fake'
+        server.stripe = _FakeStripe()
+
+    def tearDown(self):
+        import server
+        server.STRIPE_SECRET_KEY = self._real_key
+        server.stripe = self._real_stripe
+        super().tearDown()
+
+    def _buy(self, **over):
+        body = {'amount_kc': 3000, 'recipient_name': 'Jan Novák'}
+        body.update(over)
+        return self.client.post('/api/vouchers', json=body)
+
+    def _last_session(self):
+        import server
+        return server.stripe.checkout.Session.last
+
+    def _paid_hook(self, event_id='evt_1', status='paid'):
+        import json as _json
+        sess = self._last_session()
+        return self.client.post('/api/stripe/webhook', data=_json.dumps({
+            'id': event_id, 'type': 'checkout.session.completed',
+            'data': {'object': {'id': sess.id, 'payment_status': status,
+                                'metadata': sess.kw['metadata']}}}),
+            content_type='application/json')
+
+    def test_checkout_charges_the_platform_not_the_artist(self):
+        """Destination charge by peníze poslal tatérovi, který o poukazu
+        zatím nic neví."""
+        self._buy()
+        kw = self._last_session().kw
+        self.assertEqual(kw['mode'], 'payment')
+        self.assertNotIn('payment_intent_data', kw)
+        self.assertNotIn('transfer_data', kw)
+
+    def test_amount_and_currency_reach_stripe(self):
+        self._buy(amount_kc=2500)
+        pd = self._last_session().kw['line_items'][0]['price_data']
+        self.assertEqual(pd['unit_amount'], 250000)
+        self.assertEqual(pd['currency'], 'czk')
+
+    def test_code_is_hidden_until_paid(self):
+        """Nezaplacený poukaz je rezervovaný řádek, ne dárek."""
+        j = self._buy().get_json()
+        self.assertIsNone(j.get('code'))
+        self.assertIn('checkout_url', j)
+        listed = self.client.get('/api/vouchers/mine').get_json()
+        self.assertIsNone(listed[0]['code'])
+        self.assertIsNone(listed[0]['print_url'])
+
+    def test_unpaid_cannot_be_redeemed_or_printed(self):
+        import sqlite3
+        self._buy()
+        conn = sqlite3.connect(self.db)
+        code = conn.execute('SELECT code FROM vouchers').fetchone()[0]
+        conn.close()
+        self.assertEqual(self.client.post('/api/vouchers/redeem',
+                                          json={'code': code}).status_code, 409)
+        self.assertEqual(self.client.get(f'/vouchers/{code}').status_code, 404)
+
+    def test_payment_activates_it(self):
+        self._buy()
+        self.assertEqual(self._paid_hook().status_code, 200)
+        listed = self.client.get('/api/vouchers/mine').get_json()
+        self.assertEqual(listed[0]['status'], 'active')
+        self.assertIsNotNone(listed[0]['code'])
+        r = self.client.post('/api/vouchers/redeem', json={'code': listed[0]['code']})
+        self.assertEqual(r.status_code, 200)
+
+    def test_repeated_webhook_does_not_resurrect_a_redeemed_voucher(self):
+        """Stripe doručuje opakovaně. Podmíněný UPDATE brání tomu, aby
+        se uplatněný poukaz vrátil do hry."""
+        import sqlite3
+        self._buy()
+        self._paid_hook('evt_a')
+        code = self.client.get('/api/vouchers/mine').get_json()[0]['code']
+        self.client.post('/api/vouchers/redeem', json={'code': code})
+        self._paid_hook('evt_b')
+        conn = sqlite3.connect(self.db)
+        st = conn.execute('SELECT status FROM vouchers').fetchone()[0]
+        conn.close()
+        self.assertEqual(st, 'redeemed')
+
+    def test_unpaid_webhook_activates_nothing(self):
+        import sqlite3
+        self._buy()
+        self._paid_hook('evt_c', status='unpaid')
+        conn = sqlite3.connect(self.db)
+        st = conn.execute('SELECT status FROM vouchers').fetchone()[0]
+        conn.close()
+        self.assertEqual(st, 'awaiting_payment')
+
+    def test_fresh_unpaid_voucher_survives_the_reaper(self):
+        """created_at je v UTC. Porovnávat ho proti pražskému wall-clocku
+        znamenalo v létě mýlit se o dvě hodiny — a smazat každý
+        nezaplacený poukaz hned po vytvoření, takže ho nikdo nestihl
+        zaplatit."""
+        self._buy()
+        self.assertEqual(len(self.client.get('/api/vouchers/mine').get_json()), 1)
+
+    def test_abandoned_checkout_is_cleaned_up(self):
+        import sqlite3, server
+        self._buy()
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE vouchers SET created_at=?',
+                     (server._utc_ago_sql(hours=server.VOUCHER_UNPAID_TTL_HOURS + 1),))
+        conn.commit(); conn.close()
+        self.assertEqual(self.client.get('/api/vouchers/mine').get_json(), [])
+
+    def test_paid_voucher_is_never_reaped(self):
+        import sqlite3, server
+        self._buy()
+        self._paid_hook()
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE vouchers SET created_at=?',
+                     (server._utc_ago_sql(days=30),))
+        conn.commit(); conn.close()
+        self.assertEqual(len(self.client.get('/api/vouchers/mine').get_json()), 1)
+
+
+class UtcBoundaryTests(unittest.TestCase):
+    """CURRENT_TIMESTAMP i datetime.utcnow() ukládají UTC; časy sezení jedou
+    na pražském wall-clocku. Smíchat je znamená mýlit se o posun pásma."""
+
+    def test_utc_helper_matches_the_database_clock(self):
+        import server, datetime
+        conn = server.get_db()
+        db_now = conn.execute('SELECT CURRENT_TIMESTAMP').fetchone()[0]
+        conn.close()
+        delta = abs((datetime.datetime.fromisoformat(str(db_now))
+                     - datetime.datetime.fromisoformat(server._utc_ago_sql(seconds=0))).total_seconds())
+        self.assertLess(delta, 5, 'pomocník neběží na stejných hodinách jako databáze')
+
+    def test_separators_are_not_mixed(self):
+        """CURRENT_TIMESTAMP píše mezeru, isoformat() píše T. 'T' je
+        v ASCII větší než mezera, takže smíchat je neznamená být o vteřinu
+        vedle — znamená to dostat opačný výsledek."""
+        import server
+        self.assertIn(' ', server._utc_ago_sql(seconds=0))
+        self.assertNotIn('T', server._utc_ago_sql(seconds=0))
+        self.assertIn('T', server._utc_ago_iso(seconds=0))
+
+    def test_each_column_uses_the_matching_helper(self):
+        """Sloupec psaný přes CURRENT_TIMESTAMP se musí porovnávat
+        s _utc_ago_sql, sloupec psaný přes isoformat s _utc_ago_iso."""
+        src = open('server.py', encoding='utf-8').read()
+        self.assertIn('created_at < ?', src)
+        self.assertIn('_utc_ago_sql(hours=VOUCHER_UNPAID_TTL_HOURS)', src)
+        self.assertIn('_utc_ago_iso(days=days)', src)
+
+    def test_created_at_is_never_compared_to_prague_time(self):
+        import re
+        src = open('server.py', encoding='utf-8').read()
+        bad = re.findall(r"created_at[^\n]{0,80}_prague_now_naive", src)
+        bad += re.findall(r"_prague_now_naive[^\n]{0,80}created_at", src)
+        self.assertEqual(bad, [])
 
 
 class LoginIdentifierTests(unittest.TestCase):

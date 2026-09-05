@@ -10544,6 +10544,26 @@ def _sync_currency(conn, user_id, stripe_country=None):
     return cur
 
 
+# Časy v databázi mají dva různé tvary a porovnávají se jako řetězce:
+#
+#   CURRENT_TIMESTAMP        → '2026-09-05 14:27:35'   (mezera)
+#   datetime.utcnow().isoformat() → '2026-09-05T14:27:35.09'  (T)
+#
+# 'T' je v ASCII větší než mezera, takže smíchat je znamená dostat opačný
+# výsledek, ne o vteřinu vedle. Proto dva pojmenované pomocníky — název
+# říká, na jaký sloupec hranice patří. Obojí je v UTC; pražský wall-clock
+# (_prague_now_naive) platí jen pro časy sezení.
+
+def _utc_ago_sql(**delta):
+    """Pro sloupce psané přes CURRENT_TIMESTAMP."""
+    return (datetime.utcnow() - timedelta(**delta)).isoformat(sep=' ')
+
+
+def _utc_ago_iso(**delta):
+    """Pro sloupce psané přes datetime.utcnow().isoformat()."""
+    return (datetime.utcnow() - timedelta(**delta)).isoformat()
+
+
 def _norm_currency(code):
     code = (code or '').strip().upper()
     return code if code in CURRENCIES else DEFAULT_CURRENCY
@@ -10795,10 +10815,53 @@ def create_voucher():
         conn.close(); return jsonify({'error': 'Nepovedlo se vygenerovat kód.'}), 500
     vid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
            else conn.execute('SELECT lastval()').fetchone()[0])
+    currency = _artist_currency(conn, uid)
+
+    if demo:
+        conn.close()
+        return jsonify({'ok': True, 'id': vid, 'code': code, 'amount_kc': amount_kc,
+                        'currency': currency, 'expires_at': expires, 'status': 'active',
+                        'print_url': f'/vouchers/{code}'})
+
+    # Platba jde na náš účet, ne přes Connect: poukaz je náš závazek, dokud
+    # ho někdo neuplatní. Destination charge by peníze rovnou poslal
+    # tatérovi, který o poukazu zatím nic neví.
+    try:
+        sess = stripe.checkout.Session.create(
+            mode='payment',
+            line_items=[{
+                'quantity': 1,
+                'price_data': {
+                    'currency': currency.lower(),
+                    'unit_amount': amount_kc * 100,
+                    'product_data': {
+                        'name': 'InkLink — dárkový poukaz',
+                        'description': (f'Pro {recipient}' if recipient
+                                        else 'Kredit u kteréhokoliv tatéra na InkLinku'),
+                    },
+                },
+            }],
+            # Poukaz hledáme podle id, ne podle kódu: kód se dá opsat
+            # špatně a v metadatech nemá co dělat, dokud není zaplacený.
+            metadata={'voucher_id': str(vid), 'inklink_user_id': str(uid)},
+            success_url=f'{APP_BASE_URL}/vouchers/{code}?paid=1',
+            cancel_url=f'{APP_BASE_URL}/premium?voucher=cancelled',
+            locale='auto',
+        )
+        conn.execute('UPDATE vouchers SET payment_intent=? WHERE id=?', (sess.id, vid))
+        conn.commit()
+    except Exception as e:
+        # Nezaplacený poukaz nemá důvod ležet v databázi.
+        conn.execute("DELETE FROM vouchers WHERE id=? AND status='awaiting_payment'", (vid,))
+        conn.commit(); conn.close()
+        app.logger.error(f'[voucher] checkout failed for user {uid}: {e}')
+        return jsonify({'error': 'Platbu se nepovedlo založit.'}), 502
     conn.close()
-    return jsonify({'ok': True, 'id': vid, 'code': code, 'amount_kc': amount_kc,
-                    'expires_at': expires, 'status': 'active' if demo else 'awaiting_payment',
-                    'print_url': f'/vouchers/{code}'})
+    # Kód se nevrací, dokud není zaplaceno — nezaplacený poukaz je jen
+    # rezervovaný řádek, ne dárek.
+    return jsonify({'ok': True, 'id': vid, 'amount_kc': amount_kc, 'currency': currency,
+                    'status': 'awaiting_payment', 'checkout_url': sess.url})
+
 
 
 @app.route('/api/vouchers/redeem', methods=['POST'])
@@ -10843,22 +10906,43 @@ def redeem_voucher():
                     'balance_kc': (balance or 0) / 100})
 
 
+# Opuštěný checkout nechá po sobě řádek, který nikdy nikdo nezaplatí.
+# Dvě hodiny stačí i na pomalé placení kartou.
+VOUCHER_UNPAID_TTL_HOURS = 2
+
+
+def _reap_unpaid_vouchers(conn, buyer_id):
+    conn.execute(
+        "DELETE FROM vouchers WHERE buyer_id=? AND status='awaiting_payment' AND created_at < ?",
+        (buyer_id, _utc_ago_sql(hours=VOUCHER_UNPAID_TTL_HOURS)))
+    conn.commit()
+
+
 @app.route('/api/vouchers/mine')
 def my_vouchers():
     err = require_login()
     if err: return err
     conn = get_db()
+    _reap_unpaid_vouchers(conn, session['user_id'])
     rows = conn.execute(
-        'SELECT id, code, amount_cents, recipient_name, status, expires_at, created_at '
+        'SELECT id, code, amount_cents, currency, recipient_name, status, expires_at, created_at '
         'FROM vouchers WHERE buyer_id=? ORDER BY id DESC LIMIT 50',
         (session['user_id'],)).fetchall()
     conn.close()
-    return jsonify([{
-        'id': r['id'], 'code': r['code'], 'amount_kc': r['amount_cents'] // 100,
-        'recipient_name': r['recipient_name'] or '', 'status': r['status'],
-        'expires_at': r['expires_at'], 'created_at': r['created_at'],
-        'print_url': f'/vouchers/{r["code"]}',
-    } for r in rows])
+    out = []
+    for r in rows:
+        paid = r['status'] != 'awaiting_payment'
+        out.append({
+            'id': r['id'],
+            # Kód nezaplaceného poukazu nevydáváme — dárek to zatím není.
+            'code': r['code'] if paid else None,
+            'amount_kc': r['amount_cents'] // 100,
+            'currency': _norm_currency(r['currency'] if 'currency' in r.keys() else None),
+            'recipient_name': r['recipient_name'] or '', 'status': r['status'],
+            'expires_at': r['expires_at'], 'created_at': r['created_at'],
+            'print_url': f'/vouchers/{r["code"]}' if paid else None,
+        })
+    return jsonify(out)
 
 
 def _voucher_render(v, tpl, preview=False):
@@ -11142,13 +11226,13 @@ def cron_aftercare():
     v tentýž den nepošle nic navíc."""
     err = _check_cron_auth()
     if err: return err
-    now  = _prague_now_naive()
     conn = get_db()
     sent, skipped = [], 0
 
     for step, days in AFTERCARE_STEPS:
-        newest = (now - timedelta(days=days)).isoformat()
-        oldest = (now - timedelta(days=days + AFTERCARE_WINDOW_DAYS)).isoformat()
+        # completed_at se ukládá v UTC, takže i hranice musí být v UTC.
+        newest = _utc_ago_iso(days=days)
+        oldest = _utc_ago_iso(days=days + AFTERCARE_WINDOW_DAYS)
         rows = conn.execute('''
             SELECT b.id, b.client_id, b.artist_id, b.completed_at,
                    ua.display_name AS artist_name, ua.username AS artist_username,
@@ -11411,8 +11495,7 @@ def send_campaign():
                         'ORDER BY id DESC LIMIT 1', (uid,)).fetchone()
     if last:
         try:
-            if _naive_dt(last['created_at']) > _prague_now_naive() - timedelta(
-                    minutes=CAMPAIGN_MIN_INTERVAL_MINUTES):
+            if last['created_at'] > _utc_ago_sql(minutes=CAMPAIGN_MIN_INTERVAL_MINUTES):
                 conn.close()
                 return jsonify({'error': f'Další rozesílku můžeš poslat za '
                                          f'{CAMPAIGN_MIN_INTERVAL_MINUTES} minut.'}), 429
@@ -11920,6 +12003,26 @@ def stripe_webhook():
         conn_idem.close()
         return '', 200
     conn_idem.close()
+
+    if etype == 'checkout.session.completed':
+        meta = (obj.get('metadata') or {}) if isinstance(obj, dict) else (obj.metadata or {})
+        vid  = meta.get('voucher_id')
+        paid = (obj.get('payment_status') if isinstance(obj, dict)
+                else getattr(obj, 'payment_status', None))
+        if vid and paid == 'paid':
+            conn_v = get_db()
+            try:
+                # Podmíněný UPDATE: opakované doručení webhooku nesmí
+                # aktivovat poukaz, který mezitím někdo stihl uplatnit.
+                conn_v.execute("UPDATE vouchers SET status='active' "
+                               "WHERE id=? AND status='awaiting_payment'", (int(vid),))
+                conn_v.commit()
+                app.logger.info(f'[voucher] paid → {vid}')
+            except Exception as e:
+                app.logger.error(f'[voucher] activation failed for {vid}: {e}')
+            finally:
+                conn_v.close()
+        return '', 200
 
     if etype in ('customer.subscription.created', 'customer.subscription.updated',
                  'customer.subscription.deleted'):
