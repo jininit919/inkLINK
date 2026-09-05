@@ -3422,6 +3422,96 @@ class CreditSpendTests(_Sprint2Base):
         self.assertEqual(bal, led)
 
 
+class VoucherTemplateTests(_Sprint2Base):
+    """Grafiku dělá člověk v Canvě, ne my v CSS. Poukaz ale nesmí zůstat
+    prázdný ani bez šablony, ani po jejím rozbití."""
+
+    def _as_admin(self):
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET is_admin=1, password_hash=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
+        conn.commit(); conn.close()
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+
+    def _voucher(self):
+        r = self.client.post('/api/vouchers', json={'amount_kc': 3000,
+                                                    'recipient_name': 'Jan Novák'})
+        return r.get_json()['code']
+
+    def test_renders_without_a_template(self):
+        """Výchozí karta musí stačit — poukaz bez grafiky je pořád poukaz."""
+        code = self._voucher()
+        body = self.client.get(f'/vouchers/{code}').get_data(as_text=True)
+        self.assertIn(code, body)
+        self.assertIn('3 000', body)
+
+    def test_only_admin_can_change_it(self):
+        self.assertEqual(self.client.get('/api/admin/voucher-template').status_code, 403)
+
+    def test_layout_is_clamped(self):
+        """Souřadnice mimo plochu by text vystrčily z poukazu."""
+        self._as_admin()
+        r = self.client.post('/api/admin/voucher-template', json={'layout': {
+            'code': {'x': 500, 'y': -80, 'size': 999, 'color': '#fff', 'align': 'nahoru'}}})
+        L = r.get_json()['layout']['code']
+        self.assertEqual(L['x'], 100.0)
+        self.assertEqual(L['y'], 0.0)
+        self.assertLessEqual(L['size'], 30.0)
+        self.assertIn(L['align'], ('left', 'center', 'right'))
+
+    def test_missing_fields_fall_back_to_defaults(self):
+        """Po přidání dalšího pole nesmí render starých šablon spadnout."""
+        import server
+        conn = server.get_db()
+        server._setting_set(conn, 'voucher_template_layout', '{"code": {"x": 20}}')
+        conn.commit()
+        tpl = server._voucher_template(conn)
+        conn.close()
+        self.assertEqual(tpl['layout']['code']['x'], 20)
+        self.assertIn('amount', tpl['layout'])
+        self.assertIn('color', tpl['layout']['code'])
+
+    def test_broken_layout_does_not_break_the_voucher(self):
+        import server
+        conn = server.get_db()
+        server._setting_set(conn, 'voucher_template_layout', 'tohle není JSON')
+        conn.commit(); conn.close()
+        code = self._voucher()
+        r = self.client.get(f'/vouchers/{code}')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(code, r.get_data(as_text=True))
+
+    def test_reset_removes_the_template(self):
+        import server
+        self._as_admin()
+        conn = server.get_db()
+        server._setting_set(conn, 'voucher_template_image', 'x.png')
+        conn.commit(); conn.close()
+        self.client.delete('/api/admin/voucher-template')
+        conn = server.get_db()
+        tpl = server._voucher_template(conn)
+        conn.close()
+        self.assertIsNone(tpl['image'])
+
+    def test_preview_needs_no_real_voucher(self):
+        """Ladit šablonu se musí dát bez toho, aby se kvůli tomu kupoval
+        poukaz."""
+        self._as_admin()
+        r = self.client.get('/api/admin/voucher-preview')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('ABCD-2K5X-QW74', r.get_data(as_text=True))
+
+    def test_bad_image_type_is_refused(self):
+        import io
+        self._as_admin()
+        r = self.client.post('/api/admin/voucher-template',
+                             data={'image': (io.BytesIO(b'x' * 32), 'sablona.svg')},
+                             content_type='multipart/form-data')
+        self.assertEqual(r.status_code, 400)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 

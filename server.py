@@ -1468,6 +1468,14 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_vouchers_buyer ON vouchers(buyer_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_vouchers_status ON vouchers(status)')
 
+    # Platformní nastavení. Klíč/hodnota schválně: přidat další volbu má
+    # být záležitost jednoho řádku, ne migrace.
+    c.execute('''CREATE TABLE IF NOT EXISTS app_settings (
+        key        TEXT PRIMARY KEY,
+        value      TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ── economics_snapshots — immutable per-booking ledger entry ───────────
     # Created at PaymentIntent creation. NEVER updated — refunds/disputes
     # create NEW rows linked to the same booking. Critical for audit trail.
@@ -10512,6 +10520,103 @@ def my_credit():
     })
 
 
+# ── Vzhled poukazu ────────────────────────────────────────────────────────
+#
+# Grafiku dělá člověk v Canvě, ne my v CSS. Nahraje obrázek na pozadí a
+# řekne, kam na něm patří částka, kód, jméno a vzkaz. Bez šablony se
+# poukaz vykreslí prostou výchozí kartou — nikdy nesmí zůstat prázdný.
+
+VOUCHER_FIELDS = ('amount', 'code', 'recipient', 'message')
+VOUCHER_DEFAULT_LAYOUT = {
+    'amount':    {'x': 50, 'y': 34, 'size': 9.0, 'color': '#0a0a0a', 'align': 'center'},
+    'code':      {'x': 50, 'y': 66, 'size': 3.4, 'color': '#0a0a0a', 'align': 'center'},
+    'recipient': {'x': 50, 'y': 50, 'size': 2.6, 'color': '#2a2a2a', 'align': 'center'},
+    'message':   {'x': 50, 'y': 57, 'size': 2.0, 'color': '#5a5a5a', 'align': 'center'},
+}
+
+
+def _setting_get(conn, key, default=None):
+    row = conn.execute('SELECT value FROM app_settings WHERE key=?', (key,)).fetchone()
+    return row['value'] if row else default
+
+
+def _setting_set(conn, key, value):
+    conn.execute('DELETE FROM app_settings WHERE key=?', (key,))
+    conn.execute('INSERT INTO app_settings (key, value) VALUES (?,?)', (key, value))
+
+
+def _voucher_template(conn):
+    """{'image': 'soubor.png'|None, 'layout': {...}}. Chybějící pole
+    doplní výchozími — po přidání dalšího pole nesmí spadnout render
+    starých šablon."""
+    import json as _json
+    image = _setting_get(conn, 'voucher_template_image')
+    raw   = _setting_get(conn, 'voucher_template_layout')
+    layout = {k: dict(v) for k, v in VOUCHER_DEFAULT_LAYOUT.items()}
+    if raw:
+        try:
+            for k, v in (_json.loads(raw) or {}).items():
+                if k in layout and isinstance(v, dict):
+                    layout[k].update({kk: v[kk] for kk in ('x', 'y', 'size', 'color', 'align')
+                                      if kk in v})
+        except (ValueError, TypeError):
+            pass
+    return {'image': image, 'layout': layout}
+
+
+@app.route('/api/admin/voucher-template', methods=['GET', 'POST'])
+def admin_voucher_template():
+    err = require_admin()
+    if err: return err
+    conn = get_db()
+
+    if request.method == 'POST':
+        import json as _json
+        img = request.files.get('image')
+        if img and img.filename:
+            ext = img.filename.rsplit('.', 1)[-1].lower() if '.' in img.filename else ''
+            if ext not in ('png', 'jpg', 'jpeg', 'webp'):
+                conn.close()
+                return jsonify({'error': 'Obrázek musí být PNG, JPG nebo WEBP.'}), 400
+            img.seek(0, os.SEEK_END); size = img.tell(); img.seek(0)
+            if size > MESSAGE_IMAGE_MAX_BYTES:
+                conn.close(); return jsonify({'error': 'Obrázek je větší než 12 MB.'}), 400
+            name = f'voucher_bg_{int(time.time())}.{ext}'
+            save_upload(img, name)
+            _setting_set(conn, 'voucher_template_image', name)
+
+        raw = request.form.get('layout') or (request.get_json(silent=True) or {}).get('layout')
+        if raw:
+            layout = _json.loads(raw) if isinstance(raw, str) else raw
+            clean = {}
+            for f in VOUCHER_FIELDS:
+                v = (layout or {}).get(f) or {}
+                clean[f] = {
+                    'x': max(0.0, min(100.0, float(v.get('x', VOUCHER_DEFAULT_LAYOUT[f]['x'])))),
+                    'y': max(0.0, min(100.0, float(v.get('y', VOUCHER_DEFAULT_LAYOUT[f]['y'])))),
+                    'size': max(0.5, min(30.0, float(v.get('size', VOUCHER_DEFAULT_LAYOUT[f]['size'])))),
+                    'color': str(v.get('color') or VOUCHER_DEFAULT_LAYOUT[f]['color'])[:9],
+                    'align': v.get('align') if v.get('align') in ('left', 'center', 'right')
+                             else VOUCHER_DEFAULT_LAYOUT[f]['align'],
+                }
+            _setting_set(conn, 'voucher_template_layout', _json.dumps(clean))
+        conn.commit()
+
+    tpl = _voucher_template(conn)
+    conn.close()
+    return jsonify(tpl)
+
+
+@app.route('/api/admin/voucher-template', methods=['DELETE'])
+def admin_voucher_template_reset():
+    err = require_admin()
+    if err: return err
+    conn = get_db()
+    conn.execute("DELETE FROM app_settings WHERE key LIKE 'voucher_template_%'")
+    conn.commit(); conn.close()
+    return jsonify({'ok': True})
+
+
 # ── Dárkové poukazy ───────────────────────────────────────────────────────
 #
 # Poukaz je koupený kredit. Platí u kteréhokoliv tatéra a peníze do
@@ -10638,65 +10743,112 @@ def my_vouchers():
     } for r in rows])
 
 
-@app.route('/vouchers/<code>')
-def voucher_print(code):
-    """Poukaz k vytisknutí i k poslání odkazem. Bez přihlášení — dárce ho
-    posílá dál a obdarovaný účet mít nemusí, dokud kód neuplatní."""
+def _voucher_render(v, tpl, preview=False):
+    """Vykreslí poukaz. Se šablonou z Canvy jako obrázek na pozadí
+    a textem v poměrných souřadnicích — poukaz musí vypadat stejně na
+    telefonu i na papíře, takže velikosti jsou v procentech šířky (vw
+    uvnitř kontejneru), ne v pixelech."""
     from html import escape as _h
-    conn = get_db()
-    v = conn.execute('SELECT * FROM vouchers WHERE code=?',
-                     (code.strip().upper(),)).fetchone()
-    conn.close()
-    if not v or v['status'] == 'awaiting_payment':
-        return _plain_page('Takový poukaz neznáme.'), 404
-
+    L = tpl['layout']
     amount = f'{v["amount_cents"] // 100:,}'.replace(',', ' ')
     try:
         exp = _naive_dt(v['expires_at']).strftime('%d. %m. %Y')
     except (ValueError, TypeError):
         exp = ''
     used = v['status'] == 'redeemed'
-    return Response(f'''<!doctype html><meta charset="utf-8">
+
+    values = {
+        'amount':    f'{amount} Kč',
+        'code':      v['code'],
+        'recipient': (f'Pro {v["recipient_name"]}' if v['recipient_name'] else ''),
+        'message':   v['message'] or '',
+    }
+
+    def field(name):
+        val = values.get(name) or ''
+        if not val:
+            return ''
+        f = L[name]
+        # Zarovnání se dělá posunem celého bloku, ne text-align uvnitř —
+        # jinak by se dlouhý vzkaz choval jinak než krátký kód.
+        shift = {'left': '0', 'center': '-50%', 'right': '-100%'}[f['align']]
+        return (f'<div style="position:absolute;left:{f["x"]}%;top:{f["y"]}%;'
+                f'transform:translate({shift},-50%);'
+                f'font-size:{f["size"]}cqw;color:{_h(f["color"])};'
+                f'text-align:{f["align"]};max-width:86%;line-height:1.35;'
+                f'letter-spacing:{"0.18em" if name == "code" else "0.02em"};'
+                f'white-space:pre-wrap">{_h(val)}</div>')
+
+    bg = (f'<img src="/uploads/{_h(tpl["image"])}" alt="" '
+          'style="width:100%;display:block">') if tpl['image'] else ''
+    fallback_bg = '' if tpl['image'] else (
+        'background:#faf8f3;border:1px solid #0a0a0a;aspect-ratio:5/3;')
+
+    return f'''<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dárkový poukaz — InkLink</title>
 <style>
-  @page {{ margin: 18mm; }}
+  @page {{ margin: 0; size: auto; }}
   *{{box-sizing:border-box;margin:0;padding:0}}
   body{{background:#e9e4d8;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
-    color:#0a0a0a;display:flex;align-items:center;justify-content:center;
-    min-height:100vh;padding:24px}}
-  .v{{background:#faf8f3;border:1px solid #0a0a0a;max-width:520px;width:100%;padding:44px 40px;
-    text-align:center;position:relative}}
-  .brand{{font-size:12px;letter-spacing:0.34em;text-transform:uppercase;color:#5a5a5a}}
-  .t{{font-size:15px;letter-spacing:0.2em;text-transform:uppercase;margin:26px 0 6px}}
-  .amt{{font-size:58px;letter-spacing:0.02em;line-height:1}}
-  .cur{{font-size:20px;letter-spacing:0.16em;color:#5a5a5a;margin-top:4px}}
-  .to{{margin-top:24px;font-size:15px;line-height:1.7}}
-  .msg{{margin-top:10px;font-size:13px;color:#2a2a2a;line-height:1.7;
-    white-space:pre-wrap;font-style:italic}}
-  .code{{margin-top:30px;padding:16px;border:1px dashed #a8a399;background:#f1ece0;
-    font-size:24px;letter-spacing:0.24em}}
-  .fine{{margin-top:22px;font-size:11px;color:#5a5a5a;line-height:1.8}}
+    display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}}
+  .v{{position:relative;width:100%;max-width:640px;container-type:inline-size;
+    {fallback_bg}overflow:hidden}}
   .used{{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-size:30px;letter-spacing:0.2em;color:rgba(198,40,40,0.5);
+    font-size:7cqw;letter-spacing:0.2em;color:rgba(198,40,40,0.45);
     transform:rotate(-14deg);pointer-events:none}}
-  @media print {{ body{{background:#fff;padding:0}} .v{{border-color:#000}} }}
+  .fine{{margin-top:14px;max-width:640px;font-size:11px;color:#5a5a5a;line-height:1.8;
+    text-align:center}}
+  .fine a{{color:#5a5a5a}}
+  @media print {{
+    body{{background:#fff;padding:0;display:block}}
+    .v{{max-width:none;margin:0 auto}}
+    .fine{{margin:10px auto 0}}
+  }}
 </style>
-<div class="v">
-  {'<div class="used">UPLATNĚNO</div>' if used else ''}
-  <div class="brand">inklink</div>
-  <div class="t">Dárkový poukaz</div>
-  <div class="amt">{amount}</div>
-  <div class="cur">Kč</div>
-  {f'<div class="to">Pro <b>{_h(v["recipient_name"])}</b></div>' if v['recipient_name'] else ''}
-  {f'<div class="msg">{_h(v["message"])}</div>' if v['message'] else ''}
-  <div class="code">{_h(v['code'])}</div>
-  <div class="fine">
-    Uplatníš na <b>{_h(APP_BASE_URL.replace('https://', ''))}</b> — v profilu zadáš kód
-    a částka se ti připíše jako kredit.<br>
-    Platí u kteréhokoliv tatéra na InkLinku{f' do {exp}' if exp else ''}.
+<div>
+  <div class="v">
+    {bg}
+    {field('amount')}{field('recipient')}{field('message')}{field('code')}
+    {'<div class="used">UPLATNĚNO</div>' if used else ''}
   </div>
-</div>''', mimetype='text/html')
+  <div class="fine">
+    Uplatníš na <b>{_h(APP_BASE_URL.replace('https://', ''))}</b> — zadáš kód
+    a částka se ti připíše jako kredit.
+    Platí u kteréhokoliv tatéra{f' do {exp}' if exp else ''}.
+  </div>
+</div>'''
+
+
+@app.route('/vouchers/<code>')
+def voucher_print(code):
+    """Poukaz k vytisknutí i k poslání odkazem. Bez přihlášení — dárce ho
+    posílá dál a obdarovaný účet mít nemusí, dokud kód neuplatní."""
+    conn = get_db()
+    v = conn.execute('SELECT * FROM vouchers WHERE code=?',
+                     (code.strip().upper(),)).fetchone()
+    if not v or v['status'] == 'awaiting_payment':
+        conn.close()
+        return _plain_page('Takový poukaz neznáme.'), 404
+    tpl = _voucher_template(conn)
+    conn.close()
+    return Response(_voucher_render(v, tpl), mimetype='text/html')
+
+
+@app.route('/api/admin/voucher-preview')
+def admin_voucher_preview():
+    """Náhled na vymyšlených datech, ať se dá šablona doladit bez toho,
+    aby se kvůli tomu kupoval poukaz."""
+    err = require_admin()
+    if err: return err
+    conn = get_db()
+    tpl = _voucher_template(conn)
+    conn.close()
+    fake = {'code': 'ABCD-2K5X-QW74', 'amount_cents': 300000,
+            'recipient_name': 'Jan Novák', 'message': 'Ať se ti to povede!',
+            'status': 'active',
+            'expires_at': (_prague_now_naive() + timedelta(days=365)).isoformat()}
+    return Response(_voucher_render(fake, tpl, preview=True), mimetype='text/html')
 
 
 # ── Premium: hojení ───────────────────────────────────────────────────────

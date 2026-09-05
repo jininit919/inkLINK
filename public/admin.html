@@ -143,6 +143,29 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       <div class="tbl" id="discountCodesList"></div>
     </div>
 
+    <!-- ── Vzhled dárkového poukazu ────────────────────────────────────── -->
+    <div class="section">
+      <div class="section-title">Vzhled dárkového poukazu</div>
+      <p style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:12px;max-width:640px">
+        Grafiku udělej v Canvě a exportuj jako PNG (doporučeně 1500×900, tedy poměr 5:3).
+        Nahraj ji sem a pak si texty <b>přetáhni myší</b> tam, kam na obrázku patří.
+        Velikosti jsou v procentech šířky, takže poukaz vypadá stejně na telefonu i na papíře.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;font-size:12px">
+        <input type="file" id="vtImage" accept="image/png,image/jpeg,image/webp"
+               style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:6px 10px;border-radius:6px;font-size:12px">
+        <button onclick="saveVoucherTemplate()" style="background:var(--red2);color:var(--bg);border:none;padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">Uložit</button>
+        <button onclick="resetVoucherTemplate()" style="background:transparent;color:var(--txt3);border:1px solid var(--border2);padding:7px 14px;cursor:pointer;font-family:inherit;border-radius:6px;font-size:12px">Vrátit výchozí</button>
+        <span id="vtFlash" style="font-size:12px;color:var(--txt3)"></span>
+      </div>
+      <div id="vtEditor" style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+        <div id="vtCanvas" style="position:relative;width:100%;max-width:560px;background:var(--bg3);
+             border:1px solid var(--border2);container-type:inline-size;user-select:none;
+             aspect-ratio:5/3;overflow:hidden"></div>
+        <div id="vtFields" style="display:flex;flex-direction:column;gap:10px;min-width:230px;font-size:12px"></div>
+      </div>
+    </div>
+
     <!-- ── Refund requests ─────────────────────────────────────────────── -->
     <div class="section">
       <div class="section-title">Refund requests <span class="sub" id="refundReqCount"></span></div>
@@ -276,6 +299,7 @@ async function init() {
   loadReports();
   loadKpis();
   loadCodes();
+  loadVoucherTemplate();
   loadRefundReqs();
   loadReferralsLeaderboard();
   loadTelemetry();
@@ -426,6 +450,110 @@ async function loadKpis(){
 }
 
 // ── Discount codes CRUD ────────────────────────────────────────────────
+// ── Vzhled dárkového poukazu ─────────────────────────────────────────────
+// Pozice se tahají myší přímo po náhledu. Psát procenta do políček by
+// znamenalo hádat a pak kontrolovat — a to je práce, kterou dělá myš líp.
+const VT_LABELS = {amount: 'Částka', code: 'Kód', recipient: 'Pro koho', message: 'Vzkaz'};
+const VT_SAMPLE = {amount: '3 000 Kč', code: 'ABCD-2K5X-QW74',
+                   recipient: 'Pro Jana Nováka', message: 'Ať se ti to povede!'};
+let vtTemplate = null;
+
+async function loadVoucherTemplate() {
+  try {
+    vtTemplate = await fetch('/api/admin/voucher-template').then(r => r.json());
+    renderVoucherEditor();
+  } catch (e) { /* sekce je volitelná, zbytek dashboardu tím padat nemá */ }
+}
+
+function renderVoucherEditor() {
+  if (!vtTemplate) return;
+  const canvas = document.getElementById('vtCanvas');
+  const L = vtTemplate.layout;
+
+  canvas.style.backgroundImage = vtTemplate.image ? `url(/uploads/${vtTemplate.image})` : 'none';
+  canvas.style.backgroundSize = 'cover';
+  canvas.innerHTML = Object.keys(VT_LABELS).map(k => {
+    const f = L[k];
+    const shift = {left: '0', center: '-50%', right: '-100%'}[f.align] || '-50%';
+    return `<div class="vt-f" data-f="${k}" style="position:absolute;left:${f.x}%;top:${f.y}%;
+      transform:translate(${shift},-50%);font-size:${f.size}cqw;color:${f.color};
+      text-align:${f.align};white-space:pre-wrap;cursor:grab;padding:2px 4px;
+      outline:1px dashed rgba(0,0,0,0.25);max-width:86%">${VT_SAMPLE[k]}</div>`;
+  }).join('');
+
+  document.getElementById('vtFields').innerHTML = Object.keys(VT_LABELS).map(k => {
+    const f = L[k];
+    return `<div style="display:flex;gap:6px;align-items:center">
+      <span style="width:70px;color:var(--txt3)">${VT_LABELS[k]}</span>
+      <input type="number" step="0.2" min="0.5" max="30" value="${f.size}" title="velikost"
+             onchange="vtSet('${k}','size',this.value)"
+             style="width:62px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:5px 7px;border-radius:5px;font-size:12px">
+      <input type="color" value="${f.color}" title="barva" onchange="vtSet('${k}','color',this.value)"
+             style="width:36px;height:28px;background:none;border:1px solid var(--border2);border-radius:5px;padding:2px">
+      <select onchange="vtSet('${k}','align',this.value)"
+              style="background:var(--bg3);border:1px solid var(--border2);color:var(--txt);padding:5px;border-radius:5px;font-size:12px">
+        ${['left','center','right'].map(a =>
+          `<option value="${a}" ${f.align === a ? 'selected' : ''}>${a}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+
+  canvas.querySelectorAll('.vt-f').forEach(el => el.addEventListener('pointerdown', vtDragStart));
+}
+
+function vtSet(field, key, value) {
+  vtTemplate.layout[field][key] = key === 'size' ? parseFloat(value) : value;
+  renderVoucherEditor();
+}
+
+function vtDragStart(e) {
+  const el = e.currentTarget;
+  const canvas = document.getElementById('vtCanvas');
+  el.setPointerCapture(e.pointerId);
+  el.style.cursor = 'grabbing';
+  const move = ev => {
+    const r = canvas.getBoundingClientRect();
+    const f = vtTemplate.layout[el.dataset.f];
+    f.x = Math.max(0, Math.min(100, ((ev.clientX - r.left) / r.width) * 100));
+    f.y = Math.max(0, Math.min(100, ((ev.clientY - r.top) / r.height) * 100));
+    const shift = {left: '0', center: '-50%', right: '-100%'}[f.align] || '-50%';
+    el.style.left = f.x + '%';
+    el.style.top = f.y + '%';
+    el.style.transform = `translate(${shift},-50%)`;
+  };
+  const up = () => {
+    el.style.cursor = 'grab';
+    el.removeEventListener('pointermove', move);
+    el.removeEventListener('pointerup', up);
+  };
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', up);
+}
+
+async function saveVoucherTemplate() {
+  const flash = document.getElementById('vtFlash');
+  const fd = new FormData();
+  const file = document.getElementById('vtImage').files[0];
+  if (file) fd.set('image', file);
+  fd.set('layout', JSON.stringify(vtTemplate.layout));
+  try {
+    const r = await fetch('/api/admin/voucher-template', {method: 'POST', body: fd});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || '');
+    vtTemplate = j;
+    document.getElementById('vtImage').value = '';
+    renderVoucherEditor();
+    flash.textContent = 'Uloženo ✓';
+    setTimeout(() => { flash.textContent = ''; }, 2500);
+  } catch (e) { flash.textContent = e.message || 'Nepovedlo se to.'; }
+}
+
+async function resetVoucherTemplate() {
+  if (!confirm('Vrátit výchozí vzhled? Nahraný obrázek se přestane používat.')) return;
+  await fetch('/api/admin/voucher-template', {method: 'DELETE'});
+  await loadVoucherTemplate();
+}
+
 async function loadCodes(){
   let codes;
   try {
