@@ -61,8 +61,8 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
 .flash.err{color:var(--err)}
 .flash.ok{color:var(--txt2)}
 
-.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:10px;margin-bottom:14px}
-.kpi div{border:1px solid var(--border);padding:12px 14px;background:var(--bg)}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;margin-bottom:14px}
+.kpi > div{border:1px solid var(--border);padding:12px 14px;background:var(--bg)}
 .kpi .n{font-size:19px;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi .l{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3);margin-top:3px}
 .bars{display:flex;flex-direction:column;gap:5px;margin-top:8px}
@@ -110,7 +110,7 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
 
   <div class="feat" id="featAftercare">
     <h2 data-i18n="pr.acTitle">Hojení</h2>
-    <p data-i18n="pr.acBody">Po každém sezení běží sama sekvence: druhý den tvoje instrukce, sedmý den kontrola, třicátý den prosba o fotku zhojené práce a recenzi. Klient může kdykoliv zastavit.</p>
+    <p data-i18n="pr.acBody">Po každém sezení běží sekvence sama: v den dokončení tvoje instrukce, sedmý den kontrola, třicátý den prosba o fotku zhojené práce a recenzi. Klient ji může kdykoli zastavit.</p>
     <label class="acsw"><input type="checkbox" id="acEnabled" onchange="saveAftercare()"> <span data-i18n="pr.acEnabled">Posílat automaticky</span></label>
     <div class="fld" style="margin-top:12px"><label for="acText" data-i18n="pr.acText">Tvoje instrukce k hojení</label>
       <textarea id="acText" maxlength="2000" data-i18n-attr="pr.acTextPh:placeholder" placeholder="Fólii nech 24 h. Pak omýt vlažnou vodou…" onblur="saveAftercare()"></textarea></div>

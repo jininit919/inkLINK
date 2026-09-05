@@ -10449,7 +10449,7 @@ def _aftercare_email(step, ctx):
                      + p('máš čerstvé tetování. Prvních pár dní rozhoduje o tom, jak bude '
                          'vypadat napořád — dej si na něj pozor.')
                      + care_block
-                     + p('Kdyby něco vypadalo divně, napiš mi. Radši se zeptej zbytečně.')))
+                     + p('Kdyby něco vypadalo divně, napiš mi.')))
 
     if step == 'day7':
         return ('Jak se hojí?',
