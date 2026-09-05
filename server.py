@@ -1142,6 +1142,22 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_campaigns_artist ON campaigns(artist_id)')
 
+    # Hojení — automatická sekvence po sezení (premium).
+    # Text instrukcí píše tatér: každý má svůj protokol (fólie vs. Second
+    # Skin, jiná mast) a platforma nemá co radit v něčem zdravotním.
+    add_col('users', 'aftercare_enabled INTEGER DEFAULT 1')
+    add_col('users', 'aftercare_text TEXT DEFAULT ""')
+    c.execute('''CREATE TABLE IF NOT EXISTS aftercare_sent (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id INTEGER NOT NULL,
+        step       TEXT NOT NULL,
+        sent_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    # Idempotence: cron běží denně a Stripe-style opakování nechceme řešit
+    # pokaždé znovu. Jeden krok na rezervaci, jednou.
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_aftercare_once '
+              'ON aftercare_sent(booking_id, step)')
+
     # ── Blokace volna (dovolená, nemoc, jednorázové "tady nejsem") ─────────
     # Vlastní tabulka, ne status na slots: kontrola překryvů je tu v rozsahu
     # tatéra (napříč všemi jeho sloty), ne v rámci jednoho slot_id, a slots
@@ -1294,6 +1310,8 @@ def init_db():
     # takže musí zůstat tím, čím byl v okamžiku rezervace.
     # Nullable: sólo tatér žádné studio nemá.
     add_col('bookings', 'studio_id INTEGER DEFAULT NULL')
+    # Klient může sekvenci hojení kdykoliv zastavit; platí pro tuhle rezervaci.
+    add_col('bookings', 'aftercare_optout_at TEXT DEFAULT NULL')
     c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_studio ON bookings(studio_id)')
     # CRM (Sprint 3) i historie klienta jezdí po obou těchhle sloupcích.
     c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_artist ON bookings(artist_id)')
@@ -8137,6 +8155,9 @@ def complete_booking(bid):
     except Exception as _e:
         print(f'[referral] grant failed for booking {bid}: {_e}')
 
+    # Instrukce k hojení hned, ne až dalším cronem.
+    _send_aftercare_first(conn, bid)
+
     # Email to client — review request
     artist = conn.execute('SELECT display_name, username FROM users WHERE id=?',
                           (b['artist_id'],)).fetchone()
@@ -10359,6 +10380,310 @@ def _reconcile_card_country(conn, booking_id, pi_obj):
         print(f'[card-country] reconcile failed for booking {booking_id}: {e}')
 
 
+# ── Premium: hojení ───────────────────────────────────────────────────────
+#
+# Po sezení běží sekvence sama. Tatérovi to bere práci, kterou stejně
+# dělá — jen ve 23:00 a pořád stejnou. Zhojená fotka na konci je navíc
+# to, co portfolio prodává: skica ukazuje záměr, zhojená práce důkaz.
+#
+# Instrukce píše tatér, ne platforma. Každý má svůj protokol a InkLink
+# nemá co radit v něčem, co se hojí na cizí kůži.
+
+AFTERCARE_STEPS = (
+    # (klíč, den po sezení). Nultý krok neposílá cron, ale rovnou
+    # dokončení rezervace — instrukce mají dorazit, než klient odejde.
+    ('day7',  7),
+    ('day30', 30),
+)
+AFTERCARE_FIRST_STEP = 'day0'
+# Okno, ve kterém se krok ještě smí poslat. Bez něj by zapnutí premia
+# vyslalo celou historii najednou — klient by dostal tři maily o tetování
+# z loňska.
+AFTERCARE_WINDOW_DAYS = 3
+
+
+def _aftercare_token(booking_id):
+    import hashlib, hmac
+    key = (app.secret_key if isinstance(app.secret_key, bytes)
+           else str(app.secret_key).encode())
+    return hmac.new(key, f'aftercare:{booking_id}'.encode(),
+                    hashlib.sha256).hexdigest()[:32]
+
+
+def _aftercare_email(step, ctx):
+    from html import escape as _h
+    artist = _h(ctx.get('artist_name') or '')
+    stop   = _h(ctx.get('stop_url') or '')
+
+    # Bez oslovení jménem schválně: české vokativy se automaticky
+    # skloňovat nedají a "Ahoj Tereza" zní hůř než prosté "Ahoj".
+    # Ze stejného důvodu se vyhýbáme rodovým příčestím ("napsal/a").
+    def wrap(inner):
+        return (
+            '<div style="background:#faf8f3;color:#1a1a1a;font-family:Helvetica,Arial,sans-serif;'
+            'padding:40px;max-width:520px;margin:0 auto">'
+            f'<div style="font-size:22px;letter-spacing:0.12em;margin-bottom:24px">{artist}</div>'
+            + inner +
+            '<p style="color:#8a8a8a;font-size:11px;line-height:1.7;margin-top:36px;'
+            'border-top:1px solid #ddd6c8;padding-top:16px">'
+            f'Tyhle zprávy ti posílá {artist} přes InkLink, aby se tetování dobře zhojilo.<br>'
+            f'<a href="{stop}" style="color:#8a8a8a">Nechci k tomuhle tetování další zprávy</a>'
+            '</p></div>')
+
+    def button(url, label):
+        return (f'<p style="margin-top:24px"><a href="{_h(url or "#")}" '
+                'style="display:inline-block;background:#0a0a0a;color:#faf8f3;padding:13px 26px;'
+                'text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;'
+                f'font-size:12px">{_h(label)}</a></p>')
+
+    p = lambda txt: f'<p style="font-size:14px;line-height:1.7">{txt}</p>'
+
+    if step == 'day0':
+        care = _h(ctx.get('care_text') or '')
+        care_block = (f'<div style="background:#f1ece0;padding:16px 18px;margin:18px 0;'
+                      f'font-size:14px;line-height:1.7;white-space:pre-wrap">{care}</div>'
+                      if care else
+                      p('Drž se toho, co jsme si řekli na místě — můj postup platí.'))
+        return ('Jak se postarat o čerstvé tetování',
+                wrap('<p>Ahoj,</p>'
+                     + p('máš čerstvé tetování. Prvních pár dní rozhoduje o tom, jak bude '
+                         'vypadat napořád — dej si na něj pozor.')
+                     + care_block
+                     + p('Kdyby něco vypadalo divně, napiš mi. Radši se zeptej zbytečně.')))
+
+    if step == 'day7':
+        return ('Jak se hojí?',
+                wrap('<p>Ahoj,</p>'
+                     + p('máš za sebou první týden. V téhle fázi to většinou svědí a kůže '
+                         'se olupuje — to je normální. Hlavně nešťourat a nestrhávat strupy.')
+                     + p('Kdyby bylo místo horké, oteklé nebo by bolest sílila, ozvi se mi.')
+                     + button(ctx.get('message_url'), 'Napsat mi')))
+
+    return ('Ukážeš, jak se to zhojilo?',
+            wrap('<p>Ahoj,</p>'
+                 + p('od tetování uplynul měsíc, takže už by mělo být zhojené. Pošleš mi '
+                     'fotku? Zhojená práce vypadá jinak než čerstvá a nic lepšího nemůžu '
+                     'ostatním ukázat.')
+                 + button(ctx.get('photo_url'), 'Poslat fotku')
+                 + (f'<p style="font-size:13px;line-height:1.7;color:#555;margin-top:22px">'
+                    f'A kdyby ti zbyla chvilka, '
+                    f'<a href="{_h(ctx.get("review_url") or "#")}" style="color:#1a1a1a">'
+                    f'napiš pár vět do recenze</a>. Pomůže to dalším, kdo hledá tatéra.</p>'
+                    if ctx.get('ask_review') else '')))
+
+
+def _send_aftercare_first(conn, booking_id):
+    """Instrukce k hojení odcházejí hned při dokončení, ne dalším cronem —
+    klient je má mít, než odejde ze studia. Nikdy nesmí shodit dokončení
+    rezervace: když mail selže, peníze i stav jsou pořád v pořádku."""
+    try:
+        b = conn.execute('''
+            SELECT b.id, b.client_id, ua.display_name AS artist_name,
+                   ua.username AS artist_username, ua.aftercare_text,
+                   ua.premium_until, ua.aftercare_enabled
+            FROM bookings b JOIN users ua ON ua.id = b.artist_id
+            WHERE b.id = ?''', (booking_id,)).fetchone()
+        if not b or not b['aftercare_enabled']:
+            return False
+        if not _is_premium_from_row({'premium_until': b['premium_until']}):
+            return False
+        if conn.execute('SELECT 1 FROM aftercare_sent WHERE booking_id=? AND step=?',
+                        (booking_id, AFTERCARE_FIRST_STEP)).fetchone():
+            return False
+        conn.execute('INSERT INTO aftercare_sent (booking_id, step) VALUES (?,?)',
+                     (booking_id, AFTERCARE_FIRST_STEP))
+        conn.commit()
+        subject, html = _aftercare_email(AFTERCARE_FIRST_STEP, {
+            'artist_name': b['artist_name'] or b['artist_username'],
+            'care_text':   b['aftercare_text'] or '',
+            'stop_url':    f'{APP_BASE_URL}/aftercare/stop?b={b["id"]}'
+                           f'&t={_aftercare_token(b["id"])}',
+        })
+        u = conn.execute('SELECT email FROM users WHERE id=?', (b['client_id'],)).fetchone()
+        if u and u['email']:
+            return send_email(u['email'], subject, html)
+    except Exception as e:
+        app.logger.error(f'[aftercare] first step failed for booking {booking_id}: {e}')
+    return False
+
+
+@app.route('/api/cron/aftercare', methods=['GET', 'POST'])
+def cron_aftercare():
+    """Denní cron. Idempotentní přes aftercare_sent — druhé volání
+    v tentýž den nepošle nic navíc."""
+    err = _check_cron_auth()
+    if err: return err
+    now  = _prague_now_naive()
+    conn = get_db()
+    sent, skipped = [], 0
+
+    for step, days in AFTERCARE_STEPS:
+        newest = (now - timedelta(days=days)).isoformat()
+        oldest = (now - timedelta(days=days + AFTERCARE_WINDOW_DAYS)).isoformat()
+        rows = conn.execute('''
+            SELECT b.id, b.client_id, b.artist_id, b.completed_at,
+                   ua.display_name AS artist_name, ua.username AS artist_username,
+                   ua.aftercare_text, ua.premium_until, ua.aftercare_enabled,
+                   uc.display_name AS client_name,
+                   (SELECT COUNT(*) FROM reviews r WHERE r.booking_id = b.id) AS has_review
+            FROM bookings b
+            JOIN users ua ON ua.id = b.artist_id
+            JOIN users uc ON uc.id = b.client_id
+            WHERE b.status = 'completed'
+              AND b.completed_at IS NOT NULL
+              AND b.completed_at <= ? AND b.completed_at > ?
+              AND b.aftercare_optout_at IS NULL
+              AND COALESCE(ua.aftercare_enabled, 1) = 1
+              AND NOT EXISTS (SELECT 1 FROM aftercare_sent s
+                               WHERE s.booking_id = b.id AND s.step = ?)
+        ''', (newest, oldest, step)).fetchall()
+
+        for b in rows:
+            # Sekvence je premium funkce tatéra, ne klienta.
+            if not _is_premium_from_row({'premium_until': b['premium_until']}):
+                skipped += 1
+                continue
+            token = _aftercare_token(b['id'])
+            subject, html = _aftercare_email(step, {
+                'client_name': b['client_name'],
+                'artist_name': b['artist_name'] or b['artist_username'],
+                'care_text':   b['aftercare_text'] or '',
+                'stop_url':    f'{APP_BASE_URL}/aftercare/stop?b={b["id"]}&t={token}',
+                'photo_url':   f'{APP_BASE_URL}/aftercare/photo?b={b["id"]}&t={token}',
+                'message_url': f'{APP_BASE_URL}/messages?user={b["artist_username"]}',
+                'review_url':  f'{APP_BASE_URL}/profile/{b["artist_username"]}#book-{b["id"]}',
+                'ask_review':  not b['has_review'],
+            })
+            # Zapsat PŘED odesláním: při pádu mezi krokem a zápisem radši
+            # neposlat podruhé než poslat dvakrát.
+            try:
+                conn.execute('INSERT INTO aftercare_sent (booking_id, step) VALUES (?,?)',
+                             (b['id'], step))
+                conn.commit()
+            except Exception:
+                continue
+            u = conn.execute('SELECT email FROM users WHERE id=?', (b['client_id'],)).fetchone()
+            if u and u['email'] and send_email(u['email'], subject, html):
+                sent.append({'booking': b['id'], 'step': step})
+    conn.close()
+    return jsonify({'ok': True, 'sent': len(sent), 'skipped_not_premium': skipped,
+                    'detail': sent})
+
+
+@app.route('/aftercare/stop')
+def aftercare_stop():
+    try:
+        bid = int(request.args.get('b') or 0)
+    except (TypeError, ValueError):
+        bid = 0
+    import hmac as _hmac
+    ok = bid and _hmac.compare_digest((request.args.get('t') or ''), _aftercare_token(bid))
+    if ok:
+        conn = get_db()
+        conn.execute('UPDATE bookings SET aftercare_optout_at=? WHERE id=?',
+                     (_prague_now_naive().isoformat(), bid))
+        conn.commit(); conn.close()
+    return _plain_page('Hotovo, další zprávy k tomuhle tetování už nepřijdou.'
+                       if ok else 'Odkaz je neplatný.')
+
+
+@app.route('/aftercare/photo', methods=['GET', 'POST'])
+def aftercare_photo():
+    """Fotka bez přihlášení. Klient si po měsíci nepamatuje heslo a
+    přihlašovací obrazovka je přesně to místo, kde to vzdá."""
+    try:
+        bid = int(request.args.get('b') or request.form.get('b') or 0)
+    except (TypeError, ValueError):
+        bid = 0
+    token = (request.args.get('t') or request.form.get('t') or '').strip()
+    import hmac as _hmac
+    if not bid or not _hmac.compare_digest(token, _aftercare_token(bid)):
+        return _plain_page('Odkaz je neplatný.')
+
+    conn = get_db()
+    b = conn.execute('SELECT id, client_id, artist_id FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return _plain_page('Rezervace nenalezena.')
+
+    if request.method == 'POST':
+        img = request.files.get('photo')
+        if not img or not img.filename:
+            conn.close(); return _plain_page('Nevybral(a) jsi fotku.')
+        ext = img.filename.rsplit('.', 1)[-1].lower() if '.' in img.filename else ''
+        if ext not in MESSAGE_IMAGE_EXTS:
+            conn.close(); return _plain_page('Fotka musí být JPG, PNG, WEBP nebo GIF.')
+        img.seek(0, os.SEEK_END); size = img.tell(); img.seek(0)
+        if size > MESSAGE_IMAGE_MAX_BYTES:
+            conn.close(); return _plain_page('Fotka je větší než 12 MB.')
+        name = f'healed_{bid}_{int(time.time())}_{secure_filename(img.filename) or "photo." + ext}'
+        save_upload(img, name)
+        # Do vlákna, ne do tiché složky: tatér ji má vidět tam, kde spolu
+        # mluví, a může na ni rovnou odpovědět.
+        conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type, image) '
+                     'VALUES (?,?,?,?,?)', (b['client_id'], b['artist_id'], '', 'image', name))
+        conn.execute('UPDATE tattoo_records SET healed_photo=? WHERE booking_id=?', (name, bid))
+        push_notif(conn, b['artist_id'], b['client_id'], 'healed_photo', bid, 'booking',
+                   'Klient poslal fotku zhojeného tetování.')
+        conn.commit(); conn.close()
+        return _plain_page('Díky! Fotka dorazila.')
+
+    conn.close()
+    return Response(
+        '<!doctype html><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>InkLink</title>'
+        '<div style="font-family:Helvetica,Arial,sans-serif;background:#faf8f3;color:#1a1a1a;'
+        'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px">'
+        '<form method="post" enctype="multipart/form-data" style="max-width:380px;width:100%">'
+        f'<input type="hidden" name="b" value="{bid}">'
+        f'<input type="hidden" name="t" value="{token}">'
+        '<p style="line-height:1.7;margin-bottom:18px">Pošli fotku zhojeného tetování.</p>'
+        '<input type="file" name="photo" accept="image/*" required '
+        'style="width:100%;padding:10px;background:#f1ece0;border:1px solid #a8a399">'
+        '<button type="submit" style="margin-top:14px;width:100%;padding:13px;background:#0a0a0a;'
+        'color:#faf8f3;border:none;letter-spacing:0.1em;text-transform:uppercase;font-size:12px;'
+        'cursor:pointer">Odeslat</button></form></div>',
+        mimetype='text/html')
+
+
+def _plain_page(msg):
+    from html import escape as _h
+    return Response(
+        '<!doctype html><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>InkLink</title>'
+        '<div style="font-family:Helvetica,Arial,sans-serif;background:#faf8f3;color:#1a1a1a;'
+        'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px">'
+        f'<div style="max-width:380px;text-align:center;line-height:1.7">{_h(msg)}</div></div>',
+        mimetype='text/html')
+
+
+@app.route('/api/me/aftercare', methods=['GET', 'PATCH'])
+def my_aftercare():
+    err = require_login()
+    if err: return err
+    uid = session['user_id']
+    conn = get_db()
+    if request.method == 'PATCH':
+        data = request.get_json(silent=True) or {}
+        if 'text' in data:
+            conn.execute('UPDATE users SET aftercare_text=? WHERE id=?',
+                         ((data.get('text') or '').strip()[:2000], uid))
+        if 'enabled' in data:
+            conn.execute('UPDATE users SET aftercare_enabled=? WHERE id=?',
+                         (1 if data.get('enabled') else 0, uid))
+        conn.commit()
+    u = conn.execute('SELECT aftercare_text, aftercare_enabled, premium_until '
+                     'FROM users WHERE id=?', (uid,)).fetchone()
+    conn.close()
+    return jsonify({
+        'text': u['aftercare_text'] or '',
+        'enabled': bool(u['aftercare_enabled']),
+        'premium': _is_premium_from_row({'premium_until': u['premium_until']}),
+        'steps': [{'step': s, 'days': d} for s, d in AFTERCARE_STEPS],
+    })
+
+
 # ── Premium: rozesílání klientům ──────────────────────────────────────────
 #
 # Právní základ je oprávněný zájem podle §7 zákona o některých službách
@@ -10495,7 +10820,9 @@ def _campaign_email_html(who, username, subject, body, recipient):
     from html import escape as _h
     unsub = (f'{APP_BASE_URL}/unsubscribe?c={recipient["client_id"]}'
              f'&t={_campaign_token(recipient["client_id"])}')
-    greeting = f'Ahoj {_h(recipient["name"].split()[0])},' if recipient['name'] else 'Ahoj,'
+    # Bez jména: české vokativy se automaticky skloňovat nedají a
+    # "Ahoj Tereza" zní hůř než prosté "Ahoj".
+    greeting = 'Ahoj,'
     return (
         '<div style="background:#faf8f3;color:#1a1a1a;font-family:Helvetica,Arial,sans-serif;'
         'padding:40px;max-width:520px;margin:0 auto">'
@@ -10507,7 +10834,7 @@ def _campaign_email_html(who, username, subject, body, recipient):
         'text-decoration:none;font-size:13px;letter-spacing:0.1em">REZERVOVAT TERMÍN</a></p>'
         '<p style="color:#8a8a8a;font-size:11px;line-height:1.7;margin-top:36px;'
         'border-top:1px solid #ddd6c8;padding-top:16px">'
-        f'Tenhle e-mail ti přišel, protože jsi byl(a) na tetování u {_h(who)}.<br>'
+        'Posílá ti ho tatér, u kterého máš tetování.<br>'
         f'<a href="{_h(unsub)}" style="color:#8a8a8a">Nechci už dostávat nabídky</a> — '
         'odhlášení platí okamžitě.</p></div>'
     )

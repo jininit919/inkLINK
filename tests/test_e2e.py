@@ -3026,6 +3026,175 @@ class CompletionBalanceTests(_Sprint2Base):
         self.assertEqual(rows[0]['outstanding'], float(self.info['outstanding_kc']))
 
 
+class AftercareTests(_Sprint2Base):
+    """Sekvence po sezení. Běží, když tatér spí — a právě proto musí být
+    přesná: mail navíc je horší než mail chybějící."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3, server
+        from werkzeug.security import generate_password_hash
+        server.CRON_SECRET = 'testsecret'
+        start = self._day_at(2, 10)
+        slot = self._mk_slot(start, start + timedelta(hours=6))
+        r = self.client.post('/api/bookings', json={
+            'slot_id': slot, 'design_note': 'vlk', 'duration_hours': 2,
+            'booking_start_at': start.isoformat()})
+        self.bid = r.get_json()['id']
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=?, premium_until=?, '
+                     'aftercare_text=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'),
+                      (self._now() + timedelta(days=30)).isoformat(),
+                      'Folii nech 24 h.'))
+        conn.commit(); conn.close()
+
+    def _complete_days_ago(self, days):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE bookings SET status='completed', completed_at=? WHERE id=?",
+                     ((self._now() - timedelta(days=days, hours=1)).isoformat(), self.bid))
+        conn.commit(); conn.close()
+
+    def _run(self):
+        return self.client.get('/api/cron/aftercare?key=testsecret').get_json()
+
+    def _sent_steps(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        rows = [r[0] for r in conn.execute(
+            'SELECT step FROM aftercare_sent WHERE booking_id=?', (self.bid,))]
+        conn.close()
+        return sorted(rows)
+
+    def test_cron_needs_a_secret(self):
+        self.assertEqual(self.client.get('/api/cron/aftercare').status_code, 401)
+
+    def test_instructions_go_out_on_completion_not_by_cron(self):
+        """Klient je má mít, než odejde ze studia — ne až druhý den."""
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+        info = self.client.get(f'/api/bookings/{self.bid}/completion-info').get_json()
+        self.client.post(f'/api/bookings/{self.bid}/complete',
+                         json={'onsite_kc': info['outstanding_kc'], 'balance_kc': 0})
+        self.assertEqual(self._sent_steps(), ['day0'])
+
+    def test_day7_fires_a_week_after(self):
+        self._complete_days_ago(7)
+        self._run()
+        self.assertEqual(self._sent_steps(), ['day7'])
+
+    def test_nothing_fires_the_same_day(self):
+        self._complete_days_ago(0)
+        self._run()
+        self.assertEqual(self._sent_steps(), [])
+
+    def test_each_step_fires_once(self):
+        self._complete_days_ago(7)
+        self._run(); self._run(); self._run()
+        self.assertEqual(self._sent_steps(), ['day7'])
+
+    def test_old_bookings_do_not_get_the_backlog(self):
+        """Zapnutí premia nesmí vyslat celou historii — klient by dostal
+        tři maily o tetování z loňska."""
+        self._complete_days_ago(200)
+        self._run()
+        self.assertEqual(self._sent_steps(), [])
+
+    def test_free_artist_sends_nothing(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET premium_until=NULL WHERE id=1')
+        conn.commit(); conn.close()
+        self._complete_days_ago(7)
+        d = self._run()
+        self.assertEqual(self._sent_steps(), [])
+        self.assertEqual(d['skipped_not_premium'], 1)
+
+    def test_artist_can_switch_it_off(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET aftercare_enabled=0 WHERE id=1')
+        conn.commit(); conn.close()
+        self._complete_days_ago(7)
+        self._run()
+        self.assertEqual(self._sent_steps(), [])
+
+    def test_client_can_stop_it_without_logging_in(self):
+        """Odkaz, který po klientovi chce heslo, není zastavovací odkaz."""
+        import server
+        self._complete_days_ago(7)
+        fresh = server.app.test_client()
+        token = server._aftercare_token(self.bid)
+        r = fresh.get(f'/aftercare/stop?b={self.bid}&t={token}')
+        self.assertIn('Hotovo', r.get_data(as_text=True))
+        self._run()
+        self.assertEqual(self._sent_steps(), [])
+
+    def test_stop_needs_a_valid_token(self):
+        self._complete_days_ago(7)
+        r = self.client.get(f'/aftercare/stop?b={self.bid}&t=spatny')
+        self.assertIn('neplatný', r.get_data(as_text=True))
+        self._run()
+        self.assertEqual(self._sent_steps(), ['day7'])
+
+    def test_healed_photo_lands_in_the_thread(self):
+        """Fotka má přijít tam, kde spolu mluví — ne do tiché složky."""
+        import io, sqlite3, server
+        token = server._aftercare_token(self.bid)
+        fresh = server.app.test_client()          # klient bez přihlášení
+        img = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 64)
+        r = fresh.post('/aftercare/photo',
+                       data={'b': str(self.bid), 't': token, 'photo': (img, 'healed.png')},
+                       content_type='multipart/form-data')
+        self.assertIn('Díky', r.get_data(as_text=True))
+        conn = sqlite3.connect(self.db)
+        m = conn.execute('SELECT sender_id, receiver_id, content_type FROM messages '
+                         'ORDER BY id DESC LIMIT 1').fetchone()
+        n = conn.execute("SELECT COUNT(*) FROM notifications WHERE type='healed_photo'").fetchone()[0]
+        conn.close()
+        self.assertEqual(m, (2, 1, 'image'))
+        self.assertEqual(n, 1)
+
+    def test_photo_upload_needs_a_valid_token(self):
+        import io, server
+        fresh = server.app.test_client()
+        img = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 64)
+        r = fresh.post('/aftercare/photo',
+                       data={'b': str(self.bid), 't': 'spatny', 'photo': (img, 'x.png')},
+                       content_type='multipart/form-data')
+        self.assertIn('neplatný', r.get_data(as_text=True))
+
+    def test_instructions_come_from_the_artist(self):
+        """Platforma nemá co radit v něčem zdravotním."""
+        import server
+        _, html = server._aftercare_email('day0', {
+            'artist_name': 'Artist One',
+            'care_text': 'MUJ VLASTNI POSTUP', 'stop_url': '#'})
+        self.assertIn('MUJ VLASTNI POSTUP', html)
+
+    def test_without_instructions_it_defers_to_the_artist(self):
+        import server
+        _, html = server._aftercare_email('day0', {
+            'artist_name': 'Artist One', 'care_text': '', 'stop_url': '#'})
+        self.assertIn('můj postup', html)
+
+    def test_review_ask_is_skipped_when_one_exists(self):
+        """Nenaléhat na recenzi, kterou už klient napsal."""
+        import server
+        _, with_ask = server._aftercare_email('day30', {
+            'artist_name': 'A', 'stop_url': '#',
+            'photo_url': '#', 'review_url': '/rev', 'ask_review': True})
+        _, without = server._aftercare_email('day30', {
+            'artist_name': 'A', 'stop_url': '#',
+            'photo_url': '#', 'review_url': '/rev', 'ask_review': False})
+        self.assertIn('recenze', with_ask)
+        self.assertNotIn('recenze', without)
+
+    def test_settings_are_artist_only(self):
+        self.client.post('/api/logout')
+        self.assertEqual(self.client.get('/api/me/aftercare').status_code, 401)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 

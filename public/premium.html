@@ -2,7 +2,9 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
-<style>html,body{background:#faf8f3;margin:0}</style>
+<style>html,body{background:#faf8f3;margin:0}.acsw{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt2);cursor:pointer}
+.acsw input{width:16px;height:16px;accent-color:var(--txt)}
+</style>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf8f3">
@@ -106,6 +108,16 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
     <div id="statsBody"></div>
   </div>
 
+  <div class="feat" id="featAftercare">
+    <h2 data-i18n="pr.acTitle">Hojení</h2>
+    <p data-i18n="pr.acBody">Po každém sezení běží sama sekvence: druhý den tvoje instrukce, sedmý den kontrola, třicátý den prosba o fotku zhojené práce a recenzi. Klient může kdykoliv zastavit.</p>
+    <label class="acsw"><input type="checkbox" id="acEnabled" onchange="saveAftercare()"> <span data-i18n="pr.acEnabled">Posílat automaticky</span></label>
+    <div class="fld" style="margin-top:12px"><label for="acText" data-i18n="pr.acText">Tvoje instrukce k hojení</label>
+      <textarea id="acText" maxlength="2000" data-i18n-attr="pr.acTextPh:placeholder" placeholder="Fólii nech 24 h. Pak omýt vlažnou vodou…" onblur="saveAftercare()"></textarea></div>
+    <div class="hint" data-i18n="pr.acHint">Píšeš je ty, ne my — každý má svůj postup a platforma nemá co radit v něčem zdravotním. Když pole necháš prázdné, mail jen odkáže na to, co jsi klientovi řekl.</div>
+    <div class="flash" id="acFlash"></div>
+  </div>
+
   <div class="feat" id="featCampaign">
     <h2 data-i18n="pr.campTitle">Rozeslat klientům</h2>
     <p data-i18n="pr.campBody">Jde jen tvým klientům, kteří u tebe opravdu byli, a v každém mailu je jednoklikové odhlášení. Kdo se odhlásí, už ho neuvidíš mezi příjemci.</p>
@@ -140,7 +152,7 @@ async function init() {
 
   premium = await fetch('/api/premium/status').then(r => r.json()).catch(() => null);
   renderState();
-  if (premium && premium.active) { loadStats(); loadCampaignCount(); }
+  if (premium && premium.active) { loadStats(); loadCampaignCount(); loadAftercare(); }
 }
 
 function renderState() {
@@ -149,7 +161,7 @@ function renderState() {
 
   // Zamčené funkce necháváme vidět, jen se nedají použít. Skrýt je by
   // znamenalo, že tatér neví, co si kupuje.
-  ['featAccounting', 'featStats', 'featCampaign'].forEach(id =>
+  ['featAccounting', 'featStats', 'featAftercare', 'featCampaign'].forEach(id =>
     document.getElementById(id).classList.toggle('locked', !premium.active));
 
   if (premium.active) {
@@ -231,6 +243,27 @@ async function loadStats() {
         <span class="v">${s.booked ? t('pr.booked').replace('{n}', s.booked)
           : (s.age_days >= 30 ? t('pr.idle').replace('{n}', Math.round(s.age_days / 30)) : t('pr.noneYet'))}</span>
       </div>`).join('')}</div>` : `<div class="hint">${t('pr.noSketches')}</div>`}`;
+}
+
+async function loadAftercare() {
+  const d = await fetch('/api/me/aftercare').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!d) return;
+  document.getElementById('acEnabled').checked = d.enabled;
+  document.getElementById('acText').value = d.text;
+}
+
+async function saveAftercare() {
+  const f = document.getElementById('acFlash');
+  try {
+    const r = await fetch('/api/me/aftercare', {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: document.getElementById('acEnabled').checked,
+                            text: document.getElementById('acText').value}),
+    });
+    if (!r.ok) throw new Error();
+    f.className = 'flash ok'; f.textContent = t('pr.saved');
+    setTimeout(() => { f.textContent = ''; }, 2000);
+  } catch (e) { f.className = 'flash err'; f.textContent = t('pr.failed'); }
 }
 
 async function loadCampaignCount() {
