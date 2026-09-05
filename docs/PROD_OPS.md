@@ -12,11 +12,36 @@ Pro tech specs viz `docs/pricing_engine.pdf` a `docs/PRICING_MIGRATION.md`.
 | `SECRET_KEY` | ✅ | random 64 chars | Flask session signing |
 | `APP_BASE_URL` | ✅ | `https://www.inklink.club` | Used in emails + OG URLs |
 | `STRIPE_SECRET_KEY` | ✅ | `sk_live_…` | Test mode `sk_test_…` v staging |
+| `STRIPE_PUBLISHABLE_KEY` | ✅ | `pk_live_…` | Pro Stripe Elements ve frontendu |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | `whsec_…` | Z Stripe dashboard → Webhooks endpoint |
-| `STRIPE_PREMIUM_PRICE_ID_CZK` | ⚠️ | `price_…` | Předplatné premia v korunách; bez něj se v CZK nedá předplatit |
-| `STRIPE_PREMIUM_PRICE_ID_EUR` | | `price_…` | Totéž pro eura (16 €). Stejně `_USD`, `_GBP`, `_PLN` |
+| `ENABLE_DEPOSIT_PI` | ✅ | `1` | Bez toho rezervace v live módu uvízne v pending_payment |
 | `RESEND_API_KEY` | ⚠️ | `re_…` | Bez něj emaily nejdou ven (booking confirmations) |
-| `RESEND_FROM` | ⚠️ | `InkLink <hello@inklink.cz>` | Musí být verified domain v Resend |
+| `RESEND_FROM` | ⚠️ | `contact@inklink.club` | **Musí být verified doména.** Výchozí `onboarding@resend.dev` doručuje jen majiteli účtu Resend — klientům z něj nikdy nic nepřijde a Resend to nezahlásí jako chybu |
+| `CRON_SECRET` | ⚠️ | `(random 32+)` | Autorizace cronů `/api/cron/*` |
+
+### Premium (předplatné)
+Cena je pro každou měnu vlastní (390 Kč · 16 € · 17 $ · 14 £ · 79 zł), ne přepočet
+kurzem — Stripe Billing účtuje přes Price objekt, libovolnou částku poslat nejde.
+Každá měna proto potřebuje vlastní Price ve Stripe. Bez něj se v té měně
+předplatit nedá a stránka nabídne kontakt místo tlačítka, které by spadlo.
+
+| Variable | Required | Example | Note |
+|---|---|---|---|
+| `STRIPE_PREMIUM_PRICE_ID_CZK` | ⚠️ | `price_…` | 390 Kč / měsíc, recurring |
+| `STRIPE_PREMIUM_PRICE_ID_EUR` | ⬜ | `price_…` | 16 € / měsíc |
+| `STRIPE_PREMIUM_PRICE_ID_USD` | ⬜ | `price_…` | 17 $ / měsíc |
+| `STRIPE_PREMIUM_PRICE_ID_GBP` | ⬜ | `price_…` | 14 £ / měsíc |
+| `STRIPE_PREMIUM_PRICE_ID_PLN` | ⬜ | `price_…` | 79 zł / měsíc |
+| `PREMIUM_PRICE_CZK` | ⬜ | `390` | Jen zobrazovaná cena v CZK; musí sedět s Price ve Stripe |
+
+Ve Stripe webhooku zaškrtnout `customer.subscription.created`, `.updated`
+a `.deleted` — bez nich se premium po zaplacení nezapne.
+
+### Brána před veřejností
+| Variable | Required | Example | Note |
+|---|---|---|---|
+| `COMING_SOON` | ⬜ | `1` | Schová aplikaci za waitlist stránku |
+| `COMING_SOON_TOKEN` | ⬜ | `(náhodný řetězec)` | `?preview=<token>` bránu otevře a uloží cookie |
 
 ### Pricing engine
 | Variable | Required | Default | Note |
@@ -34,6 +59,7 @@ Pro tech specs viz `docs/pricing_engine.pdf` a `docs/PRICING_MIGRATION.md`.
 ### Optional
 | Variable | Default | Note |
 |---|---|---|
+| `STRIPE_PRO_PRICE_ID` | empty | **Nenastavovat** — načítá se, ale nikde se nepoužívá (zbytek po starším plánu) |
 | `VERIFY_EMAIL` | `0` | Set `1` to require email verification on signup |
 | `ADMIN_USERNAME` | empty | Username co dostane admin práva bootstrap (jinak set `is_admin=1` v DB) |
 | `PUSH_PUBLIC` / `PUSH_PRIVATE` | empty | Web push VAPID keys (browser notifications) |
@@ -47,6 +73,24 @@ Pro tech specs viz `docs/pricing_engine.pdf` a `docs/PRICING_MIGRATION.md`.
 | `APNS_KEY_PEM` | ⚠️ | Celý obsah `.p8` souboru (multi-line) — preferred pro Railway |
 | `APNS_KEY_PATH` | ⬜ | Alternativa k `APNS_KEY_PEM` — cesta k `.p8` souboru (lokál dev) |
 | `APNS_USE_SANDBOX` | ⬜ | Set `1` jen pro TestFlight sandbox build (default `0` = production) |
+
+### Jak zjistit, co je opravdu nastavené
+
+Tahle tabulka zastarává. Skutečný stav běžící aplikace vrátí health endpoint —
+hodnoty neprozrazuje, jen jestli dosedly:
+
+```
+curl -s https://www.inklink.club/__health | python3 -m json.tool
+```
+
+| Pole | Co znamená |
+|---|---|
+| `emails_enabled` | je vidět `RESEND_API_KEY` |
+| `email_from_is_shared_sandbox` | `true` = odesílá se z `resend.dev` a klientům nic nedorazí |
+| `cron_token_set` | je vidět `RECONCILE_TOKEN` |
+| `stripe_mode` | `off` / `test` / `live` |
+| `coming_soon` | běží brána |
+| `coming_soon_env_seen` | názvy proměnných obsahujících COMING — odhalí překlep i mezeru |
 
 ---
 

@@ -31,7 +31,7 @@ Aktuální stav (co je nastaveno):
 | `ADMIN_USERNAME` | ✅ MGart |
 | `VERIFY_EMAIL` | ✅ 1 |
 | `APNS_*` | ❌ chybí — push pro iOS neaktivní (můžeš odložit) |
-| `VAPID_*` | ✅ web push funguje |
+| `PUSH_PUBLIC` / `PUSH_PRIVATE` | ✅ web push funguje (pozor: **ne** `VAPID_*`, kód čte tyhle názvy) |
 
 ### Jak stav ověřit
 
