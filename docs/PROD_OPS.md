@@ -13,6 +13,8 @@ Pro tech specs viz `docs/pricing_engine.pdf` a `docs/PRICING_MIGRATION.md`.
 | `APP_BASE_URL` | ✅ | `https://www.inklink.club` | Used in emails + OG URLs |
 | `STRIPE_SECRET_KEY` | ✅ | `sk_live_…` | Test mode `sk_test_…` v staging |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | `whsec_…` | Z Stripe dashboard → Webhooks endpoint |
+| `STRIPE_PREMIUM_PRICE_ID_CZK` | ⚠️ | `price_…` | Předplatné premia v korunách; bez něj se v CZK nedá předplatit |
+| `STRIPE_PREMIUM_PRICE_ID_EUR` | | `price_…` | Totéž pro eura (16 €). Stejně `_USD`, `_GBP`, `_PLN` |
 | `RESEND_API_KEY` | ⚠️ | `re_…` | Bez něj emaily nejdou ven (booking confirmations) |
 | `RESEND_FROM` | ⚠️ | `InkLink <hello@inklink.cz>` | Musí být verified domain v Resend |
 

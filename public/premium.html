@@ -179,7 +179,7 @@ function renderState() {
   }
 
   el.className = 'state';
-  el.innerHTML = `<b>${t('pr.price').replace('{price}', premium.price_czk)}</b>
+  el.innerHTML = `<b>${t('pr.price').replace('{price}', InkLinkI18N.money(premium.price, premium.currency))}</b>
     ${premium.available
       ? `<button class="btn primary" style="margin-left:auto" id="subBtn" onclick="subscribe()">${t('pr.subscribe')}</button>`
       : `<span class="muted">${t('pr.notYet')}</span>`}`;

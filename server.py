@@ -1444,12 +1444,14 @@ def init_db():
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id     INTEGER NOT NULL,
         delta_cents INTEGER NOT NULL,
+        currency    TEXT DEFAULT 'CZK',
         reason      TEXT NOT NULL,
         ref_type    TEXT DEFAULT '',
         ref_id      INTEGER DEFAULT NULL,
         note        TEXT DEFAULT '',
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    add_col('credit_ledger', "currency TEXT DEFAULT 'CZK'")
     c.execute('CREATE INDEX IF NOT EXISTS idx_credit_ledger_user '
               'ON credit_ledger(user_id, id)')
 
@@ -1881,7 +1883,7 @@ SUBSCRIPTION_TIER_RANK = {'free': 0, 'studio': 1, 'studio_pro': 2}
 # nabídky) zůstává celá zdarma. Za peníze je to, co tatér otevře jednou za
 # měsíc — účetnictví, čísla, rozesílání.
 
-PREMIUM_PRICE_CZK = int(os.environ.get('PREMIUM_PRICE_CZK', '390'))
+PREMIUM_PRICE_CZK = int(os.environ.get('PREMIUM_PRICE_CZK', '390'))   # jen CZK; ostatní viz PREMIUM_PRICES
 PREMIUM_FEATURES  = ('accounting', 'stats', 'campaigns')
 
 
@@ -6533,7 +6535,9 @@ def create_booking():
         credit_used_cents = min(available, chargeable)
         if credit_used_cents > 0:
             if _credit_move(conn, session['user_id'], -credit_used_cents,
-                            'booking_spend', 'booking', bid) is None:
+                            'booking_spend', 'booking', bid,
+                            currency=_norm_currency(
+                                slot['currency'] if 'currency' in slot.keys() else None)) is None:
                 credit_used_cents = 0
             else:
                 conn.execute(
@@ -10584,7 +10588,8 @@ def _credit_balance(conn, user_id):
     return (row['c'] if row else 0) or 0
 
 
-def _credit_move(conn, user_id, delta_cents, reason, ref_type=None, ref_id=None, note=''):
+def _credit_move(conn, user_id, delta_cents, reason, ref_type=None, ref_id=None, note='',
+                 currency=None):
     """Zapíše pohyb do knihy a srovná zůstatek. Nikdy nepustí zůstatek pod
     nulu — utratit se dá jen to, co tam je.
 
@@ -10598,9 +10603,9 @@ def _credit_move(conn, user_id, delta_cents, reason, ref_type=None, ref_id=None,
     if current + delta < 0:
         return None
     conn.execute(
-        'INSERT INTO credit_ledger (user_id, delta_cents, reason, ref_type, ref_id, note) '
-        'VALUES (?,?,?,?,?,?)',
-        (user_id, delta, reason, ref_type or '', ref_id, note[:200]))
+        'INSERT INTO credit_ledger (user_id, delta_cents, currency, reason, ref_type, ref_id, note) '
+        'VALUES (?,?,?,?,?,?,?)',
+        (user_id, delta, _norm_currency(currency), reason, ref_type or '', ref_id, note[:200]))
     conn.execute('UPDATE users SET account_credit_cents = COALESCE(account_credit_cents, 0) + ? '
                  'WHERE id = ?', (delta, user_id))
     return current + delta
@@ -10613,7 +10618,7 @@ def my_credit():
     uid  = session['user_id']
     conn = get_db()
     rows = conn.execute(
-        'SELECT delta_cents, reason, ref_type, ref_id, note, created_at '
+        'SELECT delta_cents, currency, reason, ref_type, ref_id, note, created_at '
         'FROM credit_ledger WHERE user_id=? ORDER BY id DESC LIMIT 50', (uid,)).fetchall()
     balance = _credit_balance(conn, uid)
     conn.close()
@@ -10621,6 +10626,7 @@ def my_credit():
         'balance_kc': balance / 100,
         'history': [{
             'amount_kc': r['delta_cents'] / 100,
+            'currency':  _norm_currency(r['currency'] if 'currency' in r.keys() else None),
             'reason':    r['reason'],
             'ref_type':  r['ref_type'] or '',
             'ref_id':    r['ref_id'],
@@ -10830,7 +10836,8 @@ def redeem_voucher():
     if not changed:
         conn.close(); return jsonify({'error': 'Tenhle poukaz už byl uplatněný.'}), 409
 
-    balance = _credit_move(conn, uid, v['amount_cents'], 'voucher_redeem', 'voucher', v['id'])
+    balance = _credit_move(conn, uid, v['amount_cents'], 'voucher_redeem', 'voucher', v['id'],
+                           currency=v['currency'] if 'currency' in v.keys() else None)
     conn.commit(); conn.close()
     return jsonify({'ok': True, 'amount_kc': v['amount_cents'] // 100,
                     'balance_kc': (balance or 0) / 100})
@@ -11707,25 +11714,55 @@ def accounting_export():
 PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '').strip()
 
 
+# Cena premia je pro každou měnu vlastní, ne přepočtená kurzem. Tři důvody,
+# a ten první je rozhodující:
+#
+#   1. Stripe Billing předplatné účtuje přes Price objekt. Nedá se poslat
+#      libovolná přepočtená částka — cena musí ve Stripe existovat.
+#   2. Kurzem přepočtená cena vypadá jako 15,83 € a mění se každý den.
+#   3. Kdo platí v eurech, čeká kulaté euro číslo.
+#
+# Čísla jsou přibližný ekvivalent 390 Kč, zaokrouhlený nahoru na hezkou
+# hodnotu. Kurz se hýbe; tahle tabulka schválně ne.
+PREMIUM_PRICES = {'CZK': PREMIUM_PRICE_CZK, 'EUR': 16, 'USD': 17, 'GBP': 14, 'PLN': 79}
+
+
+def _premium_price(currency):
+    cur = _norm_currency(currency)
+    return cur, PREMIUM_PRICES.get(cur, PREMIUM_PRICES[DEFAULT_CURRENCY])
+
+
+def _premium_price_id(currency):
+    """Stripe Price pro danou měnu. Chybějící znamená, že se v ní zatím
+    předplatit nedá — a frontend pak nabídne kontakt místo tlačítka,
+    které by stejně spadlo."""
+    cur = _norm_currency(currency)
+    return (os.environ.get(f'STRIPE_PREMIUM_PRICE_ID_{cur}', '').strip()
+            or (PREMIUM_PRICE_ID if cur == DEFAULT_CURRENCY else ''))
+
+
+
 @app.route('/api/premium/status')
 def premium_status():
     err = require_login()
     if err: return err
     conn = get_db()
     u = conn.execute('SELECT premium_until, premium_subscription_id, '
-                     'premium_cancel_at_period_end FROM users WHERE id=?',
+                     'premium_cancel_at_period_end, currency FROM users WHERE id=?',
                      (session['user_id'],)).fetchone()
     conn.close()
+    cur, price = _premium_price(u['currency'] if 'currency' in u.keys() else None)
     return jsonify({
         'active':          _is_premium_from_row(dict(u)),
         'until':           u['premium_until'],
         'cancel_at_end':   bool(u['premium_cancel_at_period_end']),
         'has_subscription': bool(u['premium_subscription_id']),
-        'price_czk':       PREMIUM_PRICE_CZK,
+        'currency':        cur,
+        'price':           price,
         'features':        list(PREMIUM_FEATURES),
-        # Bez ceníku ve Stripe se nedá předplatit; frontend pak nabídne
-        # kontakt místo tlačítka, které by stejně spadlo.
-        'available':       bool(STRIPE_SECRET_KEY and PREMIUM_PRICE_ID),
+        # Bez ceníku ve Stripe se v téhle měně předplatit nedá; frontend
+        # pak nabídne kontakt místo tlačítka, které by stejně spadlo.
+        'available':       bool(STRIPE_SECRET_KEY and _premium_price_id(cur)),
     })
 
 
@@ -11733,12 +11770,17 @@ def premium_status():
 def premium_checkout():
     err = require_login()
     if err: return err
-    if not STRIPE_SECRET_KEY or not PREMIUM_PRICE_ID:
+    if not STRIPE_SECRET_KEY:
         return jsonify({'error': 'Předplatné zatím není spuštěné.'}), 503
     uid  = session['user_id']
     conn = get_db()
-    u = conn.execute('SELECT username, email, display_name, premium_customer_id '
+    u = conn.execute('SELECT username, email, display_name, premium_customer_id, currency '
                      'FROM users WHERE id=?', (uid,)).fetchone()
+    price_id = _premium_price_id(u['currency'] if 'currency' in u.keys() else None)
+    if not price_id:
+        conn.close()
+        return jsonify({'error': 'V téhle měně zatím předplatné nenabízíme. '
+                                 'Napiš nám a domluvíme se.'}), 503
     if _is_premium(conn, uid):
         conn.close()
         return jsonify({'error': 'Premium už máš aktivní.'}), 409
@@ -11758,7 +11800,7 @@ def premium_checkout():
         sess = stripe.checkout.Session.create(
             mode='subscription',
             customer=customer_id,
-            line_items=[{'price': PREMIUM_PRICE_ID, 'quantity': 1}],
+            line_items=[{'price': price_id, 'quantity': 1}],
             # Uživatele hledáme podle metadat, ne podle e-mailu — ten si
             # může kdykoliv změnit a přiřazení by se rozpadlo.
             subscription_data={'metadata': {'inklink_user_id': str(uid)}},

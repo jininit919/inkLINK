@@ -3664,6 +3664,89 @@ class MoneyFormatTests(unittest.TestCase):
         self.assertEqual(bad, [])
 
 
+class PremiumPricingTests(_Sprint2Base):
+    """Cena premia je pro každou měnu vlastní, ne přepočtená kurzem.
+
+    Rozhodující důvod je technický: Stripe Billing účtuje předplatné přes
+    Price objekt a libovolnou přepočtenou částku poslat nejde — cena musí
+    ve Stripe existovat. K tomu by kurzem přepočtená cena vypadala jako
+    15,83 € a měnila se každý den."""
+
+    def _as_artist_with(self, currency):
+        import sqlite3
+        from werkzeug.security import generate_password_hash
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET password_hash=?, currency=? WHERE id=1',
+                     (generate_password_hash('pass1234', method='pbkdf2:sha256'), currency))
+        conn.commit(); conn.close()
+        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
+
+    def test_price_follows_the_currency(self):
+        import server
+        for cur, expected in server.PREMIUM_PRICES.items():
+            self._as_artist_with(cur)
+            d = self.client.get('/api/premium/status').get_json()
+            self.assertEqual((d['currency'], d['price']), (cur, expected), cur)
+
+    def test_prices_are_round(self):
+        """Kdo platí v eurech, čeká kulaté euro číslo, ne 15,83."""
+        import server
+        for cur, price in server.PREMIUM_PRICES.items():
+            self.assertEqual(price, int(price), cur)
+
+    def test_every_currency_has_a_price(self):
+        """Chybějící cena by tatéra poslala na checkout, který spadne."""
+        import server
+        self.assertEqual(set(server.PREMIUM_PRICES), set(server.CURRENCIES))
+
+    def test_checkout_refuses_a_currency_without_a_stripe_price(self):
+        """Tlačítko, které spadne, je horší než chybějící tlačítko."""
+        self._as_artist_with('PLN')
+        r = self.client.post('/api/premium/checkout')
+        self.assertIn(r.status_code, (503, 409))
+
+    def test_unavailable_when_stripe_price_is_missing(self):
+        self._as_artist_with('EUR')
+        self.assertFalse(self.client.get('/api/premium/status').get_json()['available'])
+
+
+class CreditCurrencyTests(_Sprint2Base):
+    """Kurzové riziko u kreditu se odstranit nedá — poukaz koupený
+    v korunách se může utratit u eurového tatéra. Musí ale být vidět:
+    bez měny u pohybu se expozice spočítat nedá."""
+
+    def test_ledger_records_the_currency(self):
+        import sqlite3, server
+        conn = server.get_db()
+        server._credit_move(conn, 2, 50000, 'voucher_redeem', currency='EUR')
+        conn.commit(); conn.close()
+        conn = sqlite3.connect(self.db)
+        row = conn.execute('SELECT delta_cents, currency FROM credit_ledger '
+                           'WHERE user_id=2 ORDER BY id DESC LIMIT 1').fetchone()
+        conn.close()
+        self.assertEqual(row, (50000, 'EUR'))
+
+    def test_history_exposes_the_currency(self):
+        import server
+        conn = server.get_db()
+        server._credit_move(conn, 2, 30000, 'voucher_redeem', currency='PLN')
+        conn.commit(); conn.close()
+        h = self.client.get('/api/me/credit').get_json()['history'][0]
+        self.assertEqual(h['currency'], 'PLN')
+
+    def test_unknown_currency_is_normalised(self):
+        """Nesmysl v knize by znemožnil sečíst, kolik v čem dlužíme."""
+        import sqlite3, server
+        conn = server.get_db()
+        server._credit_move(conn, 2, 1000, 'admin_adjust', currency='XYZ')
+        conn.commit(); conn.close()
+        conn = sqlite3.connect(self.db)
+        cur = conn.execute('SELECT currency FROM credit_ledger ORDER BY id DESC '
+                           'LIMIT 1').fetchone()[0]
+        conn.close()
+        self.assertIn(cur, server.CURRENCIES)
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 
