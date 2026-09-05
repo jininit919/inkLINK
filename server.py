@@ -10777,9 +10777,10 @@ def create_voucher():
         try:
             conn.execute(
                 'INSERT INTO vouchers (code, amount_cents, buyer_id, recipient_name, '
-                'message, status, expires_at) VALUES (?,?,?,?,?,?,?)',
+                'message, status, expires_at, currency) VALUES (?,?,?,?,?,?,?,?)',
                 (code, amount_kc * 100, uid, recipient, message,
-                 'active' if demo else 'awaiting_payment', expires))
+                 'active' if demo else 'awaiting_payment', expires,
+                 _artist_currency(conn, uid)))
             conn.commit()
             break
         except Exception:
@@ -10854,45 +10855,78 @@ def my_vouchers():
 
 
 def _voucher_render(v, tpl, preview=False):
-    """Vykreslí poukaz. Se šablonou z Canvy jako obrázek na pozadí
-    a textem v poměrných souřadnicích — poukaz musí vypadat stejně na
-    telefonu i na papíře, takže velikosti jsou v procentech šířky (vw
-    uvnitř kontejneru), ne v pixelech."""
+    """Vykreslí poukaz.
+
+    Bez nahrané šablony jede vestavěný lístek: logo a druh nahoře, částka
+    v levém dolním rohu, kód na útržku pod čárkovanou linkou. Čárkovaná
+    čára tu má význam — je to útržek, ne linka na psaní.
+
+    Volná plocha vpravo dole je schválně prázdná: na vytištěný poukaz si
+    dárce dopíše, co chce. Digitálně se do ní vysadí vzkaz zadaný při
+    koupi, takže místo nezůstane hluché ani na obrazovce.
+
+    Se šablonou z Canvy je poukaz obrázek na pozadí a texty v poměrných
+    souřadnicích — velikosti v cqw, aby vypadal stejně na telefonu
+    i na papíře.
+    """
     from html import escape as _h
-    L = tpl['layout']
-    amount = f'{v["amount_cents"] // 100:,}'.replace(',', ' ')
+    cur = _norm_currency(v['currency'] if 'currency' in v.keys() else None)
+    amount_n = v['amount_cents'] // 100
+    amount = f'{amount_n:,}'.replace(',', ' ')
+    symbol = CURRENCIES[cur]['symbol']
     try:
         exp = _naive_dt(v['expires_at']).strftime('%d. %m. %Y')
     except (ValueError, TypeError):
         exp = ''
     used = v['status'] == 'redeemed'
+    site = _h(APP_BASE_URL.replace('https://', '').replace('http://', ''))
+    fine = ('Uplatníš na <b>%s</b> — zadáš kód a částka se ti připíše jako kredit. '
+            'Platí u kteréhokoliv tatéra%s.' % (site, f' do {exp}' if exp else ''))
+    stamp = '<div class="used">UPLATNĚNO</div>' if used else ''
 
-    values = {
-        'amount':    f'{amount} Kč',
-        'code':      v['code'],
-        'recipient': (f'Pro {v["recipient_name"]}' if v['recipient_name'] else ''),
-        'message':   v['message'] or '',
-    }
+    if tpl['image']:
+        L = tpl['layout']
+        values = {'amount': f'{amount} {symbol}', 'code': v['code'],
+                  'recipient': (f'Pro {v["recipient_name"]}' if v['recipient_name'] else ''),
+                  'message': v['message'] or ''}
 
-    def field(name):
-        val = values.get(name) or ''
-        if not val:
-            return ''
-        f = L[name]
-        # Zarovnání se dělá posunem celého bloku, ne text-align uvnitř —
-        # jinak by se dlouhý vzkaz choval jinak než krátký kód.
-        shift = {'left': '0', 'center': '-50%', 'right': '-100%'}[f['align']]
-        return (f'<div style="position:absolute;left:{f["x"]}%;top:{f["y"]}%;'
-                f'transform:translate({shift},-50%);'
-                f'font-size:{f["size"]}cqw;color:{_h(f["color"])};'
-                f'text-align:{f["align"]};max-width:86%;line-height:1.35;'
-                f'letter-spacing:{"0.18em" if name == "code" else "0.02em"};'
-                f'white-space:pre-wrap">{_h(val)}</div>')
+        def field(name):
+            val = values.get(name) or ''
+            if not val:
+                return ''
+            f = L[name]
+            # Zarovnání posunem celého bloku, ne text-align uvnitř — jinak
+            # by se dlouhý vzkaz choval jinak než krátký kód.
+            shift = {'left': '0', 'center': '-50%', 'right': '-100%'}[f['align']]
+            return (f'<div style="position:absolute;left:{f["x"]}%;top:{f["y"]}%;'
+                    f'transform:translate({shift},-50%);font-size:{f["size"]}cqw;'
+                    f'color:{_h(f["color"])};text-align:{f["align"]};max-width:86%;'
+                    f'line-height:1.35;letter-spacing:'
+                    f'{"0.18em" if name == "code" else "0.02em"};'
+                    f'white-space:pre-wrap">{_h(val)}</div>')
 
-    bg = (f'<img src="/uploads/{_h(tpl["image"])}" alt="" '
-          'style="width:100%;display:block">') if tpl['image'] else ''
-    fallback_bg = '' if tpl['image'] else (
-        'background:#faf8f3;border:1px solid #0a0a0a;aspect-ratio:5/3;')
+        inner = (f'<img src="/uploads/{_h(tpl["image"])}" alt="" style="width:100%;display:block">'
+                 + field('amount') + field('recipient') + field('message')
+                 + field('code') + stamp)
+        card_class = 'v'
+    else:
+        note = (f'<div class="msg">{_h(v["message"])}</div>' if v['message'] else '')
+        to = (f'<div class="to">Pro {_h(v["recipient_name"])}</div>'
+              if v['recipient_name'] else '')
+        inner = f'''
+      <div class="top">
+        <img class="lg" src="/img/inklink-logo.png" alt="inklink">
+        <div class="kind">Dárkový poukaz</div>
+      </div>
+      <div class="amt">{amount}</div>
+      <div class="cur">{_h(symbol)}</div>
+      <div class="stub">
+        <div class="left">
+          <div class="cd">{_h(v['code'])}</div>
+        </div>
+        <div class="right">{to}{note}</div>
+      </div>{stamp}'''
+        card_class = 'v card'
 
     return f'''<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10900,16 +10934,31 @@ def _voucher_render(v, tpl, preview=False):
 <style>
   @page {{ margin: 0; size: auto; }}
   *{{box-sizing:border-box;margin:0;padding:0}}
-  body{{background:#e9e4d8;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+  body{{background:#d9d3c6;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
     display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}}
-  .v{{position:relative;width:100%;max-width:640px;container-type:inline-size;
-    {fallback_bg}overflow:hidden}}
+  .v{{position:relative;width:100%;max-width:640px;container-type:inline-size;overflow:hidden}}
+  .card{{background:#faf8f3;border:1px solid #0a0a0a;aspect-ratio:5/3;
+    display:flex;flex-direction:column;padding:5.5cqw 6cqw;color:#0a0a0a}}
+  .card .top{{display:flex;justify-content:space-between;align-items:flex-start;gap:3cqw}}
+  .card .lg{{width:26%;display:block}}
+  .card .kind{{font-size:2.1cqw;letter-spacing:0.28em;text-transform:uppercase;
+    color:#8a8a8a;padding-top:0.8cqw;white-space:nowrap}}
+  .card .amt{{margin-top:auto;font-size:15cqw;line-height:0.86;letter-spacing:-0.02em}}
+  .card .cur{{font-size:3.4cqw;letter-spacing:0.16em;color:#5a5a5a;margin-top:1.4cqw}}
+  .card .stub{{margin-top:auto;border-top:1px dashed #b8b1a2;padding-top:3cqw;
+    display:flex;justify-content:space-between;align-items:flex-end;gap:4cqw}}
+  .card .cd{{font-family:'DM Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+    font-size:3.4cqw;letter-spacing:0.14em;white-space:nowrap}}
+  /* Volná plocha na dopsání rukou. Digitálně ji zaplní vzkaz z objednávky. */
+  .card .right{{text-align:right;max-width:52%;min-height:6cqw}}
+  .card .to{{font-size:2.4cqw;letter-spacing:0.04em}}
+  .card .msg{{font-size:2cqw;line-height:1.6;color:#5a5a5a;white-space:pre-wrap;
+    margin-top:0.6cqw}}
   .used{{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     font-size:7cqw;letter-spacing:0.2em;color:rgba(198,40,40,0.45);
     transform:rotate(-14deg);pointer-events:none}}
   .fine{{margin-top:14px;max-width:640px;font-size:11px;color:#5a5a5a;line-height:1.8;
     text-align:center}}
-  .fine a{{color:#5a5a5a}}
   @media print {{
     body{{background:#fff;padding:0;display:block}}
     .v{{max-width:none;margin:0 auto}}
@@ -10917,16 +10966,8 @@ def _voucher_render(v, tpl, preview=False):
   }}
 </style>
 <div>
-  <div class="v">
-    {bg}
-    {field('amount')}{field('recipient')}{field('message')}{field('code')}
-    {'<div class="used">UPLATNĚNO</div>' if used else ''}
-  </div>
-  <div class="fine">
-    Uplatníš na <b>{_h(APP_BASE_URL.replace('https://', ''))}</b> — zadáš kód
-    a částka se ti připíše jako kredit.
-    Platí u kteréhokoliv tatéra{f' do {exp}' if exp else ''}.
-  </div>
+  <div class="{card_class}">{inner}</div>
+  <div class="fine">{fine}</div>
 </div>'''
 
 
@@ -10956,7 +10997,7 @@ def admin_voucher_preview():
     conn.close()
     fake = {'code': 'ABCD-2K5X-QW74', 'amount_cents': 300000,
             'recipient_name': 'Jan Novák', 'message': 'Ať se ti to povede!',
-            'status': 'active',
+            'status': 'active', 'currency': DEFAULT_CURRENCY,
             'expires_at': (_prague_now_naive() + timedelta(days=365)).isoformat()}
     return Response(_voucher_render(fake, tpl, preview=True), mimetype='text/html')
 

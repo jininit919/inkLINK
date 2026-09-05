@@ -3327,6 +3327,29 @@ class VoucherTests(_Sprint2Base):
         r = self.client.post('/api/vouchers/redeem', json={'code': code})
         self.assertEqual(r.status_code, 409)
 
+    def test_currency_follows_the_buyer(self):
+        """Poukaz koupený v eurech se v korunách vykreslit nesmí."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET city='Bratislava' WHERE id=2")
+        conn.commit(); conn.close()
+        import server
+        conn = server.get_db(); server._sync_currency(conn, 2); conn.commit(); conn.close()
+        code = self._buy().get_json()['code']
+        body = self.client.get(f'/vouchers/{code}').get_data(as_text=True)
+        self.assertIn('€', body)
+        self.assertNotIn('Kč', body)
+
+    def test_blank_voucher_leaves_room_to_write(self):
+        """Bez jména a vzkazu zůstane plocha prázdná — dárce si na
+        vytištěný poukaz dopíše, co chce."""
+        r = self.client.post('/api/vouchers', json={'amount_kc': 3000})
+        code = r.get_json()['code']
+        body = self.client.get(f'/vouchers/{code}').get_data(as_text=True)
+        self.assertIn(code, body)
+        self.assertIn('class="right"', body)
+        self.assertNotIn('class="to"', body)
+
     def test_printable_page_works_without_login(self):
         """Dárce ho posílá dál; obdarovaný účet mít nemusí, dokud
         kód neuplatní."""
