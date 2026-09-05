@@ -168,6 +168,13 @@ function hideError(id) {
   document.getElementById(id).classList.remove('visible');
 }
 
+// Kam po přihlášení. Bereme jen cestu na vlastním webu — „//zlo.cz" a
+// „https://zlo.cz" jsou platné hodnoty pro prohlížeč, ne pro nás.
+function nextAfterLogin() {
+  const n = new URLSearchParams(location.search).get('next');
+  return (n && n.startsWith('/') && !n.startsWith('//')) ? n : '/';
+}
+
 async function doLogin(e) {
   e.preventDefault();
   hideError('loginError');
@@ -186,7 +193,7 @@ async function doLogin(e) {
   const data = await res.json();
 
   if (data.ok) {
-    window.location.href = '/';
+    window.location.href = nextAfterLogin();
   } else {
     showError('loginError', data.error || 'Sign in failed');
     btn.disabled = false;

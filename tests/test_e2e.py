@@ -3771,6 +3771,188 @@ class _FakeStripe:
         self.checkout = type('checkout', (), {'Session': _FakeStripe.Session})
 
 
+class VoucherCurrencyTests(_Sprint2Base):
+    """Limity poukazu jsou per měnu. Dřív to byly natvrdo koruny, takže
+    eurový kupující narazil na minimum 500 € — poukaz se mimo ČR nedal
+    koupit vůbec."""
+
+    def _set_currency(self, cur, uid=2):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET currency=? WHERE id=?', (cur, uid))
+        conn.commit(); conn.close()
+
+    def test_options_follow_the_buyers_currency(self):
+        self._set_currency('EUR')
+        d = self.client.get('/api/vouchers/options').get_json()
+        self.assertEqual(d['currency'], 'EUR')
+        self.assertEqual(d['symbol'], '€')
+        self.assertLess(d['min'], 100)          # ne 500 jako v korunách
+        self.assertTrue(all(d['min'] <= p <= d['max'] for p in d['presets']))
+
+    def test_eur_amount_that_kc_limits_would_have_rejected(self):
+        """50 € je běžný dárek. Pod korunovým minimem 500 to byla chyba."""
+        self._set_currency('EUR')
+        r = self.client.post('/api/vouchers', json={'amount_kc': 50})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(r.get_json()['currency'], 'EUR')
+
+    def test_eur_amount_over_the_eur_ceiling_is_rejected(self):
+        self._set_currency('EUR')
+        r = self.client.post('/api/vouchers', json={'amount_kc': 9000})
+        self.assertEqual(r.status_code, 400)
+
+    def test_czk_range_still_holds(self):
+        self._set_currency('CZK')
+        self.assertEqual(self.client.post('/api/vouchers',
+                                          json={'amount_kc': 400}).status_code, 400)
+        self.assertEqual(self.client.post('/api/vouchers',
+                                          json={'amount_kc': 500}).status_code, 200)
+        self.assertEqual(self.client.post('/api/vouchers',
+                                          json={'amount_kc': 200000}).status_code, 400)
+
+    def test_options_work_logged_out(self):
+        """Dlaždice ve feedu se ukazuje i nepřihlášenému."""
+        self.client.post('/api/logout')
+        d = self.client.get('/api/vouchers/options').get_json()
+        self.assertFalse(d['logged_in'])
+        self.assertEqual(d['credit_cents'], 0)
+        self.assertTrue(d['presets'])
+
+
+class CreditSpendTests(_Sprint2Base):
+    """Kredit z poukazu se musí dát utratit — i za zálohu. Backend to uměl,
+    ale žádná stránka `use_credit` neposílala, takže kredit šel jen
+    přijmout, nikdy použít."""
+
+    def _give_credit(self, kc):
+        """Poukaz koupený a uplatněný stejným účtem: pro test kreditu je
+        podstatné jen to, že zůstatek vznikl normální cestou."""
+        r = self.client.post('/api/vouchers', json={'amount_kc': kc})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        code = r.get_json()['code']            # demo režim bez Stripu
+        red = self.client.post('/api/vouchers/redeem', json={'code': code})
+        self.assertEqual(red.status_code, 200, red.data[:300])
+        return red.get_json()
+
+    def test_redeem_reports_balance_and_currency(self):
+        j = self._give_credit(2000)
+        self.assertEqual(j['balance_cents'], 200000)
+        self.assertEqual(j['currency'], 'CZK')
+
+    def test_credit_covers_a_deposit(self):
+        """Záloha ze slotu 1000 Kč/h × 2 h = 2000 Kč, záloha 30 % = 600 Kč."""
+        self._give_credit(2000)
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18))
+        r = self.client.post('/api/bookings', json={
+            'slot_id': slot, 'booking_start_at': self._day_at(5, 12).isoformat(),
+            'duration_hours': 2, 'design_note': 'Vlk', 'use_credit': True})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        b = self._booking_row(r.get_json()['id'])
+        self.assertEqual(b['credit_used_cents'], 60000)
+        # Tatérovi kredit nesnižuje výdělek — rozdíl doplácíme my.
+        self.assertEqual(b['platform_owes_artist_cents'], 60000)
+
+    def test_credit_never_exceeds_what_is_charged_now(self):
+        """Na zálohu 600 Kč se z 2000 Kč kreditu smí sáhnout jen na 600."""
+        self._give_credit(2000)
+        slot = self._mk_slot(self._day_at(6, 10), self._day_at(6, 18))
+        r = self.client.post('/api/bookings', json={
+            'slot_id': slot, 'booking_start_at': self._day_at(6, 12).isoformat(),
+            'duration_hours': 2, 'design_note': 'Vlk', 'use_credit': True})
+        b = self._booking_row(r.get_json()['id'])
+        self.assertEqual(b['credit_used_cents'], 60000)
+        left = self.client.get('/api/vouchers/options').get_json()['credit_cents']
+        self.assertEqual(left, 140000)
+
+    def test_without_the_flag_nothing_is_spent(self):
+        self._give_credit(2000)
+        slot = self._mk_slot(self._day_at(7, 10), self._day_at(7, 18))
+        r = self._book(slot, self._day_at(7, 12))
+        b = self._booking_row(r.get_json()['id'])
+        self.assertEqual(b['credit_used_cents'] or 0, 0)
+        self.assertEqual(self.client.get('/api/vouchers/options')
+                         .get_json()['credit_cents'], 200000)
+
+
+class CreditCoversDepositTests(_Sprint2Base):
+    """Poukaz, který přesně pokryje zálohu, je ten nejběžnější dárek —
+    a zároveň jediný případ, kdy Stripe nemá co strhnout. Nula se poslat
+    nedá a rezervace by uvízla v pending_payment s odečteným kreditem."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        # Kredit uděláme ještě v demo režimu, teprve pak zapneme Stripe.
+        r = self.client.post('/api/vouchers', json={'amount_kc': 1000})
+        self.client.post('/api/vouchers/redeem', json={'code': r.get_json()['code']})
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET stripe_charges_enabled=1, "
+                     "stripe_account_id='acct_test' WHERE id=1")
+        conn.commit(); conn.close()
+        import server
+        self._real_key = server.STRIPE_SECRET_KEY
+        server.STRIPE_SECRET_KEY = 'sk_test_fake'
+
+    def tearDown(self):
+        import server
+        server.STRIPE_SECRET_KEY = self._real_key
+        super().tearDown()
+
+    def _set_credit(self, cents):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET account_credit_cents=? WHERE id=2', (cents,))
+        conn.execute('DELETE FROM credit_ledger WHERE user_id=2')
+        conn.execute("INSERT INTO credit_ledger (user_id, delta_cents, reason, currency) "
+                     "VALUES (2, ?, 'voucher_redeem', 'CZK')", (cents,))
+        conn.commit(); conn.close()
+
+    def _book_with_credit(self, day):
+        slot = self._mk_slot(self._day_at(day, 10), self._day_at(day, 18))
+        return self.client.post('/api/bookings', json={
+            'slot_id': slot, 'booking_start_at': self._day_at(day, 12).isoformat(),
+            'duration_hours': 2, 'design_note': 'Vlk', 'use_credit': True})
+
+    def test_full_cover_confirms_without_stripe(self):
+        """Záloha 600 Kč, kredit 1000 Kč: platit není co."""
+        self._set_credit(100000)
+        r = self._book_with_credit(5)
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        j = r.get_json()
+        self.assertEqual(j['status'], 'confirmed')
+        self.assertEqual(j['payment']['mode'], 'credit')
+        b = self._booking_row(j['id'])
+        self.assertEqual(b['status'], 'confirmed')
+        self.assertIsNotNone(b['confirmed_at'])
+        self.assertIsNone(b['stripe_payment_intent_id'])
+
+    def test_remainder_below_stripe_minimum_is_not_charged(self):
+        """Zbytek 10 haléřů Stripe odmítne. Necháme na kartě minimum
+        a kredit klientovi zůstane — brát mu víc, než musíme, není důvod."""
+        self._set_credit(59990)                 # záloha 60000, zbývá 10
+        r = self._book_with_credit(6)
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        b = self._booking_row(r.get_json()['id'])
+        self.assertEqual(b['credit_used_cents'], 58500)     # 60000 − 1500
+        self.assertNotEqual(b['status'], 'confirmed')       # 15 Kč se platí kartou
+
+    def test_partial_cover_still_needs_payment(self):
+        self._set_credit(20000)                 # 200 Kč z 600 Kč zálohy
+        r = self._book_with_credit(7)
+        j = r.get_json()
+        self.assertEqual(j['status'], 'pending_payment')
+        self.assertNotEqual(j['payment'].get('mode') if j.get('payment') else None, 'credit')
+
+    def test_artist_is_kept_whole_when_credit_pays(self):
+        """Kredit snižuje, co platí klient — ne to, co dostane tatér."""
+        self._set_credit(100000)
+        r = self._book_with_credit(8)
+        b = self._booking_row(r.get_json()['id'])
+        self.assertEqual(b['platform_owes_artist_cents'], b['credit_used_cents'])
+        self.assertEqual(b['credit_used_cents'], b['deposit_cents'])
+
+
 class VoucherCheckoutTests(_Sprint2Base):
     """Placená cesta poukazu. Peníze jdou na náš účet, ne přes Connect:
     poukaz je náš závazek, dokud ho někdo neuplatní."""

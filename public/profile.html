@@ -267,6 +267,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 <script src="/i18n.js?v=16"></script>
 <script src="/mobile-nav.js?v=16"></script>
 <script src="/bookings-panel.js?v=16"></script>
+<script src="/voucher-buy.js?v=16"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <div class="wrap">
@@ -286,6 +287,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
         <div class="trust-row" id="trustRow"></div>
         <div class="bio" id="bio"></div>
         <div class="actions" id="actions"></div>
+        <!-- Kredit a uplatnění poukazu. Jen na vlastním profilu — kredit je
+             osobní zůstatek, na cizím profilu nemá co dělat. -->
+        <div id="creditStrip" style="display:none;margin-top:14px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:12.5px;color:var(--txt2);align-items:center;gap:12px;flex-wrap:wrap"></div>
       </div>
     </div>
 
@@ -300,6 +304,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <div id="tab-portfolio">
       <div class="grid" id="grid"></div>
       <div class="empty" id="portfolioEmpty" style="display:none" data-i18n="pf.noPortfolio">No portfolio items.</div>
+      <!-- Poukaz až pod portfoliem: nabízí se, až když si návštěvník práci
+           prohlédl. Na vlastním profilu nedává smysl, viz níže. -->
+      <div id="voucherPromo" style="display:none;margin-top:22px"></div>
     </div>
 
     <div id="tab-slots" style="display:none">
@@ -414,8 +421,15 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
     <label style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;text-transform:none;letter-spacing:0.04em;color:var(--txt2);font-size:12px;cursor:pointer">
       <input type="checkbox" id="bm-payfull" style="margin-top:2px;width:auto;accent-color:var(--red2)" onchange="refreshDeposit()">
-      <span><b style="color:var(--txt)" data-i18n="pf.payInFull">Pay in full now</b> — nothing on-site.<br>
-      <span style="color:var(--txt3);font-size:11px">Otherwise pay just the deposit — settle the rest on-site (cash/card) or the artist sends a balance payment link via InkLink after the session.</span></span>
+      <span><b style="color:var(--txt)" data-i18n="pf.payInFull">Pay in full now</b> <span data-i18n="pf.payInFullTail">— nothing on-site.</span><br>
+      <span style="color:var(--txt3);font-size:11px" data-i18n="pf.payInFullHint">Otherwise pay just the deposit — settle the rest on-site (cash/card) or the artist sends a balance payment link via InkLink after the session.</span></span>
+    </label>
+
+    <!-- Kredit z dárkového poukazu. Ukazuje se jen když nějaký je —
+         prázdný řádek „máš 0 Kč" jen zdržuje. -->
+    <label id="bm-credit-row" style="display:none;align-items:flex-start;gap:10px;margin-top:12px;text-transform:none;letter-spacing:0.04em;color:var(--txt2);font-size:12px;cursor:pointer">
+      <input type="checkbox" id="bm-usecredit" checked style="margin-top:2px;width:auto;accent-color:var(--red2)" onchange="refreshDeposit()">
+      <span id="bm-credit-txt"></span>
     </label>
 
     <!-- Promo code — volitelné. Live preview validation přes /api/discounts/preview -->
@@ -613,6 +627,8 @@ function render() {
   // Popisky s {cur} musí znát měnu tatéra, na kterého se klient dívá.
   if (window.InkLinkI18N) InkLinkI18N.setCurrency(profile.currency || 'CZK');
 
+  if (profile.is_own && window.InkLinkVoucher) renderCreditStrip();
+
   const actions = document.getElementById('actions');
   actions.innerHTML = '';
   if (profile.is_own) {
@@ -630,6 +646,14 @@ function render() {
     `;
   } else {
     actions.innerHTML = `<a class="btn" href="/login" data-i18n="pf.signInToBook">Sign in to book</a>`;
+  }
+
+  // Dárkový poukaz je univerzální kredit, ne poukaz „k tomuhle tatérovi" —
+  // profil je jen místo, kde člověka nákup napadne. Sobě ho nenabízíme.
+  if (!profile.is_own && window.InkLinkVoucher) {
+    const promo = document.getElementById('voucherPromo');
+    promo.innerHTML = InkLinkVoucher.tile({ wide: true, artist: profile.display_name });
+    promo.style.display = 'block';
   }
 
   document.getElementById('portfolioCount').textContent = profile.portfolio_count;
@@ -1128,6 +1152,7 @@ async function bookSlot(id, portfolioItem = null) {
   // Reset checkboxu — pokud tatér preferuje 'full', zaškrtni defaultně
   const cb = document.getElementById('bm-payfull');
   if (cb) cb.checked = (profile.default_payment_mode === 'full');
+  loadCredit();
   refreshDeposit();
   document.getElementById('bookModal').classList.add('show');
 }
@@ -1346,6 +1371,7 @@ async function submitAsk() {
 
 function refreshDeposit() {
   const dep = document.getElementById('bm-deposit');
+  showCreditRow();                 // zůstatek na výběru velikosti nezávisí
   if (!pendingSize) { dep.innerHTML = tr('pf.pickBoth'); return; }
   // pokud rezervujeme konkrétní portfolio sketch, cena je fixní
   let total;
@@ -1373,22 +1399,81 @@ function refreshDeposit() {
   }
   const kc = n => money(n);
   const head = tr('pf.depHead').replace('{hours}', pendingSize.hours).replace('{total}', kc(totalKc));
+
+  // Kredit se odečítá z toho, co jde teď kartou — u zálohy ze zálohy,
+  // u plné platby z celé částky. Tatér dostane své vždy celé.
+  const useCredit = document.getElementById('bm-usecredit')?.checked;
+  const creditKc = (myCreditKc > 0 && useCredit) ? Math.min(myCreditKc, chargedKc) : 0;
+  const cardKc = chargedKc - creditKc;
+  const creditLine = creditKc <= 0 ? ''
+    : '<br>' + (cardKc > 0
+        ? tr('pf.creditApplied').replace('{credit}', kc(creditKc)).replace('{card}', kc(cardKc))
+        : tr('pf.creditCoversAll').replace('{credit}', kc(creditKc)));
+
   if (payFull) {
     dep.innerHTML = `
       ${head}<br>
-      ${tr('pf.depFull').replace('{total}', kc(totalKc))}<br>
+      ${tr('pf.depFull').replace('{total}', kc(totalKc))}${creditLine}<br>
       ${cancelText('pf.cancelPolicyRefund')}
     `;
   } else {
     dep.innerHTML = `
       ${head}<br>
-      ${tr('pf.depNow').replace('{pct}', depPct).replace('{amount}', kc(chargedKc))}<br>
+      ${tr('pf.depNow').replace('{pct}', depPct).replace('{amount}', kc(chargedKc))}${creditLine}<br>
       ${tr('pf.depRest').replace('{amount}', kc(remainingKc))}
       ${tr('pf.balanceLater')}<br>
       ${cancelText('pf.cancelPolicy')}
     `;
   }
 }
+
+// Kredit z poukazů. Načítá se při každém otevření rezervace, ne jednou při
+// startu — poukaz mohl přibýt v jiné záložce.
+let myCreditKc = 0;
+let myCreditCur = 'CZK';
+function showCreditRow() {
+  const row = document.getElementById('bm-credit-row');
+  if (!row) return;
+  row.style.display = myCreditKc > 0 ? 'flex' : 'none';
+  if (myCreditKc > 0) {
+    // Zůstatek se ukazuje v měně, ve které vznikl — ne v měně tatéra.
+    // Přepočet neděláme nikde, tak ho nebudeme předstírat ani v popisku.
+    const bal = InkLinkI18N.money(myCreditKc, myCreditCur);
+    document.getElementById('bm-credit-txt').innerHTML =
+      `<b style="color:var(--txt)">${tr('pf.useCredit').replace('{amount}', bal)}</b><br>`
+      + `<span style="color:var(--txt3);font-size:11px">${tr('pf.useCreditHint')}</span>`;
+  }
+}
+
+function loadCredit() {
+  if (!window.InkLinkVoucher) return;
+  InkLinkVoucher.options().then(d => {
+    myCreditKc = Math.floor((d.credit_cents || 0) / 100);
+    myCreditCur = d.currency || 'CZK';
+    refreshDeposit();
+  }).catch(() => { /* bez kreditu se rezervuje dál, není to chyba */ });
+}
+
+// Zůstatek na vlastním profilu. Kredit sem patří proto, že je to jediné
+// místo, kde uživatel hledá „co mám" — poukazy nejsou premium funkce.
+function renderCreditStrip() {
+  const el = document.getElementById('creditStrip');
+  if (!el) return;
+  InkLinkVoucher.options().then(d => {
+    const c = (d.credit_cents || 0) / 100;
+    const bal = c > 0
+      ? `<span>${tr('pf.creditBalance').replace('{amount}', InkLinkI18N.money(c, d.currency))}</span>`
+      : `<span style="color:var(--txt3)">${tr('pf.creditNone')}</span>`;
+    el.innerHTML = bal
+      + `<button class="btn muted" type="button" style="margin-left:auto" onclick="InkLinkVoucher.openRedeem()">${tr('pf.redeemVoucher')}</button>`
+      + (d.bought_count > 0
+          ? `<button class="btn muted" type="button" onclick="InkLinkVoucher.openMine()">${tr('pf.myVouchers')}</button>`
+          : '')
+      + `<button class="btn muted" type="button" onclick="InkLinkVoucher.openBuy()">${tr('pf.buyVoucher')}</button>`;
+    el.style.display = 'flex';
+  }).catch(() => { /* zůstatek není kritický, profil jede dál */ });
+}
+document.addEventListener('inklink:credit-changed', renderCreditStrip);
 
 function closeBook() {
   document.getElementById('bookModal').classList.remove('show');
@@ -1483,6 +1568,7 @@ async function submitBook() {
       booking_start_at: pendingStart,
       portfolio_item_id: pendingPortfolioItem ? pendingPortfolioItem.id : null,
       pay_full: payFull,
+      use_credit: myCreditKc > 0 && (document.getElementById('bm-usecredit')?.checked || false),
       discount_code: discountCode || null,
     }),
   });
@@ -1505,6 +1591,13 @@ async function submitBook() {
     document.getElementById('bm-flash').innerHTML =
       `<div class="flash-modal ok">${tr('pf.bookingCreated')}</div>`;
     setTimeout(() => location.href = j.payment.payment_url, 600);
+    return;
+  }
+  // Kredit pokryl celou platbu — rezervace je rovnou potvrzená.
+  if (j.payment && j.payment.mode === 'credit') {
+    document.getElementById('bm-flash').innerHTML =
+      `<div class="flash-modal ok">${tr('pf.bookingPaidByCredit')}</div>`;
+    setTimeout(() => location.href = '/my-bookings', 900);
     return;
   }
   // Demo mode or live without PI (legacy)

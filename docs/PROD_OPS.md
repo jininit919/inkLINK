@@ -370,6 +370,34 @@ Spouštět týdně.
 
 ---
 
+## 5.5 Dárkové poukazy a kredit
+
+Poukaz je **náš závazek, ne tržba**. Peníze za něj přijdou na náš účet
+(`mode='payment'`, ne Connect destination charge) a leží tam, dokud je někdo
+neutratí. Admin proto vidí součet neuplatněných poukazů zvlášť — účetně je to
+dluh vůči držitelům kódů.
+
+Když klient zaplatí kreditem, **tatér dostane svoje celé**: kredit snižuje jen
+to, co jde z karty, a rozdíl doplácíme my z peněz, které za poukaz držíme
+(`bookings.platform_owes_artist_cents`). Kdybychom místo toho poslali tatérovi
+míň, zaplatil by cizí dárek on.
+
+Kde se to může zaseknout:
+
+| Situace | Chování |
+|---|---|
+| Kredit pokryje celou zálohu | Rezervace se potvrdí bez Stripu (`payment.mode='credit'`) — nula se strhnout nedá |
+| Na kartě by zbylo pod minimem Stripu | Kredit se sníží tak, aby karta strhla přesně minimum |
+| Opuštěný checkout | Řádek se smaže po 2 h (`VOUCHER_UNPAID_TTL_HOURS`) |
+| Opakovaný webhook | Podmíněný UPDATE — uplatněný poukaz se nevrátí do hry |
+
+Limity a nabízené částky jsou **per měnu** (`VOUCHER_LIMITS`). Měna se odvozuje
+ze země, nikde se nevybírá.
+
+**Kredit napříč měnami je nedořešený**: zůstatek se vede v měně, ve které
+vznikl, ale utratit se dá i u tatéra s jinou měnou. Kurzové riziko neseme my.
+Zatím je to vědomě přijaté — než objem naroste, sledovat součty v adminu.
+
 ## 6. Backup strategy
 
 ### Postgres (Railway)

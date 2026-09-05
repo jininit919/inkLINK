@@ -6529,10 +6529,18 @@ def create_booking():
     # Rozdíl doplácíme my z peněz, které za kredit držíme. Kdybychom místo
     # toho poslali tatérovi míň, zaplatil by cizí dárkový poukaz on.
     credit_used_cents = 0
+    booking_currency = _norm_currency(slot['currency'] if 'currency' in slot.keys() else None)
     if use_credit:
         available = _credit_balance(conn, session['user_id'])
         chargeable = total_price_cents if payment_mode == 'full' else deposit_cents
         credit_used_cents = min(available, chargeable)
+        # Zbytek pod minimem Stripu by platbu shodil. Radši necháme na kartě
+        # přesně minimum a kredit klientovi zůstane — opačné pořadí (dobrat
+        # zbytek z kreditu) by mu bralo víc, než musí.
+        min_charge = _stripe_min_charge(booking_currency)
+        rest = chargeable - credit_used_cents
+        if 0 < rest < min_charge:
+            credit_used_cents = max(0, chargeable - min_charge)
         if credit_used_cents > 0:
             if _credit_move(conn, session['user_id'], -credit_used_cents,
                             'booking_spend', 'booking', bid,
@@ -6567,17 +6575,31 @@ def create_booking():
     # PI and return client_secret for frontend Stripe Elements.
     payment_block = {'mode': 'demo'} if demo_mode else None
     enable_deposit_pi = os.environ.get('ENABLE_DEPOSIT_PI', '0') == '1'
-    if not demo_mode and enable_deposit_pi:
+    chargeable_now = total_price_cents if payment_mode == 'full' else deposit_cents
+    fully_on_credit = (not demo_mode) and credit_used_cents >= chargeable_now > 0
+    if fully_on_credit:
+        # Zaplaceno kreditem — čekat na platbu, která nikdy nepřijde, by
+        # rezervaci nechalo viset v pending_payment.
+        conn.execute("UPDATE bookings SET status='confirmed', confirmed_at=? WHERE id=?",
+                     (datetime.utcnow().isoformat(), bid))
+        if price_unit == 'flat':
+            conn.execute("UPDATE slots SET status='booked' WHERE id=?", (slot_id,))
+        conn.commit()
+        init_status = 'confirmed'
+        payment_block = {'mode': 'credit'}
+    elif not demo_mode and enable_deposit_pi:
         try:
             charge_cents = total_price_cents if payment_mode == 'full' else deposit_cents
             # Kartou se strhává jen to, co kredit nepokryl.
             charge_cents = max(0, charge_cents - credit_used_cents)
+            # Stripe odmítne poplatek větší než samotná platba.
+            fee_cents = min(platform_fee_cents, charge_cents)
             day = int(time.time() // 86400)
             pi = stripe.PaymentIntent.create(
                 amount=charge_cents,
                 currency=_norm_currency(slot['currency'] if 'currency' in slot.keys() else None).lower(),
                 description=f'InkLink — záloha za rezervaci #{bid}',
-                application_fee_amount=platform_fee_cents,
+                application_fee_amount=fee_cents,
                 transfer_data={'destination': artist['stripe_account_id'] if 'stripe_account_id' in artist.keys() else None},
                 metadata={
                     'inklink_booking_id': str(bid),
@@ -10763,16 +10785,67 @@ def admin_voucher_template_reset():
 # Kód se nepočítá z ničeho, co by šlo uhodnout. Nula, O, I a jednička
 # v abecedě nejsou schválně — poukaz se opisuje z papíru.
 
+# Stripe neumí strhnout nulu ani drobné pod svým minimem. Když kredit
+# pokryje celou zálohu, karta se nemá čeho chytit — a poukaz, který zálohu
+# přesně pokryje, je ten nejběžnější dárek. Rezervaci proto potvrzujeme
+# rovnou, bez platby.
+STRIPE_MIN_CHARGE_CENTS = {'CZK': 1500, 'EUR': 50, 'USD': 50, 'GBP': 30, 'PLN': 200}
+
+
+def _stripe_min_charge(currency):
+    return STRIPE_MIN_CHARGE_CENTS.get(_norm_currency(currency),
+                                       STRIPE_MIN_CHARGE_CENTS[DEFAULT_CURRENCY])
+
+
 VOUCHER_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 VOUCHER_VALID_MONTHS = 12
-VOUCHER_MIN_KC = 500
-VOUCHER_MAX_KC = 50000
+# Rozsah a nabízené částky pro každou měnu. Dřív tu byly natvrdo koruny,
+# jenže poukaz už se vystavuje v měně kupujícího — pro Němce to znamenalo
+# minimum 500 € a strop 50 000 €. Limity proto patří ke každé měně zvlášť.
+VOUCHER_LIMITS = {
+    'CZK': {'min': 500, 'max': 100000, 'presets': [1000, 2000, 3000, 5000]},
+    'EUR': {'min': 20,  'max': 4000,   'presets': [50, 100, 150, 250]},
+    'USD': {'min': 25,  'max': 4000,   'presets': [50, 100, 150, 250]},
+    'GBP': {'min': 20,  'max': 3500,   'presets': [40, 80, 120, 200]},
+    'PLN': {'min': 100, 'max': 20000,  'presets': [200, 400, 600, 1000]},
+}
+
+
+def _voucher_limits(currency):
+    return VOUCHER_LIMITS.get(_norm_currency(currency),
+                              VOUCHER_LIMITS[DEFAULT_CURRENCY])
 
 
 def _voucher_code():
     import secrets
     raw = ''.join(secrets.choice(VOUCHER_ALPHABET) for _ in range(12))
     return f'{raw[:4]}-{raw[4:8]}-{raw[8:]}'
+
+
+@app.route('/api/vouchers/options')
+def voucher_options():
+    """Částky a limity pro nákupní formulář. Frontend si je nesmí držet sám —
+    jsou per měnu a měna se odvozuje ze země, ne z volby uživatele."""
+    conn = get_db()
+    uid = session.get('user_id')
+    currency = _artist_currency(conn, uid) if uid else DEFAULT_CURRENCY
+    credit_cents = _credit_balance(conn, uid) if uid else 0
+    # Kolik jich koupil: bez toho by v profilu svítilo „Moje poukazy" i tomu,
+    # kdo žádný nekoupil.
+    bought = conn.execute(
+        "SELECT COUNT(*) AS c FROM vouchers WHERE buyer_id=? AND status<>'awaiting_payment'",
+        (uid,)).fetchone()['c'] if uid else 0
+    conn.close()
+    lim = _voucher_limits(currency)
+    return jsonify({
+        'currency': currency,
+        'symbol':   CURRENCIES.get(currency, CURRENCIES[DEFAULT_CURRENCY])['symbol'],
+        'min': lim['min'], 'max': lim['max'], 'presets': lim['presets'],
+        'valid_months': VOUCHER_VALID_MONTHS,
+        'credit_cents': credit_cents,
+        'bought_count': bought,
+        'logged_in': bool(uid),
+    })
 
 
 @app.route('/api/vouchers', methods=['POST'])
@@ -10789,13 +10862,15 @@ def create_voucher():
         amount_kc = int(data.get('amount_kc') or 0)
     except (ValueError, TypeError):
         return jsonify({'error': 'Zadej částku.'}), 400
-    if amount_kc < VOUCHER_MIN_KC or amount_kc > VOUCHER_MAX_KC:
-        return jsonify({'error': f'Poukaz může být na {VOUCHER_MIN_KC}–'
-                                 f'{VOUCHER_MAX_KC} Kč.'}), 400
+    conn = get_db()
+    currency = _artist_currency(conn, uid)
+    lim = _voucher_limits(currency)
+    if amount_kc < lim['min'] or amount_kc > lim['max']:
+        sym = CURRENCIES.get(currency, CURRENCIES[DEFAULT_CURRENCY])['symbol']
+        conn.close()
+        return jsonify({'error': f"Poukaz může být na {lim['min']}–{lim['max']} {sym}."}), 400
     recipient = (data.get('recipient_name') or '').strip()[:80]
     message   = (data.get('message') or '').strip()[:300]
-
-    conn = get_db()
     expires = (_prague_now_naive() + timedelta(days=30 * VOUCHER_VALID_MONTHS)).isoformat()
     demo = not STRIPE_SECRET_KEY
     for _ in range(5):                      # kolize kódu jsou nepravděpodobné, ne nemožné
@@ -10815,7 +10890,6 @@ def create_voucher():
         conn.close(); return jsonify({'error': 'Nepovedlo se vygenerovat kód.'}), 500
     vid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
            else conn.execute('SELECT lastval()').fetchone()[0])
-    currency = _artist_currency(conn, uid)
 
     if demo:
         conn.close()
@@ -10836,7 +10910,7 @@ def create_voucher():
                     'unit_amount': amount_kc * 100,
                     'product_data': {
                         'name': 'InkLink — dárkový poukaz',
-                        'description': (f'Pro {recipient}' if recipient
+                        'description': (f'Dárek — {recipient}' if recipient
                                         else 'Kredit u kteréhokoliv tatéra na InkLinku'),
                     },
                 },
@@ -10845,7 +10919,7 @@ def create_voucher():
             # špatně a v metadatech nemá co dělat, dokud není zaplacený.
             metadata={'voucher_id': str(vid), 'inklink_user_id': str(uid)},
             success_url=f'{APP_BASE_URL}/vouchers/{code}?paid=1',
-            cancel_url=f'{APP_BASE_URL}/premium?voucher=cancelled',
+            cancel_url=f'{APP_BASE_URL}/?voucher=cancelled',
             locale='auto',
         )
         conn.execute('UPDATE vouchers SET payment_intent=? WHERE id=?', (sess.id, vid))
@@ -10901,9 +10975,11 @@ def redeem_voucher():
 
     balance = _credit_move(conn, uid, v['amount_cents'], 'voucher_redeem', 'voucher', v['id'],
                            currency=v['currency'] if 'currency' in v.keys() else None)
+    cur = _norm_currency(v['currency'] if 'currency' in v.keys() else None)
     conn.commit(); conn.close()
     return jsonify({'ok': True, 'amount_kc': v['amount_cents'] // 100,
-                    'balance_kc': (balance or 0) / 100})
+                    'balance_kc': (balance or 0) / 100,
+                    'balance_cents': balance or 0, 'currency': cur})
 
 
 # Opuštěný checkout nechá po sobě řádek, který nikdy nikdo nezaplatí.
@@ -10978,7 +11054,7 @@ def _voucher_render(v, tpl, preview=False):
     if tpl['image']:
         L = tpl['layout']
         values = {'amount': f'{amount} {symbol}', 'code': v['code'],
-                  'recipient': (f'Pro {v["recipient_name"]}' if v['recipient_name'] else ''),
+                  'recipient': v['recipient_name'] or '',
                   'message': v['message'] or ''}
 
         def field(name):
@@ -11002,7 +11078,9 @@ def _voucher_render(v, tpl, preview=False):
         card_class = 'v'
     else:
         note = (f'<div class="msg">{_h(v["message"])}</div>' if v['message'] else '')
-        to = (f'<div class="to">Pro {_h(v["recipient_name"])}</div>'
+        # Bez „Pro" — jméno by se muselo skloňovat („Pro Terezu"), a to
+        # automaticky nejde. Samotné jméno je i na dárkové kartě přirozenější.
+        to = (f'<div class="to">{_h(v["recipient_name"])}</div>'
               if v['recipient_name'] else '')
         inner = f'''
       <div class="top">

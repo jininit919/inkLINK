@@ -318,6 +318,7 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 <script src="/notifs.js?v=16"></script>
 <script src="/i18n.js?v=16"></script>
 <script src="/mobile-nav.js?v=16"></script>
+<script src="/voucher-buy.js?v=16"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();
 const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 
@@ -976,7 +977,10 @@ function render() {
   }
   empty.style.display = 'none';
 
-  grid.innerHTML = items.map((p, i) => {
+  // Poukaz mezi prací tatérů. Pátá pozice schválně: v prvním okně ho
+  // návštěvník uvidí, ale nezakládá feed — ten patří tetováním.
+  const VOUCHER_AT = 5;
+  const tiles = items.map((p, i) => {
     const u = p.user;
     const av = u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="">` : escapeHtml(u.initials || '?');
     const kindLabel = p.kind === 'sketch' ? 'SKETCH' : 'HEALED';
@@ -993,7 +997,11 @@ function render() {
         </div>
       </article>
     `;
-  }).join('');
+  });
+  if (window.InkLinkVoucher && items.length) {
+    tiles.splice(Math.min(VOUCHER_AT, tiles.length), 0, InkLinkVoucher.tile());
+  }
+  grid.innerHTML = tiles.join('');
 }
 
 function goBookSketch(username, sketchId) {
