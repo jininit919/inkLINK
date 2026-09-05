@@ -565,6 +565,7 @@ async function init() {
     document.getElementById('fabAddSlot').style.display = 'none';
     return;
   }
+  if (window.InkLinkI18N) InkLinkI18N.setCurrency(me.currency || 'CZK');
   document.getElementById('cal').style.display = 'block';
 
   // Default form date = today
@@ -762,7 +763,7 @@ function renderBookSheet() {
   // Další sezení se plánuje ze stejného výběru jako přesun — endpoint bere
   // úplně stejná pole, takže druhé tlačítko nepotřebuje vlastní formulář.
   const canFollowUp = ['confirmed', 'completed'].includes(b.status);
-  const kc = c => c ? (c / 100).toLocaleString(locale()) + ' CZK' : '—';
+  const kc = c => c ? InkLinkI18N.money(c / 100, b.currency || 'CZK') : '—';
   const who = (b.client && (b.client.display_name || b.client.username)) || t('cal.noName');
   const row = (label, value) => value
     ? `<div class="bs-row"><span>${escapeHtml(label)}</span><b>${value}</b></div>` : '';

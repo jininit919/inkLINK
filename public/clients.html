@@ -141,7 +141,7 @@ function initials(n){return (n||'?').trim().split(/\s+/).map(w=>w[0]).join('').s
 // Měna je vždycky koruna (platforma je česká), formát čísla se ale řídí
 // jazykem UI — anglicky se tisíce oddělují jinak než česky.
 function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
-function czk(cents){return ((cents||0)/100).toLocaleString(locale(),{maximumFractionDigits:0}) + ' CZK'}
+function czk(cents, cur){return InkLinkI18N.money(Math.round((cents||0)/100), cur || window.myCurrency || 'CZK')}
 // Česká trojice: 1 klient, 2–4 klienti, 0 a 5+ klientů.
 function plural(n, one, few, many){return n === 1 ? one : (n >= 2 && n <= 4 ? few : many)}
 
@@ -168,6 +168,10 @@ async function api(url, opts){
 }
 
 // ── Router (hash) ────────────────────────────────────────────────────────────
+// Ceny v kartotéce jsou v měně tatéra.
+fetch('/api/me').then(r => r.ok ? r.json() : null)
+  .then(m => { window.myCurrency = (m && m.currency) || 'CZK'; }).catch(() => {});
+
 async function route(){
   const m = location.hash.match(/^#\/klient\/(\d+)$/);
   if (m) { await renderDetail(Number(m[1])); }
@@ -290,7 +294,7 @@ async function renderDetail(id){
       ${r.description ? '<br>' + esc(r.description) : ''}
       ${r.healed_photo ? `<img class="heal" src="${esc(r.healed_photo)}" alt="${esc(t('clients.rPhoto'))}">` : ''}
       <div class="meta">
-        <span>${r.price_czk != null ? esc(r.price_czk) + ' CZK' : esc(t('clients.noPrice'))}${r.anonymized ? ' · ' + esc(t('clients.anonymized')) : ''}</span>
+        <span>${r.price_czk != null ? esc(InkLinkI18N.money(r.price_czk, window.myCurrency || 'CZK')) : esc(t('clients.noPrice'))}${r.anonymized ? ' · ' + esc(t('clients.anonymized')) : ''}</span>
         ${r.anonymized ? '' : `<button onclick="delRecord(${r.id},${id})">${esc(t('clients.delete'))}</button>`}
       </div>
     </div>`).join('') || `<div style="color:var(--txt3);font-size:12px">${esc(t('clients.nothingYet'))}</div>`;

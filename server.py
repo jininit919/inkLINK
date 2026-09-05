@@ -1123,10 +1123,14 @@ def init_db():
     # Nikde se veřejně nenabízí — jinak by ho mezitím vzal někdo jiný a
     # tatér by slíbil čas, který už nemá.
     add_col('slots', 'is_private INTEGER DEFAULT 0')
+    add_col('slots', "currency TEXT DEFAULT 'CZK'")
 
     # InkLink Premium — placený tarif jednotlivého tatéra.
     # premium_until je datum, do kdy má zaplaceno; zrušení předplatného
     # ho nezkracuje, jen se přestane prodlužovat.
+    # Měna tatéra. Termíny, ceníky i rezervace ji dědí; změna se projeví
+    # až na nově vypsaných termínech, aby se nepřepsaly už slíbené ceny.
+    add_col('users', "currency TEXT DEFAULT 'CZK'")
     add_col('users', 'premium_until TEXT DEFAULT NULL')
     add_col('users', 'premium_customer_id TEXT DEFAULT NULL')
     add_col('users', 'premium_subscription_id TEXT DEFAULT NULL')
@@ -1467,6 +1471,7 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_vouchers_buyer ON vouchers(buyer_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_vouchers_status ON vouchers(status)')
+    add_col('vouchers', "currency TEXT DEFAULT 'CZK'")
 
     # Platformní nastavení. Klíč/hodnota schválně: přidat další volbu má
     # být záležitost jednoho řádku, ne migrace.
@@ -2692,7 +2697,7 @@ def me():
                                   stripe_payouts_enabled, stripe_details_submitted,
                                   deletion_requested_at,
                                   artist_terms_accepted_at,
-                                  premium_until, premium_cancel_at_period_end
+                                  premium_until, premium_cancel_at_period_end, currency
                            FROM users WHERE id = ?''',
                         (session['user_id'],)).fetchone()
     push_n = conn.execute('SELECT COUNT(*) FROM push_subscriptions WHERE user_id=?',
@@ -2702,6 +2707,7 @@ def me():
     d['avatar_url'] = f'/uploads/{d["avatar"]}' if d.get('avatar') else None
     d['is_artist'] = bool(d.get('is_artist'))
     d['can_accept_bookings'] = bool(d.get('stripe_charges_enabled'))
+    d['currency'] = _norm_currency(d.get('currency'))
     d['premium'] = _is_premium_from_row(d)
     d['premium_until'] = d.get('premium_until')
     d['push_subscriptions'] = push_n
@@ -2742,6 +2748,7 @@ def feed():
     query = '''
         SELECT p.*,
                u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
+               u.currency,
                u.emoji, u.avatar, u.lat, u.lng,
                u.is_artist, u.studio, u.stripe_charges_enabled,
                (SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) AS rating_avg,
@@ -2810,6 +2817,7 @@ def feed():
             'estimated_hours': p['estimated_hours'],
             'created_at':    time_ago(p['created_at']),
             'user': {
+                'currency':     _norm_currency(p['currency'] if 'currency' in p.keys() else None),
                 'username':     p['username'],
                 'display_name': p['display_name'],
                 'city':         p['user_city'],
@@ -2842,6 +2850,7 @@ def liked_feed():
     query = '''
         SELECT p.*,
                u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
+               u.currency,
                u.emoji, u.avatar, u.lat, u.lng,
                u.is_artist, u.studio, u.stripe_charges_enabled,
                (SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) AS rating_avg,
@@ -2878,6 +2887,7 @@ def liked_feed():
             'estimated_hours': p['estimated_hours'],
             'created_at':    time_ago(p['created_at']),
             'user': {
+                'currency':     _norm_currency(p['currency'] if 'currency' in p.keys() else None),
                 'username':     p['username'],
                 'display_name': p['display_name'],
                 'city':         p['user_city'],
@@ -2925,6 +2935,7 @@ def sketch_detail(item_id):
     p = conn.execute('''
         SELECT p.*,
                u.username, u.display_name, u.city AS user_city, u.styles AS user_styles,
+               u.currency,
                u.emoji, u.avatar, u.lat, u.lng,
                u.is_artist, u.studio, u.stripe_charges_enabled,
                (SELECT AVG(rating) FROM reviews WHERE artist_id = u.id) AS rating_avg,
@@ -3605,7 +3616,7 @@ def get_profile(username):
                                is_artist, artist_slug, studio, instagram, styles,
                                deposit_pct_default, hourly_rate_min, hourly_rate_max,
                                default_payment_mode,
-                               stripe_charges_enabled
+                               stripe_charges_enabled, currency
                         FROM users WHERE username = ?''', (username,)).fetchone()
     if not u:
         conn.close()
@@ -3702,6 +3713,7 @@ def get_profile(username):
         'member_since':    u['created_at'],
         # Storno lhůty tatéra. Bez nich frontend vypisoval natvrdo 96/48 h,
         # takže klientovi od Sprintu 2 mohl ukázat cizí podmínky.
+        'currency': _norm_currency(u['currency'] if 'currency' in u.keys() else None),
         'cancel_full_hours': _cancel_full,
         'cancel_half_hours': _cancel_half,
         'portfolio_count': len(portfolio),
@@ -3840,6 +3852,7 @@ def update_profile():
             'UPDATE users SET artist_terms_accepted_at=? WHERE id=? AND artist_terms_accepted_at IS NULL',
             (datetime.utcnow().isoformat() + 'Z', session['user_id'])
         )
+
     if lat is not None and lng is not None:
         conn.execute('''UPDATE users SET display_name=?, city=?, bio=?, studio=?, instagram=?,
                                           styles=?, deposit_pct_default=?,
@@ -3861,6 +3874,9 @@ def update_profile():
                      (display_name, city, bio, studio, instagram, styles, deposit_pct,
                       hourly_min, hourly_max, pay_mode, cancel_full, cancel_half,
                       session['user_id']))
+
+    # Měna se neptá, odvozuje se z města (a později ze Stripe účtu).
+    _sync_currency(conn, session['user_id'])
 
     f = request.files.get('avatar')
     if f and f.filename:
@@ -4337,11 +4353,11 @@ def create_slot():
     for ns, ne in occurrences:
         conn.execute('''INSERT INTO slots (user_id, start_at, end_at, status, price_min, price_max,
                                            deposit_pct, note, price_unit, min_duration_hours,
-                                           buffer_before_minutes, buffer_after_minutes)
-                        VALUES (?,?,?,'free',?,?,?,?,?,?,?,?)''',
+                                           buffer_before_minutes, buffer_after_minutes, currency)
+                        VALUES (?,?,?,'free',?,?,?,?,?,?,?,?,?)''',
                      (session['user_id'], ns.isoformat(), ne.isoformat(),
                       price_min, price_max, deposit_pct, note, price_unit, min_dur,
-                      buf_before, buf_after))
+                      buf_before, buf_after, _artist_currency(conn, session['user_id'])))
         if not conn._pg:
             sid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
         else:
@@ -4615,6 +4631,7 @@ def my_calendar():
                 'end_at':      b['booking_end_at'],
                 'duration_h':  b['duration_hours'],
                 'size_label':  b['size_label'] or '',
+                'currency':    _norm_currency(b['currency'] if 'currency' in b.keys() else None),
                 'status':      b['status'],
                 'payment_mode': b['payment_mode'] or 'deposit',
                 'deposit_cents': b['deposit_cents'],
@@ -6422,15 +6439,16 @@ def create_booking():
          design_note, confirmed_at,
          booking_start_at, booking_end_at, duration_hours, size_label, portfolio_item_id,
          payment_mode, total_price_cents, balance_due_cents,
-         buffer_before_minutes, buffer_after_minutes, studio_id)
-        VALUES (?,?,?,?,?,?,?, ?, ?,?,?,?,?, ?,?,?, ?,?,?)''',
+         buffer_before_minutes, buffer_after_minutes, studio_id, currency)
+        VALUES (?,?,?,?,?,?,?, ?, ?,?,?,?,?, ?,?,?, ?,?,?,?)''',
         (slot_id, slot['user_id'], session['user_id'], init_status,
          deposit_cents, platform_fee_cents, design_note,
          datetime.utcnow().isoformat() if init_status == 'confirmed' else None,
          booking_start.isoformat(), booking_end.isoformat(), duration_hours, size_label,
          portfolio_item['id'] if portfolio_item else None,
          payment_mode, total_price_cents, balance_due_cents,
-         slot_buf_before, slot_buf_after, artist['studio_id']))
+         slot_buf_before, slot_buf_after, artist['studio_id'],
+         _norm_currency(slot['currency'] if 'currency' in slot.keys() else None)))
 
     if price_unit == 'flat':
         # legacy: zablokuj slot
@@ -6553,7 +6571,7 @@ def create_booking():
             day = int(time.time() // 86400)
             pi = stripe.PaymentIntent.create(
                 amount=charge_cents,
-                currency=(slot['currency'] if 'currency' in slot.keys() and slot['currency'] else 'czk').lower(),
+                currency=_norm_currency(slot['currency'] if 'currency' in slot.keys() else None).lower(),
                 description=f'InkLink — záloha za rezervaci #{bid}',
                 application_fee_amount=platform_fee_cents,
                 transfer_data={'destination': artist['stripe_account_id'] if 'stripe_account_id' in artist.keys() else None},
@@ -9241,6 +9259,7 @@ def _offer_dict(row, uid):
         'booking_start_at': row['booking_start_at'],
         'duration_hours':   float(row['duration_hours']),
         'price_kc':         int(row['price_kc']),
+        'currency':         _norm_currency(row['currency'] if 'currency' in row.keys() else None),
         'note':             row['note'] or '',
         'booking_id':       row['booking_id'],
     }
@@ -10447,6 +10466,97 @@ def _reconcile_card_country(conn, booking_id, pi_obj):
         conn.commit()
     except Exception as e:
         print(f'[card-country] reconcile failed for booking {booking_id}: {e}')
+
+
+# ── Měny ──────────────────────────────────────────────────────────────────
+#
+# Měna patří tatérovi, ne divákovi. Stripe strhává v jedné měně, výplatní
+# účet má jednu měnu a ceny nastavuje tatér — takže Čech, který se dívá na
+# berlínského tatéra, vidí eura. Přepočítávat pro zobrazení by lhalo:
+# stržená částka by stejně byla v eurech.
+#
+# Všechny podporované měny mají dvě desetinná místa, takže *_cents platí
+# beze změny. Jen a Won by to rozbily (nulová desetinná místa u Stripe),
+# proto v seznamu nejsou.
+
+CURRENCIES = {
+    'CZK': {'symbol': 'Kč',  'locale': 'cs-CZ'},
+    'EUR': {'symbol': '€',   'locale': 'de-DE'},
+    'USD': {'symbol': '$',   'locale': 'en-US'},
+    'GBP': {'symbol': '£',   'locale': 'en-GB'},
+    'PLN': {'symbol': 'zł',  'locale': 'pl-PL'},
+}
+DEFAULT_CURRENCY = 'CZK'
+
+
+# Měna se neptá, odvozuje se. Autoritativní je země Stripe účtu — ta určuje,
+# v čem tatérovi můžou přijít peníze, takže hádat proti ní nemá smysl. Než
+# se Stripe připojí, jede se podle města.
+COUNTRY_CURRENCY = {
+    'CZ': 'CZK', 'PL': 'PLN', 'GB': 'GBP', 'US': 'USD',
+    # Eurozóna
+    'SK': 'EUR', 'DE': 'EUR', 'AT': 'EUR', 'FR': 'EUR', 'IT': 'EUR', 'ES': 'EUR',
+    'NL': 'EUR', 'BE': 'EUR', 'IE': 'EUR', 'PT': 'EUR', 'FI': 'EUR', 'GR': 'EUR',
+    'SI': 'EUR', 'EE': 'EUR', 'LV': 'EUR', 'LT': 'EUR', 'LU': 'EUR', 'MT': 'EUR',
+    'CY': 'EUR', 'HR': 'EUR',
+}
+# Města, která nabízí filtr. Slovenská jsou v eurozóně — bez tohohle by
+# tatér z Bratislavy účtoval v korunách.
+CITY_COUNTRY = {
+    'praha': 'CZ', 'brno': 'CZ', 'ostrava': 'CZ', 'plzen': 'CZ', 'plzeň': 'CZ',
+    'liberec': 'CZ', 'olomouc': 'CZ', 'budejovice': 'CZ', 'hradec': 'CZ',
+    'bratislava': 'SK', 'kosice': 'SK', 'košice': 'SK', 'zilina': 'SK',
+    'žilina': 'SK', 'presov': 'SK', 'prešov': 'SK', 'nitra': 'SK',
+    'warszawa': 'PL', 'krakow': 'PL', 'kraków': 'PL', 'wroclaw': 'PL',
+    'berlin': 'DE', 'wien': 'AT', 'vienna': 'AT', 'london': 'GB',
+}
+
+
+def _country_from_city(city):
+    key = (city or '').strip().lower()
+    if not key:
+        return None
+    for name, cc in CITY_COUNTRY.items():
+        if name in key:
+            return cc
+    return None
+
+
+def _derive_currency(conn, user_id, stripe_country=None):
+    """Vrátí měnu, kterou má tatér mít. Nic neukládá — o zápis se stará
+    volající, aby se rozhodnutí dalo i jen zobrazit."""
+    if stripe_country:
+        cc = stripe_country.strip().upper()
+        if cc in COUNTRY_CURRENCY:
+            return COUNTRY_CURRENCY[cc]
+    row = conn.execute('SELECT city FROM users WHERE id=?', (user_id,)).fetchone()
+    cc = _country_from_city(row['city'] if row else None)
+    return COUNTRY_CURRENCY.get(cc, DEFAULT_CURRENCY)
+
+
+def _sync_currency(conn, user_id, stripe_country=None):
+    cur = _derive_currency(conn, user_id, stripe_country)
+    conn.execute('UPDATE users SET currency=? WHERE id=?', (cur, user_id))
+    return cur
+
+
+def _norm_currency(code):
+    code = (code or '').strip().upper()
+    return code if code in CURRENCIES else DEFAULT_CURRENCY
+
+
+def _artist_currency(conn, artist_id):
+    row = conn.execute('SELECT currency FROM users WHERE id=?', (artist_id,)).fetchone()
+    return _norm_currency(row['currency'] if row else None)
+
+
+@app.route('/api/currencies')
+def list_currencies():
+    """Sdílené mezi UI a serverem, ať se seznam nerozejde."""
+    return jsonify({
+        'default': DEFAULT_CURRENCY,
+        'currencies': [{'code': c, **v} for c, v in CURRENCIES.items()],
+    })
 
 
 # ── Kredit ────────────────────────────────────────────────────────────────
@@ -11752,6 +11862,14 @@ def stripe_webhook():
                                                                     THEN ? ELSE verified_artist_at END
                         WHERE stripe_account_id=?''',
                      (charges, payouts, details, charges, datetime.utcnow().isoformat(), acct_id))
+        # Země Stripe účtu určuje, v čem tatérovi přijdou peníze — proti
+        # tomu nemá smysl držet vlastní odhad z města.
+        country = (obj.get('country') if isinstance(obj, dict) else getattr(obj, 'country', None))
+        if country:
+            row = conn.execute('SELECT id FROM users WHERE stripe_account_id=?',
+                               (acct_id,)).fetchone()
+            if row:
+                _sync_currency(conn, row['id'], country)
         conn.commit()
         conn.close()
 

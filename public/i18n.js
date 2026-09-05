@@ -339,7 +339,7 @@
       'ms.ofNeedDate':         'Vyber datum a čas.',
       'ms.ofDuration':         'Délka (h)',
       'ms.ofStart':            'Začátek',
-      'ms.ofPrice':            'Dohodnutá cena (Kč)',
+      'ms.ofPrice':            'Dohodnutá cena ({cur})',
       'ms.ofPricePh':          'celkem za celou práci',
       'ms.ofNote':             'Poznámka pro klienta — nepovinné',
       'ms.ofNotePh':           'Na čem jste se domluvili',
@@ -400,7 +400,7 @@
       'as.price':            'Cena (Kč) — volitelně',
       'as.priceList':          'Ceník — nepovinné',
       'as.priceListHint':      'Vyplň jen velikosti, které nabízíš. Klient si jednu vybere při rezervaci — určuje cenu i délku sezení.',
-      'as.szPrice':            'Cena (Kč)',
+      'as.szPrice':            'Cena ({cur})',
       'as.szHours':            'Hodin',
       'as.pricePh':          'ponechat prázdné = bez fixní ceny',
       'as.duration':         'Odhad délky (h) — volitelně',
@@ -564,7 +564,7 @@
       'pf.imSketch':           'Skica / návrh tetování',
       'pf.imPriceList':        'Ceník — nepovinné',
       'pf.imPriceListHint':    'Vyplň jen velikosti, které nabízíš. Klient si jednu vybere při rezervaci — určuje cenu i délku sezení.',
-      'pf.szPrice':            'Cena (Kč)',
+      'pf.szPrice':            'Cena ({cur})',
       'pf.szHours':            'Hodin',
       'size.mini':             'Mini',
       'size.small':            'Malé',
@@ -582,7 +582,7 @@
       'pf.askPlacementPh':     'předloktí, žebra, lýtko…',
       'pf.askSize':            'Přibližná velikost',
       'pf.askSizeUnsure':      'Ještě nevím',
-      'pf.askBudget':          'Rozpočet (Kč) — nepovinné',
+      'pf.askBudget':          'Rozpočet ({cur}) — nepovinné',
       'pf.askBudgetPh':        's čím počítáš',
       'pf.askTiming':          'Kdy by se ti to hodilo — nepovinné',
       'pf.askTimingPh':        'třeba na jaře, o víkendech',
@@ -598,7 +598,7 @@
       'pf.following':          'Sleduji',
       'pf.book':               'Rezervovat',
       'pf.bookThis':           'Rezervovat tento návrh',
-      'pf.fromPrice':          'od {price} CZK',
+      'pf.fromPrice':          'od {price}',
       'pf.confirmBooking':     'Potvrdit rezervaci',
       'pf.payInFull':          'Zaplatit celou částku',
       'pf.tattooSize':         'Velikost tetování *',
@@ -974,12 +974,12 @@
       'cb.saveNote':           'Uložit poznámku',
       'cb.noteSaved':          'Uloženo ✓',
       'cb.markDone':           'Označit jako dokončené',
-      'cb.onsite':             'Zaplaceno na místě (Kč)',
+      'cb.onsite':             'Zaplaceno na místě ({cur})',
       'cb.onsiteHint':         'Hotovost nebo karta mimo InkLink',
-      'cb.balance':            'Doplatek přes InkLink (Kč)',
+      'cb.balance':            'Doplatek přes InkLink ({cur})',
       'cb.balanceHint':        'Klientovi pošleme odkaz na zaplacení',
       'cb.confirmDone':        'Dokončit',
-      'cb.finalPrice':         'Konečná cena (Kč)',
+      'cb.finalPrice':         'Konečná cena ({cur})',
       'cb.finalPriceHint':     'Když se od domluvené liší — sleva, kratší práce, doobjednávka.',
       'cb.owedOk':             'Zbývá doplatit {amount} Kč — sedí.',
       'cb.owedDiff':           'Zbývá doplatit {amount} Kč. Zadané částky {dir} o {diff} Kč.',
@@ -1542,7 +1542,7 @@
       'ms.ofNeedDate':         'Pick a date and time.',
       'ms.ofDuration':         'Length (h)',
       'ms.ofStart':            'Start',
-      'ms.ofPrice':            'Agreed price (CZK)',
+      'ms.ofPrice':            'Agreed price ({cur})',
       'ms.ofPricePh':          'total for the whole work',
       'ms.ofNote':             'Note for the client — optional',
       'ms.ofNotePh':           'What you agreed on',
@@ -1603,7 +1603,7 @@
       'as.price':            'Price (CZK) — optional',
       'as.priceList':          'Price list — optional',
       'as.priceListHint':      'Fill in only the sizes you offer. The client picks one when booking; it sets both the price and the session length.',
-      'as.szPrice':            'Price (CZK)',
+      'as.szPrice':            'Price ({cur})',
       'as.szHours':            'Hours',
       'as.pricePh':          'leave empty = no fixed price',
       'as.duration':         'Estimated duration (h) — optional',
@@ -1767,7 +1767,7 @@
       'pf.imSketch':           'Sketch / tattoo design',
       'pf.imPriceList':        'Price list — optional',
       'pf.imPriceListHint':    'Fill in only the sizes you offer. The client picks one when booking; it sets both the price and the session length.',
-      'pf.szPrice':            'Price (CZK)',
+      'pf.szPrice':            'Price ({cur})',
       'pf.szHours':            'Hours',
       'size.mini':             'Mini',
       'size.small':            'Small',
@@ -1785,7 +1785,7 @@
       'pf.askPlacementPh':     'forearm, ribs, calf…',
       'pf.askSize':            'Rough size',
       'pf.askSizeUnsure':      'Not sure yet',
-      'pf.askBudget':          'Budget (CZK) — optional',
+      'pf.askBudget':          'Budget ({cur}) — optional',
       'pf.askBudgetPh':        'what you are counting on',
       'pf.askTiming':          'When it would suit you — optional',
       'pf.askTimingPh':        'e.g. sometime in spring, weekends',
@@ -1801,7 +1801,7 @@
       'pf.following':          'Following',
       'pf.book':               'Book',
       'pf.bookThis':           'Book this design',
-      'pf.fromPrice':          'from {price} CZK',
+      'pf.fromPrice':          'from {price}',
       'pf.confirmBooking':     'Confirm booking',
       'pf.payInFull':          'Pay in full now',
       'pf.tattooSize':         'Tattoo size *',
@@ -2177,12 +2177,12 @@
       'cb.saveNote':           'Save note',
       'cb.noteSaved':          'Saved ✓',
       'cb.markDone':           'Mark as completed',
-      'cb.onsite':             'Paid on-site (CZK)',
+      'cb.onsite':             'Paid on-site ({cur})',
       'cb.onsiteHint':         'Cash or card outside InkLink',
-      'cb.balance':            'Balance via InkLink (CZK)',
+      'cb.balance':            'Balance via InkLink ({cur})',
       'cb.balanceHint':        'We email the client a payment link',
       'cb.confirmDone':        'Complete',
-      'cb.finalPrice':         'Final price (CZK)',
+      'cb.finalPrice':         'Final price ({cur})',
       'cb.finalPriceHint':     'If it differs from what you agreed — discount, shorter session, add-on.',
       'cb.owedOk':             'Outstanding {amount} CZK — adds up.',
       'cb.owedDiff':           'Outstanding {amount} CZK. Entered amounts are {dir} by {diff} CZK.',
@@ -2441,12 +2441,60 @@
 
   let lang = detect();
 
+  // Měna stránky. Popisky jako "Cena ({cur})" ji dostanou automaticky,
+  // ať se dosazuje na jednom místě a ne v každém volání zvlášť.
+  let pageCurrency = 'CZK';
+
+  function setCurrency(code) {
+    const next = (code || 'CZK').toUpperCase();
+    if (next === pageCurrency) return;
+    pageCurrency = next;
+    apply();
+  }
+
   function t(key) {
     const dict = STRINGS[lang] || STRINGS[FALLBACK];
-    if (dict && dict[key] != null) return dict[key];
-    const fallback = STRINGS[FALLBACK];
-    if (fallback && fallback[key] != null) return fallback[key];
-    return key;
+    let out = null;
+    if (dict && dict[key] != null) out = dict[key];
+    else {
+      const fallback = STRINGS[FALLBACK];
+      out = (fallback && fallback[key] != null) ? fallback[key] : key;
+    }
+    return out.indexOf('{cur}') < 0 ? out
+         : out.split('{cur}').join(currencySymbol(pageCurrency));
+  }
+
+
+  // ── Peníze ──────────────────────────────────────────────────────────
+  // Jeden formátovač pro celou aplikaci. Měna patří tatérovi, ne divákovi:
+  // Čech u berlínského tatéra vidí eura, protože v eurech se mu i strhne.
+  // Jazyk rozhoduje jen o tvaru čísla (mezery, desetinná čárka).
+  const CURRENCY_SYMBOL = {CZK: 'Kč', EUR: '€', USD: '$', GBP: '£', PLN: 'zł'};
+  // Tvar čísla se řídí měnou, ne jazykem rozhraní: 3 000 Kč se píše stejně
+  // Čechovi i Němci, stejně jako $150 vypadá stejně všude. Jazyk rozhraní
+  // by z korun udělal "CZK 3,000" a z dolarů "US$150".
+  const CURRENCY_LOCALE = {CZK: 'cs-CZ', EUR: 'de-DE', USD: 'en-US',
+                           GBP: 'en-GB', PLN: 'pl-PL'};
+
+  function money(amount, currency) {
+    const cur = (currency || 'CZK').toUpperCase();
+    const n = Number(amount) || 0;
+    // Haléře a centy jen tam, kde nejsou nulové — ceny za tetování jsou
+    // v celých jednotkách a ",00" je jen šum.
+    const dec = Number.isInteger(n) ? 0 : 2;
+    try {
+      return new Intl.NumberFormat(CURRENCY_LOCALE[cur] || 'en-GB', {
+        style: 'currency', currency: cur,
+        minimumFractionDigits: dec, maximumFractionDigits: dec,
+      }).format(n);
+    } catch (e) {
+      // Neznámá měna nesmí shodit stránku s cenami.
+      return n.toLocaleString('en-GB') + ' ' + cur;
+    }
+  }
+
+  function currencySymbol(currency) {
+    return CURRENCY_SYMBOL[(currency || 'CZK').toUpperCase()] || currency;
   }
 
   const I18N_SEL = '[data-i18n],[data-i18n-html],[data-i18n-attr],[data-i18n-switch]';
@@ -2509,7 +2557,8 @@
 
   function get() { return lang; }
 
-  window.InkLinkI18N = { t, set, get, apply, supported: SUPPORTED };
+  window.InkLinkI18N = { t, set, get, apply, money, currencySymbol, setCurrency,
+                         currency: () => pageCurrency, supported: SUPPORTED };
 
   // Přepínač se nikam neinjektuje. Jazyk se poprvé vezme ze zařízení
   // (viz detect()) a měnit se dá v nastavení tatéra — stránka si tam

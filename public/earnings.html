@@ -225,7 +225,7 @@ function fmtKc(cents) {
   if (!cents) return '0 CZK';
   const sign = cents < 0 ? '−' : '';
   const abs = Math.abs(Math.round(cents / 100));
-  return sign + abs.toLocaleString(locale()) + ' CZK';
+  return sign + InkLinkI18N.money(abs, window.myCurrency || 'CZK');
 }
 
 function fmtDate(iso, withYear) {

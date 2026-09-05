@@ -48,7 +48,7 @@ function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&
 // nemění (platforma je česká).
 function locale(){ return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB'; }
 function fmtDate(iso){try{const d=new Date(iso);return d.toLocaleDateString(locale(),{day:'numeric',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
-function fmtKc(cents){return cents ? `${(cents/100).toLocaleString(locale())} CZK` : '—';}
+function fmtKc(cents, cur){return cents ? InkLinkI18N.money(cents/100, cur || 'CZK') : '—';}
 function statusLabel(s){return ({
   pending_payment: t('bk.stPending'),
   confirmed:       t('bk.stConfirmed'),
@@ -279,7 +279,7 @@ function renderRow(b, view) {
   if (refundable) {
     const maxKc = Math.max(0, Math.floor(((b.deposit_cents || 0) + (b.balance_paid_cents || 0) - (b.refund_cents || 0)) / 100));
     if (maxKc > 0) {
-      refundCta = `<button class="btn muted" onclick="InkLinkBookings.openRefund(${b.id}, ${maxKc})">${t('bk.mRefund')}</button>`;
+      refundCta = `<button class="btn muted" onclick="InkLinkBookings.openRefund(${b.id}, ${maxKc}, '${b.currency || 'CZK'}')">${t('bk.mRefund')}</button>`;
     }
   }
 
@@ -306,7 +306,7 @@ function renderRow(b, view) {
         ${b.design_note ? `<div class="b-note">${escapeHtml(b.design_note)}</div>` : ''}
         ${(b.session_number || 1) > 1 ? `<div style="font-size:11px;color:var(--txt3);letter-spacing:0.06em;margin-top:4px">${t('bk.session').replace('{n}', b.session_number)}${b.parent_booking_id?` · ${t('bk.followsOn').replace('{id}', b.parent_booking_id)}`:''}</div>` : ''}
         ${rescheduleHint}
-        <div class="b-money">${b.payment_mode === 'full' ? t('bk.fullPayment') : t('bk.deposit')} <b>${fmtKc(b.deposit_cents)}</b>${b.platform_fee_cents?` · ${t('bk.commission')} ${fmtKc(b.platform_fee_cents)}`:''}</div>
+        <div class="b-money">${b.payment_mode === 'full' ? t('bk.fullPayment') : t('bk.deposit')} <b>${fmtKc(b.deposit_cents, b.currency)}</b>${b.platform_fee_cents?` · ${t('bk.commission')} ${fmtKc(b.platform_fee_cents, b.currency)}`:''}</div>
         ${modeBadge}${refundHint}${cancelInfo}${onsiteInfo}${refundBlock}${reviewBlock}
       </div>
       <div class="b-actions">
@@ -329,7 +329,7 @@ function openRefund(bookingId, maxKc) {
   document.getElementById('rfAmount').max = maxKc;
   document.getElementById('rfReason').value = '';
   document.getElementById('rfFlash').innerHTML = '';
-  document.getElementById('rfMaxLine').textContent = `${t('bk.maxRefundable')} ${maxKc.toLocaleString(locale())} CZK`;
+  document.getElementById('rfMaxLine').textContent = `${t('bk.maxRefundable')} ${InkLinkI18N.money(maxKc, rfCurrency)}`;
   document.getElementById('refundModal').classList.add('show');
   setTimeout(() => document.getElementById('rfReason').focus(), 30);
 }

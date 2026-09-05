@@ -381,7 +381,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     <input type="text" id="ask-placement" maxlength="120" data-i18n-attr="pf.askPlacementPh:placeholder" placeholder="forearm, ribs, calf…">
     <label for="ask-size" data-i18n="pf.askSize">Rough size</label>
     <select id="ask-size"></select>
-    <label for="ask-budget" data-i18n="pf.askBudget">Budget (CZK) — optional</label>
+    <label for="ask-budget" data-i18n="pf.askBudget">Budget — optional</label>
     <input type="number" id="ask-budget" min="0" step="500" data-i18n-attr="pf.askBudgetPh:placeholder" placeholder="what you are counting on">
     <label for="ask-timing" data-i18n="pf.askTiming">When it would suit you — optional</label>
     <input type="text" id="ask-timing" maxlength="120" data-i18n-attr="pf.askTimingPh:placeholder" placeholder="e.g. sometime in spring, weekends">
@@ -453,10 +453,10 @@ function fmtDate(iso) {
   catch { return iso; }
 }
 function fmtPrice(min, max, unit) {
-  const suffix = unit === 'flat' ? ' CZK' : ' CZK/h';
+  const per = unit === 'flat' ? '' : '/h';
   if (!min && !max) return tr('pf.priceAgreed');
-  if (min && max && min !== max) return `${min.toLocaleString('cs-CZ')}–${max.toLocaleString('cs-CZ')}${suffix}`;
-  return `${(min||max).toLocaleString('cs-CZ')}${suffix}`;
+  if (min && max && min !== max) return `${money(min)}–${money(max)}${per}`;
+  return `${money(min || max)}${per}`;
 }
 
 async function load() {
@@ -610,6 +610,9 @@ function render() {
     loadSimilar(profile.username);
   }
 
+  // Popisky s {cur} musí znát měnu tatéra, na kterého se klient dívá.
+  if (window.InkLinkI18N) InkLinkI18N.setCurrency(profile.currency || 'CZK');
+
   const actions = document.getElementById('actions');
   actions.innerHTML = '';
   if (profile.is_own) {
@@ -637,8 +640,8 @@ function render() {
     grid.innerHTML = profile.portfolio.map((p, i) => {
       const priceList = p.sizes || [];
       const fixedPrice = profile.is_own ? '' : (priceList.length > 1
-        ? tr('pf.fromPrice').replace('{price}', (+priceList[0].price_kc).toLocaleString(locale()))
-        : (p.price_kc ? `${(+p.price_kc).toLocaleString(locale())} CZK` : ''));
+        ? tr('pf.fromPrice').replace('{price}', money(+priceList[0].price_kc))
+        : (p.price_kc ? money(+p.price_kc) : ''));
       const hoursTxt = priceList.length > 1
         ? ''
         : (p.estimated_hours ? ` · ~${(+p.estimated_hours).toString().replace(/\.0$/,'')} h` : '');
@@ -989,6 +992,10 @@ function locale() {
   return (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB';
 }
 
+// Ceny na profilu jsou v měně toho tatéra — ne v měně toho, kdo se dívá.
+function cur() { return (profile && profile.currency) || 'CZK'; }
+function money(n) { return InkLinkI18N.money(n, cur()); }
+
 async function loadSizes() {
   if (SIZE_PRESETS.length) return;
   SIZE_PRESETS = await fetch('/api/sizes').then(r => r.json()).catch(() => []);
@@ -1055,7 +1062,7 @@ async function bookSlot(id, portfolioItem = null) {
   document.getElementById('bm-price').textContent =
     (slot.price_min || slot.price_max)
       ? tr('pf.bmRate')
-          .replace('{range}', `${(slot.price_min||0).toLocaleString(locale())}–${(slot.price_max||0).toLocaleString(locale())} CZK${unit}`)
+          .replace('{range}', `${money(slot.price_min||0)}–${money(slot.price_max||0)}${unit}`)
           .replace('{pct}', slot.deposit_pct)
       : tr('pf.priceOnRequest').replace('{pct}', slot.deposit_pct);
 
@@ -1078,7 +1085,7 @@ async function bookSlot(id, portfolioItem = null) {
         return `<div class="size-pill ${tooLong ? 'disabled' : ''}" data-key="${v.size_label}"
                      data-hours="${v.estimated_hours}" data-price="${v.price_kc}"
                      ${tooLong ? 'style="opacity:0.35;cursor:not-allowed"' : ''}>
-                  <div class="h">${(+v.price_kc).toLocaleString(locale())} CZK</div>
+                  <div class="h">${money(+v.price_kc)}</div>
                   <div class="lbl">${escapeHtml(sizeLabelText(v.size_label))} · ${v.estimated_hours} h</div>
                 </div>`;
       }).join('');
@@ -1093,7 +1100,7 @@ async function bookSlot(id, portfolioItem = null) {
       <div class="design-head">
         <div class="design-head-t">${tr('pf.bookingThisDesign')}</div>
         <b>${escapeHtml(portfolioItem.caption || tr('pf.design'))}</b><br>
-        ${lockedH} h · <b>${(+portfolioItem.price_kc).toLocaleString(locale())} CZK</b>
+        ${lockedH} h · <b>${money(+portfolioItem.price_kc)}</b>
       </div>`;
     document.getElementById('bm-note').value = tr('pf.bookingForDesign') + ' ' + (portfolioItem.caption || '') + '\n\n';
     if (lockedH > free + 0.01) {
@@ -1364,7 +1371,7 @@ function refreshDeposit() {
       : tr('pf.agreedDeposit').replace('{pct}', depPct) + '<br>' + cancelText('pf.cancelPolicy');
     return;
   }
-  const kc = n => n.toLocaleString(locale()) + ' CZK';
+  const kc = n => money(n);
   const head = tr('pf.depHead').replace('{hours}', pendingSize.hours).replace('{total}', kc(totalKc));
   if (payFull) {
     dep.innerHTML = `

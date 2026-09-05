@@ -136,12 +136,16 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
 const t = k => window.InkLinkI18N ? InkLinkI18N.t(k) : k;
 const esc = s => (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const locale = () => (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB';
-const kc = n => Math.round(n).toLocaleString(locale()) + ' CZK';
+// Výdělky jsou v měně tatéra; nastaví se po načtení /api/me.
+let myCurrency = 'CZK';
+const kc = n => InkLinkI18N.money(Math.round(n), myCurrency);
 let premium = null;
 
 async function init() {
   const me = await fetch('/api/me').then(r => r.json()).catch(() => null);
   if (!me) { location.href = '/login'; return; }
+  myCurrency = me.currency || 'CZK';
+  if (window.InkLinkI18N) InkLinkI18N.setCurrency(myCurrency);
 
   // Lokální datum, ne toISOString: ten převádí do UTC a prvního v měsíci
   // by v našem pásmu ukázal poslední den měsíce předchozího.

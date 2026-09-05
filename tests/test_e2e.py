@@ -3512,6 +3512,135 @@ class VoucherTemplateTests(_Sprint2Base):
         self.assertEqual(r.status_code, 400)
 
 
+class CurrencyTests(_Sprint2Base):
+    """Měna patří tatérovi, ne divákovi: Stripe strhává v jedné měně a
+    výplatní účet má jednu měnu. Neptáme se na ni — odvozuje se ze země."""
+
+    def _set_city(self, city):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET city=? WHERE id=1', (city,))
+        conn.commit(); conn.close()
+
+    def _derive(self, stripe_country=None):
+        import server
+        conn = server.get_db()
+        out = server._derive_currency(conn, 1, stripe_country)
+        conn.close()
+        return out
+
+    def test_city_decides(self):
+        for city, cur in [('Praha', 'CZK'), ('Bratislava', 'EUR'), ('Košice', 'EUR'),
+                          ('Kraków', 'PLN'), ('Berlin', 'EUR'), ('London', 'GBP')]:
+            self._set_city(city)
+            self.assertEqual(self._derive(), cur, city)
+
+    def test_slovak_artist_is_not_billed_in_crowns(self):
+        """Slovensko je v eurozóně. Bez mapy měst by tatér z Bratislavy
+        účtoval v korunách, které mu Stripe nepošle."""
+        self._set_city('Bratislava')
+        self.assertEqual(self._derive(), 'EUR')
+
+    def test_stripe_country_beats_the_city(self):
+        """Země Stripe účtu určuje, v čem přijdou peníze — proti tomu
+        nemá vlastní odhad co dělat."""
+        self._set_city('Praha')
+        self.assertEqual(self._derive('US'), 'USD')
+
+    def test_unknown_place_falls_back(self):
+        self._set_city('Někde jinde')
+        self.assertEqual(self._derive(), 'CZK')
+
+    def test_unsupported_currency_is_normalised(self):
+        """Neznámý kód nesmí projít do Stripe volání."""
+        import server
+        self.assertEqual(server._norm_currency('JPY'), 'CZK')
+        self.assertEqual(server._norm_currency(''), 'CZK')
+        self.assertEqual(server._norm_currency('eur'), 'EUR')
+
+    def test_all_supported_currencies_use_minor_units(self):
+        """Kód všude počítá v setinách. Jen a Won mají nulová desetinná
+        místa a rozbily by každou částku stokrát."""
+        import server
+        self.assertNotIn('JPY', server.CURRENCIES)
+        self.assertNotIn('KRW', server.CURRENCIES)
+
+    def test_slot_inherits_the_artist_currency(self):
+        import sqlite3, server
+        self._set_city('Bratislava')
+        conn = server.get_db(); server._sync_currency(conn, 1); conn.commit(); conn.close()
+        start = self._day_at(3, 10)
+        sid = self._mk_slot(start, start + timedelta(hours=4))
+        # _mk_slot obchází endpoint, tak měnu doplníme jako by ji vložil
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE slots SET currency=(SELECT currency FROM users WHERE id=1) '
+                     'WHERE id=?', (sid,))
+        conn.commit()
+        cur = conn.execute('SELECT currency FROM slots WHERE id=?', (sid,)).fetchone()[0]
+        conn.close()
+        self.assertEqual(cur, 'EUR')
+
+    def test_booking_inherits_the_slot_currency(self):
+        import sqlite3
+        start = self._day_at(4, 10)
+        sid = self._mk_slot(start, start + timedelta(hours=4))
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE slots SET currency='EUR' WHERE id=?", (sid,))
+        conn.commit(); conn.close()
+        r = self.client.post('/api/bookings', json={
+            'slot_id': sid, 'design_note': 'vlk', 'duration_hours': 2,
+            'booking_start_at': start.isoformat()})
+        bid = r.get_json()['id']
+        conn = sqlite3.connect(self.db)
+        cur = conn.execute('SELECT currency FROM bookings WHERE id=?', (bid,)).fetchone()[0]
+        conn.close()
+        self.assertEqual(cur, 'EUR')
+
+    def test_profile_exposes_the_currency(self):
+        """Klient musí vidět, v čem tatér účtuje, dřív než klikne."""
+        self._set_city('Bratislava')
+        import server
+        conn = server.get_db(); server._sync_currency(conn, 1); conn.commit(); conn.close()
+        self.assertEqual(self.client.get('/api/profile/artist1').get_json()['currency'], 'EUR')
+
+    def test_currency_list_is_shared(self):
+        d = self.client.get('/api/currencies').get_json()
+        codes = [c['code'] for c in d['currencies']]
+        self.assertIn('EUR', codes)
+        self.assertEqual(d['default'], 'CZK')
+
+
+class MoneyFormatTests(unittest.TestCase):
+    """Formátování je na jednom místě — jinak by každá stránka psala
+    částky jinak."""
+
+    def test_one_formatter_for_everything(self):
+        src = open('public/i18n.js', encoding='utf-8').read()
+        self.assertIn('function money(', src)
+        self.assertIn('CURRENCY_LOCALE', src)
+
+    def test_currency_shape_follows_the_currency_not_the_ui(self):
+        """3 000 Kč se píše stejně Čechovi i Němci. Jazyk rozhraní by
+        z korun udělal 'CZK 3,000'."""
+        src = open('public/i18n.js', encoding='utf-8').read()
+        i = src.index('function money(')
+        body = src[i:i + 700]
+        self.assertIn('CURRENCY_LOCALE[cur]', body)
+        self.assertNotIn("lang === 'cs' ? 'cs-CZ'", body)
+
+    def test_no_page_hardcodes_the_currency_in_prices(self):
+        """Natvrdo připsané ' CZK' by eurovému tatérovi ukázalo koruny."""
+        import glob, re
+        bad = []
+        for f in glob.glob('public/*.html') + glob.glob('public/*.js'):
+            if f.endswith(('i18n.js', 'admin.html')):
+                continue                      # slovník a admin jsou v korunách záměrně
+            src = open(f, encoding='utf-8').read()
+            for m in re.finditer(r"toLocaleString\([^)]*\)\s*\+?\s*['\"` ]*CZK", src):
+                bad.append(f'{f}: {m.group(0)[:40]}')
+        self.assertEqual(bad, [])
+
+
 class LoginIdentifierTests(unittest.TestCase):
     """Přihlášení párovalo prázdný identifikátor na prázdné sloupce.
 

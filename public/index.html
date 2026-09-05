@@ -1033,7 +1033,7 @@ async function doSearch() {
   if (d.portfolio?.length) {
     html += '<div class="sd-section"><div class="sd-label" data-i18n="fd.sketchesWorks">Sketches / work</div>';
     html += d.portfolio.map(p => {
-      const price = p.price_kc ? `${(+p.price_kc).toLocaleString('cs-CZ')} CZK` : '';
+      const price = p.price_kc ? InkLinkI18N.money(+p.price_kc, (p.user && p.user.currency) || 'CZK') : '';
       return `<a class="sd-item" href="/profile/${escapeHtml(p.username)}#book-${p.id}">
         <div class="sd-img"><img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy"></div>
         <div class="sd-body"><div class="n">${escapeHtml(p.caption || (p.kind==='sketch'?t('fd.badgeSketch'):t('fd.badgeDone')))}</div>

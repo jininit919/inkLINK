@@ -310,6 +310,7 @@ async function init() {
   myInitials = (me.display_name || '??').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   myAvatar   = me.avatar_url || '';
   meIsArtist = !!me.is_artist;
+  if (window.InkLinkI18N) InkLinkI18N.setCurrency(me.currency || 'CZK');
 
   await loadConversations();
 
@@ -495,7 +496,7 @@ function mt(key, fallback) {
 }
 
 function offerCard(o) {
-  const price = o.price_kc.toLocaleString(msgLocale()) + ' CZK';
+  const price = InkLinkI18N.money(o.price_kc, o.currency || 'CZK');
   // Čekající nabídka odznak nemá — stav je vidět z tlačítek pod ní.
   // Pozor na `||`: prázdný popisek by přes něj propadl na syrový status.
   const BADGES = {
