@@ -389,10 +389,16 @@ Kde se to může zaseknout:
 | Kredit pokryje celou zálohu | Rezervace se potvrdí bez Stripu (`payment.mode='credit'`) — nula se strhnout nedá |
 | Na kartě by zbylo pod minimem Stripu | Kredit se sníží tak, aby karta strhla přesně minimum |
 | Opuštěný checkout | Řádek se smaže po 2 h (`VOUCHER_UNPAID_TTL_HOURS`) |
-| Opakovaný webhook | Podmíněný UPDATE — uplatněný poukaz se nevrátí do hry |
+| Opakovaný webhook | Podmíněný UPDATE — uplatněný poukaz se nevrátí do hry (a mail chodí jen při skutečné aktivaci) |
+| Zrušení rezervace placené kreditem | Refund se dělí: nejdřív zpátky na kartu, zbytek jako kredit |
 
 Limity a nabízené částky jsou **per měnu** (`VOUCHER_LIMITS`). Měna se odvozuje
 ze země, nikde se nevybírá.
+
+**Za zálohy placené kreditem dlužíme tatérům** — přes Stripe jim ta část
+nedorazí. Součet je v adminu (řádek u kreditu) a v účetním exportu tatéra ve
+sloupci „Z poukazu — doplatí InkLink". **Převod je zatím ruční**; automatický
+payout přes Stripe zatím není.
 
 **Kredit napříč měnami je nedořešený**: zůstatek se vede v měně, ve které
 vznikl, ale utratit se dá i u tatéra s jinou měnou. Kurzové riziko neseme my.

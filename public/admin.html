@@ -412,7 +412,7 @@ async function loadReferralsLeaderboard(){
       </tbody>
     </table>
     <div style="margin-top:10px;font-size:10px;color:var(--txt3);letter-spacing:0.06em">
-      celkem ${data.total_signups||0} registrací, ${data.total_granted||0} dokončilo, ${Math.round((data.total_credit_cents||0)/100).toLocaleString('cs-CZ')} Kč rozdaného kreditu
+      celkem ${data.total_signups||0} registrací, ${data.total_granted||0} dokončilo, ${Math.round((data.total_credit_cents||0)/100).toLocaleString('cs-CZ')} Kč nevyužitého kreditu${data.owed_to_artists_cents ? ` · <b>dlužíme tatérům ${Math.round(data.owed_to_artists_cents/100).toLocaleString('cs-CZ')} Kč</b> za zálohy placené kreditem (převést ručně)` : ''}
     </div>
   `;
 }

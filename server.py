@@ -5409,6 +5409,13 @@ def admin_referrals_leaderboard():
     credit_total = conn.execute(
         'SELECT COALESCE(SUM(account_credit_cents), 0) AS c FROM users WHERE account_credit_cents > 0'
     ).fetchone()
+    # Co dlužíme tatérům za zálohy zaplacené kreditem. Přes Stripe jim to
+    # nedorazí — musí se převést ručně, a bez tohohle čísla nikdo neví kolik.
+    owed = conn.execute(
+        "SELECT COALESCE(SUM(platform_owes_artist_cents), 0) AS c FROM bookings "
+        "WHERE COALESCE(platform_owes_artist_cents,0) > 0 "
+        "AND status NOT IN ('cancelled_client','cancelled_artist')"
+    ).fetchone()
     conn.close()
     return jsonify({
         'rows': [
@@ -5424,6 +5431,7 @@ def admin_referrals_leaderboard():
         'total_signups':       (totals['total_signups'] if totals else 0) or 0,
         'total_granted':       (totals['total_granted'] if totals else 0) or 0,
         'total_credit_cents':  (credit_total['c'] if credit_total else 0) or 0,
+        'owed_to_artists_cents': (owed['c'] if owed else 0) or 0,
     })
 
 
@@ -6924,15 +6932,27 @@ def cancel_booking(bid):
     refund_cents = int(round(b['deposit_cents'] * refund_pct / 100))
     new_status   = 'cancelled_artist' if actor == 'artist' else 'cancelled_client'
 
+    # Zálohu mohl klient zaplatit zčásti nebo celou kreditem z poukazu.
+    # Refund se proto musí rozdělit: nejdřív zpátky skutečné peníze, zbytek
+    # jako kredit. Bez toho jsme vraceli celou zálohu z platby, která byla
+    # o kredit nižší — Stripe takový refund odmítne a zrušení skončí na 502,
+    # takže rezervace nešla zrušit vůbec. A když kredit pokryl zálohu celou,
+    # žádná platba neexistuje a dárek by nám propadl.
+    credit_used   = b['credit_used_cents'] if 'credit_used_cents' in b.keys() else 0
+    credit_used   = credit_used or 0
+    card_paid     = max(0, (b['deposit_cents'] or 0) - credit_used)
+    card_refund   = min(refund_cents, card_paid)
+    credit_refund = refund_cents - card_refund
+
     # Trigger Stripe refund if there's something to refund and a payment exists.
     # If Stripe fails, abort the cancellation — user can retry. The webhook
     # charge.refunded will write the economics_snapshots row.
     pi_id = b['stripe_payment_intent_id'] if 'stripe_payment_intent_id' in b.keys() else None
-    if refund_cents > 0 and pi_id and STRIPE_SECRET_KEY:
+    if card_refund > 0 and pi_id and STRIPE_SECRET_KEY:
         try:
             stripe.Refund.create(
                 payment_intent=pi_id,
-                amount=refund_cents,
+                amount=card_refund,
                 reason='requested_by_customer',
                 idempotency_key=f'cancel-{bid}-{actor}',
                 metadata={'inklink_booking_id': str(bid), 'inklink_actor': actor},
@@ -6960,6 +6980,21 @@ def cancel_booking(bid):
         return jsonify({'error': 'Stav rezervace se mezitím změnil, zkus to prosím znovu.'}), 409
     conn.execute("UPDATE slots SET status='free' WHERE id=?", (b['slot_id'],))
     conn.commit()
+
+    if credit_refund > 0:
+        # Kredit zpátky klientovi — a o stejnou částku klesá, co za něj
+        # dlužíme tatérovi. Rezervace se nekoná, tak si ji nikdo neúčtuje.
+        if _credit_move(conn, b['client_id'], credit_refund, 'booking_refund',
+                        'booking', bid,
+                        currency=_norm_currency(
+                            b['currency'] if 'currency' in b.keys() else None)) is None:
+            app.logger.error(f'[cancel] credit refund failed for booking {bid}')
+        else:
+            conn.execute(
+                'UPDATE bookings SET platform_owes_artist_cents='
+                'MAX(0, COALESCE(platform_owes_artist_cents,0) - ?) WHERE id=?',
+                (credit_refund, bid))
+            conn.commit()
 
     other = b['artist_id'] if actor == 'client' else b['client_id']
     push_notif(conn, other, uid, 'booking_cancelled', bid, 'booking',
@@ -7386,6 +7421,17 @@ def my_export():
     referrals_received = fetch_dicts(
         'SELECT * FROM referrals WHERE referred_user_id=? ORDER BY id DESC', (uid,)
     )
+    # Poukazy a kniha kreditu jsou taky osobní údaje uživatele — v exportu
+    # chyběly, přestože si za ně zaplatil.
+    vouchers_bought = fetch_dicts(
+        'SELECT * FROM vouchers WHERE buyer_id=? ORDER BY id DESC', (uid,)
+    )
+    vouchers_redeemed = fetch_dicts(
+        'SELECT * FROM vouchers WHERE redeemed_by=? ORDER BY id DESC', (uid,)
+    )
+    credit_ledger = fetch_dicts(
+        'SELECT * FROM credit_ledger WHERE user_id=? ORDER BY id DESC', (uid,)
+    )
     reviews_written = fetch_dicts(
         'SELECT * FROM reviews WHERE client_id=? ORDER BY id DESC', (uid,)
     )
@@ -7420,6 +7466,9 @@ def my_export():
         'messages_sent':        messages_sent,
         'messages_received':    messages_received,
         'refund_requests':      refund_requests,
+        'vouchers_bought':      vouchers_bought,
+        'vouchers_redeemed':    vouchers_redeemed,
+        'credit_ledger':        credit_ledger,
         'referrals_made':       referrals_made,
         'referrals_received':   referrals_received,
         'reviews_written':      reviews_written,
@@ -10825,6 +10874,48 @@ def _voucher_code():
     return f'{raw[:4]}-{raw[4:8]}-{raw[8:]}'
 
 
+def _send_voucher_email(conn, voucher_id):
+    """Kód kupujícímu na mail. Bez toho ho má jen v otevřené záložce —
+    kdo zavře prohlížeč dřív, než si ho opíše, dárek nemá kde vzít."""
+    from html import escape as _h
+    v = conn.execute('SELECT * FROM vouchers WHERE id=?', (voucher_id,)).fetchone()
+    if not v or v['status'] != 'active':
+        return False
+    u = conn.execute('SELECT email, display_name FROM users WHERE id=?',
+                     (v['buyer_id'],)).fetchone()
+    if not u or not u['email']:
+        return False
+    cur = _norm_currency(v['currency'] if 'currency' in v.keys() else None)
+    symbol = CURRENCIES.get(cur, CURRENCIES[DEFAULT_CURRENCY])['symbol']
+    amount = f"{v['amount_cents'] // 100:,}".replace(',', ' ')
+    link = f"{APP_BASE_URL}/vouchers/{v['code']}"
+    try:
+        exp = _naive_dt(v['expires_at']).strftime('%-d. %-m. %Y')
+    except (ValueError, TypeError):
+        exp = ''
+    html = (
+        '<div style="background:#000;color:#ccc;font-family:monospace;'
+        'padding:40px;max-width:520px;margin:0 auto">'
+        '<div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8;margin-bottom:28px">'
+        'INKLINK</div>'
+        f'<p>Poukaz na <strong>{_h(amount)} {_h(symbol)}</strong> je zaplacený.</p>'
+        f'<p style="font-size:22px;letter-spacing:0.18em;color:#e8e8e8;margin:22px 0">'
+        f'{_h(v["code"])}</p>'
+        '<p style="line-height:1.7">Kód stačí poslat dál. Kdo ho dostane, zadá ho '
+        'na InkLinku a částka se mu připíše jako kredit — utratí ji u kteréhokoliv '
+        f'tatéra{f", a to do {_h(exp)}" if exp else ""}.</p>'
+        f'<p style="margin-top:22px"><a href="{_h(link)}" '
+        'style="display:inline-block;background:#e8e8e8;color:#000;padding:13px 26px;'
+        'text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;'
+        'font-size:12px">Otevřít poukaz</a></p>'
+        '<p style="color:#555;font-size:11px;margin-top:36px;line-height:1.7">'
+        'Tenhle mail chodí po koupi poukazu na InkLinku.<br>'
+        f'<a href="{_h(APP_BASE_URL)}" style="color:#888">{_h(APP_BASE_URL)}</a></p>'
+        '</div>'
+    )
+    return send_email(u['email'], f'InkLink — dárkový poukaz {v["code"]}', html)
+
+
 @app.route('/api/vouchers/options')
 def voucher_options():
     """Částky a limity pro nákupní formulář. Frontend si je nesmí držet sám —
@@ -10895,6 +10986,7 @@ def create_voucher():
            else conn.execute('SELECT lastval()').fetchone()[0])
 
     if demo:
+        _send_voucher_email(conn, vid)
         conn.close()
         return jsonify({'ok': True, 'id': vid, 'code': code, 'amount_kc': amount_kc,
                         'currency': currency, 'expires_at': expires, 'status': 'active',
@@ -11804,6 +11896,7 @@ ACCOUNTING_COLUMNS = [
     ('onsite',      'Zaplaceno na místě'),
     ('refunded',    'Vráceno'),
     ('commission',  'Provize InkLink'),
+    ('from_credit', 'Z poukazu — doplatí InkLink'),
     ('outstanding', 'Zbývá doplatit'),
     ('net',         'Čistý příjem'),
 ]
@@ -11836,6 +11929,11 @@ def _accounting_rows(conn, artist_id, date_from, date_to):
         # Čistý příjem = co tatérovi reálně zůstalo. Provize se strhává jen
         # z toho, co prošlo platformou; hotovost na místě je celá jeho.
         net = round(deposit + balance + onsite - refund - fee, 2)
+        # Část zálohy mohl klient zaplatit kreditem z poukazu. Pro daně je to
+        # příjem jako každý jiný, ale přes Stripe nedorazil — dlužíme ho my.
+        # Bez tohohle sloupce sedí přiznání a nesedí bankovní výpis.
+        from_credit = kc(b['platform_owes_artist_cents']
+                         if 'platform_owes_artist_cents' in b.keys() else 0)
         # U dokončených vyjde vždycky nula — dokončit jinak nejde. U těch,
         # co teprve proběhnou, je to očekávaný zbytek, ne díra v účetnictví.
         outstanding = max(0.0, round(kc(b['total_price_cents']) - deposit - balance - onsite, 2))
@@ -11852,6 +11950,7 @@ def _accounting_rows(conn, artist_id, date_from, date_to):
             'onsite':      onsite,
             'refunded':    refund,
             'commission':  fee,
+            'from_credit': from_credit,
             'outstanding': outstanding,
             'net':         net,
         })
@@ -12137,10 +12236,15 @@ def stripe_webhook():
             try:
                 # Podmíněný UPDATE: opakované doručení webhooku nesmí
                 # aktivovat poukaz, který mezitím někdo stihl uplatnit.
-                conn_v.execute("UPDATE vouchers SET status='active' "
-                               "WHERE id=? AND status='awaiting_payment'", (int(vid),))
+                changed = conn_v.execute(
+                    "UPDATE vouchers SET status='active' "
+                    "WHERE id=? AND status='awaiting_payment'", (int(vid),)).rowcount
                 conn_v.commit()
                 app.logger.info(f'[voucher] paid → {vid}')
+                # Jen při skutečné aktivaci: Stripe doručuje opakovaně a
+                # kupující nemá dostávat stejný dárek pětkrát.
+                if changed:
+                    _send_voucher_email(conn_v, int(vid))
             except Exception as e:
                 app.logger.error(f'[voucher] activation failed for {vid}: {e}')
             finally:

@@ -3953,6 +3953,159 @@ class CreditCoversDepositTests(_Sprint2Base):
         self.assertEqual(b['credit_used_cents'], b['deposit_cents'])
 
 
+class VoucherExportTests(_Sprint2Base):
+    """Poukazy a kniha kreditu jsou osobní údaje uživatele. V exportu podle
+    GDPR chyběly, přestože si za ně zaplatil."""
+
+    def test_export_contains_vouchers_and_credit(self):
+        r = self.client.post('/api/vouchers', json={'amount_kc': 1500})
+        code = r.get_json()['code']
+        self.client.post('/api/vouchers/redeem', json={'code': code})
+        import io, json as _json, zipfile
+        r = self.client.get('/api/me/export')
+        self.assertEqual(r.status_code, 200)
+        zf = zipfile.ZipFile(io.BytesIO(r.data))
+        read = lambda n: _json.loads(zf.read(n + '.json'))
+        self.assertEqual([v['code'] for v in read('vouchers_bought')], [code])
+        self.assertEqual([v['code'] for v in read('vouchers_redeemed')], [code])
+        ledger = read('credit_ledger')
+        self.assertEqual([m['reason'] for m in ledger], ['voucher_redeem'])
+        self.assertEqual(ledger[0]['delta_cents'], 150000)
+
+
+class VoucherEmailTests(_Sprint2Base):
+    """Kód kupujícímu na mail. Kdo zavře prohlížeč dřív, než si ho opíše,
+    ho jinak nemá kde vzít."""
+
+    def setUp(self):
+        super().setUp()
+        import server
+        self.sent = []
+        self._real_send = server.send_email
+        server.send_email = lambda to, subj, html: (
+            self.sent.append((to, subj, html)) or True)
+
+    def tearDown(self):
+        import server
+        server.send_email = self._real_send
+        super().tearDown()
+
+    def test_buyer_gets_the_code(self):
+        r = self.client.post('/api/vouchers', json={'amount_kc': 2000})
+        code = r.get_json()['code']
+        self.assertEqual(len(self.sent), 1)
+        to, subj, html = self.sent[0]
+        self.assertEqual(to, 'client1@test.cz')
+        self.assertIn(code, subj)
+        self.assertIn(code, html)
+        self.assertIn('2 000', html)
+        self.assertIn(f'/vouchers/{code}', html)
+
+    def test_repeated_webhook_does_not_resend(self):
+        """Stripe doručuje opakovaně — dárek nemá chodit pětkrát."""
+        import server, json as _json
+        self.sent.clear()
+        real_key, real_stripe = server.STRIPE_SECRET_KEY, server.stripe
+        server.STRIPE_SECRET_KEY = 'sk_test_fake'
+        server.stripe = _FakeStripe()
+        try:
+            self.client.post('/api/vouchers', json={'amount_kc': 2000})
+            self.assertEqual(self.sent, [])          # nezaplaceno = žádný mail
+            sess = server.stripe.checkout.Session.last
+            hook = lambda eid: self.client.post('/api/stripe/webhook', data=_json.dumps({
+                'id': eid, 'type': 'checkout.session.completed',
+                'data': {'object': {'id': sess.id, 'payment_status': 'paid',
+                                    'metadata': sess.kw['metadata']}}}),
+                content_type='application/json')
+            hook('evt_1'); hook('evt_2')
+        finally:
+            server.STRIPE_SECRET_KEY, server.stripe = real_key, real_stripe
+        self.assertEqual(len(self.sent), 1)
+
+
+class CancelWithCreditTests(_Sprint2Base):
+    """Zrušení rezervace, na kterou šel kredit z poukazu. Dřív se kredit
+    nevracel vůbec a refund se počítal z celé zálohy — u částečně kreditem
+    placené zálohy by Stripe takový refund odmítl a zrušit nešlo nic."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        r = self.client.post('/api/vouchers', json={'amount_kc': 1000})
+        self.client.post('/api/vouchers/redeem', json={'code': r.get_json()['code']})
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET stripe_charges_enabled=1, "
+                     "stripe_account_id='acct_test' WHERE id=1")
+        conn.commit(); conn.close()
+        import server
+        self._real_key = server.STRIPE_SECRET_KEY
+        server.STRIPE_SECRET_KEY = 'sk_test_fake'
+
+    def tearDown(self):
+        import server
+        server.STRIPE_SECRET_KEY = self._real_key
+        super().tearDown()
+
+    def _set_credit(self, cents):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET account_credit_cents=? WHERE id=2', (cents,))
+        conn.execute('DELETE FROM credit_ledger WHERE user_id=2')
+        conn.execute("INSERT INTO credit_ledger (user_id, delta_cents, reason, currency) "
+                     "VALUES (2, ?, 'voucher_redeem', 'CZK')", (cents,))
+        conn.commit(); conn.close()
+
+    def _book(self, day=20):
+        """Sezení daleko v budoucnu — storno je pak plných 100 %."""
+        slot = self._mk_slot(self._day_at(day, 10), self._day_at(day, 18))
+        r = self.client.post('/api/bookings', json={
+            'slot_id': slot, 'booking_start_at': self._day_at(day, 12).isoformat(),
+            'duration_hours': 2, 'design_note': 'Vlk', 'use_credit': True})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        return r.get_json()['id']
+
+    def _credit(self):
+        return self.client.get('/api/vouchers/options').get_json()['credit_cents']
+
+    def test_credit_comes_back_when_it_paid_the_whole_deposit(self):
+        self._set_credit(100000)                     # záloha je 60000
+        bid = self._book()
+        self.assertEqual(self._credit(), 40000)
+        r = self.client.post(f'/api/bookings/{bid}/cancel')
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(self._credit(), 100000)     # dárek se nesmí ztratit
+
+    def test_partial_credit_cancels_instead_of_failing(self):
+        """Zálohu 600 Kč zaplatil kredit 200 Kč a karta 400 Kč. Refund
+        z celé zálohy by u platby na 400 Kč skončil chybou."""
+        self._set_credit(20000)
+        bid = self._book(21)
+        r = self.client.post(f'/api/bookings/{bid}/cancel')
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(self._credit(), 20000)
+        b = self._booking_row(bid)
+        self.assertEqual(b['refund_cents'], 60000)   # klient dostal zpět celou zálohu
+
+    def test_debt_to_the_artist_disappears_with_the_booking(self):
+        """Rezervace se nekoná, tak si tatér zálohu neúčtuje — a my mu ji
+        tím pádem nedlužíme."""
+        self._set_credit(100000)
+        bid = self._book(22)
+        self.assertEqual(self._booking_row(bid)['platform_owes_artist_cents'], 60000)
+        self.client.post(f'/api/bookings/{bid}/cancel')
+        self.assertEqual(self._booking_row(bid)['platform_owes_artist_cents'], 0)
+
+    def test_booking_without_credit_is_unaffected(self):
+        self._set_credit(0)
+        slot = self._mk_slot(self._day_at(23, 10), self._day_at(23, 18))
+        r = self.client.post('/api/bookings', json={
+            'slot_id': slot, 'booking_start_at': self._day_at(23, 12).isoformat(),
+            'duration_hours': 2, 'design_note': 'Vlk'})
+        bid = r.get_json()['id']
+        self.assertEqual(self.client.post(f'/api/bookings/{bid}/cancel').status_code, 200)
+        self.assertEqual(self._credit(), 0)
+
+
 class VoucherCheckoutTests(_Sprint2Base):
     """Placená cesta poukazu. Peníze jdou na náš účet, ne přes Connect:
     poukaz je náš závazek, dokud ho někdo neuplatní."""
