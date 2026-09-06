@@ -408,29 +408,32 @@ každém zrušení řešit reversal. Takhle se nikdy nic nevrací.
 vznikl, ale utratit se dá i u tatéra s jinou měnou. Kurzové riziko neseme my.
 Zatím je to vědomě přijaté — než objem naroste, sledovat součty v adminu.
 
-## 3.55 Chybějící crony jedním servicem
+## 3.55 Chybějící crony (welcome-emails, account-deletions, credit-payouts)
 
-Tři joby v Railway zatím nemají službu: `welcome-emails`, `account-deletions`
-a `credit-payouts`. Nemusí mít každý vlastní — všechny jsou jen curl a stačí
-jim denní běh. Jedna služba je míň věcí, co se dá zapomenout zapnout.
+Tři joby zatím nemají v Railway nic, co by je spouštělo: `welcome-emails`,
+`account-deletions` a `credit-payouts`.
 
-Railway → **+ New** → **Empty Service**, název `inklink-cron-daily`.
+**Nedělej pro ně novou službu.** Služba `inklink-cron` už existuje a spouští
+`reconcile` — Railway v ní umí spustit jeden příkaz podle rozvrhu, a ten
+příkaz může být klidně smyčka přes všechny čtyři joby.
 
-**Settings → Cron Schedule:**
+Railway → služba **inklink-cron** → **Settings → Custom Start Command**,
+přepsat na:
+
 ```
-30 3 * * *
-```
-
-**Settings → Custom Start Command** — středníky, ne `&&`: když jeden job
-spadne, zbylé dva musí proběhnout.
-```
-B=https://www.inklink.club/api/cron; H="X-Cron-Token: $RECONCILE_TOKEN"; FAIL=0; for J in welcome-emails account-deletions credit-payouts; do curl -sf -H "$H" "$B/$J" && echo "$J OK" || { echo "$J FAILED"; FAIL=1; }; done; exit $FAIL
+B=https://www.inklink.club/api/cron; H="X-Cron-Token: $RECONCILE_TOKEN"; FAIL=0; for J in reconcile welcome-emails account-deletions credit-payouts; do curl -sf -H "$H" "$B/$J" && echo "$J OK" || { echo "$J FAILED"; FAIL=1; }; done; exit $FAIL
 ```
 
-**Variables:** nasdílet `RECONCILE_TOKEN` z hlavního projektu.
+Rozvrh (`0 6 * * *`) i `RECONCILE_TOKEN` zůstávají, jak jsou — nic dalšího
+se nenastavuje.
 
-Po prvním běhu zkontroluj log: `account-deletions` vrací `purged_count`,
-`credit-payouts` vrací `paid` a `failed`. Nenulové `failed` několik dní po
+Proč středníky a ne `&&`: s `&&` by pád prvního jobu zastavil zbylé tři.
+Takhle se pokusí všechny a `exit $FAIL` na konci zajistí, že Railway běh
+označí jako neúspěšný, když aspoň jeden spadl.
+
+Po prvním běhu se koukni do **Deployments → logu** té služby. Čtyři řádky
+`OK` znamenají hotovo. `account-deletions` navíc vrací `purged_count`,
+`credit-payouts` vrací `paid` a `failed` — nenulové `failed` několik dní po
 sobě znamená prázdný Stripe balance, ne chybu v kódu.
 
 ## 3.6 Doplatky tatérům za kredit (cron)
