@@ -180,8 +180,13 @@ _GATE_ALWAYS_OPEN = (
 )
 # /vouchers/ je záměrně veřejné: dárce odkaz pošle dál a obdarovaný
 # účet mít nemusí. Za bránou by místo dárku našel coming-soon stránku.
+#
+# /api/cron/ musí projít taky. Cron chodí zvenčí bez session, takže ho brána
+# odbavila 503 — každý běh spadl na `curl -sf` a Railway ho označil za crash.
+# Nic to neotvírá: každý cron endpoint si sám ověřuje RECONCILE_TOKEN, což je
+# proti nepovolanému spuštění silnější zámek než brána.
 _GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/',
-                       '/vouchers/')
+                       '/vouchers/', '/api/cron/')
 _GATE_OPEN_API = (
     '/api/login', '/api/register', '/api/logout', '/api/me',
     '/api/verify', '/api/forgot-password', '/api/reset-password',

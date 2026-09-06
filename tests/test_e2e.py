@@ -4911,6 +4911,19 @@ class ComingSoonGateTests(unittest.TestCase):
         for path in ('/', '/my-bookings', '/api/feed', '/profile/inker'):
             self.assertFalse(server._gate_is_open_path(path), path)
 
+    def test_cron_endpoints_bypass_the_gate(self):
+        """Cron chodí zvenčí bez session. Za bránou dostal 503, curl -sf
+        selhal a Railway každý běh označil za crash — takže žádný cron
+        nikdy neproběhl. Token je zámek, brána tu nic nechrání."""
+        import server
+        for job in ('reconcile', 'booking-reminders', 'welcome-emails',
+                    'account-deletions', 'credit-payouts', 'aftercare'):
+            self.assertTrue(server._gate_is_open_path(f'/api/cron/{job}'), job)
+        # Bez tokenu se ale pořád nedostane nikdo dál.
+        r = self.client.get('/api/cron/account-deletions')
+        self.assertEqual(r.status_code, 403)
+        self.assertNotIn(b'not open to the public', r.data)
+
     def test_voucher_link_stays_reachable(self):
         """Dárce odkaz na poukaz pošle dál a obdarovaný účet mít nemusí.
         Za bránou by místo dárku našel waitlist."""
