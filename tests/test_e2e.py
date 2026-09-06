@@ -3767,8 +3767,123 @@ class _FakeStripe:
             cls.last = cls(**kw)
             return cls.last
 
+    class Transfer:
+        created = []
+        fail_next = False
+
+        @classmethod
+        def create(cls, **kw):
+            if cls.fail_next:
+                cls.fail_next = False
+                raise Exception('insufficient funds')
+            cls.created.append(kw)
+            return type('tr', (), {'id': 'tr_%d' % len(cls.created)})
+
     def __init__(self):
         self.checkout = type('checkout', (), {'Session': _FakeStripe.Session})
+        self.Transfer = _FakeStripe.Transfer
+
+
+class CreditPayoutTests(_Sprint2Base):
+    """Za zálohu placenou kreditem tatérovi přes Stripe nedorazí nic —
+    destination charge posílá jen to, co prošlo kartou. Rozdíl doplácíme
+    zvlášť, převodem z našeho balance."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3, server
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET stripe_charges_enabled=1, "
+                     "stripe_account_id='acct_artist' WHERE id=1")
+        conn.commit(); conn.close()
+        self._real_key, self._real_stripe = server.STRIPE_SECRET_KEY, server.stripe
+        server.STRIPE_SECRET_KEY = 'sk_test_fake'
+        server.stripe = _FakeStripe()
+        _FakeStripe.Transfer.created = []
+        _FakeStripe.Transfer.fail_next = False
+        self._real_token = server.RECONCILE_TOKEN
+        server.RECONCILE_TOKEN = 'crontoken'
+
+    def tearDown(self):
+        import server
+        server.STRIPE_SECRET_KEY, server.stripe = self._real_key, self._real_stripe
+        server.RECONCILE_TOKEN = self._real_token
+        super().tearDown()
+
+    def _owe(self, cents, status='completed', artist_acct='acct_artist'):
+        """Dokončená rezervace, u které část zálohy zaplatil kredit.
+
+        completed_at píše produkce v UTC, ne v pražském čase — test musí
+        počítat ze stejné osy."""
+        import sqlite3
+        from datetime import datetime
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET stripe_account_id=? WHERE id=1', (artist_acct,))
+        conn.commit()
+        conn.close()
+        slot = self._mk_slot(self._day_at(3, 10), self._day_at(3, 18))
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            'INSERT INTO bookings (slot_id, artist_id, client_id, status, deposit_cents, '
+            'credit_used_cents, platform_owes_artist_cents, currency, completed_at) '
+            "VALUES (?, 1, 2, ?, 60000, ?, ?, 'CZK', ?)",
+            (slot, status, cents, cents, datetime.utcnow().isoformat()))
+        conn.commit()
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return bid
+
+    def _run(self):
+        return self.client.get('/api/cron/credit-payouts?token=crontoken')
+
+    def test_completed_booking_is_paid_out(self):
+        bid = self._owe(20000)
+        j = self._run().get_json()
+        self.assertEqual(j['paid'], [bid])
+        self.assertEqual(j['paid_cents'], 20000)
+        tr = _FakeStripe.Transfer.created[0]
+        self.assertEqual(tr['amount'], 20000)
+        self.assertEqual(tr['currency'], 'czk')
+        self.assertEqual(tr['destination'], 'acct_artist')
+        self.assertEqual(self._booking_row(bid)['credit_payout_id'], 'tr_1')
+
+    def test_second_run_pays_nothing_more(self):
+        """Cron běží denně. Dvakrát zaplatit se nesmí."""
+        self._owe(20000)
+        self._run()
+        j = self._run().get_json()
+        self.assertEqual(j['paid'], [])
+        self.assertEqual(len(_FakeStripe.Transfer.created), 1)
+
+    def test_unfinished_booking_waits(self):
+        """Platíme až po sezení — jinak by každé zrušení znamenalo reversal."""
+        self._owe(20000, status='confirmed')
+        self.assertEqual(self._run().get_json()['paid'], [])
+        self.assertEqual(_FakeStripe.Transfer.created, [])
+
+    def test_artist_without_stripe_is_reported_not_lost(self):
+        bid = self._owe(20000, artist_acct=None)
+        j = self._run().get_json()
+        self.assertEqual(j['paid'], [])
+        self.assertEqual(j['skipped'][0]['booking_id'], bid)
+        self.assertEqual(j['skipped'][0]['reason'], 'no_stripe_account')
+        self.assertIsNone(self._booking_row(bid)['credit_paid_at'])
+
+    def test_failed_transfer_is_retried_next_run(self):
+        """Nedostatek prostředků na balance není ztráta, jen odklad."""
+        bid = self._owe(20000)
+        _FakeStripe.Transfer.fail_next = True
+        j = self._run().get_json()
+        self.assertEqual(j['failed'][0]['booking_id'], bid)
+        self.assertIsNone(self._booking_row(bid)['credit_paid_at'])
+        self.assertEqual(self._run().get_json()['paid'], [bid])
+
+    def test_token_is_required(self):
+        self._owe(20000)
+        self.assertEqual(self.client.get('/api/cron/credit-payouts').status_code, 403)
+        self.assertEqual(
+            self.client.get('/api/cron/credit-payouts?token=nope').status_code, 403)
+        self.assertEqual(_FakeStripe.Transfer.created, [])
 
 
 class VoucherCurrencyTests(_Sprint2Base):

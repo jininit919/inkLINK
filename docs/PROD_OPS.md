@@ -395,14 +395,71 @@ Kde se to může zaseknout:
 Limity a nabízené částky jsou **per měnu** (`VOUCHER_LIMITS`). Měna se odvozuje
 ze země, nikde se nevybírá.
 
-**Za zálohy placené kreditem dlužíme tatérům** — přes Stripe jim ta část
-nedorazí. Součet je v adminu (řádek u kreditu) a v účetním exportu tatéra ve
-sloupci „Z poukazu — doplatí InkLink". **Převod je zatím ruční**; automatický
-payout přes Stripe zatím není.
+**Za zálohy placené kreditem dlužíme tatérům** — destination charge pošle jen
+to, co prošlo kartou. Rozdíl doplácíme zvlášť přes Stripe Transfer z našeho
+balance, kde peníze za poukazy leží. Dělá to cron `/api/cron/credit-payouts`
+(viz sekce 3.6). Součet nezaplacených dluhů je v adminu u kreditu, tatér ho
+vidí v účetním exportu ve sloupci „Z poukazu — doplatí InkLink".
+
+Platí se **až po dokončení sezení**, schválně: platit dopředu by znamenalo při
+každém zrušení řešit reversal. Takhle se nikdy nic nevrací.
 
 **Kredit napříč měnami je nedořešený**: zůstatek se vede v měně, ve které
 vznikl, ale utratit se dá i u tatéra s jinou měnou. Kurzové riziko neseme my.
 Zatím je to vědomě přijaté — než objem naroste, sledovat součty v adminu.
+
+## 3.55 Chybějící crony jedním servicem
+
+Tři joby v Railway zatím nemají službu: `welcome-emails`, `account-deletions`
+a `credit-payouts`. Nemusí mít každý vlastní — všechny jsou jen curl a stačí
+jim denní běh. Jedna služba je míň věcí, co se dá zapomenout zapnout.
+
+Railway → **+ New** → **Empty Service**, název `inklink-cron-daily`.
+
+**Settings → Cron Schedule:**
+```
+30 3 * * *
+```
+
+**Settings → Custom Start Command** — středníky, ne `&&`: když jeden job
+spadne, zbylé dva musí proběhnout.
+```
+B=https://www.inklink.club/api/cron; H="X-Cron-Token: $RECONCILE_TOKEN"; FAIL=0; for J in welcome-emails account-deletions credit-payouts; do curl -sf -H "$H" "$B/$J" && echo "$J OK" || { echo "$J FAILED"; FAIL=1; }; done; exit $FAIL
+```
+
+**Variables:** nasdílet `RECONCILE_TOKEN` z hlavního projektu.
+
+Po prvním běhu zkontroluj log: `account-deletions` vrací `purged_count`,
+`credit-payouts` vrací `paid` a `failed`. Nenulové `failed` několik dní po
+sobě znamená prázdný Stripe balance, ne chybu v kódu.
+
+## 3.6 Doplatky tatérům za kredit (cron)
+
+Posílá tatérům tu část zálohy, kterou klient zaplatil kreditem z poukazu.
+
+```
+15 4 * * *      # denně v 4:15 UTC
+curl -sf -H "X-Cron-Token: $RECONCILE_TOKEN" https://www.inklink.club/api/cron/credit-payouts
+```
+
+Bere dokončené rezervace s `platform_owes_artist_cents > 0` a `credit_paid_at
+IS NULL`, na každou pošle Stripe Transfer na účet tatéra. `idempotency_key` je
+odvozený od id rezervace, takže dvojí spuštění nepošle peníze dvakrát.
+
+Response:
+```json
+{"ok": true, "paid": [12, 15], "paid_cents": 40000, "skipped": [], "failed": []}
+```
+
+Co hlídat:
+
+| Pole | Znamená |
+|---|---|
+| `failed` | typicky nedostatek prostředků na balance — příští běh to dožene |
+| `skipped` s `no_stripe_account` | tatér nemá napojený Stripe; dluh nezaniká, jen čeká |
+
+Když `failed` neprázdné víc dní po sobě, dojdi se podívat na Stripe balance —
+peníze za poukazy tam musí být dřív, než se z nich vyplácí.
 
 ## 6. Backup strategy
 

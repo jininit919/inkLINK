@@ -1324,6 +1324,8 @@ def init_db():
     # musí být jasné za co.
     add_col('bookings', 'credit_used_cents INTEGER DEFAULT 0')
     add_col('bookings', 'platform_owes_artist_cents INTEGER DEFAULT 0')
+    add_col('bookings', 'credit_payout_id TEXT')          # Stripe Transfer
+    add_col('bookings', 'credit_paid_at TEXT')
     add_col('bookings', 'platform_settled_at TEXT DEFAULT NULL')
     c.execute('CREATE INDEX IF NOT EXISTS idx_bookings_studio ON bookings(studio_id)')
     # CRM (Sprint 3) i historie klienta jezdí po obou těchhle sloupcích.
@@ -2323,7 +2325,7 @@ def register():
         <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
           <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:8px">INKLINK</div>
           <div style="font-size:12px;color:#555;margin-bottom:32px;letter-spacing:0.1em">Tattoo Booking Network</div>
-          <p style="margin-bottom:16px">Ahoj <strong>{display_name}</strong>, použij tento kód pro ověření účtu:</p>
+          <p style="margin-bottom:16px">Použij tento kód pro ověření účtu:</p>
           <div style="font-size:40px;letter-spacing:0.3em;color:#c62828;background:#0e0e0e;padding:20px;text-align:center;border:1px solid #1a1a1a;margin:24px 0">{code}</div>
           <p style="color:#555;font-size:12px">Platnost 15 minut. Pokud ses neregistroval(a), e-mail ignoruj.</p>
         </div>''')
@@ -5317,6 +5319,85 @@ def cron_reconcile():
     })
 
 
+# ── Doplatky tatérům za zálohy placené kreditem ───────────────────────────
+# Kredit z poukazu snižuje, co klient platí kartou — ne to, co dostane tatér.
+# Destination charge proto pošle míň a rozdíl dlužíme my. Posíláme ho zvlášť
+# přes Stripe Transfer z našeho balance, kde peníze za poukazy leží.
+#
+# Až po dokončení sezení, schválně: platit dopředu by znamenalo při každém
+# zrušení řešit reversal. Takhle se nikdy nic nevrací.
+#
+# Trigger: GET /api/cron/credit-payouts?token=<RECONCILE_TOKEN>
+
+@app.route('/api/cron/credit-payouts', methods=['GET', 'POST'])
+@limiter.limit('30 per hour')
+def cron_credit_payouts():
+    token = request.args.get('token', '') or request.headers.get('X-Cron-Token', '')
+    if not RECONCILE_TOKEN or token != RECONCILE_TOKEN:
+        return jsonify({'error': 'forbidden'}), 403
+
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT b.id, b.currency, b.platform_owes_artist_cents AS owed,
+               u.stripe_account_id, u.username
+        FROM bookings b
+        JOIN users u ON u.id = b.artist_id
+        WHERE b.status = 'completed'
+          AND COALESCE(b.platform_owes_artist_cents, 0) > 0
+          AND b.credit_paid_at IS NULL
+        ORDER BY b.id ASC
+        LIMIT 100
+    """).fetchall()
+
+    paid, paid_cents, skipped, failed = [], 0, [], []
+    for r in rows:
+        acct = r['stripe_account_id'] if 'stripe_account_id' in r.keys() else None
+        if not acct:
+            # Tatér ještě nemá napojený Stripe. Dluh nezaniká, jen počká.
+            skipped.append({'booking_id': r['id'], 'artist': r['username'],
+                            'reason': 'no_stripe_account', 'cents': r['owed']})
+            continue
+        if not STRIPE_SECRET_KEY:
+            skipped.append({'booking_id': r['id'], 'artist': r['username'],
+                            'reason': 'no_stripe_key', 'cents': r['owed']})
+            continue
+        try:
+            tr = stripe.Transfer.create(
+                amount=int(r['owed']),
+                currency=_norm_currency(r['currency']).lower(),
+                destination=acct,
+                description=f'InkLink — doplatek za rezervaci #{r["id"]} (poukaz)',
+                metadata={'inklink_booking_id': str(r['id']),
+                          'inklink_kind': 'credit_payout'},
+                # Dvojí spuštění cronu nesmí poslat peníze dvakrát.
+                idempotency_key=f'credit-payout-{r["id"]}',
+            )
+        except Exception as e:
+            # Typicky nedostatek prostředků na balance — příště to projde.
+            app.logger.error(f'[credit-payout] booking {r["id"]} failed: {e}')
+            failed.append({'booking_id': r['id'], 'error': str(e)[:200]})
+            continue
+        conn.execute('UPDATE bookings SET credit_payout_id=?, credit_paid_at=? WHERE id=?',
+                     (getattr(tr, 'id', None), datetime.utcnow().isoformat(), r['id']))
+        conn.commit()
+        paid.append(r['id'])
+        paid_cents += int(r['owed'])
+
+    if paid or failed:
+        try:
+            from pricing import emit_event
+            emit_event('credit_payouts.run', {
+                'paid_count': len(paid), 'paid_cents': paid_cents,
+                'skipped_count': len(skipped), 'failed_count': len(failed),
+            }, conn=conn)
+            conn.commit()
+        except Exception:
+            pass
+    conn.close()
+    return jsonify({'ok': True, 'paid': paid, 'paid_cents': paid_cents,
+                    'skipped': skipped, 'failed': failed})
+
+
 # ── Welcome email sequence cron ───────────────────────────────────────────
 # Hodinový (nebo denní) cron co posílá další stage onboarding emailu pro
 # usery, kteří dosáhli welcome_email_next_at. Tři stages: 1 (immediate on
@@ -5414,6 +5495,7 @@ def admin_referrals_leaderboard():
     owed = conn.execute(
         "SELECT COALESCE(SUM(platform_owes_artist_cents), 0) AS c FROM bookings "
         "WHERE COALESCE(platform_owes_artist_cents,0) > 0 "
+        "AND credit_paid_at IS NULL "
         "AND status NOT IN ('cancelled_client','cancelled_artist')"
     ).fetchone()
     conn.close()
@@ -7601,7 +7683,7 @@ def request_account_deletion():
             send_email(user_email['email'], 'InkLink — žádost o smazání účtu přijata', f'''
             <div style="background:#000;padding:24px 0"><div style="background:#0a0a0a;color:#ccc;font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;border:1px solid #1a1a1a">
               <h1 style="color:#eee;font-size:22px;letter-spacing:0.06em;margin:0 0 12px">Žádost o smazání přijata</h1>
-              <p style="color:#bbb;font-size:14px;line-height:1.7">Ahoj {(user_email['display_name'] or '').strip() or 'tam'},</p>
+              
               <p style="color:#bbb;font-size:14px;line-height:1.7">Tvůj účet bude trvale anonymizován <b style="color:#eee">{ACCOUNT_DELETION_GRACE_DAYS} dní</b> ode dneška. Do té doby si můžeš žádost rozmyslet a zrušit ji v nastavení.</p>
               <p style="color:#bbb;font-size:14px;line-height:1.7"><a href="{base}/artist-setup#account" style="color:#c62828">Otevřít nastavení účtu</a></p>
               <p style="color:#888;font-size:12px;line-height:1.7;margin-top:18px">Po anonymizaci se ztratí: profil, portfolio, profilové údaje. Záznamy o platbách zůstanou v účetnictví po dobu 10 let (zákon o účetnictví) — ale bez vazby na tvou totožnost.</p>
@@ -8365,7 +8447,7 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
         remaining = max(0, (b['balance_due_cents'] or 0) - already_paid)
         if cents > remaining + 1:
             conn.close()
-            return {'error': f'Doplatek přes InkLink ({kc} Kč) přesahuje zbývající částku ({remaining//100} Kč).'}
+            return {'error': f'Doplatek přes InkLink ({kc}) přesahuje zbývající částku ({remaining//100}).'}
 
     artist = conn.execute('SELECT email, display_name, stripe_account_id, stripe_charges_enabled FROM users WHERE id=?',
                           (b['artist_id'],)).fetchone()
@@ -8413,7 +8495,10 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
     conn.commit()
 
     # In-app notifikace klientovi (vždy — viditelná v notif panelu i v /my-bookings)
-    msg = (f'Tatér {artist["display_name"]} ti vystavil doplatek {kc:,} Kč. '
+    sym = CURRENCIES.get(_norm_currency(b['currency'] if 'currency' in b.keys() else None),
+                         CURRENCIES[DEFAULT_CURRENCY])['symbol']
+    amt = f'{kc:,}'.replace(',', ' ')
+    msg = (f'Tatér {artist["display_name"]} ti vystavil doplatek {amt} {sym}. '
            f'Zaplať v sekci „Moje rezervace" nebo přes link.')
     push_notif(conn, b['client_id'], b['artist_id'], 'balance_charge',
                booking_id, 'booking', msg)
@@ -8423,12 +8508,12 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
     if client['email'] and RESEND_API_KEY and not demo_mode:
         in_app_url = f"{_origin()}/my-bookings"
         send_email(client['email'],
-                   f'InkLink — doplatek {kc:,} Kč za tetování u {artist["display_name"]}',
+                   f'InkLink — doplatek {amt} {sym} za tetování u {artist["display_name"]}',
                    f'''<div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px">
                      <div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8">INKLINK</div>
-                     <p style="margin:24px 0">Ahoj {client["display_name"]}, tatér <b>{artist["display_name"]}</b>
+                     <p style="margin:24px 0">Tatér <b>{artist["display_name"]}</b>
                        ti vystavil doplatek za sezení.</p>
-                     <p style="font-size:32px;color:#fff;margin:24px 0"><b>{kc:,} Kč</b></p>
+                     <p style="font-size:32px;color:#fff;margin:24px 0"><b>{amt} {sym}</b></p>
                      <a href="{payment_url}" style="display:inline-block;padding:14px 28px;background:#fff;color:#000;text-decoration:none;letter-spacing:0.1em;text-transform:uppercase">Zaplatit kartou</a>
                      <p style="color:#888;font-size:12px;margin-top:24px">Nebo si link najdeš v aplikaci v sekci
                        <a href="{in_app_url}" style="color:#aaa">Moje rezervace</a>.</p>
