@@ -6526,6 +6526,18 @@ def create_booking():
     else:
         platform_fee_cents = int(round(deposit_cents * PLATFORM_COMMISSION_PCT / 100))
 
+    # Tatér bez napojeného Stripu u nás fungovat nemůže — nemá kam dostat
+    # peníze. UI mu tlačítko Rezervovat schovává (`can_book`), ale API to
+    # dosud pouštělo dál a rezervace se rovnou potvrdila jako v demu:
+    # potvrzené sezení, za které nikdo nikdy nezaplatí.
+    #
+    # Podmínka je na platformě, ne na tatérovi: bez STRIPE_SECRET_KEY jede
+    # celý web v demu (lokál, testy) a tam se rezervovat musí dál.
+    if STRIPE_SECRET_KEY and not artist['stripe_charges_enabled']:
+        conn.close()
+        return jsonify({'error': 'Tenhle tatér zatím nemá dokončené napojení plateb, '
+                                 'takže rezervovat u něj nejde. Napiš mu zprávu.'}), 409
+
     demo_mode  = not STRIPE_SECRET_KEY or not artist['stripe_charges_enabled']
     init_status = 'confirmed' if demo_mode else 'pending_payment'
 

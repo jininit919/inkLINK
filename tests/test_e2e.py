@@ -3784,6 +3784,50 @@ class _FakeStripe:
         self.Transfer = _FakeStripe.Transfer
 
 
+class StripeRequiredTests(_Sprint2Base):
+    """Tatér bez napojeného Stripu nemá kam dostat peníze. UI mu tlačítko
+    schovává, ale API to pouštělo dál a rezervaci rovnou potvrdilo — sezení,
+    za které nikdy nikdo nezaplatí."""
+
+    def _connect(self, on=True):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET stripe_charges_enabled=?, stripe_account_id=? '
+                     'WHERE id=1', (1 if on else 0, 'acct_x' if on else None))
+        conn.commit(); conn.close()
+
+    def _try_book(self, day=9):
+        slot = self._mk_slot(self._day_at(day, 10), self._day_at(day, 18))
+        return self._book(slot, self._day_at(day, 12))
+
+    def test_unconnected_artist_is_refused_when_stripe_is_live(self):
+        import server
+        self._connect(False)
+        real = server.STRIPE_SECRET_KEY
+        server.STRIPE_SECRET_KEY = 'sk_test_fake'
+        try:
+            r = self._try_book()
+        finally:
+            server.STRIPE_SECRET_KEY = real
+        self.assertEqual(r.status_code, 409, r.data[:300])
+
+    def test_connected_artist_goes_through(self):
+        import server
+        self._connect(True)
+        real = server.STRIPE_SECRET_KEY
+        server.STRIPE_SECRET_KEY = 'sk_test_fake'
+        try:
+            r = self._try_book(10)
+        finally:
+            server.STRIPE_SECRET_KEY = real
+        self.assertEqual(r.status_code, 200, r.data[:300])
+
+    def test_platform_without_stripe_still_books(self):
+        """Bez klíče jede celý web v demu — lokál a testy musí fungovat."""
+        self._connect(False)
+        self.assertEqual(self._try_book(11).status_code, 200)
+
+
 class CreditPayoutTests(_Sprint2Base):
     """Za zálohu placenou kreditem tatérovi přes Stripe nedorazí nic —
     destination charge posílá jen to, co prošlo kartou. Rozdíl doplácíme
