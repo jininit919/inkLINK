@@ -2646,10 +2646,27 @@
     }).observe(document.documentElement, { childList: true, subtree: true });
   }
 
+  // Jazyk žil jen tady v prohlížeči, takže server při odesílání mailu neměl
+  // jak zjistit, co ten člověk čte — a maily byly napůl česky, napůl
+  // anglicky. Posíláme ho tedy na účet. Nepřihlášeného to jen odmítne,
+  // což nevadí: než mu přijde první mail, musí se registrovat.
+  let syncedLang = null;
+  function syncToAccount() {
+    if (syncedLang === lang) return;
+    syncedLang = lang;
+    try {
+      fetch('/api/me/lang', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang: lang }),
+      }).catch(() => {});
+    } catch (e) { /* jazyk stránky na tomhle nestojí */ }
+  }
+
   function set(newLang) {
     if (!SUPPORTED.includes(newLang)) return;
     lang = newLang;
     try { localStorage.setItem(STORE_KEY, lang); } catch {}
+    syncToAccount();
     apply();
   }
 
@@ -2665,6 +2682,7 @@
 
   function boot() {
     apply();
+    syncToAccount();
   }
 
   // Apply on DOM ready (or immediately if already loaded)

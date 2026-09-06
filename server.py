@@ -377,189 +377,336 @@ def _fmt_booking_when(start_iso, duration_h=None):
         return start_iso or ''
 
 
-def _booking_email_html(event, ctx):
-    """Render (subject, html) for the given booking event."""
+# ── Jazyk mailů ───────────────────────────────────────────────────────────
+# Angličtina je zdrojový jazyk: neznámý jazyk = angličtina, ne čeština.
+# Klientský i18n.js umí totéž (`SUPPORTED`), tady jen nesmí chybět fallback,
+# protože mail se nedá „přepnout" po odeslání.
+
+EMAIL_LANGS = ('en', 'cs')
+EMAIL_FALLBACK_LANG = 'en'
+
+
+def _norm_lang(lang):
+    l = (lang or '').strip().lower().split('-')[0]
+    return l if l in EMAIL_LANGS else EMAIL_FALLBACK_LANG
+
+
+def _user_lang(conn, user_id):
+    try:
+        r = conn.execute('SELECT lang FROM users WHERE id=?', (user_id,)).fetchone()
+    except Exception:
+        return EMAIL_FALLBACK_LANG
+    return _norm_lang(r['lang'] if r and 'lang' in r.keys() else None)
+
+
+def _et(lang, key, **kw):
+    """Řetězec mailu. Chybějící překlad spadne na angličtinu, ne na klíč —
+    v mailu je lepší cizí jazyk než `verify.subject`."""
+    row = EMAIL_I18N.get(key) or {}
+    txt = row.get(_norm_lang(lang)) or row.get(EMAIL_FALLBACK_LANG) or key
+    return txt.format(**kw) if kw else txt
+
+
+def _email_shell(body_html, cta=None, cta_url=None, note=None):
+    """Jedna obálka pro všechny maily. Dřív si každý nesl vlastní inline HTML
+    a postupem času se rozešly — jiné barvy, jiné okraje, jiný patník."""
+    cta_html = ''
+    if cta and cta_url:
+        from html import escape as _h
+        cta_html = (f'<p style="margin-top:24px"><a href="{_h(cta_url)}" '
+                    'style="display:inline-block;background:#e8e8e8;color:#000;'
+                    'padding:13px 26px;text-decoration:none;letter-spacing:0.1em;'
+                    f'text-transform:uppercase;font-size:12px">{cta}</a></p>')
+    note_html = (f'<p style="color:#777;font-size:12px;line-height:1.7;margin-top:20px">{note}</p>'
+                 if note else '')
     from html import escape as _h
-    name  = _h(ctx.get('recipient_name') or 'there')
+    return (
+        '<div style="background:#000;color:#ccc;font-family:monospace;'
+        'padding:40px;max-width:520px;margin:0 auto">'
+        '<div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8;'
+        'margin-bottom:28px">INKLINK</div>'
+        f'{body_html}{cta_html}{note_html}'
+        '<p style="color:#555;font-size:11px;margin-top:36px;line-height:1.7">'
+        f'<a href="{_h(APP_BASE_URL)}" style="color:#888">{_h(APP_BASE_URL)}</a></p>'
+        '</div>'
+    )
+
+
+EMAIL_I18N = {
+    # ověření účtu
+    'verify.subject':   {'en': 'InkLink — verify your account',
+                         'cs': 'InkLink — ověření účtu'},
+    'verify.again':     {'en': 'InkLink — new verification code',
+                         'cs': 'InkLink — nový ověřovací kód'},
+    'verify.body':      {'en': 'Use this code to verify your account:',
+                         'cs': 'Použij tento kód pro ověření účtu:'},
+    'verify.expires':   {'en': 'The code is valid for 15 minutes.',
+                         'cs': 'Kód platí 15 minut.'},
+    # reset hesla
+    'reset.subject':    {'en': 'InkLink — password reset',
+                         'cs': 'InkLink — obnovení hesla'},
+    'reset.body':       {'en': 'Someone asked to reset the password for this account.',
+                         'cs': 'Někdo požádal o obnovení hesla k tomuto účtu.'},
+    'reset.cta':        {'en': 'Set a new password', 'cs': 'Nastavit nové heslo'},
+    'reset.ignore':     {'en': 'If it was not you, ignore this email — nothing changes.',
+                         'cs': 'Pokud to nebyl ty, nic nedělej — heslo zůstane, jaké je.'},
+    # smazání účtu
+    'delete.subject':   {'en': 'InkLink — account deletion requested',
+                         'cs': 'InkLink — žádost o smazání účtu přijata'},
+    'delete.body':      {'en': 'The account will be permanently anonymised in '
+                               '<b>{days} days</b>. Until then you can cancel the '
+                               'request in your settings.',
+                         'cs': 'Účet bude trvale anonymizován za <b>{days} dní</b>. '
+                               'Do té doby se dá žádost zrušit v nastavení.'},
+    'delete.cta':       {'en': 'Open account settings', 'cs': 'Otevřít nastavení účtu'},
+    'delete.note':      {'en': 'Profile, portfolio and personal details are removed. '
+                               'Payment records stay in the accounts for 10 years as '
+                               'the law requires — with no link to your identity.',
+                         'cs': 'Zmizí profil, portfolio a osobní údaje. Záznamy o '
+                               'platbách zůstanou v účetnictví 10 let, jak žádá zákon '
+                               '— ale bez vazby na tvoji totožnost.'},
+    # doplatek
+    'balance.subject':  {'en': 'InkLink — {amount} balance for your tattoo with {artist}',
+                         'cs': 'InkLink — doplatek {amount} za tetování u {artist}'},
+    'balance.body':     {'en': '<b>{artist}</b> has issued the balance for your session.',
+                         'cs': 'Tatér <b>{artist}</b> ti vystavil doplatek za sezení.'},
+    'balance.cta':      {'en': 'Pay by card', 'cs': 'Zaplatit kartou'},
+    'balance.note':     {'en': 'You can also find the link in the app under Bookings.',
+                         'cs': 'Odkaz najdeš i v aplikaci v sekci Rezervace.'},
+    # poukaz
+    'voucher.subject':  {'en': 'InkLink — gift voucher {code}',
+                         'cs': 'InkLink — dárkový poukaz {code}'},
+    'voucher.paid':     {'en': 'The <strong>{amount}</strong> voucher is paid for.',
+                         'cs': 'Poukaz na <strong>{amount}</strong> je zaplacený.'},
+    'voucher.how':      {'en': 'Send the code on. Whoever gets it enters it on InkLink '
+                               'and the amount lands as credit — to spend with any '
+                               'artist{until}.',
+                         'cs': 'Kód stačí poslat dál. Kdo ho dostane, zadá ho na '
+                               'InkLinku a částka se mu připíše jako kredit — utratí '
+                               'ji u kteréhokoliv tatéra{until}.'},
+    'voucher.until':    {'en': ', until {date}', 'cs': ', a to do {date}'},
+    'voucher.cta':      {'en': 'Open the voucher', 'cs': 'Otevřít poukaz'},
+    # pozvánka do studia
+    'invite.subject':   {'en': 'Invitation to {studio} — InkLink',
+                         'cs': 'Pozvánka do studia {studio} — InkLink'},
+    'invite.body':      {'en': '{inviter} invites you to join the tattoo studio '
+                               '<b>{studio}</b> on InkLink.',
+                         'cs': '{inviter} tě zve do tetovacího studia '
+                               '<b>{studio}</b> na InkLinku.'},
+    'invite.detail':    {'en': 'Accept and you are listed on the studio profile and '
+                               'your portfolio shows on its public page. Your payouts '
+                               'and Stripe account stay yours — nothing is shared.',
+                         'cs': 'Když pozvánku přijmeš, budeš v profilu studia uveden '
+                               'jako člen a tvoje portfolio se objeví na jeho veřejné '
+                               'stránce. Platby a Stripe účet zůstávají tvoje — nic '
+                               'se nesdílí.'},
+    'invite.cta':       {'en': 'Accept invitation', 'cs': 'Přijmout pozvánku'},
+    # ── maily kolem rezervací ──
+    'be.why':           {'en': 'You are getting this because of activity on your '
+                               'InkLink account.',
+                         'cs': 'Tenhle mail chodí kvůli dění na tvém účtu na InkLinku.'},
+    'be.aClient':       {'en': 'a client', 'cs': 'klient'},
+    'be.yourArtist':    {'en': 'your artist', 'cs': 'tvůj tatér'},
+    'be.photos':        {'en': '{n} photo(s) in the thread',
+                         'cs': '{n} fotek ve zprávách'},
+    'be.cta.booking':   {'en': 'View booking', 'cs': 'Otevřít rezervaci'},
+    'be.cta.detail':    {'en': 'View details', 'cs': 'Zobrazit detail'},
+    'be.cta.review':    {'en': 'Leave a review', 'cs': 'Napsat recenzi'},
+    'be.cta.request':   {'en': 'Review the request', 'cs': 'Podívat se na žádost'},
+    'be.cta.reply':     {'en': 'Reply to the client', 'cs': 'Odpovědět klientovi'},
+    'be.cta.offer':     {'en': 'Open the offer', 'cs': 'Otevřít nabídku'},
+    'be.f.client':      {'en': 'Client', 'cs': 'Klient'},
+    'be.f.artist':      {'en': 'Artist', 'cs': 'Tatér'},
+    'be.f.when':        {'en': 'When', 'cs': 'Kdy'},
+    'be.f.notes':       {'en': 'Notes', 'cs': 'Poznámka'},
+    'be.f.note':        {'en': 'Note', 'cs': 'Poznámka'},
+    'be.f.currently':   {'en': 'Currently', 'cs': 'Teď'},
+    'be.f.asksFor':     {'en': 'Asks for', 'cs': 'Chce přesunout na'},
+    'be.f.from':        {'en': 'From', 'cs': 'Od'},
+    'be.f.motif':       {'en': 'Motif', 'cs': 'Motiv'},
+    'be.f.placement':   {'en': 'Placement', 'cs': 'Umístění'},
+    'be.f.size':        {'en': 'Size', 'cs': 'Velikost'},
+    'be.f.budget':      {'en': 'Budget', 'cs': 'Rozpočet'},
+    'be.f.timing':      {'en': 'Timing', 'cs': 'Termín'},
+    'be.f.refs':        {'en': 'References', 'cs': 'Reference'},
+    'be.f.duration':    {'en': 'Duration', 'cs': 'Délka'},
+    'be.f.price':       {'en': 'Price', 'cs': 'Cena'},
+    'be.f.validUntil':  {'en': 'Valid until', 'cs': 'Platí do'},
+    'be.new.subject':   {'en': 'InkLink — New booking from {other}',
+                         'cs': 'InkLink — nová rezervace od {other}'},
+    'be.new.body':      {'en': 'You have a new booking request:',
+                         'cs': 'Máš novou žádost o rezervaci:'},
+    'be.conf.subject':  {'en': 'InkLink — Booking confirmed with {other}',
+                         'cs': 'InkLink — rezervace u {other} potvrzena'},
+    'be.conf.body':     {'en': '<strong>{other}</strong> confirmed your booking:',
+                         'cs': '<strong>{other}</strong> potvrdil tvoji rezervaci:'},
+    'be.cancel.subject': {'en': 'InkLink — Booking cancelled',
+                          'cs': 'InkLink — rezervace zrušena'},
+    'be.cancel.body':   {'en': '{actor} cancelled the booking scheduled for '
+                               '<strong style="color:#fff">{when}</strong>.',
+                         'cs': 'Rezervace na <strong style="color:#fff">{when}</strong> '
+                               'byla zrušena ({actor}).'},
+    'be.cancel.refund': {'en': 'Deposit refund: <strong style="color:#fff">{pct} %</strong>.',
+                         'cs': 'Ze zálohy se vrací <strong style="color:#fff">{pct} %</strong>.'},
+    'be.review.subject': {'en': 'InkLink — How was your session with {other}?',
+                          'cs': 'InkLink — jaké to bylo u {other}?'},
+    'be.review.body':   {'en': 'Your session with <strong>{other}</strong> on {when} '
+                               'is marked complete.',
+                         'cs': 'Sezení u <strong>{other}</strong> ({when}) je označené '
+                               'jako dokončené.'},
+    'be.review.ask':    {'en': 'Could you take a minute to leave a review? It helps '
+                               'other clients find great tattooers.',
+                         'cs': 'Napíšeš pár vět? Ostatním to pomůže najít dobrého tatéra.'},
+    'be.remindC.subject': {'en': "InkLink — Tomorrow you've got a tattoo session",
+                           'cs': 'InkLink — zítra máš tetování'},
+    'be.remindC.body':  {'en': "Quick reminder — tomorrow you've got a session with "
+                               '<strong>{other}</strong>:',
+                         'cs': 'Připomínka — zítra máš sezení u <strong>{other}</strong>:'},
+    'be.remind.where':  {'en': 'Where: <strong style="color:#fff">{where}</strong>',
+                         'cs': 'Kde: <strong style="color:#fff">{where}</strong>'},
+    'be.remindA.subject': {'en': 'InkLink — Tomorrow {other} is coming in',
+                           'cs': 'InkLink — zítra ti přijde {other}'},
+    'be.remindA.body':  {'en': 'Quick reminder — <strong>{other}</strong> is booked '
+                               'in tomorrow:',
+                         'cs': 'Připomínka — zítra máš v kalendáři '
+                               '<strong>{other}</strong>:'},
+    'be.resched.subject': {'en': 'InkLink — {other} asks to move a booking',
+                           'cs': 'InkLink — {other} chce přesunout termín'},
+    'be.resched.body':  {'en': '<strong>{other}</strong> asked to move a booking. '
+                               'Nothing changes until you approve it.',
+                         'cs': '<strong>{other}</strong> žádá o přesun termínu. Dokud '
+                               'to nepotvrdíš, nic se nemění.'},
+    'be.design.subject': {'en': 'InkLink — {other} wants a custom design',
+                          'cs': 'InkLink — {other} chce vlastní návrh'},
+    'be.design.body':   {'en': '<strong>{other}</strong> asked you for a custom design. '
+                               'The full request is waiting in your messages.',
+                         'cs': '<strong>{other}</strong> tě žádá o vlastní návrh. Celá '
+                               'poptávka čeká ve zprávách.'},
+    'be.offer.subject': {'en': 'InkLink — {other} offers you a date',
+                         'cs': 'InkLink — {other} ti nabízí termín'},
+    'be.offer.body':    {'en': '<strong>{other}</strong> offered you a specific date '
+                               'for the work you agreed on. It is yours once you pay '
+                               'the deposit — until then the time stays open to everyone.',
+                         'cs': '<strong>{other}</strong> ti nabízí konkrétní termín na '
+                               'to, na čem jste se domluvili. Zabereš ho zaplacením '
+                               'zálohy — do té doby zůstává volný pro ostatní.'},
+    'invite.expires':   {'en': 'The link expires in {days} days. Not expecting this? '
+                               'Just ignore it.',
+                         'cs': 'Odkaz vyprší za {days} dní. Pokud pozvánku nečekáš, '
+                               'stačí ji ignorovat.'},
+}
+
+
+def _booking_email_html(event, ctx, lang=EMAIL_FALLBACK_LANG):
+    """Render (subject, html) for the given booking event.
+
+    Bez oslovení jménem: v češtině se jméno v oslovení skloňuje ("Ahoj
+    Terezo") a automaticky to nejde. Anglické "Hi Name," navíc nic nepřidá.
+    """
+    from html import escape as _h
     other = _h(ctx.get('other_name') or '')
     when  = _h(ctx.get('when') or '')
     note  = _h(ctx.get('design_note') or '')
     url   = _h(ctx.get('booking_url') or APP_BASE_URL + '/my-bookings')
+    t = lambda k, **kw: _et(lang, k, **kw)
 
-    header = (
-        '<div style="background:#000;color:#ccc;font-family:monospace;'
-        'padding:40px;max-width:520px;margin:0 auto">'
-        '<div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8;margin-bottom:6px">INKLINK</div>'
-        '<div style="font-size:10px;color:#777;letter-spacing:0.15em;margin-bottom:28px">'
-        'TATTOO BOOKING NETWORK</div>'
-    )
-    footer = (
-        f'<p style="color:#555;font-size:11px;margin-top:36px;line-height:1.7">'
-        f'You\'re getting this email because of activity on your InkLink account. '
-        f'<br><a href="{_h(APP_BASE_URL)}" style="color:#888">{_h(APP_BASE_URL)}</a></p>'
-        f'</div>'
-    )
+    def table(rows):
+        return ('<table style="margin:14px 0;font-size:13px;line-height:1.9">'
+                + ''.join('<tr><td style="color:#888;padding-right:14px;'
+                          f'vertical-align:top">{k}:</td><td>{v}</td></tr>'
+                          for k, v in rows if v)
+                + '</table>')
 
-    def cta(label):
-        return (f'<p style="margin-top:22px"><a href="{url}" '
-                f'style="display:inline-block;background:#e8e8e8;color:#000;'
-                f'padding:13px 26px;text-decoration:none;letter-spacing:0.1em;'
-                f'text-transform:uppercase;font-size:12px">{label}</a></p>')
+    def wrap(subject, body, cta_key=None, cta_url=None):
+        return subject, _email_shell(body, cta=t(cta_key) if cta_key else None,
+                                     cta_url=cta_url or url,
+                                     note=t('be.why'))
 
     if event == 'new_booking_for_artist':
-        subject = f'InkLink — New booking from {ctx.get("other_name") or "a client"}'
-        rows = [
-            ('Client', other),
-            ('When', when),
-        ]
-        if note:
-            rows.append(('Notes', note))
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p>You have a new booking request:</p>'
-            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
-            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
-                      f'<td>{v}</td></tr>' for k, v in rows)
-            + '</table>'
-            + cta('View booking')
-        )
-        return subject, header + body + footer
+        return wrap(
+            t('be.new.subject', other=ctx.get('other_name') or t('be.aClient')),
+            f'<p>{t("be.new.body")}</p>'
+            + table([(t('be.f.client'), other), (t('be.f.when'), when),
+                     (t('be.f.notes'), note)]),
+            'be.cta.booking')
 
     if event == 'booking_confirmed_for_client':
-        subject = f'InkLink — Booking confirmed with {ctx.get("other_name") or "your tattooer"}'
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p><strong>{other}</strong> confirmed your booking:</p>'
-            f'<p style="font-size:18px;color:#fff;margin:18px 0">{when}</p>'
-            + cta('View booking')
-        )
-        return subject, header + body + footer
+        return wrap(
+            t('be.conf.subject', other=ctx.get('other_name') or t('be.yourArtist')),
+            f'<p>{t("be.conf.body", other=other)}</p>'
+            f'<p style="font-size:18px;color:#fff;margin:18px 0">{when}</p>',
+            'be.cta.booking')
 
     if event == 'booking_cancelled':
-        actor_role = _h(ctx.get('actor_role') or 'The other party')
         refund_pct = ctx.get('refund_pct')
         refund_line = ''
         if refund_pct is not None:
-            refund_line = (f'<p style="color:#aaa;font-size:13px">'
-                           f'Deposit refund: <strong style="color:#fff">{int(refund_pct)} %</strong>.</p>')
-        subject = 'InkLink — Booking cancelled'
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p>{actor_role} cancelled the booking scheduled for '
-            f'<strong style="color:#fff">{when}</strong>.</p>'
-            + refund_line
-            + cta('View details')
-        )
-        return subject, header + body + footer
+            refund_line = ('<p style="color:#aaa;font-size:13px">'
+                           + t('be.cancel.refund', pct=int(refund_pct)) + '</p>')
+        actor = _h(ctx.get('actor_role') or '')
+        return wrap(
+            t('be.cancel.subject'),
+            f'<p>{t("be.cancel.body", actor=actor, when=when)}</p>' + refund_line,
+            'be.cta.detail')
 
     if event == 'review_request_for_client':
-        subject = f'InkLink — How was your session with {ctx.get("other_name") or "your tattooer"}?'
-        review_url = _h(ctx.get('review_url') or url)
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p>Your session with <strong>{other}</strong> on {when} is marked complete.</p>'
-            f'<p>Could you take a minute to leave a review? It helps other clients '
-            f'find great tattooers.</p>'
-            f'<p style="margin-top:22px"><a href="{review_url}" '
-            f'style="display:inline-block;background:#e8e8e8;color:#000;'
-            f'padding:13px 26px;text-decoration:none;letter-spacing:0.1em;'
-            f'text-transform:uppercase;font-size:12px">Leave a review</a></p>'
-        )
-        return subject, header + body + footer
+        return wrap(
+            t('be.review.subject', other=ctx.get('other_name') or t('be.yourArtist')),
+            f'<p>{t("be.review.body", other=other, when=when)}</p>'
+            f'<p>{t("be.review.ask")}</p>',
+            'be.cta.review', _h(ctx.get('review_url') or url))
 
     if event == 'reminder_for_client':
-        subject = f'InkLink — Tomorrow you\'ve got a tattoo session'
-        studio = _h(ctx.get('studio') or '')
-        city = _h(ctx.get('city') or '')
-        location_parts = [x for x in (studio, city) if x]
-        location_line = ''
-        if location_parts:
-            location_line = (f'<p style="color:#aaa;font-size:13px;margin-top:8px">'
-                             f'Where: <strong style="color:#fff">{", ".join(location_parts)}</strong></p>')
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p>Quick reminder — tomorrow you\'ve got a tattoo session with '
-            f'<strong>{other}</strong>:</p>'
-            f'<p style="font-size:20px;color:#fff;margin:18px 0">{when}</p>'
-            + location_line
-            + cta('View booking')
-        )
-        return subject, header + body + footer
+        where = ', '.join(x for x in (_h(ctx.get('studio') or ''),
+                                      _h(ctx.get('city') or '')) if x)
+        where_line = ('<p style="color:#aaa;font-size:13px;margin-top:8px">'
+                      + t('be.remind.where', where=where) + '</p>') if where else ''
+        return wrap(
+            t('be.remindC.subject'),
+            f'<p>{t("be.remindC.body", other=other)}</p>'
+            f'<p style="font-size:20px;color:#fff;margin:18px 0">{when}</p>' + where_line,
+            'be.cta.booking')
 
     if event == 'reschedule_requested_for_artist':
-        subject = f'InkLink — {ctx.get("other_name") or "A client"} asks to move a booking'
-        rows = [
-            ('Client',   other),
-            ('Currently', _h(ctx.get('current_when') or '')),
-            ('Asks for', when),
-        ]
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p><strong>{other}</strong> asked to move a booking. '
-            f'Nothing changes until you approve it.</p>'
-            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
-            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
-                      f'<td>{v}</td></tr>' for k, v in rows)
-            + '</table>'
-            + cta('Review the request')
-        )
-        return subject, header + body + footer
+        return wrap(
+            t('be.resched.subject', other=ctx.get('other_name') or t('be.aClient')),
+            f'<p>{t("be.resched.body", other=other)}</p>'
+            + table([(t('be.f.client'), other),
+                     (t('be.f.currently'), _h(ctx.get('current_when') or '')),
+                     (t('be.f.asksFor'), when)]),
+            'be.cta.request')
 
     if event == 'design_request_for_artist':
-        subject = f'InkLink — {ctx.get("other_name") or "A client"} wants a custom design'
-        rows = [
-            ('From',      other),
-            ('Motif',     _h(ctx.get('motif') or '')),
-            ('Placement', _h(ctx.get('placement') or '')),
-            ('Size',      _h(ctx.get('size') or '')),
-            ('Budget',    _h(ctx.get('budget') or '')),
-            ('Timing',    _h(ctx.get('timing') or '')),
-            ('References', f'{ctx["photos"]} photo(s) in the thread' if ctx.get('photos') else ''),
-        ]
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p><strong>{other}</strong> asked you for a custom design. '
-            f'The full request is waiting in your messages.</p>'
-            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
-            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
-                      f'<td>{v}</td></tr>' for k, v in rows if v)
-            + '</table>'
-            + cta('Reply to the client')
-        )
-        return subject, header + body + footer
+        return wrap(
+            t('be.design.subject', other=ctx.get('other_name') or t('be.aClient')),
+            f'<p>{t("be.design.body", other=other)}</p>'
+            + table([(t('be.f.from'), other),
+                     (t('be.f.motif'), _h(ctx.get('motif') or '')),
+                     (t('be.f.placement'), _h(ctx.get('placement') or '')),
+                     (t('be.f.size'), _h(ctx.get('size') or '')),
+                     (t('be.f.budget'), _h(ctx.get('budget') or '')),
+                     (t('be.f.timing'), _h(ctx.get('timing') or '')),
+                     (t('be.f.refs'), t('be.photos', n=ctx['photos'])
+                      if ctx.get('photos') else '')]),
+            'be.cta.reply')
 
     if event == 'booking_offer_for_client':
-        subject = f'InkLink — {ctx.get("other_name") or "Your artist"} offers you a date'
-        rows = [
-            ('Artist',   other),
-            ('When',     when),
-            ('Duration', _h(ctx.get('duration') or '')),
-            ('Price',    _h(ctx.get('price') or '')),
-            ('Valid until', _h(ctx.get('valid_until') or '')),
-            ('Note',     note),
-        ]
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p><strong>{other}</strong> offered you a specific date for the work '
-            f'you agreed on. It is yours once you pay the deposit — until then the '
-            f'time stays open to everyone.</p>'
-            + '<table style="margin:14px 0;font-size:13px;line-height:1.9">'
-            + ''.join(f'<tr><td style="color:#888;padding-right:14px;vertical-align:top">{k}:</td>'
-                      f'<td>{v}</td></tr>' for k, v in rows if v)
-            + '</table>'
-            + cta('Open the offer')
-        )
-        return subject, header + body + footer
+        return wrap(
+            t('be.offer.subject', other=ctx.get('other_name') or t('be.yourArtist')),
+            f'<p>{t("be.offer.body", other=other)}</p>'
+            + table([(t('be.f.artist'), other), (t('be.f.when'), when),
+                     (t('be.f.duration'), _h(ctx.get('duration') or '')),
+                     (t('be.f.price'), _h(ctx.get('price') or '')),
+                     (t('be.f.validUntil'), _h(ctx.get('valid_until') or '')),
+                     (t('be.f.note'), note)]),
+            'be.cta.offer')
 
     if event == 'reminder_for_artist':
-        subject = f'InkLink — Tomorrow {ctx.get("other_name") or "a client"} is coming in'
-        body = (
-            f'<p>Hi <strong>{name}</strong>,</p>'
-            f'<p>Quick reminder — <strong>{other}</strong> is booked in tomorrow:</p>'
-            f'<p style="font-size:20px;color:#fff;margin:18px 0">{when}</p>'
-            + cta('View booking')
-        )
-        return subject, header + body + footer
+        return wrap(
+            t('be.remindA.subject', other=ctx.get('other_name') or t('be.aClient')),
+            f'<p>{t("be.remindA.body", other=other)}</p>'
+            f'<p style="font-size:20px;color:#fff;margin:18px 0">{when}</p>',
+            'be.cta.booking')
 
     return None, None
 
@@ -693,14 +840,14 @@ def send_booking_email(conn, user_id, event, ctx):
     if not RESEND_API_KEY:
         return False
     try:
-        u = conn.execute('SELECT email, display_name FROM users WHERE id=?',
+        u = conn.execute('SELECT email, display_name, lang FROM users WHERE id=?',
                          (user_id,)).fetchone()
         if not u or not u['email']:
             return False
         c = dict(ctx)
-        c.setdefault('recipient_name', u['display_name'] or 'there')
         c.setdefault('booking_url', APP_BASE_URL + '/my-bookings')
-        subject, html = _booking_email_html(event, c)
+        subject, html = _booking_email_html(
+            event, c, _norm_lang(u['lang'] if 'lang' in u.keys() else None))
         if not subject or not html:
             return False
         return send_email(u['email'], subject, html)
@@ -1443,6 +1590,10 @@ def init_db():
     # bookings as if it were a discount. Refilled when referrer's referred
     # client completes their first booking.
     add_col('users', 'account_credit_cents INTEGER DEFAULT 0')
+    # Jazyk uživatele. Do teď žil jen v localStorage prohlížeče, takže server
+    # při odesílání mailu neměl jak zjistit, co ten člověk čte — a maily byly
+    # napůl česky, napůl anglicky podle toho, kdo je zrovna psal.
+    add_col('users', 'lang TEXT')
     # Kniha pohybů kreditu. Zůstatek na uživateli je jen rychlé čtení —
     # doložit, odkud cizí peníze přišly a kam šly, umí jen tohle.
     c.execute('''CREATE TABLE IF NOT EXISTS credit_ledger (
@@ -2212,6 +2363,9 @@ def register():
     email        = data.get('email', '').strip().lower()
     phone        = data.get('phone', '').strip()
     ref_username = (data.get('ref') or '').strip().lower()
+    # Jazyk z prohlížeče. Server ho jinak nemá odkud vzít a první mail —
+    # ověřovací kód — odchází ještě před prvním přihlášením.
+    lang         = _norm_lang(data.get('lang'))
 
     if not username or not display_name or not password or not email:
         return jsonify({'error': 'Vyplň uživatelské jméno, jméno, e-mail a heslo'}), 400
@@ -2246,10 +2400,10 @@ def register():
         return jsonify({'error': 'Tento e-mail je již zaregistrován'}), 400
     try:
         conn.execute(
-            'INSERT INTO users (username, display_name, city, password_hash, email, phone, verified, verify_code, verify_expires) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO users (username, display_name, city, password_hash, email, phone, verified, verify_code, verify_expires, lang) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (username, display_name, city,
              generate_password_hash(password, method='pbkdf2:sha256'),
-             email, phone, verified_flag, code, expires)
+             email, phone, verified_flag, code, expires, lang)
         )
         conn.commit()
         user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
@@ -2321,14 +2475,14 @@ def register():
 
     email_sent = True
     if require_verify:
-        email_sent = send_email(email, 'InkLink — ověření účtu', f'''
-        <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
-          <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:8px">INKLINK</div>
-          <div style="font-size:12px;color:#555;margin-bottom:32px;letter-spacing:0.1em">Tattoo Booking Network</div>
-          <p style="margin-bottom:16px">Použij tento kód pro ověření účtu:</p>
-          <div style="font-size:40px;letter-spacing:0.3em;color:#c62828;background:#0e0e0e;padding:20px;text-align:center;border:1px solid #1a1a1a;margin:24px 0">{code}</div>
-          <p style="color:#555;font-size:12px">Platnost 15 minut. Pokud ses neregistroval(a), e-mail ignoruj.</p>
-        </div>''')
+        email_sent = send_email(
+            email, _et(lang, 'verify.subject'),
+            _email_shell(
+                f'<p style="margin-bottom:16px">{_et(lang, "verify.body")}</p>'
+                '<div style="font-size:40px;letter-spacing:0.3em;color:#e8e8e8;'
+                'background:#0e0e0e;padding:20px;text-align:center;'
+                f'border:1px solid #1a1a1a;margin:24px 0">{code}</div>',
+                note=_et(lang, 'verify.expires')))
 
     return jsonify({'ok': True, 'verify': require_verify, 'email_sent': email_sent})
 
@@ -2369,13 +2523,15 @@ def resend_verify():
     expires = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
     conn.execute('UPDATE users SET verify_code = ?, verify_expires = ? WHERE id = ?', (code, expires, user['id']))
     conn.commit(); conn.close()
-    sent = send_email(user['email'], 'InkLink — nový ověřovací kód', f'''
-    <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
-      <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:32px">INKLINK</div>
-      <p style="margin-bottom:16px">Nový ověřovací kód:</p>
-      <div style="font-size:40px;letter-spacing:0.3em;color:#c62828;background:#0e0e0e;padding:20px;text-align:center;border:1px solid #1a1a1a;margin:24px 0">{code}</div>
-      <p style="color:#555;font-size:12px">Platnost 15 minut.</p>
-    </div>''')
+    lang = _norm_lang(user['lang'] if 'lang' in user.keys() else None)
+    sent = send_email(
+        user['email'], _et(lang, 'verify.again'),
+        _email_shell(
+            f'<p style="margin-bottom:16px">{_et(lang, "verify.body")}</p>'
+            '<div style="font-size:40px;letter-spacing:0.3em;color:#e8e8e8;'
+            'background:#0e0e0e;padding:20px;text-align:center;'
+            f'border:1px solid #1a1a1a;margin:24px 0">{code}</div>',
+            note=_et(lang, 'verify.expires')))
     if not sent:
         return jsonify({'ok': False, 'error': 'E-mail se teď nepodařilo odeslat. Zkus to za chvíli.'}), 500
     return jsonify({'ok': True})
@@ -2389,7 +2545,7 @@ def forgot_password():
     if not email:
         return jsonify({'error': 'Please enter your email address'}), 400
     conn = get_db()
-    user = conn.execute('SELECT id, display_name FROM users WHERE email = ?', (email,)).fetchone()
+    user = conn.execute('SELECT id, display_name, lang FROM users WHERE email = ?', (email,)).fetchone()
     if not user:
         conn.close()
         # Don't reveal whether email exists
@@ -2403,14 +2559,11 @@ def forgot_password():
     conn.commit()
     conn.close()
     reset_url = request.host_url.rstrip('/') + f'/reset-password?token={token}'
-    send_email(email, 'InkLink — password reset', f'''
-    <div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px;margin:0 auto">
-      <div style="font-size:28px;letter-spacing:0.2em;color:#b20000;margin-bottom:8px">INKLINK</div>
-      <div style="font-size:12px;color:#555;margin-bottom:32px;letter-spacing:0.1em">Tattoo Booking Network</div>
-      <p style="margin-bottom:24px">Hi <strong>{user['display_name']}</strong>, we received a password reset request for your account.</p>
-      <a href="{reset_url}" style="display:block;background:#b20000;color:#fff;text-align:center;padding:16px;font-family:sans-serif;font-size:14px;letter-spacing:0.1em;text-decoration:none;margin-bottom:24px">RESET YOUR PASSWORD</a>
-      <p style="color:#555;font-size:12px">Link valid for 1 hour. If you didn't request this, ignore this email.</p>
-    </div>''')
+    lang = _norm_lang(user['lang'] if 'lang' in user.keys() else None)
+    send_email(email, _et(lang, 'reset.subject'),
+               _email_shell(f'<p>{_et(lang, "reset.body")}</p>',
+                            cta=_et(lang, 'reset.cta'), cta_url=reset_url,
+                            note=_et(lang, 'reset.ignore')))
     return jsonify({'ok': True})
 
 
@@ -7460,6 +7613,19 @@ def mark_no_show(bid):
     return jsonify({'ok': True, 'status': 'no_show'})
 
 
+@app.route('/api/me/lang', methods=['POST'])
+def set_my_lang():
+    """Jazyk z prohlížeče na účet. Volá i18n.js, když se jazyk vyhodnotí nebo
+    přepne — server jinak nemá jak zjistit, v čem má psát maily."""
+    err = require_login()
+    if err: return err
+    lang = _norm_lang((request.get_json(silent=True) or {}).get('lang'))
+    conn = get_db()
+    conn.execute('UPDATE users SET lang=? WHERE id=?', (lang, session['user_id']))
+    conn.commit(); conn.close()
+    return jsonify({'ok': True, 'lang': lang})
+
+
 @app.route('/api/me/export', methods=['GET'])
 @limiter.limit('5 per hour')
 def my_export():
@@ -7689,18 +7855,18 @@ def request_account_deletion():
 
     # Email confirmation if Resend configured
     try:
-        user_email = conn.execute('SELECT email, display_name FROM users WHERE id=?', (uid,)).fetchone()
+        user_email = conn.execute('SELECT email, display_name, lang FROM users WHERE id=?',
+                                  (uid,)).fetchone()
         if user_email and user_email['email'] and RESEND_API_KEY:
             base = APP_BASE_URL or 'https://www.inklink.club'
-            send_email(user_email['email'], 'InkLink — žádost o smazání účtu přijata', f'''
-            <div style="background:#000;padding:24px 0"><div style="background:#0a0a0a;color:#ccc;font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;border:1px solid #1a1a1a">
-              <h1 style="color:#eee;font-size:22px;letter-spacing:0.06em;margin:0 0 12px">Žádost o smazání přijata</h1>
-              
-              <p style="color:#bbb;font-size:14px;line-height:1.7">Tvůj účet bude trvale anonymizován <b style="color:#eee">{ACCOUNT_DELETION_GRACE_DAYS} dní</b> ode dneška. Do té doby si můžeš žádost rozmyslet a zrušit ji v nastavení.</p>
-              <p style="color:#bbb;font-size:14px;line-height:1.7"><a href="{base}/artist-setup#account" style="color:#c62828">Otevřít nastavení účtu</a></p>
-              <p style="color:#888;font-size:12px;line-height:1.7;margin-top:18px">Po anonymizaci se ztratí: profil, portfolio, profilové údaje. Záznamy o platbách zůstanou v účetnictví po dobu 10 let (zákon o účetnictví) — ale bez vazby na tvou totožnost.</p>
-            </div></div>
-            ''')
+            lang = _norm_lang(user_email['lang'] if 'lang' in user_email.keys() else None)
+            send_email(user_email['email'], _et(lang, 'delete.subject'),
+                       _email_shell(
+                           f'<p style="line-height:1.7">'
+                           f'{_et(lang, "delete.body", days=ACCOUNT_DELETION_GRACE_DAYS)}</p>',
+                           cta=_et(lang, 'delete.cta'),
+                           cta_url=f'{base}/artist-setup#account',
+                           note=_et(lang, 'delete.note')))
     except Exception:
         pass
 
@@ -8518,19 +8684,17 @@ def _create_balance_charge(booking_id: int, kc: int, requesting_user_id: int) ->
 
     # Mail klientovi (jen když Resend nakonfigurovaný a live mód — ať nezasypeme demo)
     if client['email'] and RESEND_API_KEY and not demo_mode:
-        in_app_url = f"{_origin()}/my-bookings"
+        clang = _user_lang(conn, b['client_id'])
         send_email(client['email'],
-                   f'InkLink — doplatek {amt} {sym} za tetování u {artist["display_name"]}',
-                   f'''<div style="background:#000;color:#ccc;font-family:monospace;padding:40px;max-width:480px">
-                     <div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8">INKLINK</div>
-                     <p style="margin:24px 0">Tatér <b>{artist["display_name"]}</b>
-                       ti vystavil doplatek za sezení.</p>
-                     <p style="font-size:32px;color:#fff;margin:24px 0"><b>{amt} {sym}</b></p>
-                     <a href="{payment_url}" style="display:inline-block;padding:14px 28px;background:#fff;color:#000;text-decoration:none;letter-spacing:0.1em;text-transform:uppercase">Zaplatit kartou</a>
-                     <p style="color:#888;font-size:12px;margin-top:24px">Nebo si link najdeš v aplikaci v sekci
-                       <a href="{in_app_url}" style="color:#aaa">Moje rezervace</a>.</p>
-                     <p style="color:#666;font-size:12px;margin-top:16px">Link je platný 7 dní.</p>
-                   </div>''')
+                   _et(clang, 'balance.subject', amount=f'{amt} {sym}',
+                       artist=artist['display_name']),
+                   _email_shell(
+                       f'<p style="margin:24px 0">'
+                       f'{_et(clang, "balance.body", artist=artist["display_name"])}</p>'
+                       f'<p style="font-size:32px;color:#fff;margin:24px 0">'
+                       f'<b>{amt} {sym}</b></p>',
+                       cta=_et(clang, 'balance.cta'), cta_url=payment_url,
+                       note=_et(clang, 'balance.note')))
 
     conn.close()
     return {
@@ -10978,7 +11142,7 @@ def _send_voucher_email(conn, voucher_id):
     v = conn.execute('SELECT * FROM vouchers WHERE id=?', (voucher_id,)).fetchone()
     if not v or v['status'] != 'active':
         return False
-    u = conn.execute('SELECT email, display_name FROM users WHERE id=?',
+    u = conn.execute('SELECT email, display_name, lang FROM users WHERE id=?',
                      (v['buyer_id'],)).fetchone()
     if not u or not u['email']:
         return False
@@ -10990,27 +11154,15 @@ def _send_voucher_email(conn, voucher_id):
         exp = _naive_dt(v['expires_at']).strftime('%-d. %-m. %Y')
     except (ValueError, TypeError):
         exp = ''
-    html = (
-        '<div style="background:#000;color:#ccc;font-family:monospace;'
-        'padding:40px;max-width:520px;margin:0 auto">'
-        '<div style="font-size:28px;letter-spacing:0.2em;color:#e8e8e8;margin-bottom:28px">'
-        'INKLINK</div>'
-        f'<p>Poukaz na <strong>{_h(amount)} {_h(symbol)}</strong> je zaplacený.</p>'
+    lang = _norm_lang(u['lang'] if 'lang' in u.keys() else None)
+    until = _et(lang, 'voucher.until', date=_h(exp)) if exp else ''
+    html = _email_shell(
+        f'<p>{_et(lang, "voucher.paid", amount=f"{_h(amount)} {_h(symbol)}")}</p>'
         f'<p style="font-size:22px;letter-spacing:0.18em;color:#e8e8e8;margin:22px 0">'
         f'{_h(v["code"])}</p>'
-        '<p style="line-height:1.7">Kód stačí poslat dál. Kdo ho dostane, zadá ho '
-        'na InkLinku a částka se mu připíše jako kredit — utratí ji u kteréhokoliv '
-        f'tatéra{f", a to do {_h(exp)}" if exp else ""}.</p>'
-        f'<p style="margin-top:22px"><a href="{_h(link)}" '
-        'style="display:inline-block;background:#e8e8e8;color:#000;padding:13px 26px;'
-        'text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;'
-        'font-size:12px">Otevřít poukaz</a></p>'
-        '<p style="color:#555;font-size:11px;margin-top:36px;line-height:1.7">'
-        'Tenhle mail chodí po koupi poukazu na InkLinku.<br>'
-        f'<a href="{_h(APP_BASE_URL)}" style="color:#888">{_h(APP_BASE_URL)}</a></p>'
-        '</div>'
-    )
-    return send_email(u['email'], f'InkLink — dárkový poukaz {v["code"]}', html)
+        f'<p style="line-height:1.7">{_et(lang, "voucher.how", until=until)}</p>',
+        cta=_et(lang, 'voucher.cta'), cta_url=link)
+    return send_email(u['email'], _et(lang, 'voucher.subject', code=v['code']), html)
 
 
 @app.route('/api/vouchers/options')
@@ -13540,34 +13692,18 @@ def invite_to_studio(slug):
     inviter_name = html_escape((inviter['display_name'] if inviter else '') or (inviter['username'] if inviter else ''))
     studio_name = html_escape(s['name'])
 
-    html_body = f'''
-    <div style="background:#0a0a0a;padding:48px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e8e8e8;">
-      <div style="max-width:480px;margin:0 auto;background:#111;border:1px solid #222;border-radius:14px;padding:36px;">
-        <div style="font-size:11px;letter-spacing:0.2em;color:#888;margin-bottom:24px;">INKLINK</div>
-        <h1 style="font-size:24px;font-weight:600;line-height:1.3;margin:0 0 16px;color:#fff;">
-          Pozvánka do studia {studio_name}
-        </h1>
-        <p style="font-size:15px;line-height:1.6;color:#bbb;margin:0 0 28px;">
-          {inviter_name} tě zve, ať se přidáš do tetovacího studia
-          <strong style="color:#fff;">{studio_name}</strong> na InkLinku.
-        </p>
-        <p style="font-size:14px;line-height:1.6;color:#999;margin:0 0 28px;">
-          Pokud pozvánku přijmeš, budeš v profilu studia uveden jako člen
-          a tvé portfolio se zobrazí na jeho veřejné stránce. Tvé platby
-          a Stripe účet zůstávají tvé — nic se nesdílí.
-        </p>
-        <a href="{invite_url}" style="display:inline-block;background:#fff;color:#000;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:14px;letter-spacing:0.04em;">
-          Přijmout pozvánku
-        </a>
-        <p style="font-size:12px;color:#666;margin:28px 0 0;line-height:1.5;">
-          Odkaz vyprší za {STUDIO_INVITE_TTL_DAYS} dní. Pokud jsi tuhle pozvánku
-          nečekal(a), prostě ji ignoruj.
-        </p>
-      </div>
-    </div>
-    '''
+    # Zvaný člověk účet mít nemusí — pak jazyk neznáme a jede angličtina.
+    invitee = conn.execute('SELECT lang FROM users WHERE email=?', (email,)).fetchone()
+    ilang = _norm_lang(invitee['lang'] if invitee and 'lang' in invitee.keys() else None)
+    html_body = _email_shell(
+        f'<p style="font-size:15px;line-height:1.6">'
+        f'{_et(ilang, "invite.body", studio=studio_name, inviter=inviter_name)}</p>'
+        f'<p style="font-size:14px;line-height:1.6;color:#999">'
+        f'{_et(ilang, "invite.detail")}</p>',
+        cta=_et(ilang, 'invite.cta'), cta_url=invite_url,
+        note=_et(ilang, 'invite.expires', days=STUDIO_INVITE_TTL_DAYS))
     try:
-        send_email(email, f'Pozvánka do studia {s["name"]} — InkLink', html_body)
+        send_email(email, _et(ilang, 'invite.subject', studio=s['name']), html_body)
     except Exception as e:
         print(f'[STUDIO INVITE] email send failed: {e}')
 

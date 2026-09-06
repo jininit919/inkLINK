@@ -4132,6 +4132,111 @@ class VoucherExportTests(_Sprint2Base):
         self.assertEqual(ledger[0]['delta_cents'], 150000)
 
 
+class EmailLanguageTests(_Sprint2Base):
+    """Jazyk uživatele žil jen v localStorage prohlížeče, takže server při
+    odesílání mailu neměl jak zjistit, co ten člověk čte — maily byly napůl
+    česky, napůl anglicky podle toho, kdo je zrovna psal."""
+
+    def setUp(self):
+        super().setUp()
+        import server
+        self.sent = []
+        self._real_send = server.send_email
+        server.send_email = lambda to, subj, html: (
+            self.sent.append((to, subj, html)) or True)
+        # send_booking_email se bez klíče vůbec nespustí.
+        self._real_resend = server.RESEND_API_KEY
+        server.RESEND_API_KEY = 'test'
+
+    def tearDown(self):
+        import server
+        server.send_email = self._real_send
+        server.RESEND_API_KEY = self._real_resend
+        super().tearDown()
+
+    def _set_lang(self, lang):
+        r = self.client.post('/api/me/lang', json={'lang': lang})
+        self.assertEqual(r.status_code, 200)
+        return r.get_json()['lang']
+
+    def test_english_is_the_fallback_not_czech(self):
+        """Neznámý jazyk = zdrojový jazyk platformy."""
+        import server, sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET lang=NULL WHERE id=2')
+        conn.commit(); conn.close()
+        conn = server.get_db()
+        self.assertEqual(server._user_lang(conn, 2), 'en')
+        conn.close()
+
+    def test_unknown_language_falls_back(self):
+        self.assertEqual(self._set_lang('de'), 'en')
+        self.assertEqual(self._set_lang('cs-CZ'), 'cs')
+
+    def test_voucher_email_follows_the_user(self):
+        self._set_lang('en')
+        self.client.post('/api/vouchers', json={'amount_kc': 2000})
+        self.assertIn('gift voucher', self.sent[-1][1])
+        self.assertIn('is paid for', self.sent[-1][2])
+
+        self._set_lang('cs')
+        self.client.post('/api/vouchers', json={'amount_kc': 2000})
+        self.assertIn('dárkový poukaz', self.sent[-1][1])
+        self.assertIn('je zaplacený', self.sent[-1][2])
+
+    def test_booking_email_follows_the_user(self):
+        import server
+        conn = server.get_db()
+        for lang, needle in (('en', 'New booking from'), ('cs', 'nová rezervace od')):
+            self._set_lang(lang)
+            conn2 = server.get_db()
+            server.send_booking_email(conn2, 2, 'new_booking_for_artist',
+                                      {'other_name': 'Petr', 'when': 'zítra'})
+            conn2.close()
+            self.assertIn(needle, self.sent[-1][1], lang)
+        conn.close()
+
+    def test_no_name_in_the_greeting(self):
+        """Jméno se v češtině v oslovení skloňuje a automaticky to nejde —
+        "Ahoj Tereza" je špatně. Oslovení proto v mailech není."""
+        import server
+        self._set_lang('cs')
+        conn = server.get_db()
+        server.send_booking_email(conn, 2, 'booking_confirmed_for_client',
+                                  {'other_name': 'Petr', 'when': 'zítra'})
+        conn.close()
+        body = self.sent[-1][2]
+        self.assertNotIn('Ahoj', body)
+        self.assertNotIn('Hi <strong>', body)
+
+    def test_registration_stores_the_language(self):
+        import sqlite3
+        r = self.client.post('/api/register', json={
+            'username': 'ceska', 'display_name': 'Česká', 'email': 'c@t.cz',
+            'password': 'heslo123', 'city': 'Praha', 'lang': 'cs'})
+        self.assertEqual(r.status_code, 200, r.data[:200])
+        conn = sqlite3.connect(self.db)
+        lang = conn.execute("SELECT lang FROM users WHERE username='ceska'").fetchone()[0]
+        conn.close()
+        self.assertEqual(lang, 'cs')
+
+    def test_every_key_has_english(self):
+        """Chybějící angličtina by se projevila až v odeslaném mailu."""
+        import server
+        missing = [k for k, v in server.EMAIL_I18N.items() if not v.get('en')]
+        self.assertEqual(missing, [])
+
+    def test_placeholders_match_between_languages(self):
+        """Klíč s {amount} v jednom jazyce a bez něj v druhém shodí render."""
+        import re, server
+        bad = []
+        for k, v in server.EMAIL_I18N.items():
+            sets = {lg: set(re.findall(r'{(\w+)}', txt)) for lg, txt in v.items()}
+            if len(set(map(frozenset, sets.values()))) > 1:
+                bad.append((k, sets))
+        self.assertEqual(bad, [])
+
+
 class VoucherEmailTests(_Sprint2Base):
     """Kód kupujícímu na mail. Kdo zavře prohlížeč dřív, než si ho opíše,
     ho jinak nemá kde vzít."""

@@ -143,6 +143,9 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
   </form>
 </div>
 
+<!-- i18n.js jen kvůli jazyku: registrace ho posílá na server, aby první
+     mail (ověřovací kód) přišel v tom, co člověk čte. -->
+<script src="/i18n.js?v=16"></script>
 <script>
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
@@ -218,7 +221,10 @@ async function doRegister(e) {
       phone:        document.getElementById('regPhone').value,
       city:         document.getElementById('regCity').value,
       password:     document.getElementById('regPassword').value,
-      ref:          refFromUrl || ''
+      ref:          refFromUrl || '',
+      // Ověřovací mail odchází dřív, než se člověk poprvé přihlásí — jazyk
+      // se tedy musí poslat rovnou s registrací.
+      lang:         window.InkLinkI18N ? InkLinkI18N.get() : ''
     })
   });
   const data = await res.json();
