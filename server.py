@@ -11132,6 +11132,10 @@ def _voucher_render(v, tpl, preview=False):
   .fine{{margin-top:14px;max-width:640px;font-size:11px;color:#5a5a5a;line-height:1.8;
     text-align:center}}
   /* Ovládání jen na obrazovce. Na papíře nemá tlačítko co dělat. */
+  .back{{position:fixed;top:16px;left:16px;width:38px;height:38px;display:flex;
+    align-items:center;justify-content:center;border:1px solid #0a0a0a;border-radius:50%;
+    background:none;color:#0a0a0a;cursor:pointer;font-size:17px;line-height:1;padding:0}}
+  .back:hover{{background:#0a0a0a;color:#faf8f3}}
   .bar{{margin:16px auto 0;max-width:640px;display:flex;gap:8px;justify-content:center;
     flex-wrap:wrap}}
   .bar button,.bar a{{font-family:inherit;font-size:11px;letter-spacing:0.1em;
@@ -11143,19 +11147,24 @@ def _voucher_render(v, tpl, preview=False):
     body{{background:#fff;padding:0;display:block}}
     .v{{max-width:none;margin:0 auto}}
     .fine{{margin:10px auto 0}}
-    .bar{{display:none}}
+    .bar,.back{{display:none}}
   }}
 </style>
+<button class="back" onclick="goBack()" aria-label="Zpět">&#8592;</button>
 <div>
   <div class="{card_class}">{inner}</div>
   <div class="fine">{fine}</div>
   <div class="bar">
     <button class="go" onclick="window.print()">Vytisknout</button>
     <button id="cp" onclick="copyLink()">Zkopírovat odkaz</button>
-    <a href="/">Zpět na InkLink</a>
   </div>
 </div>
 <script>
+// Obdarovaný sem přijde z odkazu a žádnou historii nemá — šipka by pro něj
+// jinak nedělala nic.
+function goBack() {{
+  if (history.length > 1) {{ history.back(); }} else {{ location.href = '/'; }}
+}}
 function copyLink() {{
   var b = document.getElementById('cp');
   var done = function () {{ b.textContent = 'Zkopírováno'; setTimeout(function () {{
