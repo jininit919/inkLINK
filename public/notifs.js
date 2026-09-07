@@ -25,6 +25,15 @@
   .il-notif-btn.has-unread{color:var(--red2,#e8e8e8)}
   .il-notif-badge{position:absolute;top:4px;right:4px;min-width:14px;height:14px;border-radius:7px;background:var(--red2,#e8e8e8);border:1.5px solid var(--bg,#000);font-size:10px;color:var(--bg,#000);display:none;align-items:center;justify-content:center;padding:0 3px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-weight:700;line-height:1}
   .il-notif-badge.show{display:flex}
+  /* Odznak zpráv v desktopové navigaci. Do stránek se nevpisuje — každá
+     měla dřív svou verzi: na feedu tečka bez čísla, na událostech číslo,
+     na profilu nic. */
+  .il-msg-badge{position:absolute;top:2px;right:0;min-width:15px;height:15px;
+    border-radius:8px;background:var(--red2,#0a0a0a);border:1.5px solid var(--bg,#faf8f3);
+    font-size:9px;color:var(--bg,#faf8f3);display:none;align-items:center;
+    justify-content:center;padding:0 3px;font-weight:700;line-height:1;
+    font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
+  .il-msg-badge.show{display:flex}
 
   .il-notif-panel{position:fixed;top:54px;right:14px;width:360px;max-width:calc(100vw - 28px);max-height:70vh;background:var(--bg2,#080808);border:1px solid var(--border,#1a1a1a);box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:1000;display:none;flex-direction:column;overflow:hidden;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
   .il-notif-panel.open{display:flex}
@@ -94,6 +103,40 @@
       unread = d.count || 0;
       renderBadge();
     } catch (e) { /* offline ok */ }
+  }
+
+  // Odznak zpráv připínáme ke každému odkazu na /messages v horní navigaci.
+  // Stránek je šest a ručně vpisovaný odznak se na třech z nich nikdy
+  // neobjevil — a tam, kde byl, ukazoval jen tečku bez počtu.
+  function mountMsgBadges() {
+    document.querySelectorAll('nav a[href="/messages"]').forEach(a => {
+      if (a.querySelector('.il-msg-badge')) return;
+      // Stránky měly vlastní pokusy o odznak; ty odsud pryč, ať nesvítí dva.
+      a.querySelectorAll('#navMessagesBadge, .msg-badge, #msgBadge')
+       .forEach(el => el.remove());
+      if (getComputedStyle(a).position === 'static') a.style.position = 'relative';
+      const b = document.createElement('span');
+      b.className = 'il-msg-badge';
+      a.appendChild(b);
+    });
+  }
+
+  async function fetchMsgCount() {
+    const badges = document.querySelectorAll('.il-msg-badge');
+    if (!badges.length) return;
+    let n = 0;
+    try {
+      const r = await fetch('/api/messages/unread');
+      if (!r.ok) return;
+      n = (await r.json()).count || 0;
+    } catch (e) { return; }        // offline: necháme, co tam bylo
+    badges.forEach(b => {
+      // Nad 99 se do kolečka číslo nevejde a nikoho přesné číslo nezajímá.
+      b.textContent = n > 99 ? '99+' : String(n);
+      b.classList.toggle('show', n > 0);
+      b.setAttribute('aria-label', n === 1 ? '1 nepřečtená zpráva'
+                                           : n + ' nepřečtených zpráv');
+    });
   }
 
   async function fetchAll() {
@@ -287,7 +330,6 @@
   function mount() {
     const root = document.getElementById('notifMount');
     if (!root) return;
-    injectCSS();
     root.innerHTML = `
       <div class="il-notif-wrap">
         <button class="il-notif-btn" id="il-notif-btn" aria-label="Notifikace" title="Notifikace">
@@ -331,16 +373,27 @@
     }
   }
 
-  async function initInternal() {
-    mount();
-    // počáteční fetch — když user není přihlášený, vrátí 0 / [] = ok
-    await fetchCount();
-    // poll
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(fetchCount, 60_000);
-    // refresh při focusu okna (po návratu z tabu)
-    window.addEventListener('focus', fetchCount);
+  function refreshAll() {
+    fetchCount();
+    fetchMsgCount();
   }
 
-  window.InkLinkNotifs = { init, refresh: fetchCount, toggle: togglePanel, open: openPanel, close: closePanel };
+  async function initInternal() {
+    // CSS musí ven dřív než mount(): ten se na stránkách bez zvonku
+    // notifikací ukončí hned a odznak zpráv by zůstal bez stylu.
+    injectCSS();
+    mount();
+    mountMsgBadges();
+    // počáteční fetch — když user není přihlášený, vrátí 0 / [] = ok
+    await fetchCount();
+    fetchMsgCount();
+    // poll
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(refreshAll, 60_000);
+    // refresh při focusu okna (po návratu z tabu) — typicky se člověk vrací
+    // právě z přečtené konverzace, takže odznak musí zhasnout
+    window.addEventListener('focus', refreshAll);
+  }
+
+  window.InkLinkNotifs = { init, refresh: refreshAll, toggle: togglePanel, open: openPanel, close: closePanel };
 })();

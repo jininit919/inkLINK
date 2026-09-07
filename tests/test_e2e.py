@@ -3963,6 +3963,175 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class MessagePushTests(_Sprint2Base):
+    """Push byl napojený na 24 událostí — rezervace, sledování, refundace —
+    ale ne na zprávy. Tedy zrovna na to, u čeho notifikaci čeká každý."""
+
+    def setUp(self):
+        super().setUp()
+        import server
+        self.sent = []
+        self._real = server.send_push
+        server.send_push = lambda uid, title, body, url='/': self.sent.append(
+            {'user': uid, 'body': body, 'url': url})
+
+    def tearDown(self):
+        import server
+        server.send_push = self._real
+        super().tearDown()
+
+    def _as(self, uid):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = uid
+
+    def _notifs(self, uid):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        n = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? "
+                         "AND type='message'", (uid,)).fetchone()[0]
+        conn.close()
+        return n
+
+    def test_new_message_notifies_the_recipient(self):
+        self._as(2)
+        self.client.post('/api/messages/1', json={'content': 'Dobrý den'})
+        self.assertEqual(len(self.sent), 1)
+        self.assertEqual(self.sent[0]['user'], 1)
+        self.assertIn('Dobrý den', self.sent[0]['body'])
+        self.assertEqual(self._notifs(1), 1)
+
+    def test_notification_opens_the_conversation(self):
+        """Upozornění na zprávu, které otevře feed, je k ničemu."""
+        self._as(2)
+        self.client.post('/api/messages/1', json={'content': 'ahoj'})
+        self.assertEqual(self.sent[0]['url'], '/messages')
+
+    def test_a_burst_notifies_once(self):
+        """Tři zprávy za sebou nemají vyvolat tři upozornění."""
+        self._as(2)
+        for t in ('první', 'druhá', 'třetí'):
+            self.client.post('/api/messages/1', json={'content': t})
+        self.assertEqual(len(self.sent), 1)
+        self.assertEqual(self._notifs(1), 1)
+
+    def test_after_reading_the_next_message_notifies_again(self):
+        self._as(2)
+        self.client.post('/api/messages/1', json={'content': 'první'})
+        self._as(1)
+        self.client.get('/api/messages/2')              # přečtení
+        self._as(2)
+        self.client.post('/api/messages/1', json={'content': 'druhá'})
+        self.assertEqual(len(self.sent), 2)
+
+    def test_sender_never_notifies_themselves(self):
+        self._as(2)
+        self.client.post('/api/messages/1', json={'content': 'ahoj'})
+        self.assertTrue(all(p['user'] != 2 for p in self.sent))
+
+
+class MessageBadgeTests(unittest.TestCase):
+    """Odznak nepřečtených zpráv. Každá stránka si ho dřív dělala po svém:
+    na feedu tečka bez čísla, na událostech číslo, na profilu, v oblíbených,
+    ve skicách a ve výdělcích vůbec nic. Teď ho připíná notifs.js, který
+    se načítá všude."""
+
+    def _pages_with_msg_nav(self):
+        import glob, re
+        out = []
+        for f in glob.glob('public/*.html'):
+            src = open(f, encoding='utf-8').read()
+            if re.search(r'<nav\b.*?href="/messages"', src, re.S):
+                out.append((f, src))
+        return out
+
+    def test_no_page_rolls_its_own_badge(self):
+        """Dva odznaky na jedné ikoně, každý s jiným číslem, jsou horší
+        než žádný."""
+        for f, src in self._pages_with_msg_nav():
+            for marker in ('navMessagesBadge', 'id="msgBadge"', 'pollUnread'):
+                self.assertNotIn(marker, src, f'{f} má vlastní odznak: {marker}')
+
+    def test_every_such_page_loads_the_shared_script(self):
+        for f, src in self._pages_with_msg_nav():
+            self.assertIn('/notifs.js', src, f'{f} nenačítá notifs.js')
+
+    def test_styles_land_even_without_the_notification_bell(self):
+        """injectCSS() bylo uvnitř mount(), který se na stránkách bez zvonku
+        ukončí hned na začátku. Odznak se pak vykreslil bez stylu: 8 px
+        široký, průhledný, šedý text — tedy neviditelný."""
+        import re
+        js = open('public/notifs.js', encoding='utf-8').read()
+        body = js[js.index('async function initInternal()'):]
+        body = body[:body.index('\n  }')]
+        # Komentáře pryč — jinak se porovnání chytí na zmínce v komentáři.
+        body = re.sub(r'//.*', '', body)
+        self.assertLess(body.index('injectCSS()'), body.index('mount()'),
+                        'injectCSS() musí běžet dřív než mount()')
+        inside = js[js.index('function mount()'):]
+        inside = inside[:inside.index('root.innerHTML')]
+        self.assertNotIn('injectCSS()', inside,
+                         'injectCSS() nesmí být schované za ranou návratovou větví mount()')
+
+    def test_shared_script_handles_the_badge(self):
+        js = open('public/notifs.js', encoding='utf-8').read()
+        self.assertIn('/api/messages/unread', js)
+        self.assertIn('il-msg-badge', js)
+        # Nepřihlášenému vrací endpoint nulu, takže se odznak jen nezobrazí.
+        self.assertIn("nav a[href=\"/messages\"]", js)
+
+
+class MessagingFlowTests(_Sprint2Base):
+    """Celý průchod zprávami od odeslání po přečtení. Jednotlivé kusy měly
+    testy, ale nikdy se neprošly za sebou — a odznak v navigaci čte právě
+    ten počet nepřečtených, který tu vzniká."""
+
+    def _as(self, uid):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = uid
+
+    def test_message_arrives_and_counts_as_unread(self):
+        self._as(2)                                    # klient píše tatérovi
+        r = self.client.post('/api/messages/1', json={'content': 'Ahoj, mám dotaz'})
+        self.assertEqual(r.status_code, 200, r.data[:200])
+
+        self._as(1)                                    # tatér
+        self.assertEqual(self.client.get('/api/messages/unread').get_json()['count'], 1)
+
+        convs = self.client.get('/api/messages/conversations').get_json()
+        self.assertEqual(len(convs), 1)
+
+        thread = self.client.get('/api/messages/2').get_json()
+        msgs = thread if isinstance(thread, list) else thread['messages']
+        texts = [m.get('content') or m.get('text') for m in msgs]
+        self.assertIn('Ahoj, mám dotaz', texts)
+
+        # Otevření vlákna je to, co zprávu označí za přečtenou — na tom
+        # odznak stojí, jinak by svítil napořád.
+        self.assertEqual(self.client.get('/api/messages/unread').get_json()['count'], 0)
+
+    def test_sender_does_not_see_it_as_unread(self):
+        self._as(2)
+        self.client.post('/api/messages/1', json={'content': 'test'})
+        self.assertEqual(self.client.get('/api/messages/unread').get_json()['count'], 0)
+
+    def test_unread_counts_only_my_messages(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email) "
+                     "VALUES ('treti','Třetí','x','t@t.cz')")
+        conn.commit(); conn.close()
+        self._as(2)
+        self.client.post('/api/messages/1', json={'content': 'pro tatéra'})
+        self._as(3)
+        self.assertEqual(self.client.get('/api/messages/unread').get_json()['count'], 0)
+
+    def test_logged_out_gets_zero_not_an_error(self):
+        """Odznak se kreslí na každé stránce — nepřihlášenému nesmí spadnout."""
+        r = self.client.get('/api/messages/unread')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()['count'], 0)
+
+
 class ProcessingRecordsTests(unittest.TestCase):
     """Záznamy o činnostech zpracování podle čl. 30 GDPR. Smysl téhle třídy
     je, aby dokument nezastaral: nová tabulka s osobními údaji musí spadnout

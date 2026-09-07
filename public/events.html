@@ -42,7 +42,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 .nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3);font-size:15px;border-radius:2px;transition:all 0.15s;text-decoration:none}
 .nav-icon:hover{color:var(--red2);background:var(--bg3)}
 .nav-avatar{width:30px;height:30px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--red2);cursor:pointer;margin-left:4px;letter-spacing:0.05em;text-decoration:none}
-.msg-badge{position:absolute;top:4px;right:4px;min-width:14px;height:14px;border-radius:7px;background:var(--red2);border:1.5px solid var(--bg);font-size:14px;color:white;display:none;align-items:center;justify-content:center;padding:0 3px}
 
 /* PAGE */
 .page{padding-top:54px;min-height:100vh;display:flex;flex-direction:column}
@@ -215,7 +214,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
   <div class="nav-icons">
     <a class="nav-icon" href="/messages" title="Messages" id="msgIcon" style="position:relative">
       <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M2 4.5 L10.5 4.5 M8 2 L10.5 4.5 L8 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12.5 L6.5 12.5 M9 10 L6.5 12.5 L9 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div class="msg-badge" id="msgBadge"></div>
     </a>
     <a class="nav-avatar" id="navAvatar" href="#" onclick="goProfile(event)">??</a>
   </div>
@@ -445,7 +443,6 @@ async function init() {
   const avatar = document.getElementById('navAvatar');
   if (me) {
     avatar.textContent = (me.display_name || '??').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-    pollUnread();
   } else {
     avatar.textContent = '↪';
     avatar.title = t('ev.signIn');
@@ -1023,18 +1020,6 @@ function goProfile(e) {
   });
 }
 
-// ── Unread badge ──────────────────────────────────────────────────────────────
-async function pollUnread() {
-  try {
-    const data = await fetch('/api/messages/unread').then(r => r.json());
-    const badge = document.getElementById('msgBadge');
-    if (data.count > 0) {
-      badge.textContent = data.count > 9 ? '9+' : data.count;
-      badge.style.display = 'flex';
-    } else { badge.style.display = 'none'; }
-  } catch {}
-  setTimeout(pollUnread, 15000);
-}
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
@@ -1053,7 +1038,7 @@ function esc(s) {
 init();
 </script>
 
-<script src="/notifs.js?v=16"></script>
+<script src="/notifs.js?v=17"></script>
 <script src="/i18n.js?v=16"></script>
 <script src="/mobile-nav.js?v=16"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>

@@ -1999,14 +1999,15 @@ def send_push(user_id: int, title: str, body: str, url: str = '/'):
 send_web_push = send_push
 
 
-def push_notif(conn, user_id, actor_id, notif_type, ref_id, ref_type, message):
+def push_notif(conn, user_id, actor_id, notif_type, ref_id, ref_type, message, url='/'):
     if user_id == actor_id:
         return
     conn.execute(
         'INSERT INTO notifications (user_id, actor_id, type, ref_id, ref_type, message) VALUES (?,?,?,?,?,?)',
         (user_id, actor_id, notif_type, ref_id, ref_type, message)
     )
-    send_push(user_id, 'InkLink', message, '/')
+    # Cíl kliknutí. Notifikace o zprávě, která otevře feed, je k ničemu.
+    send_push(user_id, 'InkLink', message, url)
 
 
 def require_login():
@@ -9695,6 +9696,29 @@ def get_messages(other_id):
     })
 
 
+def _is_first_unread(conn, sender_id, receiver_id):
+    """Má tahle zpráva upozornit? Ptát se musí PŘED vložením — po něm je
+    nepřečtená vždycky aspoň jedna, totiž ta právě vložená."""
+    return conn.execute(
+        'SELECT 1 FROM messages WHERE sender_id=? AND receiver_id=? AND read=0 LIMIT 1',
+        (sender_id, receiver_id)).fetchone() is None
+
+
+def _notify_new_message(conn, sender_id, receiver_id, preview):
+    """Upozorní na novou zprávu — volá se jen na první nepřečtenou.
+
+    Kdo píše tři zprávy za sebou, nemá vyvolat tři upozornění. Jakmile si
+    příjemce konverzaci otevře, zprávy se označí za přečtené a další zpráva
+    upozorní znovu.
+    """
+    who = conn.execute('SELECT display_name, username FROM users WHERE id=?',
+                       (sender_id,)).fetchone()
+    name = (who['display_name'] or who['username']) if who else 'Někdo'
+    text = f'{name}: {preview}' if preview else f'{name} ti poslal fotku'
+    push_notif(conn, receiver_id, sender_id, 'message', sender_id, 'message',
+               text[:140], url='/messages')
+
+
 @app.route('/api/messages/<int:other_id>', methods=['POST'])
 @limiter.limit('60 per minute')
 def send_message(other_id):
@@ -9731,8 +9755,11 @@ def send_message(other_id):
         safe   = secure_filename(img.filename) or f'photo.{ext}'
         unique = f"msg_{uid}_{int(time.time())}_{safe}"
         save_upload(img, unique)
+        notify = _is_first_unread(conn, uid, other_id)
         conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type, image) VALUES (?, ?, ?, ?, ?)',
                      (uid, other_id, '', 'image', unique))
+        if notify:
+            _notify_new_message(conn, uid, other_id, '')
         conn.commit(); conn.close()
         return jsonify({'ok': True})
 
@@ -9745,8 +9772,11 @@ def send_message(other_id):
         conn.close()
         return jsonify({'error': 'Message is too long'}), 400
 
+    notify = _is_first_unread(conn, uid, other_id)
     conn.execute('INSERT INTO messages (sender_id, receiver_id, content, content_type) VALUES (?, ?, ?, ?)',
                  (uid, other_id, content, 'text'))
+    if notify:
+        _notify_new_message(conn, uid, other_id, content)
     conn.commit()
     conn.close()
 

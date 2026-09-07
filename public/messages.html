@@ -886,23 +886,8 @@ function escJs(s) {
   return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 }
 
-async function pollUnread() {
-  try {
-    const data = await fetch('/api/messages/unread').then(r => r.json());
-    const badge = document.getElementById('msgBadge');
-    if (badge) {
-      if (data.count > 0) {
-        badge.textContent = data.count > 9 ? '9+' : data.count;
-        badge.style.display = 'flex';
-      } else {
-        badge.style.display = 'none';
-      }
-    }
-  } catch {}
-  setTimeout(pollUnread, 15000);
-}
 
-init().then(() => pollUnread());
+init();
 </script>
 
 <script src="/i18n.js?v=16"></script>
