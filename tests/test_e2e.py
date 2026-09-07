@@ -3963,6 +3963,118 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class ProcessingRecordsTests(unittest.TestCase):
+    """Záznamy o činnostech zpracování podle čl. 30 GDPR. Smysl téhle třídy
+    je, aby dokument nezastaral: nová tabulka s osobními údaji musí spadnout
+    do některé činnosti, jinak test spadne dřív, než to najde kontrola."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_every_table_with_personal_data_is_covered(self):
+        import server
+        covered = set()
+        for a in server.PROCESSING_ACTIVITIES:
+            covered |= set(a['tables'])
+        missing = [t for t, meta in server.PERSONAL_DATA.items()
+                   if meta['erase'] != 'none' and t not in covered]
+        self.assertEqual(missing, [], f'chybí v záznamech o zpracování: {missing}')
+
+    def test_no_activity_lists_an_unknown_table(self):
+        """Přejmenovaná tabulka nesmí v záznamu zůstat jako duch."""
+        import server
+        for a in server.PROCESSING_ACTIVITIES:
+            for t in a['tables']:
+                self.assertIn(t, server.PERSONAL_DATA, f"{a['name']}: {t}")
+
+    def test_each_table_belongs_to_one_activity(self):
+        import server
+        seen = {}
+        for a in server.PROCESSING_ACTIVITIES:
+            for t in a['tables']:
+                self.assertNotIn(t, seen,
+                                 f"{t} je ve dvou činnostech: {seen.get(t)} a {a['name']}")
+                seen[t] = a['name']
+
+    def test_every_activity_states_what_article_30_requires(self):
+        import server
+        for a in server.PROCESSING_ACTIVITIES:
+            for field in ('purpose', 'legal_basis', 'subjects', 'categories',
+                          'recipients', 'retention'):
+                self.assertTrue(a.get(field), f"{a['name']} nemá {field}")
+
+    def test_export_needs_admin(self):
+        self.assertIn(self.client.get('/api/admin/gdpr/records').status_code,
+                      (401, 403))
+
+    def test_csv_renders_for_admin(self):
+        """CSV se otevírá v Excelu s českou diakritikou — bez BOM ji
+        přebere jako latin-1 a záznam je k ničemu."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, "
+                     "email, is_admin) VALUES ('boss','Boss','x','b@t.cz',1)")
+        conn.commit(); conn.close()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        r = self.client.get('/api/admin/gdpr/records?format=csv')
+        self.assertEqual(r.status_code, 200, r.data[:200])
+        body = r.data.decode('utf-8')
+        self.assertTrue(body.startswith('\ufeff'))
+        self.assertIn('Dárkové poukazy a kredit', body)
+        self.assertIn('Bezpečnostní opatření (g)', body)
+        # Středník, ne čárka: účely obsahují čárky a Excel by sloupce rozsypal.
+        self.assertIn(';', body.splitlines()[0])
+
+
+class WaitlistConsentTests(unittest.TestCase):
+    """Waitlist sbíral e-maily bez jediného slova o tom, k čemu budou.
+    Oznámení o spuštění je obchodní sdělení nezákazníkům — bez doloženého
+    souhlasu se posílat nesmí."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_signup_records_what_was_agreed_to(self):
+        import sqlite3, server
+        r = self.client.post('/api/waitlist', json={'email': 'a@t.cz'})
+        self.assertEqual(r.status_code, 200)
+        conn = sqlite3.connect(self.db)
+        row = conn.execute('SELECT consent_version, consent_at FROM waitlist '
+                           "WHERE email='a@t.cz'").fetchone()
+        conn.close()
+        self.assertEqual(row[0], server.WAITLIST_CONSENT_VERSION)
+        self.assertTrue(row[1])
+
+    def test_page_and_server_wording_match(self):
+        """Doklad platí jen tehdy, když uložené znění odpovídá tomu, co
+        člověk viděl na obrazovce."""
+        import server, re
+        page = open('public/coming-soon.html', encoding='utf-8').read()
+        shown = re.search(r'id="wlConsent">(.*?)<a ', page, re.S)
+        self.assertIsNotNone(shown, 'na coming-soon chybí text souhlasu')
+        norm = lambda t: ' '.join(re.sub(r'<[^>]+>', ' ', t).split())
+        self.assertEqual(norm(shown.group(1)), norm(server.WAITLIST_CONSENT_TEXT))
+
+    def test_wording_is_served_from_one_place(self):
+        d = self.client.get('/api/waitlist/consent').get_json()
+        import server
+        self.assertEqual(d['text'], server.WAITLIST_CONSENT_TEXT)
+        self.assertEqual(d['version'], server.WAITLIST_CONSENT_VERSION)
+
+    def test_consent_endpoint_passes_the_gate(self):
+        """Coming-soon stránka je za bránou; její vlastní API musí projít."""
+        import server
+        for path in ('/api/waitlist', '/api/waitlist/consent'):
+            self.assertTrue(server._gate_is_open_path(path), path)
+
+
 class MetaCallbackTests(_Sprint2Base):
     """Callbacky pro Metu. Bez toho na smazání dat neprojde App Review —
     a Meta je volá server na server, takže je nesmí chytit coming-soon

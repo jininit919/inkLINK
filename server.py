@@ -197,7 +197,8 @@ _GATE_OPEN_API = (
     '/api/login', '/api/register', '/api/logout', '/api/me',
     '/api/verify', '/api/forgot-password', '/api/reset-password',
     # Waitlist je celý smysl coming-soon stránky — bránou projít musí.
-    '/api/waitlist',
+    # Se zněním souhlasu: kdo si ho chce ověřit, nesmí narazit na bránu.
+    '/api/waitlist', '/api/waitlist/consent',
 )
 
 _GATE_ASSET_EXT = (
@@ -1142,6 +1143,11 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     c.execute('CREATE INDEX IF NOT EXISTS idx_waitlist_created ON waitlist(created_at)')
+    # Čemu člověk při zápisu přikývl. Verze, ne volný text: znění si drží
+    # server, takže se nedá podstrčit zvenčí a jde doložit, co bylo na
+    # obrazovce v den zápisu.
+    add_col('waitlist', 'consent_version TEXT')
+    add_col('waitlist', 'consent_at TEXT')
 
     c.execute('''CREATE TABLE IF NOT EXISTS events (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7833,6 +7839,133 @@ ACCOUNT_DELETION_GRACE_DAYS = 30
 #
 # `link` jsou sloupce s vazbou na uživatele; slouží exportu i mazání.
 
+# ── Záznamy o činnostech zpracování (čl. 30 GDPR) ────────────────────────
+# Ne ručně psaný dokument, který za měsíc přestane odpovídat kódu. Činnosti
+# jsou tady a odkazují na tabulky z PERSONAL_DATA níž; test hlídá, že každá
+# tabulka s osobními údaji do některé činnosti spadá. Nová tabulka tak
+# neprojde tiše — buď ji do záznamu zařadíš, nebo řekneš, že osobní údaje
+# nemá.
+#
+# Písmena u polí odpovídají čl. 30 odst. 1 GDPR, ať se to dá číst vedle
+# textu nařízení.
+
+PROCESSING_ACTIVITIES = [
+    {
+        'name': 'Uživatelské účty',
+        'purpose': 'Zřízení a správa účtu, přihlášení, obnova hesla',            # b)
+        'legal_basis': 'Plnění smlouvy (čl. 6/1/b)',
+        'subjects': 'Tatéři, klienti',                                           # c)
+        'categories': 'Jméno, e-mail, telefon, heslo (hash), profil, město',
+        'recipients': 'Railway (hosting), Resend (e-mail)',                      # d)
+        'retention': 'Po dobu účtu; po žádosti o smazání 30 dní, pak anonymizace',  # f)
+        'tables': ('users', 'password_reset_tokens', 'studios', 'studio_members',
+                   'studio_invites', 'favorite_cities'),
+    },
+    {
+        'name': 'Rezervace a platby',
+        'purpose': 'Zprostředkování rezervace, výběr zálohy, doplatek, refundace',
+        'legal_basis': 'Plnění smlouvy (čl. 6/1/b); právní povinnost u účetnictví (čl. 6/1/c)',
+        'subjects': 'Tatéři, klienti',
+        'categories': 'Identifikace stran, termín, popis motivu, částky, stav platby',
+        'recipients': 'Stripe Payments Europe Ltd (platby), Railway',
+        'retention': 'Účetní doklady 10 let (zák. o účetnictví); ostatní po dobu účtu',
+        'tables': ('bookings', 'slots', 'booking_offers', 'booking_status_log',
+                   'booking_reschedule_requests', 'refund_requests',
+                   'economics_snapshots', 'artist_blocked_time',
+                   'discount_codes', 'discount_redemptions'),
+    },
+    {
+        'name': 'Dárkové poukazy a kredit',
+        'purpose': 'Prodej poukazu, evidence kreditu a jeho čerpání',
+        'legal_basis': 'Plnění smlouvy (čl. 6/1/b); právní povinnost u účetnictví (čl. 6/1/c)',
+        'subjects': 'Kupující, obdarovaní',
+        'categories': 'Částka, kód, jméno obdarovaného, vzkaz, pohyby kreditu',
+        'recipients': 'Stripe Payments Europe Ltd, Railway',
+        'retention': 'Kód 12 měsíců; účetní záznam 10 let; jméno a vzkaz se smazáním účtu',
+        'tables': ('vouchers', 'credit_ledger'),
+    },
+    {
+        'name': 'Obsah a komunikace',
+        'purpose': 'Portfolio, zprávy mezi uživateli, recenze, události',
+        'legal_basis': 'Plnění smlouvy (čl. 6/1/b); oprávněný zájem na moderaci (čl. 6/1/f)',
+        'subjects': 'Tatéři, klienti',
+        'categories': 'Fotografie, texty zpráv, hodnocení, hlášení obsahu',
+        'recipients': 'Railway, Cloudflare (doručení obsahu)',
+        'retention': 'Po dobu účtu; zprávy zůstávají druhé straně bez identity odesílatele',
+        'tables': ('portfolio_items', 'portfolio_item_sizes', 'portfolio_likes',
+                   'messages', 'reviews', 'review_reports', 'follows',
+                   'events', 'event_saves'),
+    },
+    {
+        'name': 'Klientská evidence tatéra',
+        'purpose': 'Vedení klientů, poznámky, historie tetování, hojení',
+        'legal_basis': 'Plnění smlouvy (čl. 6/1/b); oprávněný zájem tatéra (čl. 6/1/f)',
+        'subjects': 'Klienti tatéra (i bez účtu — walk-in)',
+        'categories': 'Jméno, kontakt, poznámky, umístění a popis motivu, stav hojení',
+        'recipients': 'Railway; e-maily o hojení přes Resend',
+        'retention': 'Po dobu účtu tatéra; na žádost klienta výmaz jednotlivě',
+        'tables': ('clients', 'client_notes', 'tattoo_records', 'aftercare_sent'),
+    },
+    {
+        'name': 'Notifikace a provozní e-maily',
+        'purpose': 'Upozornění na rezervace a zprávy, uvítací a připomínkové e-maily',
+        'legal_basis': 'Plnění smlouvy (čl. 6/1/b); souhlas u push notifikací (čl. 6/1/a)',
+        'subjects': 'Tatéři, klienti',
+        'categories': 'E-mail, token zařízení, obsah upozornění',
+        'recipients': 'Resend (e-mail), Apple APNs a poskytovatel Web Push',
+        'retention': 'Token do odhlášení notifikací nebo zániku účtu',
+        'tables': ('notifications', 'push_subscriptions', 'native_push_tokens'),
+    },
+    {
+        'name': 'Marketing',
+        'purpose': 'Rozesílky tatéra vlastním zákazníkům, waitlist před spuštěním',
+        'legal_basis': ('Oprávněný zájem u vlastních zákazníků (čl. 6/1/f, '
+                        '§ 7 zák. 480/2004 Sb.); souhlas u waitlistu (čl. 6/1/a)'),
+        'subjects': 'Zákazníci tatéra, zájemci z waitlistu',
+        'categories': 'E-mail, jméno, štítky, znění a datum souhlasu',
+        'recipients': 'Resend',
+        'retention': 'Do odhlášení; waitlist do spuštění nebo do odvolání souhlasu',
+        'tables': ('campaigns', 'waitlist', 'referrals'),
+    },
+    {
+        'name': 'Propojení s Instagramem',
+        'purpose': 'Import portfolia tatéra z jeho účtu na Instagramu',
+        'legal_basis': 'Souhlas (čl. 6/1/a) — propojení je dobrovolné',
+        'subjects': 'Tatéři',
+        'categories': 'Identifikátor účtu, přístupový token, seznam importovaných médií',
+        'recipients': 'Meta Platforms Ireland Ltd',
+        'retention': 'Do zrušení propojení nebo zániku účtu',
+        'tables': ('instagram_accounts', 'instagram_imports'),
+    },
+    {
+        'name': 'Provoz a bezpečnost',
+        'purpose': 'Chod aplikace, měření, odhalování chyb a zneužití',
+        'legal_basis': 'Oprávněný zájem (čl. 6/1/f)',
+        'subjects': 'Všichni uživatelé',
+        'categories': 'Technické identifikátory, provozní metriky, záznamy o chybách',
+        'recipients': 'Railway, Sentry (Functional Software, Inc.)',
+        'retention': 'Provozní metriky bez vazby na osobu; záznamy o chybách 90 dní',
+        'tables': ('telemetry_events', 'app_settings', 'processed_stripe_events'),
+    },
+]
+
+# Bezpečnostní opatření podle čl. 30 odst. 1 písm. g). Obecný popis, ne
+# seznam nastavení — ten stárne rychleji, než se stihne přepsat.
+SECURITY_MEASURES = (
+    'Šifrovaný přenos (HTTPS), hesla ukládaná jen jako otisk, přístup k databázi '
+    'omezený na aplikaci, platební údaje se u nás neukládají (zpracovává Stripe), '
+    'zálohy databáze, oddělené role v administraci, monitoring chyb bez osobních '
+    'údajů.'
+)
+
+# Země mimo EU podle čl. 30 odst. 1 písm. e). Sentry sídlí v USA; přenos stojí
+# na standardních smluvních doložkách a osobní údaje se do něj neodesílají.
+THIRD_COUNTRY_TRANSFERS = (
+    'Sentry (Functional Software, Inc., USA) — standardní smluvní doložky; '
+    'odesílají se technické záznamy o chybách bez osobních údajů.'
+)
+
+
 PERSONAL_DATA = {
     # — žádné osobní údaje —
     'app_settings':          {'link': (), 'erase': 'none'},
@@ -10424,6 +10557,27 @@ def instagram_import():
     return jsonify({'ok': True, 'imported': imported, 'skipped': skipped, 'failed': failed})
 
 
+# Znění, ke kterému se člověk zápisem do waitlistu hlásí. Musí doslova
+# odpovídat tomu, co je vidět na coming-soon stránce — je to jediný doklad
+# o tom, k čemu adresu dal. Při změně textu se zvedne verze, aby starší
+# zápisy zůstaly navázané na to, co viděly ony.
+WAITLIST_CONSENT_VERSION = 'wl-2026-09'
+WAITLIST_CONSENT_TEXT = (
+    'We will email you once, when InkLink opens. Nothing else, no sharing '
+    'with anyone. Unsubscribe from that email or write to us and we delete '
+    'your address.'
+)
+
+
+@app.route('/api/waitlist/consent')
+def waitlist_consent():
+    """Znění souhlasu vydává server, ne stránka — co je na obrazovce a co
+    se uloží do databáze, pak nemůže být dvojí."""
+    return jsonify({'version': WAITLIST_CONSENT_VERSION,
+                    'text': WAITLIST_CONSENT_TEXT,
+                    'privacy_url': '/privacy'})
+
+
 @app.route('/api/waitlist', methods=['POST'])
 @limiter.limit('10 per hour')
 def join_waitlist():
@@ -10454,9 +10608,11 @@ def join_waitlist():
         return jsonify({'ok': True})
     try:
         conn.execute(
-            'INSERT INTO waitlist (email, role, source, ip) VALUES (?,?,?,?)',
+            'INSERT INTO waitlist (email, role, source, ip, consent_version, consent_at) '
+            'VALUES (?,?,?,?,?,?)',
             (email, role, (data.get('source') or 'coming-soon').strip()[:40],
-             (request.remote_addr or '')[:64]))
+             (request.remote_addr or '')[:64],
+             WAITLIST_CONSENT_VERSION, datetime.utcnow().isoformat()))
         conn.commit()
     except Exception as e:
         # Souběžný zápis téhož e-mailu spadne na UNIQUE indexu. Z pohledu
@@ -10480,7 +10636,8 @@ def admin_waitlist():
         return jsonify({'error': 'not found'}), 404
     conn = get_db()
     rows = conn.execute(
-        'SELECT id, email, role, source, created_at FROM waitlist ORDER BY created_at DESC'
+        'SELECT id, email, role, source, created_at, consent_version, consent_at '
+        'FROM waitlist ORDER BY created_at DESC'
     ).fetchall()
     conn.close()
 
@@ -10490,9 +10647,13 @@ def admin_waitlist():
         import csv, io as _io
         buf = _io.StringIO()
         w = csv.writer(buf)
-        w.writerow(['email', 'role', 'source', 'created_at'])
+        # Souhlas patří do exportu: ten seznam se odsud nese do mailingu
+        # a bez doložení, k čemu kdo přikývl, se rozesílat nemá.
+        w.writerow(['email', 'role', 'source', 'created_at',
+                    'consent_version', 'consent_at'])
         for r in rows:
-            w.writerow([r['email'], r['role'], r['source'], r['created_at']])
+            w.writerow([r['email'], r['role'], r['source'], r['created_at'],
+                        r['consent_version'] or '', r['consent_at'] or ''])
         return Response(
             buf.getvalue(), mimetype='text/csv',
             headers={'Content-Disposition': 'attachment; filename=waitlist.csv'})
@@ -11838,6 +11999,54 @@ def voucher_print(code):
     tpl = _voucher_template(conn)
     conn.close()
     return Response(_voucher_render(v, tpl), mimetype='text/html')
+
+
+@app.route('/api/admin/gdpr/records')
+def admin_gdpr_records():
+    """Záznamy o činnostech zpracování k vytištění nebo předání kontrole.
+
+    Generuje se z PROCESSING_ACTIVITIES, ne z odděleného dokumentu — co je
+    v kódu, to je v záznamu.
+    """
+    err = require_admin()
+    if err: return err
+
+    rows = [{
+        'name': a['name'],
+        'purpose': a['purpose'],
+        'legal_basis': a['legal_basis'],
+        'subjects': a['subjects'],
+        'categories': a['categories'],
+        'recipients': a['recipients'],
+        'retention': a['retention'],
+        'tables': ', '.join(a['tables']),
+    } for a in PROCESSING_ACTIVITIES]
+
+    if request.args.get('format') == 'csv':
+        import csv, io as _io
+        buf = _io.StringIO()
+        w = csv.writer(buf, delimiter=';')
+        w.writerow(['Činnost', 'Účel (b)', 'Právní základ', 'Subjekty (c)',
+                    'Kategorie údajů (c)', 'Příjemci (d)', 'Doba uchování (f)',
+                    'Tabulky'])
+        for r in rows:
+            w.writerow([r['name'], r['purpose'], r['legal_basis'], r['subjects'],
+                        r['categories'], r['recipients'], r['retention'], r['tables']])
+        w.writerow([])
+        w.writerow(['Předání mimo EU (e)', THIRD_COUNTRY_TRANSFERS])
+        w.writerow(['Bezpečnostní opatření (g)', SECURITY_MEASURES])
+        # BOM kvůli Excelu, jinak si českou diakritiku přebere jako latin-1.
+        data = '\ufeff' + buf.getvalue()
+        return Response(data, mimetype='text/csv; charset=utf-8', headers={
+            'Content-Disposition': 'attachment; filename="inklink-zaznamy-cl30.csv"',
+        })
+
+    return jsonify({
+        'activities': rows,
+        'third_country_transfers': THIRD_COUNTRY_TRANSFERS,
+        'security_measures': SECURITY_MEASURES,
+        'generated_at': datetime.utcnow().isoformat(),
+    })
 
 
 @app.route('/api/admin/voucher-preview')
