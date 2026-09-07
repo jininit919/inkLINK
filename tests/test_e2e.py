@@ -3784,6 +3784,50 @@ class _FakeStripe:
         self.Transfer = _FakeStripe.Transfer
 
 
+class CronAuthTests(_Sprint2Base):
+    """Crony hlídaly dva různé zámky — část CRON_SECRET přes Bearer, část
+    RECONCILE_TOKEN přes X-Cron-Token. Který kde nešlo poznat jinak než
+    čtením kódu, takže jeden spouštěč vždycky dva joby minul na 401."""
+
+    def setUp(self):
+        super().setUp()
+        import server
+        self._real = (server.CRON_SECRET, server.RECONCILE_TOKEN)
+        server.CRON_SECRET = 'secret-a'
+        server.RECONCILE_TOKEN = 'token-b'
+
+    def tearDown(self):
+        import server
+        server.CRON_SECRET, server.RECONCILE_TOKEN = self._real
+        super().tearDown()
+
+    # booking-reminders a aftercare jely na CRON_SECRET, zbytek na RECONCILE_TOKEN
+    BEARER_JOBS = ('booking-reminders', 'aftercare')
+    TOKEN_JOBS = ('reconcile', 'welcome-emails', 'account-deletions', 'credit-payouts')
+
+    def test_one_header_opens_every_job(self):
+        """Tohle je ta vlastnost, kvůli které se to sjednocovalo."""
+        for job in self.BEARER_JOBS + self.TOKEN_JOBS:
+            r = self.client.get(f'/api/cron/{job}',
+                                headers={'X-Cron-Token': 'token-b'})
+            self.assertNotIn(r.status_code, (401, 403), f'{job}: {r.data[:120]}')
+
+    def test_existing_bearer_callers_keep_working(self):
+        """Na booking-reminders může pořád chodit cron-job.org s Bearerem."""
+        for job in self.BEARER_JOBS:
+            r = self.client.get(f'/api/cron/{job}',
+                                headers={'Authorization': 'Bearer secret-a'})
+            self.assertNotIn(r.status_code, (401, 403), job)
+
+    def test_wrong_and_missing_credentials_are_refused(self):
+        for job in self.BEARER_JOBS:
+            self.assertEqual(self.client.get(f'/api/cron/{job}').status_code, 401)
+            self.assertEqual(self.client.get(
+                f'/api/cron/{job}', headers={'X-Cron-Token': 'spatny'}).status_code, 401)
+        for job in self.TOKEN_JOBS:
+            self.assertEqual(self.client.get(f'/api/cron/{job}').status_code, 403)
+
+
 class StripeRequiredTests(_Sprint2Base):
     """Tatér bez napojeného Stripu nemá kam dostat peníze. UI mu tlačítko
     schovává, ale API to pouštělo dál a rezervaci rovnou potvrdilo — sezení,

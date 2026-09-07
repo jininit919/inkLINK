@@ -410,26 +410,50 @@ Zatím je to vědomě přijaté — než objem naroste, sledovat součty v admin
 
 ## 3.55 Chybějící crony (welcome-emails, account-deletions, credit-payouts)
 
-Tři joby zatím nemají v Railway nic, co by je spouštělo: `welcome-emails`,
+### Čtyři vrstvy, proč crony nikdy neběžely
+
+Než se to rozchodilo, stálo v cestě tohle — a každá vrstva schovávala tu
+další, takže oprava jedné nic nezměnila:
+
+1. **Služby neměly připojený zdroj.** Cron schedule byl nastavený, ale
+   Railway neměl co nasadit → *„There is no active deployment."*
+2. **Coming-soon brána vracela na `/api/cron/*` 503.** Cron chodí bez
+   session, takže ho odbavila jako kohokoliv jiného.
+3. **V image chybí `curl`.** Nixpacks ho do Python image nedává.
+4. **Dva různé zámky.** `booking-reminders` a `aftercare` hlídal
+   `CRON_SECRET` přes Bearer, zbytek `RECONCILE_TOKEN` přes `X-Cron-Token`.
+   Jeden spouštěč tak vždycky dva joby minul na 401. Dnes se bere obojí.
+
+Tři joby navíc neměly v Railway nic, co by je spouštělo: `welcome-emails`,
 `account-deletions` a `credit-payouts`.
 
 **Nedělej pro ně novou službu.** Služba `inklink-cron` už existuje a spouští
 `reconcile` — Railway v ní umí spustit jeden příkaz podle rozvrhu, a ten
 příkaz může být klidně smyčka přes všechny čtyři joby.
 
-Railway → služba **inklink-cron** → **Settings → Custom Start Command**,
-přepsat na:
+**Nevolej crony curlem.** Image, kterou Nixpacks staví z tohohle repa, curl
+neobsahuje — běh skončí na `curl: command not found`. Slouží k tomu
+`scripts/run_crons.py`; Python v image je z definice.
+
+Railway → služba → **Settings → Custom Start Command**:
 
 ```
-B=https://www.inklink.club/api/cron; H="X-Cron-Token: $RECONCILE_TOKEN"; FAIL=0; for J in reconcile welcome-emails account-deletions credit-payouts; do curl -sf -H "$H" "$B/$J" && echo "$J OK" || { echo "$J FAILED"; FAIL=1; }; done; exit $FAIL
+python scripts/run_crons.py reconcile aftercare welcome-emails account-deletions credit-payouts
 ```
 
-Rozvrh (`0 6 * * *`) i `RECONCILE_TOKEN` zůstávají, jak jsou — nic dalšího
-se nenastavuje.
+a u té třicetiminutové:
 
-Proč středníky a ne `&&`: s `&&` by pád prvního jobu zastavil zbylé tři.
-Takhle se pokusí všechny a `exit $FAIL` na konci zajistí, že Railway běh
-označí jako neúspěšný, když aspoň jeden spadl.
+```
+python scripts/run_crons.py booking-reminders
+```
+
+Jeden spadlý job nezastaví ostatní; nenulový návratový kód se vrátí až na
+konci, aby Railway běh označil za neúspěšný. Odpovědi jobů se vypisují do
+logu celé — je v nich `purged_count`, `paid`, `failed`, takže je poznat, co
+job udělal, ne jen že doběhl.
+
+Služba potřebuje ve **Variables** `RECONCILE_TOKEN`. Proměnné se v Railway
+nedědí mezi službami, každá ho musí mít vlastní.
 
 Po prvním běhu se koukni do **Deployments → logu** té služby. Čtyři řádky
 `OK` znamenají hotovo. `account-deletions` navíc vrací `purged_count`,

@@ -5896,15 +5896,26 @@ CRON_SECRET = os.environ.get('CRON_SECRET', '').strip()
 
 
 def _check_cron_auth():
-    """Authorize cron request. Expects Bearer header nebo ?key=...
-    Vrátí None pokud OK, Response pokud not authorized."""
-    if not CRON_SECRET:
+    """Autorizace cron requestu.
+
+    Historicky tu byly dva různé zámky: část jobů hlídal CRON_SECRET přes
+    `Authorization: Bearer`, část RECONCILE_TOKEN přes `X-Cron-Token`. Který
+    kde nebylo poznat jinak než čtením kódu, takže jeden spouštěč nemohl
+    zavolat všechny — dva joby vždycky skončily na 401.
+
+    Bereme obojí. Volající, co už chodí s Bearerem, tím neztrácíme, a nový
+    spouštěč vystačí s jednou hlavičkou.
+    """
+    accepted = {t for t in (CRON_SECRET, RECONCILE_TOKEN) if t}
+    if not accepted:
         return jsonify({'error': 'CRON_SECRET not configured on server'}), 503
-    provided = (request.headers.get('Authorization', '')
-                .replace('Bearer ', '').strip())
-    if not provided:
-        provided = (request.args.get('key', '') or '').strip()
-    if provided != CRON_SECRET:
+    provided = [
+        (request.headers.get('Authorization', '').replace('Bearer ', '').strip()),
+        (request.headers.get('X-Cron-Token', '') or '').strip(),
+        (request.args.get('key', '') or '').strip(),
+        (request.args.get('token', '') or '').strip(),
+    ]
+    if not any(p and p in accepted for p in provided):
         return jsonify({'error': 'unauthorized'}), 401
     return None
 
