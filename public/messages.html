@@ -84,8 +84,6 @@ body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helveti
 nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
 .nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;letter-spacing:0;color:var(--ink);line-height:0.9;font-weight:400;text-decoration:none}
 .nav-logo span{color:var(--txt3);font-size:11px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;letter-spacing:0.08em;margin-left:6px;vertical-align:middle}
-.nav-back{margin-left:auto;font-size:10px;letter-spacing:0.1em;color:var(--txt3);text-decoration:none;transition:color 0.15s}
-.nav-back:hover{color:var(--red2)}
 
 /* LAYOUT */
 .layout{display:flex;flex:1;overflow:hidden;max-width:900px;width:100%;margin:0 auto}
@@ -149,24 +147,28 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 /* INPUT */
 .chat-input-bar{padding:10px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;flex-shrink:0;position:relative}
 .chat-input-row{display:flex;gap:8px;align-items:flex-end}
-.chat-input{flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;padding:10px 14px;outline:none;transition:border-color 0.2s;resize:none;max-height:120px;line-height:1.5;letter-spacing:0.03em}
+.chat-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:19px;color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;padding:11px 16px;outline:none;transition:border-color 0.2s;resize:none;max-height:120px;line-height:1.5;letter-spacing:0.03em}
 .chat-input::placeholder{color:var(--txt3)}
 .chat-input:focus{border-color:var(--red)}
-.input-btn{width:36px;height:36px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:all 0.15s}
-.input-btn:hover{border-color:var(--red);color:var(--txt)}
-.input-btn.active{border-color:var(--red);color:var(--red2);background:var(--bg4)}
-.send-btn{width:36px;height:36px;background:var(--red2);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;transition:background 0.15s}
+/* Ikony bez rámečku: v liště se psaním jsou tři čtverce vedle sebe víc
+   práce pro oko než pomoc. Kolečko se ukáže až pod kurzorem. */
+.input-btn{width:36px;height:36px;background:none;border:none;border-radius:50%;color:var(--txt3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:background 0.15s,color 0.15s}
+.input-btn:hover{background:var(--bg3);color:var(--txt)}
+.input-btn.active{background:var(--bg4);color:var(--red2)}
+.input-btn .icon{width:19px;height:19px;display:block}
+.send-btn{width:36px;height:36px;background:var(--red2);border:none;border-radius:50%;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:background 0.15s}
+.send-btn .icon{width:16px;height:16px;display:block}
 .send-btn:hover{background:var(--red3)}
 .send-btn:disabled{opacity:0.4;cursor:not-allowed}
 /* EMOJI PICKER */
-.emoji-picker{display:none;flex-wrap:wrap;gap:2px;padding:10px;background:var(--bg2);border:1px solid var(--border2);max-height:160px;overflow-y:auto}
+.emoji-picker{display:none;flex-wrap:wrap;gap:2px;padding:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;max-height:160px;overflow-y:auto}
 .emoji-picker.open{display:flex}
-.emoji-btn{font-size:20px;cursor:pointer;padding:4px;border-radius:3px;line-height:1;transition:background 0.1s;background:none;border:none}
+.emoji-btn{font-size:20px;cursor:pointer;padding:4px;border-radius:8px;line-height:1;transition:background 0.1s;background:none;border:none}
 .emoji-btn:hover{background:var(--bg4)}
 /* IMAGE preview in input */
 .img-preview-bar{display:none;align-items:center;gap:10px;padding:6px 0}
 .img-preview-bar.visible{display:flex}
-.img-preview-thumb{width:48px;height:48px;object-fit:cover;border:1px solid var(--border2)}
+.img-preview-thumb{width:48px;height:48px;object-fit:cover;border:1px solid var(--border2);border-radius:10px}
 .img-preview-name{font-size:10px;color:var(--txt3);letter-spacing:0.04em;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .img-preview-remove{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px;padding:0;line-height:1}
 .img-preview-remove:hover{color:var(--red3)}
@@ -202,8 +204,9 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
   body.mobile-chat-open .conv-panel{display:none}
   body.mobile-chat-open .chat-panel{display:flex;flex:1}
   .mobile-back-btn{display:inline-flex !important;align-items:center;justify-content:center}
-  /* Place chat input bar above mobile FAB nav */
-  .chat-input-bar{padding-bottom:80px}
+  /* Nad spodní lištu ho zvedá už padding na body — přidat ho i sem
+     znamenalo mezeru 86 px mezi psaním a lištou. */
+  .chat-input-bar{padding-bottom:10px}
 }
 </style>
 </head>
@@ -211,7 +214,6 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 
 <nav>
   <a class="nav-logo" href="/">inklink</a>
-  <a class="nav-back" href="/" title="Back"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
 </nav>
 
 <div class="layout">
@@ -453,12 +455,13 @@ async function openChat(userId, name, ini, avatar, username) {
         <button class="img-preview-remove" onclick="clearPhoto()" title="Remove">✕</button>
       </div>
       <div class="chat-input-row">
-        <button class="input-btn" id="emojiToggleBtn" onclick="toggleEmoji()" title="Emoji">😊</button>
-        <label class="input-btn" title="Send photo" style="cursor:pointer">
-          📷<input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
+        <button class="input-btn" id="emojiToggleBtn" onclick="toggleEmoji()" title="Emoji" aria-label="Emoji"><svg class="icon"><use href="#i-smile"/></svg></button>
+        <label class="input-btn" title="Send photo" aria-label="Send photo" style="cursor:pointer">
+          <svg class="icon"><use href="#i-camera"/></svg>
+          <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
         </label>
         <textarea class="chat-input" id="chatInput" placeholder="${mt('ms.writePh', 'Write a message…')}" rows="1" onkeydown="inputKeydown(event)"></textarea>
-        <button class="send-btn" onclick="sendMsg()" id="sendBtn">↑</button>
+        <button class="send-btn" onclick="sendMsg()" id="sendBtn" aria-label="Odeslat"><svg class="icon"><use href="#i-send"/></svg></button>
       </div>
     </div>`;
 
