@@ -3963,6 +3963,224 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class ConsentNudgeTests(_Sprint2Base):
+    """Aplikace na souhlas upozorní sama krátce před sezením. Podepisovat
+    se má ve studiu, ne při rezervaci — jenže na to by tatér ve spěchu
+    zapomněl, kdyby ho k tomu nic nevyzvalo."""
+
+    def setUp(self):
+        super().setUp()
+        import os as _os, server
+        from cryptography.fernet import Fernet
+        self._oldkey = _os.environ.get('MEDICAL_NOTES_KEY')
+        _os.environ['MEDICAL_NOTES_KEY'] = Fernet.generate_key().decode()
+        self._oldtok = server.RECONCILE_TOKEN
+        server.RECONCILE_TOKEN = 'crontoken'
+        self.sent = []
+        self._realpush = server.send_push
+        server.send_push = lambda uid, t, b, url='/': self.sent.append({'user': uid, 'url': url})
+
+    def tearDown(self):
+        import os as _os, server
+        server.send_push = self._realpush
+        server.RECONCILE_TOKEN = self._oldtok
+        if self._oldkey is None:
+            _os.environ.pop('MEDICAL_NOTES_KEY', None)
+        else:
+            _os.environ['MEDICAL_NOTES_KEY'] = self._oldkey
+        super().tearDown()
+
+    def _booking_in(self, minutes):
+        """Rezervace, která začíná za daný počet minut."""
+        import sqlite3
+        from datetime import timedelta as _td
+        start = self._now() + _td(minutes=minutes)
+        slot = self._mk_slot(start - _td(hours=1), start + _td(hours=6))
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO bookings (slot_id, artist_id, client_id, status, "
+            "booking_start_at, booking_end_at, duration_hours, deposit_cents) "
+            "VALUES (?, 1, 2, 'confirmed', ?, ?, 2, 0)",
+            (slot, start.isoformat(), (start + _td(hours=2)).isoformat()))
+        conn.commit()
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return bid
+
+    def _run(self):
+        return self.client.get('/api/cron/consent-nudge?token=crontoken').get_json()
+
+    def test_both_sides_are_told_shortly_before(self):
+        bid = self._booking_in(10)
+        self.assertEqual(self._run()['notified'], [bid])
+        users = sorted(p['user'] for p in self.sent)
+        self.assertEqual(users, [1, 2])
+        # Klient jde rovnou na formulář, tatér do kalendáře k rezervaci.
+        client_push = [p for p in self.sent if p['user'] == 2][0]
+        self.assertIn(f'/consent/{bid}', client_push['url'])
+
+    def test_too_early_is_left_alone(self):
+        self._booking_in(180)
+        self.assertEqual(self._run()['notified'], [])
+        self.assertEqual(self.sent, [])
+
+    def test_it_does_not_nag_twice(self):
+        self._booking_in(10)
+        self._run()
+        self.sent.clear()
+        self.assertEqual(self._run()['notified'], [])
+        self.assertEqual(self.sent, [])
+
+    def test_already_signed_is_not_nudged(self):
+        import sqlite3
+        bid = self._booking_in(10)
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO consent_forms (booking_id, client_id, artist_id, "
+                     "form_version, answers_enc, key_version, signed_at) "
+                     "VALUES (?,2,1,'v','x','v1','now')", (bid,))
+        conn.commit(); conn.close()
+        self.assertEqual(self._run()['notified'], [])
+
+    def test_without_a_key_it_stays_quiet(self):
+        """Posílat lidi na formulář, který se neuloží, je horší než mlčet."""
+        import os as _os
+        self._booking_in(10)
+        _os.environ.pop('MEDICAL_NOTES_KEY', None)
+        d = self._run()
+        self.assertEqual(d['notified'], [])
+        self.assertEqual(d.get('skipped'), 'no_medical_key')
+
+    def test_token_is_required(self):
+        self._booking_in(10)
+        self.assertIn(self.client.get('/api/cron/consent-nudge').status_code, (401, 403))
+
+
+class ConsentFormTests(_Sprint2Base):
+    """Zdravotní prohlášení a podpis klienta před zákrokem. Papír, který
+    tatér dnes vozí v deskách — a podle našich podmínek (čl. 3.1) je to
+    jeho doklad o tom, na co se ptal."""
+
+    KEY = None
+
+    def setUp(self):
+        super().setUp()
+        import os as _os, server
+        from cryptography.fernet import Fernet
+        self.KEY = Fernet.generate_key().decode()
+        self._old = _os.environ.get('MEDICAL_NOTES_KEY')
+        _os.environ['MEDICAL_NOTES_KEY'] = self.KEY
+        self.bid = self._make_booking()
+        self.tok = server._consent_token(self.bid)
+
+    def tearDown(self):
+        import os as _os
+        if self._old is None:
+            _os.environ.pop('MEDICAL_NOTES_KEY', None)
+        else:
+            _os.environ['MEDICAL_NOTES_KEY'] = self._old
+        super().tearDown()
+
+    def _make_booking(self):
+        slot = self._mk_slot(self._day_at(4, 10), self._day_at(4, 18))
+        r = self._book(slot, self._day_at(4, 12))
+        self.assertEqual(r.status_code, 200, r.data[:200])
+        return r.get_json()['id']
+
+    PNG = ('data:image/png;base64,' +
+           __import__('base64').b64encode(b'\x89PNG\r\n\x1a\n' + b'\x00' * 64).decode())
+
+    def _payload(self, **over):
+        body = {
+            'name': 'Jan Novák',
+            'signature': self.PNG,
+            'answers': {'adult': True, 'allergy': True},
+            'acks': {'permanent': True, 'aftercare': True,
+                     'result': True, 'truthful': True},
+        }
+        body.update(over)
+        return body
+
+    def _sign(self, **over):
+        return self.client.post(f'/api/consent/{self.bid}?t={self.tok}',
+                                json=self._payload(**over))
+
+    def test_client_without_account_can_sign(self):
+        """Formulář se vyplňuje na tabletu tatéra — klient se nepřihlašuje."""
+        self.client.post('/api/logout')
+        self.assertEqual(self._sign().status_code, 200)
+
+    def test_wrong_token_is_refused(self):
+        r = self.client.post(f'/api/consent/{self.bid}?t=spatny', json=self._payload())
+        self.assertEqual(r.status_code, 403)
+
+    def test_answers_are_encrypted_at_rest(self):
+        """Těhotenství a žloutenka jsou zvláštní kategorie podle čl. 9 GDPR.
+        V databázi nesmí být čitelné."""
+        import sqlite3
+        self._sign()
+        conn = sqlite3.connect(self.db)
+        blob = conn.execute('SELECT answers_enc FROM consent_forms').fetchone()[0]
+        conn.close()
+        self.assertNotIn('allergy', blob)
+        self.assertNotIn('true', blob.lower())
+
+    def test_artist_sees_only_what_the_client_flagged(self):
+        """Seznam deseti „ne" tatér před sezením nečte — chce vidět to jedno
+        „ano"."""
+        self._sign()
+        self._as_artist()
+        d = self.client.get(f'/api/bookings/{self.bid}/consent').get_json()
+        self.assertTrue(d['signed'])
+        self.assertEqual(d['signed_name'], 'Jan Novák')
+        self.assertEqual(len(d['flagged']), 1)
+        self.assertIn('alergi', d['flagged'][0].lower())
+
+    def test_another_artist_cannot_read_it(self):
+        import sqlite3
+        self._sign()
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email, "
+                     "is_artist) VALUES ('cizi','Cizí','x','c@t.cz',1)")
+        conn.commit(); conn.close()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 3
+        self.assertEqual(
+            self.client.get(f'/api/bookings/{self.bid}/consent').status_code, 403)
+
+    def test_missing_acknowledgement_is_refused(self):
+        r = self._sign(acks={'permanent': True, 'aftercare': True, 'result': True})
+        self.assertEqual(r.status_code, 400)
+
+    def test_minor_cannot_submit(self):
+        r = self._sign(answers={'adult': False})
+        self.assertEqual(r.status_code, 400)
+
+    def test_signature_is_required_and_must_be_a_png(self):
+        self.assertEqual(self._sign(signature='').status_code, 400)
+        self.assertEqual(
+            self._sign(signature='data:image/png;base64,bm90IGEgcG5n').status_code, 400)
+
+    def test_cannot_be_signed_twice(self):
+        self.assertEqual(self._sign().status_code, 200)
+        self.assertEqual(self._sign().status_code, 409)
+
+    def test_without_a_key_nothing_is_stored_in_the_clear(self):
+        """Radši žádný souhlas než zdravotní údaje čitelně."""
+        import os as _os, sqlite3
+        _os.environ.pop('MEDICAL_NOTES_KEY', None)
+        r = self._sign()
+        self.assertEqual(r.status_code, 503)
+        conn = sqlite3.connect(self.db)
+        n = conn.execute('SELECT COUNT(*) FROM consent_forms').fetchone()[0]
+        conn.close()
+        self.assertEqual(n, 0)
+
+    def test_page_and_api_pass_the_coming_soon_gate(self):
+        import server
+        self.assertTrue(server._gate_is_open_path(f'/consent/{self.bid}'))
+        self.assertTrue(server._gate_is_open_path(f'/api/consent/{self.bid}'))
+
+
 class UploadContentTests(_Sprint2Base):
     """`allowed_image()` s kontrolou magic bytes byla v kódu napsaná a
     nevolala ji ani jedna z deseti cest pro nahrávání — všechny věřily

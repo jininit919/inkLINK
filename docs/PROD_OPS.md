@@ -460,6 +460,29 @@ Po prvním běhu se koukni do **Deployments → logu** té služby. Čtyři řá
 `credit-payouts` vrací `paid` a `failed` — nenulové `failed` několik dní po
 sobě znamená prázdný Stripe balance, ne chybu v kódu.
 
+## 3.55.1 Souhlas klienta — klíč a cron
+
+**`MEDICAL_NOTES_KEY` je povinný**, jinak formulář vrací 503 a upozornění se
+neposílají. Vygeneruj ho jednou a **nikdy nepřegeneruj** — bez původního klíče
+se už žádný podepsaný souhlas nedá přečíst:
+
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Do Railway jako `MEDICAL_NOTES_KEY`. Zálohuj ho mimo Railway.
+
+Upozornění musí běžet často, jinak se do okna 5–20 minut před sezením
+netrefí. Ve službě `inklink-cron-reminders` změň rozvrh na `*/5 * * * *` a
+příkaz na:
+
+```
+python scripts/run_crons.py booking-reminders consent-nudge
+```
+
+`booking-reminders` je idempotentní (hlídá `reminder_sent_at`), takže mu
+častější běh nevadí.
+
 ## 3.6 Doplatky tatérům za kredit (cron)
 
 Posílá tatérům tu část zálohy, kterou klient zaplatil kreditem z poukazu.

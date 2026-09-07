@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Souhlas se zákrokem — InkLink</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+:root{
+  --bg:#faf8f3;--bg2:#f5f1e8;--bg3:#ede8db;--bg4:#e3ddca;
+  --txt:#0a0a0a;--txt2:#2a2a2a;--txt3:#5a5a5a;
+  --border:#d4cfbf;--border2:#a8a399;
+  --accent:#5b3fa0;
+  --warn:#8a5a1e;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);margin:0;padding:0 0 60px;
+  font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;line-height:1.6;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:620px;margin:0 auto;padding:26px 18px}
+
+header{border-bottom:1px solid var(--border);padding-bottom:18px;margin-bottom:22px}
+h1{font-size:21px;margin:0 0 6px;letter-spacing:-0.01em}
+.meta{font-size:13px;color:var(--txt3);margin:0}
+.meta b{color:var(--txt2);font-weight:500}
+
+h2{font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt3);
+  margin:26px 0 10px;font-weight:500}
+
+/* Otázka je řádek, ne karta — deset karet pod sebou se nedá projít očima. */
+.q{display:flex;align-items:flex-start;gap:12px;padding:11px 0;
+  border-bottom:1px solid var(--border)}
+.q:last-child{border-bottom:none}
+.q label{flex:1;font-size:14px;cursor:pointer}
+.q .yn{display:flex;gap:6px;flex-shrink:0}
+.q .yn button{border:1px solid var(--border2);background:var(--bg2);color:var(--txt3);
+  border-radius:7px;padding:7px 14px;font-size:12px;font-family:inherit;cursor:pointer;
+  transition:all .15s;min-width:52px}
+.q .yn button.on{background:var(--txt);border-color:var(--txt);color:var(--bg)}
+.q .yn button.on.yes{background:var(--warn);border-color:var(--warn);color:#fff}
+
+.ack{display:flex;align-items:flex-start;gap:11px;padding:9px 0;font-size:13.5px;
+  color:var(--txt2);cursor:pointer}
+.ack input{margin-top:3px;width:17px;height:17px;accent-color:var(--accent);flex-shrink:0}
+
+.fld{margin-top:18px}
+.fld label{display:block;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:7px}
+.fld input{width:100%;padding:12px 14px;border:1px solid var(--border2);border-radius:9px;
+  background:var(--bg2);color:var(--txt);font-size:15px;font-family:inherit}
+.fld input:focus{outline:none;border-color:var(--accent)}
+
+.sig-wrap{position:relative;margin-top:7px}
+canvas{width:100%;height:170px;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:9px;touch-action:none;display:block}
+.sig-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:12.5px;color:var(--txt3);pointer-events:none}
+.sig-hint.gone{display:none}
+.sig-clear{background:none;border:none;color:var(--txt3);font-size:11px;
+  letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;padding:8px 0;
+  font-family:inherit}
+
+.submit{width:100%;margin-top:22px;padding:15px;background:var(--txt);color:var(--bg);
+  border:none;border-radius:10px;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;
+  cursor:pointer;font-family:inherit}
+.submit:disabled{opacity:.45;cursor:not-allowed}
+.msg{margin-top:14px;font-size:13.5px;line-height:1.6;display:none}
+.msg.err{color:#8a2a2a;display:block}
+.msg.ok{color:var(--txt2);display:block}
+
+.done{text-align:center;padding:60px 20px}
+.done h1{font-size:22px}
+.done p{color:var(--txt3);font-size:14px;max-width:40ch;margin:10px auto 0}
+.fine{margin-top:26px;font-size:11.5px;color:var(--txt3);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap" id="root">
+  <p class="meta">Načítám…</p>
+</div>
+
+<script>
+const bid = location.pathname.split('/').filter(Boolean).pop();
+const tok = new URLSearchParams(location.search).get('t') || '';
+const state = { answers: {}, acks: {}, sig: null };
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function fmtWhen(iso){
+  if(!iso) return '';
+  try{
+    const d = new Date(iso.replace(' ','T'));
+    return d.toLocaleString('cs-CZ',{day:'numeric',month:'numeric',year:'numeric',
+      hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return iso; }
+}
+
+async function init(){
+  const root = document.getElementById('root');
+  let d;
+  try{
+    const r = await fetch(`/api/consent/${bid}?t=${encodeURIComponent(tok)}`);
+    d = await r.json();
+    if(!r.ok) throw new Error(d.error || 'Nepovedlo se načíst formulář.');
+  }catch(e){
+    root.innerHTML = `<div class="done"><h1>Formulář není dostupný</h1>
+      <p>${esc(e.message)} Zkus odkaz otevřít znovu, nebo se ozvi tatérovi.</p></div>`;
+    return;
+  }
+
+  if(d.signed_at){
+    root.innerHTML = `<div class="done"><h1>Podepsáno</h1>
+      <p>Souhlas jsme přijali ${esc(fmtWhen(d.signed_at))}. Není potřeba nic dalšího.</p></div>`;
+    return;
+  }
+
+  root.innerHTML = `
+    <header>
+      <h1>Souhlas se zákrokem</h1>
+      <p class="meta">Tatér <b>${esc(d.artist)}</b>${d.when ? ' · ' + esc(fmtWhen(d.when)) : ''}
+        ${d.design_note ? '<br>' + esc(d.design_note) : ''}</p>
+    </header>
+
+    <h2>Zdravotní prohlášení</h2>
+    <div id="questions">${d.questions.map(q => `
+      <div class="q">
+        <label for="q-${q.key}">${esc(q.text)}</label>
+        <div class="yn" id="q-${q.key}">
+          <button type="button" data-k="${q.key}" data-v="1">Ano</button>
+          <button type="button" data-k="${q.key}" data-v="0">Ne</button>
+        </div>
+      </div>`).join('')}</div>
+
+    <h2>Beru na vědomí</h2>
+    <div id="acks">${d.acks.map(a => `
+      <label class="ack"><input type="checkbox" data-k="${a.key}">
+        <span>${esc(a.text)}</span></label>`).join('')}</div>
+
+    <div class="fld">
+      <label for="name">Jméno a příjmení</label>
+      <input id="name" autocomplete="name" placeholder="Jan Novák" value="${esc(d.client||'')}">
+    </div>
+
+    <div class="fld">
+      <label>Podpis</label>
+      <div class="sig-wrap">
+        <canvas id="sig"></canvas>
+        <div class="sig-hint" id="sigHint">Podepiš se prstem nebo myší</div>
+      </div>
+      <button class="sig-clear" type="button" onclick="clearSig()">Vymazat podpis</button>
+    </div>
+
+    <button class="submit" id="submit" onclick="send()">Odeslat souhlas</button>
+    <div class="msg" id="msg"></div>
+
+    <p class="fine">Odpovědi na zdravotní otázky ukládáme zašifrovaně a vidí je jen tvůj
+      tatér. Slouží k tomu, aby zákrok proběhl bezpečně. Podrobnosti v
+      <a href="/privacy">zásadách ochrany osobních údajů</a>.</p>`;
+
+  root.querySelectorAll('.yn button').forEach(b => {
+    b.addEventListener('click', () => {
+      const k = b.dataset.k, v = b.dataset.v === '1';
+      state.answers[k] = v;
+      b.parentElement.querySelectorAll('button').forEach(x => {
+        x.classList.remove('on','yes');
+      });
+      b.classList.add('on');
+      if(v) b.classList.add('yes');
+    });
+  });
+  root.querySelectorAll('#acks input').forEach(c => {
+    c.addEventListener('change', () => { state.acks[c.dataset.k] = c.checked; });
+  });
+  initCanvas();
+}
+
+let ctx, drawing = false, dirty = false;
+function initCanvas(){
+  const c = document.getElementById('sig');
+  // Plátno musí mít vlastní rozlišení, jinak je podpis na telefonu rozmazaný.
+  const dpr = window.devicePixelRatio || 1;
+  const r = c.getBoundingClientRect();
+  c.width = r.width * dpr; c.height = r.height * dpr;
+  ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#0a0a0a';
+
+  const pos = e => {
+    const b = c.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return [p.clientX - b.left, p.clientY - b.top];
+  };
+  const start = e => { e.preventDefault(); drawing = true; ctx.beginPath();
+    ctx.moveTo(...pos(e)); document.getElementById('sigHint').classList.add('gone'); };
+  const move = e => { if(!drawing) return; e.preventDefault();
+    ctx.lineTo(...pos(e)); ctx.stroke(); dirty = true; };
+  const end = () => { drawing = false; };
+
+  c.addEventListener('mousedown', start); c.addEventListener('touchstart', start, {passive:false});
+  c.addEventListener('mousemove', move);  c.addEventListener('touchmove', move, {passive:false});
+  window.addEventListener('mouseup', end); c.addEventListener('touchend', end);
+}
+
+function clearSig(){
+  const c = document.getElementById('sig');
+  ctx.clearRect(0, 0, c.width, c.height);
+  dirty = false;
+  document.getElementById('sigHint').classList.remove('gone');
+}
+
+async function send(){
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('submit');
+  msg.className = 'msg';
+
+  const name = document.getElementById('name').value.trim();
+  if(!name){ msg.className = 'msg err'; msg.textContent = 'Vyplň prosím jméno.'; return; }
+  if(!dirty){ msg.className = 'msg err'; msg.textContent = 'Chybí podpis.'; return; }
+  // Nezodpovězená otázka není totéž co „ne" — u zdravotního prohlášení
+  // by to znamenalo podepsat něco, co člověk nepřečetl.
+  const unanswered = document.querySelectorAll('.yn').length - Object.keys(state.answers).length;
+  if(unanswered > 0){
+    msg.className = 'msg err';
+    msg.textContent = `Odpověz prosím na všechny otázky (zbývá ${unanswered}).`;
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Odesílám…';
+  try{
+    const r = await fetch(`/api/consent/${bid}?t=${encodeURIComponent(tok)}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name, answers: state.answers, acks: state.acks,
+        signature: document.getElementById('sig').toDataURL('image/png') })
+    });
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error || 'Odeslání se nepovedlo.');
+    document.getElementById('root').innerHTML = `<div class="done"><h1>Děkujeme</h1>
+      <p>Souhlas je podepsaný. Tatér ho uvidí u tvé rezervace.</p></div>`;
+  }catch(e){
+    msg.className = 'msg err'; msg.textContent = e.message;
+    btn.disabled = false; btn.textContent = 'Odeslat souhlas';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -192,7 +192,9 @@ _GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/',
                        '/vouchers/', '/api/cron/',
                        '/api/instagram/data-deletion',
                        '/api/instagram/deauthorize',
-                       '/instagram/deletion')
+                       '/instagram/deletion',
+                       # Souhlas podepisuje klient, který účet mít nemusí.
+                       '/consent/', '/api/consent/')
 _GATE_OPEN_API = (
     '/api/login', '/api/register', '/api/logout', '/api/me',
     '/api/verify', '/api/forgot-password', '/api/reset-password',
@@ -1153,6 +1155,31 @@ def init_db():
     )""")
     c.execute('CREATE INDEX IF NOT EXISTS idx_ig_imports_user ON instagram_imports(user_id)')
 
+    # ── consent_forms ───────────────────────────────────────────────────────
+    # Zdravotní prohlášení a podpis klienta před zákrokem. Jeden na sezení,
+    # ne na klienta: zdravotní stav se mezi termíny mění a tatér potřebuje
+    # doklad k tomu konkrétnímu, u kterého seděl.
+    #
+    # Odpovědi jsou zvláštní kategorie údajů podle čl. 9 GDPR (těhotenství,
+    # epilepsie, žloutenka), proto se ukládají zašifrované. Jméno a podpis
+    # šifrované nejsou — jméno je stejně v users a podpis je obrázek, který
+    # bez odpovědí nic zdravotního neprozradí.
+    c.execute("""CREATE TABLE IF NOT EXISTS consent_forms (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id     INTEGER NOT NULL UNIQUE,
+        client_id      INTEGER,
+        artist_id      INTEGER NOT NULL,
+        form_version   TEXT NOT NULL,
+        answers_enc    TEXT NOT NULL,
+        key_version    TEXT NOT NULL,
+        signature      TEXT DEFAULT '',
+        signed_name    TEXT DEFAULT '',
+        signed_at      TEXT NOT NULL,
+        signed_ip      TEXT DEFAULT '',
+        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    c.execute('CREATE INDEX IF NOT EXISTS idx_consent_artist ON consent_forms(artist_id)')
+
     # ── waitlist (coming-soon stránka) ──────────────────────────────────────
     # Sbíráme jen e-mail a nepovinnou roli. Žádné jméno, žádný profil —
     # čím míň osobních údajů před spuštěním, tím míň povinností navíc.
@@ -1510,6 +1537,9 @@ def init_db():
     # musí být jasné za co.
     add_col('bookings', 'credit_used_cents INTEGER DEFAULT 0')
     add_col('bookings', 'platform_owes_artist_cents INTEGER DEFAULT 0')
+    # Kdy jsme na souhlas upozornili. Bez toho by při každém běhu cronu
+    # přišlo upozornění znovu.
+    add_col('bookings', 'consent_nudged_at TEXT')
     add_col('bookings', 'credit_payout_id TEXT')          # Stripe Transfer
     add_col('bookings', 'credit_paid_at TEXT')
     add_col('bookings', 'platform_settled_at TEXT DEFAULT NULL')
@@ -5512,6 +5542,66 @@ def cron_reconcile():
     })
 
 
+# ── Upozornění na souhlas těsně před sezením ─────────────────────────────
+# Souhlas se podepisuje ve studiu před zákrokem, ne při rezervaci: zdravotní
+# stav se za tři týdny změní a na otázku „pil jsem během 24 h" se předem
+# odpovědět nedá. Aby na to ale tatér ve spěchu nezapomněl, ozve se aplikace
+# sama — oběma stranám, krátce před začátkem.
+#
+# Trigger: GET /api/cron/consent-nudge?token=<RECONCILE_TOKEN>
+# Cron musí běžet často (*/5), jinak se do toho okna netrefí.
+
+CONSENT_NUDGE_MIN_BEFORE = 5
+CONSENT_NUDGE_MAX_BEFORE = 20
+
+
+@app.route('/api/cron/consent-nudge', methods=['GET', 'POST'])
+@limiter.limit('60 per hour')
+def cron_consent_nudge():
+    err = _check_cron_auth()
+    if err: return err
+    if _medical_cipher() is None:
+        # Bez klíče nemá smysl posílat lidi na formulář, který se neuloží.
+        return jsonify({'ok': True, 'skipped': 'no_medical_key', 'notified': []})
+
+    now = _prague_now_naive()
+    lo = (now + timedelta(minutes=CONSENT_NUDGE_MIN_BEFORE)).isoformat()
+    hi = (now + timedelta(minutes=CONSENT_NUDGE_MAX_BEFORE)).isoformat()
+
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT b.id, b.artist_id, b.client_id, ua.display_name AS artist
+        FROM bookings b
+        JOIN users ua ON ua.id = b.artist_id
+        WHERE b.status = 'confirmed'
+          AND b.booking_start_at >= ? AND b.booking_start_at <= ?
+          AND b.consent_nudged_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM consent_forms cf WHERE cf.booking_id = b.id)
+        LIMIT 50
+    """, (lo, hi)).fetchall()
+
+    notified = []
+    for r in rows:
+        link = f"{APP_BASE_URL.rstrip('/')}/consent/{r['id']}?t={_consent_token(r['id'])}"
+        # Tatérovi bez odkazu: ten si otevře rezervaci, kde formulář je.
+        push_notif(conn, r['artist_id'], r['client_id'] or r['artist_id'],
+                   'consent_due', r['id'], 'booking',
+                   'Za chvíli začínáš — nech klienta podepsat souhlas.',
+                   url='/calendar')
+        if r['client_id']:
+            push_notif(conn, r['client_id'], r['artist_id'],
+                       'consent_due', r['id'], 'booking',
+                       f"Před sezením u {r['artist']} prosím podepiš souhlas.",
+                       url=f"/consent/{r['id']}?t={_consent_token(r['id'])}")
+        conn.execute('UPDATE bookings SET consent_nudged_at=? WHERE id=?',
+                     (datetime.utcnow().isoformat(), r['id']))
+        conn.commit()
+        notified.append({'booking_id': r['id'], 'link': link})
+
+    conn.close()
+    return jsonify({'ok': True, 'notified': [n['booking_id'] for n in notified]})
+
+
 # ── Doplatky tatérům za zálohy placené kreditem ───────────────────────────
 # Kredit z poukazu snižuje, co klient platí kartou — ne to, co dostane tatér.
 # Destination charge proto pošle míň a rozdíl dlužíme my. Posíláme ho zvlášť
@@ -7930,6 +8020,18 @@ PROCESSING_ACTIVITIES = [
         'tables': ('clients', 'client_notes', 'tattoo_records', 'aftercare_sent'),
     },
     {
+        'name': 'Souhlas klienta se zákrokem',
+        'purpose': 'Zdravotní prohlášení a podpis před tetováním',
+        'legal_basis': ('Výslovný souhlas se zpracováním údajů o zdraví '
+                        '(čl. 9/2/a); uchování pro obhajobu nároků (čl. 17/3/e)'),
+        'subjects': 'Klienti',
+        'categories': ('Odpovědi na zdravotní otázky (těhotenství, alergie, '
+                       'infekční onemocnění, léky), podpis, jméno, čas a IP'),
+        'recipients': 'Nikomu se nepředává; uloženo zašifrovaně u nás',
+        'retention': 'Po dobu, po kterou lze uplatnit nárok z újmy na zdraví',
+        'tables': ('consent_forms',),
+    },
+    {
         'name': 'Notifikace a provozní e-maily',
         'purpose': 'Upozornění na rezervace a zprávy, uvítací a připomínkové e-maily',
         'legal_basis': 'Plnění smlouvy (čl. 6/1/b); souhlas u push notifikací (čl. 6/1/a)',
@@ -8043,6 +8145,12 @@ PERSONAL_DATA = {
                               'scrub': ('design_note', 'internal_note'),
                               'why': 'internal_note je místo, kam si tatér píše '
                                      '„alergie na latex" — nejcitlivější pole v aplikaci'},
+    # Souhlas je doklad, kterým tatér prokazuje, na co se ptal. Mazat ho na
+    # žádost klienta by mu vzalo obhajobu právě v případě, kdy ji potřebuje
+    # nejvíc — čl. 17 odst. 3 písm. e) GDPR to pro určení a obhajobu
+    # právních nároků připouští. Odpovědi jsou navíc zašifrované.
+    'consent_forms':         {'link': ('client_id', 'artist_id'), 'erase': 'keep',
+                              'why': 'doklad o zdravotním prohlášení; šifrovaný'},
     'refund_requests':       {'link': ('client_id', 'artist_id'), 'erase': 'scrub',
                               'scrub': ('decision_note',)},
     'booking_reschedule_requests': {'link': ('requested_by', 'decision_by'),
@@ -12038,6 +12146,13 @@ function copyLink() {{
 </script>'''
 
 
+@app.route('/consent/<int:bid>')
+def consent_page(bid):
+    """Stránka, kterou klient podepisuje. Bez přihlášení — typicky ji
+    vyplňuje na tabletu tatéra ve studiu. Chrání ji token v odkazu."""
+    return send_from_directory('public', 'consent.html')
+
+
 @app.route('/vouchers/<code>')
 def voucher_print(code):
     """Poukaz k vytisknutí i k poslání odkazem. Bez přihlášení — dárce ho
@@ -12137,6 +12252,224 @@ AFTERCARE_FIRST_STEP = 'day0'
 # vyslalo celou historii najednou — klient by dostal tři maily o tetování
 # z loňska.
 AFTERCARE_WINDOW_DAYS = 3
+
+
+# ── Souhlas klienta se zákrokem ──────────────────────────────────────────
+# Papír, který dnes tatér vozí v deskách. Bez podepsaného prohlášení nese
+# odpovědnost za zákrok sám a nemá čím doložit, na co se ptal — a přesně to
+# po něm chtějí naše obchodní podmínky (čl. 3.1).
+#
+# Otázky jsou verzované. Když se znění změní, starší souhlasy musí zůstat
+# navázané na to, co člověk skutečně podepsal — jinak doklad nic nedokládá.
+
+CONSENT_FORM_VERSION = 'cz-2026-09'
+
+# (klíč, otázka, blokuje?) — blokující odpověď „ano" neznamená zákaz, ale
+# že se tatér musí rozhodnout vědomě. Tetovat pod vlivem nebo bez souhlasu
+# zákonného zástupce je jeho odpovědnost, ne naše.
+CONSENT_QUESTIONS = (
+    ('adult',        'Je mi 18 let a více', True),
+    ('pregnancy',    'Jsem těhotná nebo kojím', False),
+    ('blood_thinner','Užívám léky na ředění krve', False),
+    ('diabetes',     'Mám cukrovku', False),
+    ('epilepsy',     'Mám epilepsii nebo sklony k mdlobám', False),
+    ('heart',        'Léčím se se srdcem nebo tlakem', False),
+    ('skin',         'Mám kožní onemocnění v místě tetování', False),
+    ('allergy',      'Mám alergii (latex, barvy, kovy, léky)', False),
+    ('infection',    'Mám infekční onemocnění (žloutenka, HIV)', False),
+    ('substances',   'Požil jsem během 24 h alkohol nebo drogy', False),
+)
+
+CONSENT_ACKS = (
+    ('permanent',  'Beru na vědomí, že tetování je trvalé a jeho odstranění je nákladné a nemusí být úplné.'),
+    ('aftercare',  'Byl jsem poučen o péči o čerstvé tetování a instrukce jsem dostal.'),
+    ('result',     'Beru na vědomí, že výsledek se může lišit podle typu pleti a průběhu hojení.'),
+    ('truthful',   'Údaje výše jsem vyplnil pravdivě.'),
+)
+
+
+def _consent_token(booking_id):
+    import hashlib, hmac
+    key = (app.secret_key if isinstance(app.secret_key, bytes)
+           else str(app.secret_key).encode())
+    return hmac.new(key, f'consent:{booking_id}'.encode(),
+                    hashlib.sha256).hexdigest()[:32]
+
+
+MEDICAL_KEY_VERSION = 'v1'
+
+
+def _medical_cipher():
+    """Šifra na zdravotní odpovědi. Vrací None, když klíč není nastavený.
+
+    Klíč se NIKDY negeneruje sám. SECRET_KEY si to dovolit může, protože
+    přegenerování jen odhlásí uživatele — tady by tichý nový klíč nenávratně
+    osiřel všechny podepsané souhlasy.
+    """
+    key = os.environ.get('MEDICAL_NOTES_KEY', '').strip()
+    if not key:
+        return None
+    from cryptography.fernet import Fernet
+    return Fernet(key.encode())
+
+
+def _consent_encrypt(data):
+    import json as _json
+    f = _medical_cipher()
+    if f is None:
+        return None
+    return f.encrypt(_json.dumps(data, ensure_ascii=False).encode()).decode()
+
+
+def _consent_decrypt(blob):
+    import json as _json
+    f = _medical_cipher()
+    if f is None:
+        return None
+    try:
+        return _json.loads(f.decrypt(blob.encode()).decode())
+    except Exception:
+        return None
+
+
+@app.route('/api/consent/<int:bid>')
+def consent_form_get(bid):
+    """Otázky a stav souhlasu. Otevřené na token, ne na přihlášení — klient
+    ho typicky vyplňuje na tabletu tatéra ve studiu."""
+    if request.args.get('t', '') != _consent_token(bid):
+        return jsonify({'error': 'forbidden'}), 403
+    conn = get_db()
+    b = conn.execute('SELECT b.id, b.booking_start_at, b.design_note, '
+                     'ua.display_name AS artist, uc.display_name AS client '
+                     'FROM bookings b '
+                     'JOIN users ua ON ua.id = b.artist_id '
+                     'LEFT JOIN users uc ON uc.id = b.client_id '
+                     'WHERE b.id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    done = conn.execute('SELECT signed_at, signed_name FROM consent_forms '
+                        'WHERE booking_id=?', (bid,)).fetchone()
+    conn.close()
+    return jsonify({
+        'booking_id': bid,
+        'artist': b['artist'],
+        'client': b['client'] or '',
+        'when': b['booking_start_at'],
+        'design_note': b['design_note'] or '',
+        'version': CONSENT_FORM_VERSION,
+        'questions': [{'key': k, 'text': t, 'blocking': bl}
+                      for k, t, bl in CONSENT_QUESTIONS],
+        'acks': [{'key': k, 'text': t} for k, t in CONSENT_ACKS],
+        'signed_at': done['signed_at'] if done else None,
+        'signed_name': done['signed_name'] if done else None,
+    })
+
+
+@app.route('/api/consent/<int:bid>', methods=['POST'])
+@limiter.limit('20 per hour')
+def consent_form_sign(bid):
+    if request.args.get('t', '') != _consent_token(bid):
+        return jsonify({'error': 'forbidden'}), 403
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()[:120]
+    if not name:
+        return jsonify({'error': 'Vyplň jméno.'}), 400
+    if not data.get('signature'):
+        return jsonify({'error': 'Chybí podpis.'}), 400
+
+    answers = {k: bool((data.get('answers') or {}).get(k))
+               for k, _, _ in CONSENT_QUESTIONS}
+    acks = {k: bool((data.get('acks') or {}).get(k)) for k, _ in CONSENT_ACKS}
+    if not all(acks.values()):
+        return jsonify({'error': 'Potvrď prosím všechna prohlášení.'}), 400
+    if not answers.get('adult'):
+        return jsonify({'error': 'Bez potvrzení věku 18+ formulář odeslat nelze. '
+                                 'Nezletilého řeší tatér osobně se zákonným zástupcem.'}), 400
+
+    enc = _consent_encrypt({'answers': answers, 'acks': acks})
+    if enc is None:
+        # Radši žádný souhlas než zdravotní údaje v čitelné podobě.
+        return jsonify({'error': 'Formulář zatím není k dispozici, ozvi se tatérovi.'}), 503
+
+    conn = get_db()
+    b = conn.execute('SELECT artist_id, client_id FROM bookings WHERE id=?',
+                     (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if conn.execute('SELECT 1 FROM consent_forms WHERE booking_id=?', (bid,)).fetchone():
+        conn.close()
+        return jsonify({'error': 'Souhlas už je podepsaný.'}), 409
+
+    sig_name = _save_signature(data['signature'], bid)
+    if not sig_name:
+        conn.close(); return jsonify({'error': 'Podpis se nepodařilo uložit.'}), 400
+    conn.execute(
+        'INSERT INTO consent_forms (booking_id, client_id, artist_id, form_version, '
+        'answers_enc, key_version, signature, signed_name, signed_at, signed_ip) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?)',
+        (bid, b['client_id'], b['artist_id'], CONSENT_FORM_VERSION, enc,
+         MEDICAL_KEY_VERSION, sig_name, name,
+         datetime.utcnow().isoformat(), (request.remote_addr or '')[:64]))
+    conn.commit(); conn.close()
+    return jsonify({'ok': True})
+
+
+def _save_signature(data_url, bid):
+    """Podpis z plátna přijde jako data URL. Ukládáme ho jako obyčejný PNG,
+    takže projde stejnou kontrolou obsahu jako každý jiný obrázek."""
+    import base64, io as _io
+    from werkzeug.datastructures import FileStorage
+    if not isinstance(data_url, str) or not data_url.startswith('data:image/png;base64,'):
+        return None
+    try:
+        raw = base64.b64decode(data_url.split(',', 1)[1], validate=True)
+    except Exception:
+        return None
+    if len(raw) > 400_000 or not raw.startswith(b'\x89PNG'):
+        return None
+    name = f'consent_{bid}_{int(time.time())}.png'
+    fs = FileStorage(stream=_io.BytesIO(raw), filename=name, content_type='image/png')
+    save_upload(fs, name)
+    return name
+
+
+@app.route('/api/bookings/<int:bid>/consent')
+def consent_for_artist(bid):
+    """Co tatér vidí u rezervace: jestli je podepsáno a co klient uvedl."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    b = conn.execute('SELECT artist_id FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close(); return jsonify({'error': 'not found'}), 404
+    if b['artist_id'] != session['user_id']:
+        conn.close(); return jsonify({'error': 'forbidden'}), 403
+    row = conn.execute('SELECT * FROM consent_forms WHERE booking_id=?', (bid,)).fetchone()
+    conn.close()
+
+    link = f"{APP_BASE_URL.rstrip('/')}/consent/{bid}?t={_consent_token(bid)}"
+    if not row:
+        return jsonify({'signed': False, 'link': link,
+                        'available': _medical_cipher() is not None})
+
+    payload = _consent_decrypt(row['answers_enc'])
+    flagged = None
+    if payload:
+        texts = {k: t for k, t, _ in CONSENT_QUESTIONS}
+        # Jen odpovědi „ano" — seznam deseti „ne" tatér při přípravě nečte.
+        flagged = [texts[k] for k, v in payload['answers'].items()
+                   if v and k != 'adult' and k in texts]
+    return jsonify({
+        'signed': True,
+        'signed_at': row['signed_at'],
+        'signed_name': row['signed_name'],
+        'signature_url': f"/uploads/{row['signature']}" if row['signature'] else None,
+        'version': row['form_version'],
+        'flagged': flagged,
+        'readable': payload is not None,
+        'link': link,
+    })
 
 
 def _aftercare_token(booking_id):

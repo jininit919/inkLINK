@@ -269,6 +269,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .bs-more{display:inline-block;margin-top:2px;font-size:11px;letter-spacing:0.08em;
   text-transform:uppercase;color:var(--txt3);text-decoration:none}
 .bs-more:hover{color:var(--txt);text-decoration:underline;text-underline-offset:3px}
+/* Souhlas klienta. Vlastní blok, ne řádek ve výpisu: tatér tu má rozhodnout,
+   jestli zákrok proběhne, takže to nesmí splynout s údaji vedle. */
+.bs-consent{margin-top:16px}
+.bs-consent .box{border:1px solid var(--border2);border-radius:10px;padding:13px 14px;background:var(--bg2)}
+.bs-consent .box.signed{border-color:rgba(48,209,88,0.45);background:rgba(48,209,88,0.05)}
+.bs-consent .box.flagged{border-color:rgba(168,114,44,0.5);background:rgba(168,114,44,0.06)}
+.bs-consent .hd{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:7px}
+.bs-consent .st{font-size:13px;color:var(--txt)}
+.bs-consent ul{margin:8px 0 0;padding-left:18px}
+.bs-consent li{font-size:12.5px;color:#8a5a1e;margin-bottom:3px}
+.bs-consent .acts{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+.bs-consent .acts button,.bs-consent .acts a{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;
+  padding:9px 13px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);
+  color:var(--txt2);cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block}
+.bs-consent .acts .go{background:var(--accent);border-color:var(--accent);color:#fff}
 .bs-note{display:flex;flex-direction:column;gap:6px;margin-top:4px}
 .bs-note label{font-size:11px;letter-spacing:0.08em;color:var(--txt3);text-transform:uppercase}
 .bs-note textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);
@@ -737,6 +752,7 @@ function openBookSheet(id) {
   bsBooking = bookingsData.find(b => String(b.id) === String(id));
   if (!bsBooking) return;
   renderBookSheet();
+  loadConsent(bsBooking.id);
   document.getElementById('bookSheet').classList.add('show');
   document.body.style.overflow = 'hidden';
 }
@@ -948,6 +964,61 @@ async function submitMove() {
   } catch (e) {
     flash.textContent = e.message || t('cb.failed');
   }
+}
+
+// ── Souhlas klienta ───────────────────────────────────────────────────────
+// Tatér ho má vidět dřív, než se rozhodne, jestli sezení proběhne. Proto je
+// v detailu rezervace, ne schovaný v klientské kartě.
+async function loadConsent(bid) {
+  const el = document.getElementById('bsConsent');
+  if (!el) return;
+  el.innerHTML = '';
+  let d;
+  try {
+    const r = await fetch(`/api/bookings/${bid}/consent`);
+    if (!r.ok) return;
+    d = await r.json();
+  } catch (e) { return; }
+
+  if (!d.signed) {
+    if (!d.available) {
+      // Bez šifrovacího klíče formulář nenabízíme — zdravotní údaje bez
+      // šifrování se ukládat nemají a tiché selhání by tatér zjistil pozdě.
+      el.innerHTML = `<div class="box"><div class="hd">Souhlas klienta</div>
+        <div class="st">Formulář zatím není nastavený na serveru.</div></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="box"><div class="hd">Souhlas klienta</div>
+      <div class="st">Zatím nepodepsaný.</div>
+      <div class="acts">
+        <a class="go" href="${escapeHtml(d.link)}" target="_blank" rel="noopener">Otevřít na tabletu</a>
+        <button type="button" onclick="sendConsentLink(${bid})">Poslat odkaz do chatu</button>
+      </div></div>`;
+    return;
+  }
+
+  const flagged = d.flagged || [];
+  el.innerHTML = `<div class="box ${flagged.length ? 'flagged' : 'signed'}">
+    <div class="hd">Souhlas klienta</div>
+    <div class="st">Podepsal ${escapeHtml(d.signed_name || '')} · ${escapeHtml(fmtDateLong(d.signed_at))}</div>
+    ${!d.readable ? '<div class="st">Odpovědi teď nejde zobrazit — chybí klíč na serveru.</div>' : ''}
+    ${flagged.length ? `<ul>${flagged.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`
+                     : (d.readable ? '<div class="st">Klient neuvedl nic, co by bránilo zákroku.</div>' : '')}
+    ${d.signature_url ? `<div class="acts"><a href="${escapeHtml(d.signature_url)}" target="_blank" rel="noopener">Zobrazit podpis</a></div>` : ''}
+  </div>`;
+}
+
+async function sendConsentLink(bid) {
+  const d = await fetch(`/api/bookings/${bid}/consent`).then(r => r.json()).catch(() => null);
+  if (!d || !d.link) return;
+  const b = bsBooking;
+  if (!b || !b.client_id) { alert('Klient nemá účet, pošli mu odkaz jinak.'); return; }
+  const r = await fetch(`/api/messages/${b.client_id}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content:
+      `Před sezením prosím vyplň souhlas se zákrokem: ${d.link}` })
+  });
+  alert(r.ok ? 'Odkaz odeslán do chatu.' : 'Odeslání se nepovedlo.');
 }
 
 async function saveBookNote() {
