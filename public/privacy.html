@@ -71,8 +71,8 @@ ul li{margin-bottom:6px}
     <li><strong>Technická data:</strong> IP adresa (pro zabezpečení), typ prohlížeče, časy přihlášení</li>
     <li><strong>Waitlist (před spuštěním):</strong> pokud na úvodní stránce zadáte e-mail, uložíme ho spolu s časem zápisu a IP adresou. Používáme ho <strong>k jedinému účelu</strong> — dát vám vědět, až službu spustíme. Nikomu ho nepředáváme a k ničemu jinému nepoužijeme. Odhlášení kdykoli na e-mailu níže; po spuštění a rozeslání oznámení seznam smažeme.</li>
     <li><strong>Klientská databáze tatéra (CRM):</strong> tatér si u svých klientů vede kontakt, štítky, poznámky a záznamy o provedených tetováních (datum, místo na těle, styl, cena, případně fotka zhojení). U klienta s účtem na InkLinku je zdrojem kontaktu jeho profil, ne kopie.</li>
-    <li><strong>Dárkové poukazy a kredit:</strong> u zakoupeného poukazu evidujeme částku, kód, jméno obdarovaného a vzkaz, pokud je vyplníte. Kredit připsaný z poukazu vedeme jako zůstatek a knihu pohybů (kdy přibyl, kdy se z něj platilo). Jméno obdarovaného je údaj třetí osoby — vyplňujete ho dobrovolně a při smazání vašeho účtu ho odstraníme.</li>
-    <li><strong>Identifikátory zařízení pro notifikace:</strong> pokud povolíte upozornění, uložíme token vašeho zařízení nebo prohlížeče. Slouží výhradně k doručení notifikace a mizí s odhlášením notifikací i se smazáním účtu.</li>
+    <li><strong>Dárkové poukazy a kredit:</strong> u zakoupeného poukazu evidujeme peněžní částku, unikátní kód, jméno obdarovaného a zanechaný vzkaz, pokud je vyplníte. Kredit připsaný z poukazu vedeme jako aktuální zůstatek spolu s historií pohybů (datum připsání a čerpání). Jméno obdarovaného je osobním údajem třetí osoby — vyplňujete jej dobrovolně a v případě smazání vašeho uživatelského účtu bude trvale odstraněno.</li>
+    <li><strong>Identifikátory zařízení pro zasílání notifikací:</strong> pokud ve svém zařízení či prohlížeči aktivně povolíte upozornění, uložíme příslušný token vašeho zařízení. Tyto údaje slouží výhradně k doručování notifikací a jsou automaticky smazány v okamžiku, kdy notifikace v nastavení odhlásíte, nebo dojde ke smazání vašeho účtu.</li>
     <li><strong>Geolokace (volitelně):</strong> pokud udělíte souhlas, používáme polohu pro filtr „v mém okolí". Polohu neukládáme jinak než nezbytně pro tento dotaz.</li>
   </ul>
 
@@ -101,8 +101,8 @@ ul li{margin-bottom:6px}
     <li><strong>Cloudflare R2</strong> — úložiště pro nahrané obrázky portfolia (region EU).</li>
     <li><strong>Hosting (EU region)</strong> — provoz aplikačního serveru a databáze.</li>
     <li><strong>Druhý účastník rezervace</strong> — když si klient zarezervuje termín, tatér uvidí jeho jméno, e-mail, telefon (pokud je vyplněn) a popis tetování. Naopak klient vidí veřejný profil tatéra.</li>
-    <li><strong>Sentry (monitoring chyb)</strong> — dostává technický popis chyby a stopu v kódu, aby se dala opravit. Máme vypnuté odesílání osobních údajů (IP, cookies, user agent) a citlivé hodnoty se před odesláním odstraňují.</li>
-    <li><strong>Meta / Instagram (jen tatéři, jen na vyžádání)</strong> — pokud si tatér propojí Instagram kvůli importu portfolia, proběhne přihlášení u Mety podle jejích podmínek. Čteme pouze jeho příspěvky; nic nezveřejňujeme a nic Metě neposíláme. Propojení lze kdykoli zrušit v nastavení profilu i na straně Instagramu.</li>
+    <li><strong>Sentry (Functional Software, Inc., USA / EU monitoring)</strong> — nástroj pro monitoring chyb. Přebírá technický popis chyby a trasování kódu (stack trace) nezbytné pro opravu softwarových závad. Odesílání osobních údajů (jako jsou IP adresy, cookies či user agent) máme plně vypnuté a citlivé hodnoty jsou před odesláním automaticky anonymizovány/odstraněny.</li>
+    <li><strong>Meta Platforms Ireland Ltd. (Irsko — platí pouze pro tatéry na vyžádání)</strong> — pokud si tatér propojí svůj účet na Instagramu za účelem importu portfolia, proběhne ověření a přihlášení u společnosti Meta v souladu s jejími podmínkami. Aplikace čte pouze veřejné příspěvky/fotografie tatéra; nic vlastním jménem tatéra nezveřejňujeme ani neodesíláme žádná další data zpět Meta platformě. Propojení lze kdykoliv zrušit jak v nastavení vašeho profilu na Platformě, tak přímo v rozhraní Instagramu.</li>
     <li><strong>Orgány veřejné moci</strong> — pouze na základě zákonné povinnosti (finanční úřad, soudy, policie).</li>
   </ul>
 
@@ -113,9 +113,9 @@ ul li{margin-bottom:6px}
     <li>Záznamy o rezervacích a platbách: <strong>10 let</strong> (zákonná povinnost — zákon o účetnictví, daňový řád)</li>
     <li>Logy a technická data: max. 90 dní</li>
     <li>Klientská databáze tatéra: po dobu, kdy tatér klienta vede; na žádost klienta ji tatér vymaže (jméno, kontakt, poznámky a popisy tetování zmizí, účetní záznam o rezervaci a ceně zůstává podle bodu výše)</li>
-    <li>Komunikace přes zprávy mezi uživateli: po dobu existence účtu obou stran. Konverzace patří i druhé straně, proto se smazáním jednoho účtu nemizí — je u ní ale už jen „Smazaný účet".</li>
-    <li>Dárkové poukazy: kód platí 12 měsíců od zakoupení; záznam o částce zůstává 10 let jako účetní doklad, jméno obdarovaného a vzkaz mizí se smazáním účtu kupujícího</li>
-    <li>Identifikátory zařízení pro notifikace: do odhlášení notifikací nebo smazání účtu</li>
+    <li>Vzájemná komunikace (zprávy) mezi uživateli: data jsou uchovávána po dobu existence uživatelského účtu obou zúčastněných stran. Jelikož konverzace tvoří nedílnou součást historie komunikace i pro druhou stranu, zrušením účtu jedním z uživatelů chat nemizí — u zrušeného účtu se nadále zobrazuje pouze označení „Smazaný účet".</li>
+    <li>Dárkové poukazy: unikátní kód poukazu je platný 12 měsíců od data zakoupení. Finanční záznam o transakci je z důvodu plnění daňových a účetních povinností uchováván po dobu 10 let; jméno obdarovaného a vzkaz jsou smazány okamžitě po smazání účtu kupujícího.</li>
+    <li>Identifikátory zařízení pro notifikace: jsou uchovávány do okamžiku, kdy uživatel notifikace ručně odhlásí, nebo do zániku jeho uživatelského účtu.</li>
   </ul>
 
   <h2>7. Vaše práva (GDPR)</h2>
