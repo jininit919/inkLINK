@@ -3963,6 +3963,162 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class ReceiptTests(_Sprint2Base):
+    """Doklad pro klienta. Účetní export řeší tatérovu účetní; klient, který
+    zaplatí 15 000 Kč a půlku v hotovosti, dosud nedostal nic."""
+
+    def _completed(self, deposit=60000, onsite=140000, credit=0):
+        import sqlite3
+        slot = self._mk_slot(self._day_at(5, 10), self._day_at(5, 18))
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "INSERT INTO bookings (slot_id, artist_id, client_id, status, deposit_cents, "
+            "credit_used_cents, onsite_amount_cents, total_price_cents, currency, "
+            "design_note, booking_start_at, duration_hours) "
+            "VALUES (?,1,2,'completed',?,?,?,?, 'CZK','Vlk na předloktí',?,2)",
+            (slot, deposit, credit, onsite, deposit + onsite, self._day_at(5, 12).isoformat()))
+        conn.commit()
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return bid
+
+    def test_client_gets_a_link_and_can_open_it_without_logging_in(self):
+        bid = self._completed()
+        d = self.client.get(f'/api/bookings/{bid}/receipt').get_json()
+        self.assertTrue(d['available'])
+        path = d['url'].split('.club')[-1] if '.club' in d['url'] else d['url']
+        self.client.post('/api/logout')
+        r = self.client.get(path)
+        self.assertEqual(r.status_code, 200)
+        body = r.get_data(as_text=True)
+        self.assertIn('Potvrzení o platbě', body)
+        # Nezlomitelná mezera v tisících je záměr, ne náhoda.
+        self.assertIn('600\u00a0Kč', body)       # záloha
+        self.assertIn('2\u00a0000\u00a0Kč', body)  # celkem
+        self.assertIn('Vlk na předloktí', body)
+
+    def test_the_artist_is_the_seller_not_inklink(self):
+        """Prodávajícím je tatér — to je celý smysl role zprostředkovatele
+        v podmínkách."""
+        import server
+        bid = self._completed()
+        r = self.client.get(f'/receipt/{bid}?t={server._receipt_token(bid)}')
+        body = r.get_data(as_text=True)
+        self.assertIn('Artist One', body)
+        self.assertIn('pouze\n    zprostředkovatel', body.replace('\r', ''))
+
+    def test_without_ico_it_says_it_is_not_an_accounting_document(self):
+        import server
+        bid = self._completed()
+        body = self.client.get(f'/receipt/{bid}?t={server._receipt_token(bid)}').get_data(as_text=True)
+        self.assertIn('neslouží jako účetní doklad', body)
+
+    def test_bad_token_and_unfinished_booking_are_refused(self):
+        import server, sqlite3
+        bid = self._completed()
+        self.assertEqual(self.client.get(f'/receipt/{bid}?t=spatny').status_code, 404)
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE bookings SET status='confirmed' WHERE id=?", (bid,))
+        conn.commit(); conn.close()
+        self.assertEqual(
+            self.client.get(f'/receipt/{bid}?t={server._receipt_token(bid)}').status_code, 404)
+
+    def test_a_stranger_cannot_get_the_link(self):
+        import sqlite3
+        bid = self._completed()
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email) "
+                     "VALUES ('cizi','Cizí','x','c@t.cz')")
+        conn.commit(); conn.close()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 3
+        self.assertEqual(self.client.get(f'/api/bookings/{bid}/receipt').status_code, 403)
+
+
+class FreedSlotTests(_Sprint2Base):
+    """Když klient zruší, zůstane tatérovi díra v příjmu. Dosud se o tom
+    dozvěděl jen on sám — termín se nenabídl nikomu dalšímu."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3, server
+        conn = sqlite3.connect(self.db)
+        for u in ('sleduje1', 'sleduje2', 'mauznho'):
+            conn.execute("INSERT INTO users (username, display_name, password_hash, email) "
+                         "VALUES (?,?,'x',?)", (u, u, u + '@t.cz'))
+        conn.commit()
+        # 3, 4 sledují tatéra; 5 taky, ale u něj už rezervaci má
+        for uid in (3, 4, 5):
+            conn.execute('INSERT INTO follows (follower_id, following_id) VALUES (?,1)', (uid,))
+        conn.commit(); conn.close()
+        self.sent = []
+        self._realpush = server.send_push
+        server.send_push = lambda uid, t, b, url='/': self.sent.append(uid)
+
+    def tearDown(self):
+        import server
+        server.send_push = self._realpush
+        super().tearDown()
+
+    def _book_and_cancel(self, days=10, extra_booking_for=None):
+        import sqlite3
+        slot = self._mk_slot(self._day_at(days, 10), self._day_at(days, 18))
+        r = self._book(slot, self._day_at(days, 12))
+        bid = r.get_json()['id']
+        if extra_booking_for:
+            conn = sqlite3.connect(self.db)
+            conn.execute("INSERT INTO bookings (slot_id, artist_id, client_id, status, "
+                         "deposit_cents, booking_start_at, duration_hours) "
+                         "VALUES (?,1,?, 'confirmed',0,?,2)",
+                         (slot, extra_booking_for, self._day_at(days + 1, 12).isoformat()))
+            conn.commit(); conn.close()
+        self.sent.clear()
+        self.client.post(f'/api/bookings/{bid}/cancel')
+        return bid
+
+    def test_followers_are_told(self):
+        self._book_and_cancel()
+        self.assertIn(3, self.sent)
+        self.assertIn(4, self.sent)
+
+    def test_someone_who_already_has_a_booking_is_left_alone(self):
+        """Kdo u toho tatéra termín má, o volno nestojí."""
+        self._book_and_cancel(days=11, extra_booking_for=5)
+        self.assertNotIn(5, self.sent)
+
+    def test_the_person_who_cancelled_is_not_told(self):
+        self._book_and_cancel(days=12)
+        self.assertNotIn(2, self.sent)
+
+    def test_a_session_in_an_hour_is_not_offered_around(self):
+        """Za hodinu to nikdo nestihne — bylo by to jen pípnutí navíc."""
+        import sqlite3
+        from datetime import timedelta as _td
+        start = self._now() + _td(minutes=45)
+        slot = self._mk_slot(start - _td(hours=1), start + _td(hours=5))
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO bookings (slot_id, artist_id, client_id, status, "
+                     "deposit_cents, booking_start_at, duration_hours) "
+                     "VALUES (?,1,2,'confirmed',0,?,2)", (slot, start.isoformat()))
+        conn.commit()
+        bid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        self.sent.clear()
+        self.client.post(f'/api/bookings/{bid}/cancel')
+        self.assertEqual([u for u in self.sent if u in (3, 4)], [])
+
+    def test_artist_cancelling_does_not_advertise_the_slot(self):
+        """Tatér ruší proto, že nemůže — nabízet ten termín dál je nesmysl."""
+        import sqlite3
+        slot = self._mk_slot(self._day_at(13, 10), self._day_at(13, 18))
+        r = self._book(slot, self._day_at(13, 12))
+        bid = r.get_json()['id']
+        self._as_artist()
+        self.sent.clear()
+        self.client.post(f'/api/bookings/{bid}/cancel')
+        self.assertEqual([u for u in self.sent if u in (3, 4)], [])
+
+
 class ConsentNudgeTests(_Sprint2Base):
     """Aplikace na souhlas upozorní sama krátce před sezením. Podepisovat
     se má ve studiu, ne při rezervaci — jenže na to by tatér ve spěchu

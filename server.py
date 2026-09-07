@@ -194,7 +194,8 @@ _GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/',
                        '/api/instagram/deauthorize',
                        '/instagram/deletion',
                        # Souhlas podepisuje klient, který účet mít nemusí.
-                       '/consent/', '/api/consent/')
+                       # Doklad si klient otevírá odkazem, taky bez účtu.
+                       '/consent/', '/api/consent/', '/receipt/')
 _GATE_OPEN_API = (
     '/api/login', '/api/register', '/api/logout', '/api/me',
     '/api/verify', '/api/forgot-password', '/api/reset-password',
@@ -1346,6 +1347,11 @@ def init_db():
     # ho nezkracuje, jen se přestane prodlužovat.
     # Měna tatéra. Termíny, ceníky i rezervace ji dědí; změna se projeví
     # až na nově vypsaných termínech, aby se nepřepsaly už slíbené ceny.
+    # Fakturační údaje tatéra. Bez nich se dá vystavit jen potvrzení
+    # o platbě, ne účetní doklad — a vymýšlet si IČO nebudeme.
+    add_col('users', "billing_name TEXT DEFAULT ''")
+    add_col('users', "billing_ico TEXT DEFAULT ''")
+    add_col('users', "billing_address TEXT DEFAULT ''")
     add_col('users', "currency TEXT DEFAULT 'CZK'")
     add_col('users', 'premium_until TEXT DEFAULT NULL')
     add_col('users', 'premium_customer_id TEXT DEFAULT NULL')
@@ -4104,6 +4110,15 @@ def update_profile():
                      (display_name, city, bio, studio, instagram, styles, deposit_pct,
                       hourly_min, hourly_max, pay_mode, cancel_full, cancel_half,
                       session['user_id']))
+
+    # Fakturační údaje zvlášť: jsou nepovinné a nemají co dělat ve dvou
+    # větvích UPDATE výš, kde by se na ně dalo zapomenout.
+    conn.execute('UPDATE users SET billing_name=?, billing_ico=?, billing_address=? '
+                 'WHERE id=?',
+                 ((request.form.get('billing_name', '') or '').strip()[:120],
+                  (request.form.get('billing_ico', '') or '').strip()[:20],
+                  (request.form.get('billing_address', '') or '').strip()[:200],
+                  session['user_id']))
 
     # Měna se neptá, odvozuje se z města (a později ze Stripe účtu).
     _sync_currency(conn, session['user_id'])
@@ -7383,6 +7398,12 @@ def cancel_booking(bid):
                 'MAX(0, COALESCE(platform_owes_artist_cents,0) - ?) WHERE id=?',
                 (credit_refund, bid))
             conn.commit()
+
+    # Zrušení znamená díru v příjmu. Nabídnout ji dál je jediné, co ji
+    # ještě může zaplnit — a je to nejviditelnější moment, kdy aplikace
+    # tatérovi reálně vydělá.
+    if actor == 'client':
+        _offer_freed_slot(conn, b, start_dt)
 
     other = b['artist_id'] if actor == 'client' else b['client_id']
     push_notif(conn, other, uid, 'booking_cancelled', bid, 'booking',
@@ -12144,6 +12165,193 @@ function copyLink() {{
   }}
 }}
 </script>'''
+
+
+# Kolik lidí oslovit uvolněným termínem. Sledující tatéra jsou ti, kdo o
+# něj projevili zájem — ale je to služba, ne rozesílka, takže strop platí.
+FREED_SLOT_NOTIFY_LIMIT = 40
+FREED_SLOT_MIN_HOURS = 2
+
+
+def _offer_freed_slot(conn, booking, start_dt):
+    """Řekne sledujícím tatéra, že se uvolnil termín.
+
+    Neposílá se u termínů za pár hodin (nikdo to nestihne) ani tomu, kdo
+    u toho tatéra právě rezervaci má — ten o volno nestojí.
+    """
+    try:
+        hours_ahead = (start_dt - _prague_now_naive()).total_seconds() / 3600.0
+    except Exception:
+        return
+    if hours_ahead < FREED_SLOT_MIN_HOURS:
+        return
+
+    artist = conn.execute('SELECT display_name FROM users WHERE id=?',
+                          (booking['artist_id'],)).fetchone()
+    if not artist:
+        return
+
+    rows = conn.execute("""
+        SELECT f.follower_id AS uid FROM follows f
+        WHERE f.following_id = ?
+          AND f.follower_id <> ?
+          AND NOT EXISTS (
+                SELECT 1 FROM bookings b2
+                 WHERE b2.client_id = f.follower_id
+                   AND b2.artist_id = f.following_id
+                   AND b2.status IN ('confirmed','pending_payment'))
+        LIMIT ?
+    """, (booking['artist_id'], booking['client_id'], FREED_SLOT_NOTIFY_LIMIT)).fetchall()
+
+    when = _fmt_booking_when(start_dt.isoformat(), booking['duration_hours'])
+    for r in rows:
+        push_notif(conn, r['uid'], booking['artist_id'], 'slot_freed',
+                   booking['slot_id'], 'slot',
+                   f"U {artist['display_name']} se uvolnil termín {when}.",
+                   url=f"/profile/{_username_of(conn, booking['artist_id'])}")
+    conn.commit()
+
+
+def _username_of(conn, uid):
+    r = conn.execute('SELECT username FROM users WHERE id=?', (uid,)).fetchone()
+    return r['username'] if r else ''
+
+
+def _receipt_token(booking_id):
+    import hashlib, hmac
+    key = (app.secret_key if isinstance(app.secret_key, bytes)
+           else str(app.secret_key).encode())
+    return hmac.new(key, f'receipt:{booking_id}'.encode(),
+                    hashlib.sha256).hexdigest()[:32]
+
+
+@app.route('/receipt/<int:bid>')
+def receipt_page(bid):
+    """Potvrzení o platbě pro klienta.
+
+    Schválně NE faktura: prodávajícím je tatér, ne InkLink, a bez jeho IČO
+    by to účetní doklad stejně nebyl. Tohle je doklad o tom, co klient
+    zaplatil a komu — což je to, co reálně chce.
+
+    Otevřené na token: klient nemusí mít účet a odkaz si může uložit.
+    """
+    from html import escape as _h
+    if request.args.get('t', '') != _receipt_token(bid):
+        return _plain_page('Takový doklad neznáme.'), 404
+
+    conn = get_db()
+    b = conn.execute("""
+        SELECT b.*, ua.display_name AS artist, ua.billing_name, ua.billing_ico,
+               ua.billing_address, uc.display_name AS client
+        FROM bookings b
+        JOIN users ua ON ua.id = b.artist_id
+        LEFT JOIN users uc ON uc.id = b.client_id
+        WHERE b.id=?""", (bid,)).fetchone()
+    conn.close()
+    if not b or b['status'] != 'completed':
+        return _plain_page('Doklad bude k dispozici po dokončení sezení.'), 404
+
+    cur = _norm_currency(b['currency'] if 'currency' in b.keys() else None)
+    sym = CURRENCIES.get(cur, CURRENCIES[DEFAULT_CURRENCY])['symbol']
+    money = lambda cents: f"{(cents or 0) // 100:,}".replace(',', '\u00a0') + '\u00a0' + sym
+
+    credit = b['credit_used_cents'] or 0
+    deposit = b['deposit_cents'] or 0
+    rows = [('Záloha přes InkLink', deposit - credit)]
+    if credit:
+        rows.append(('Uhrazeno kreditem z poukazu', credit))
+    if b['balance_paid_cents']:
+        rows.append(('Doplatek přes InkLink', b['balance_paid_cents']))
+    if b['onsite_amount_cents']:
+        rows.append(('Zaplaceno na místě', b['onsite_amount_cents']))
+    total = sum(v for _, v in rows)
+
+    seller = _h(b['billing_name'] or b['artist'])
+    ico = _h(b['billing_ico'] or '')
+    addr = _h(b['billing_address'] or '')
+    try:
+        when = _naive_dt(b['booking_start_at']).strftime('%-d. %-m. %Y')
+    except (ValueError, TypeError):
+        when = ''
+
+    return Response(f'''<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Potvrzení o platbě — InkLink</title>
+<style>
+  @page {{ margin: 16mm; }}
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:#faf8f3;color:#0a0a0a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    line-height:1.6;padding:34px 20px 70px}}
+  .doc{{max-width:560px;margin:0 auto;background:#fff;border:1px solid #d4cfbf;
+    border-radius:12px;padding:32px 30px}}
+  h1{{font-size:17px;letter-spacing:0.02em;margin-bottom:3px}}
+  .sub{{font-size:12px;color:#5a5a5a;margin-bottom:26px}}
+  .party{{font-size:13px;line-height:1.7;margin-bottom:22px}}
+  .party .lbl{{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#5a5a5a}}
+  table{{width:100%;border-collapse:collapse;margin-top:6px}}
+  td{{padding:9px 0;border-bottom:1px solid #ede8db;font-size:13.5px}}
+  td.r{{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}}
+  tr.total td{{border-bottom:none;border-top:2px solid #0a0a0a;padding-top:12px;
+    font-size:16px;font-weight:600}}
+  .fine{{margin-top:22px;font-size:11px;color:#5a5a5a;line-height:1.7}}
+  .bar{{max-width:560px;margin:16px auto 0;display:flex;gap:8px;justify-content:center}}
+  .bar button{{font-family:inherit;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+    padding:10px 18px;border:1px solid #0a0a0a;background:#0a0a0a;color:#fff;
+    border-radius:6px;cursor:pointer}}
+  @media print {{ body{{background:#fff;padding:0}} .doc{{border:none;border-radius:0}} .bar{{display:none}} }}
+</style>
+<div class="doc">
+  <h1>Potvrzení o platbě</h1>
+  <div class="sub">č. {bid} · sezení {_h(when)}</div>
+
+  <div class="party">
+    <div class="lbl">Přijal</div>
+    <div><b>{seller}</b></div>
+    {f'<div>IČO: {ico}</div>' if ico else ''}
+    {f'<div>{addr}</div>' if addr else ''}
+  </div>
+  <div class="party">
+    <div class="lbl">Zaplatil</div>
+    <div>{_h(b['client'] or '')}</div>
+  </div>
+
+  <table>
+    {''.join(f'<tr><td>{_h(lbl)}</td><td class="r">{money(v)}</td></tr>'
+             for lbl, v in rows if v)}
+    <tr class="total"><td>Celkem</td><td class="r">{money(total)}</td></tr>
+  </table>
+
+  <p class="fine">
+    {_h(b['design_note'] or '')}
+    <br><br>
+    Službu poskytl a platbu přijal <b>{seller}</b>. InkLink je pouze
+    zprostředkovatel rezervace a platby zálohy.
+    {'' if ico else '<br>Tatér neuvedl IČO, proto tento doklad neslouží jako účetní doklad.'}
+  </p>
+</div>
+<div class="bar"><button onclick="window.print()">Vytisknout / uložit PDF</button></div>''',
+                    mimetype='text/html')
+
+
+@app.route('/api/bookings/<int:bid>/receipt')
+def receipt_link(bid):
+    """Odkaz na doklad. Vidí ho obě strany — klient si ho chce uložit,
+    tatér ho občas potřebuje poslat znovu."""
+    err = require_login()
+    if err: return err
+    conn = get_db()
+    b = conn.execute('SELECT client_id, artist_id, status FROM bookings WHERE id=?',
+                     (bid,)).fetchone()
+    conn.close()
+    if not b:
+        return jsonify({'error': 'not found'}), 404
+    if session['user_id'] not in (b['client_id'], b['artist_id']):
+        return jsonify({'error': 'forbidden'}), 403
+    if b['status'] != 'completed':
+        return jsonify({'available': False})
+    return jsonify({'available': True,
+                    'url': f"{APP_BASE_URL.rstrip('/')}/receipt/{bid}?t={_receipt_token(bid)}"})
 
 
 @app.route('/consent/<int:bid>')
