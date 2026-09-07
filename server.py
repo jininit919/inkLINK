@@ -7648,6 +7648,16 @@ def set_my_lang():
     return jsonify({'ok': True, 'lang': lang})
 
 
+# Tabulky, které si export skládá ručně — kvůli maskování tokenů nebo dvěma
+# pohledům na tutéž tabulku (odeslané vs. přijaté zprávy). Zbytek dotáhne
+# cyklus přes PERSONAL_DATA, aby se seznam nemohl rozejít s databází.
+_EXPORT_HANDWRITTEN = {
+    'users', 'bookings', 'portfolio_items', 'portfolio_item_sizes', 'messages',
+    'refund_requests', 'vouchers', 'credit_ledger', 'referrals', 'reviews',
+    'notifications', 'push_subscriptions',
+}
+
+
 @app.route('/api/me/export', methods=['GET'])
 @limiter.limit('5 per hour')
 def my_export():
@@ -7732,6 +7742,29 @@ def my_export():
     ).fetchall()
     push_subscriptions = [dict(r) for r in push_subs_raw]
 
+    registry_extra = {}
+    # Zbytek registru. Ručně psaný seznam se od databáze rozešel — 42 tabulek
+    # a export jich pokrýval jedenáct. Co má vazbu na uživatele, do exportu
+    # patří; tokeny a hashe ne, ty nikomu nepomůžou a jen se šíří.
+    SECRETS = {'access_token', 'token', 'password_hash', 'verify_code',
+               'calendar_token', 'payment_intent'}
+    for table, rule in PERSONAL_DATA.items():
+        links = rule.get('link', ())
+        if not links or table in ('users',) or rule['erase'] == 'none':
+            continue
+        if table in _EXPORT_HANDWRITTEN:
+            continue                       # už je v ručně psané části výš
+        where = ' OR '.join(f'{c} = ?' for c in links)
+        try:
+            rows = fetch_dicts(f'SELECT * FROM {table} WHERE {where} ORDER BY 1 DESC',
+                               tuple([uid] * len(links)))
+        except Exception as e:             # tabulka bez očekávaného sloupce
+            app.logger.warning(f'[export] {table}: {e}')
+            continue
+        if rows:
+            registry_extra[table] = [{k: v for k, v in r.items() if k not in SECRETS}
+                             for r in rows]
+
     conn.close()
 
     bundle = {
@@ -7757,6 +7790,7 @@ def my_export():
         'reviews_received':     reviews_received,
         'notifications':        notifications,
         'push_subscriptions':   push_subscriptions,
+        **registry_extra,
     }
 
     # Build ZIP in-memory: one JSON file per section + README.
@@ -7781,6 +7815,130 @@ def my_export():
 ACCOUNT_DELETION_GRACE_DAYS = 30
 
 
+# ── Registr osobních údajů ────────────────────────────────────────────────
+# Jedno místo, kde je u každé tabulky rozhodnuto, čí osobní údaje v ní leží
+# a co se s nimi stane při výmazu účtu. Export i anonymizace čtou odsud.
+#
+# Vzniklo to proto, že se to jinak rozjelo: databáze měla 42 tabulek, export
+# jich pokrýval 11 a anonymizace 6. Nová tabulka se prostě přidala a nikdo
+# nerozhodl, jestli v ní osobní údaje jsou. Test `PersonalDataRegistryTests`
+# proto neprojde, dokud každá tabulka v databázi není vyjmenovaná tady.
+#
+# `erase` říká, co se stane po uplynutí 30denní lhůty:
+#   'delete'    — řádky uživatele zmizí
+#   'scrub'     — řádek zůstane, vyjmenované sloupce se vyprázdní
+#   'keep'      — nesaháme; účetnictví (10 let dle zákona o účetnictví) nebo
+#                 vazba, která bez PII nikoho neidentifikuje
+#   'none'      — žádné osobní údaje, tabulka je tu jen pro úplnost
+#
+# `link` jsou sloupce s vazbou na uživatele; slouží exportu i mazání.
+
+PERSONAL_DATA = {
+    # — žádné osobní údaje —
+    'app_settings':          {'link': (), 'erase': 'none'},
+    'discount_codes':        {'link': (), 'erase': 'none'},
+    'processed_stripe_events': {'link': (), 'erase': 'none'},
+    'portfolio_item_sizes':  {'link': (), 'erase': 'none',
+                              'why': 'maže se s portfolio_items'},
+    'booking_status_log':    {'link': (), 'erase': 'none',
+                              'why': 'jen přechody stavů, bez identity'},
+    'aftercare_sent':        {'link': (), 'erase': 'none',
+                              'why': 'jen který krok hojení odešel'},
+    'economics_snapshots':   {'link': (), 'erase': 'keep',
+                              'why': 'účetní podklad k rezervaci'},
+    'telemetry_events':      {'link': (), 'erase': 'keep',
+                              'why': 'provozní metriky, bez vazby na osobu'},
+    'studios':               {'link': (), 'erase': 'keep',
+                              'why': 'údaje firmy, ne fyzické osoby'},
+    'review_reports':        {'link': ('reporter_id',), 'erase': 'keep',
+                              'why': 'důkaz o nahlášení; smazat ho ničí obhajobu'},
+
+    # — mizí s účtem —
+    'portfolio_items':       {'link': ('user_id',), 'erase': 'delete'},
+    'push_subscriptions':    {'link': ('user_id',), 'erase': 'delete'},
+    'native_push_tokens':    {'link': ('user_id',), 'erase': 'delete'},
+    'password_reset_tokens': {'link': ('user_id',), 'erase': 'delete'},
+    'notifications':         {'link': ('user_id', 'actor_id'), 'erase': 'delete'},
+    'instagram_accounts':    {'link': ('user_id',), 'erase': 'delete',
+                              'why': 'obsahuje přístupový token'},
+    'instagram_imports':     {'link': ('user_id',), 'erase': 'delete'},
+    'favorite_cities':       {'link': ('user_id',), 'erase': 'delete'},
+    'portfolio_likes':       {'link': ('user_id',), 'erase': 'delete'},
+    'follows':               {'link': ('follower_id', 'following_id'), 'erase': 'delete'},
+    'event_saves':           {'link': ('user_id',), 'erase': 'delete'},
+    'events':                {'link': ('user_id',), 'erase': 'delete'},
+    'slots':                 {'link': ('user_id',), 'erase': 'delete'},
+    'artist_blocked_time':   {'link': ('artist_id',), 'erase': 'delete'},
+    'campaigns':             {'link': ('artist_id',), 'erase': 'delete'},
+    'booking_offers':        {'link': ('artist_id', 'client_id'), 'erase': 'delete'},
+    'studio_members':        {'link': ('artist_id',), 'erase': 'delete'},
+    'client_notes':          {'link': (), 'erase': 'delete',
+                              'why': 'poznámky tatéra o klientovi, mažou se s ním'},
+    'clients':               {'link': ('user_id', 'artist_id'), 'erase': 'scrub',
+                              'scrub': ('name', 'email', 'phone', 'note', 'tags',
+                                        'style_preferences', 'acquisition_source'),
+                              'null': ('user_id',),
+                              'why': 'ponechané user_id by identitu vrátilo zpět'},
+    'tattoo_records':        {'link': ('client_id', 'artist_id'), 'erase': 'scrub',
+                              'scrub': ('body_location', 'description', 'healed_photo')},
+
+    # — účetnictví zůstává, volný text mizí —
+    'bookings':              {'link': ('client_id', 'artist_id'), 'erase': 'scrub',
+                              'scrub': ('design_note', 'internal_note'),
+                              'why': 'internal_note je místo, kam si tatér píše '
+                                     '„alergie na latex" — nejcitlivější pole v aplikaci'},
+    'refund_requests':       {'link': ('client_id', 'artist_id'), 'erase': 'scrub',
+                              'scrub': ('decision_note',)},
+    'booking_reschedule_requests': {'link': ('requested_by', 'decision_by'),
+                                    'erase': 'scrub', 'scrub': ('decision_note',)},
+    'credit_ledger':         {'link': ('user_id',), 'erase': 'scrub',
+                              'scrub': ('note',),
+                              'why': 'zůstatky jsou finanční záznam'},
+    'discount_redemptions':  {'link': ('user_id',), 'erase': 'keep'},
+    'referrals':             {'link': ('referrer_user_id', 'referred_user_id'),
+                              'erase': 'keep', 'why': 'jen vazba id na id'},
+    'vouchers':              {'link': ('buyer_id', 'redeemed_by'), 'erase': 'scrub',
+                              'scrub': ('recipient_name', 'message'),
+                              'why': 'jméno obdarovaného je údaj třetí osoby'},
+    'waitlist':              {'link': (), 'erase': 'delete_by_email',
+                              'why': 'e-mail a IP z doby před registrací'},
+    'studio_invites':        {'link': ('invited_by',), 'erase': 'delete_by_email'},
+
+    # — zůstávají vědomě —
+    'messages':              {'link': ('sender_id', 'receiver_id'), 'erase': 'keep',
+                              'why': 'konverzace patří i druhé straně; identita je '
+                                     'anonymizovaná přes users'},
+    'reviews':               {'link': ('client_id', 'artist_id'), 'erase': 'keep',
+                              'why': 'recenze je veřejný obsah o tatérovi; podepsaná '
+                                     'je „Smazaný účet"'},
+    'users':                 {'link': ('id',), 'erase': 'scrub',
+                              'why': 'řádek zůstává kvůli cizím klíčům v účetnictví'},
+}
+
+
+def _erase_personal_data(conn, uid, email):
+    """Projde registr a provede u každé tabulky, co je v něm rozhodnuté."""
+    for table, rule in PERSONAL_DATA.items():
+        action = rule['erase']
+        links = rule.get('link', ())
+        if action in ('none', 'keep') or table == 'users':
+            continue
+        if action == 'delete':
+            for col in links:
+                conn.execute(f'DELETE FROM {table} WHERE {col} = ?', (uid,))
+        elif action == 'delete_by_email':
+            if email:
+                conn.execute(f'DELETE FROM {table} WHERE email = ?', (email,))
+        elif action == 'scrub':
+            sets = [f'{c} = ?' for c in rule.get('scrub', ())]
+            sets += [f'{c} = NULL' for c in rule.get('null', ())]
+            if not sets or not links:
+                continue
+            where = ' OR '.join(f'{c} = ?' for c in links)
+            params = [''] * len(rule.get('scrub', ())) + [uid] * len(links)
+            conn.execute(f'UPDATE {table} SET {", ".join(sets)} WHERE {where}', params)
+
+
 def _anonymize_user(conn, uid: int) -> None:
     """Scrub PII from users row. Keeps id (FK integrity) + accounting joins.
     Sets deleted_at to mark the row as terminal. Idempotent."""
@@ -7790,6 +7948,10 @@ def _anonymize_user(conn, uid: int) -> None:
     placeholder = f'deleted-{uid}'
     random_hash = 'deleted!' + _secrets.token_hex(16)  # unguessable, locks login
     now_iso = datetime.utcnow().isoformat()
+    # E-mail se čte dřív, než ho přepíšeme — waitlist a pozvánky do studia
+    # na uživatele nevedou přes id, jen přes adresu.
+    _row = conn.execute('SELECT email FROM users WHERE id = ?', (uid,)).fetchone()
+    email = (_row['email'] if _row else '') or ''
     conn.execute('''
         UPDATE users SET
             username      = ?,
@@ -7811,12 +7973,17 @@ def _anonymize_user(conn, uid: int) -> None:
             deleted_at    = ?
         WHERE id = ?
     ''', (placeholder, random_hash, now_iso, uid))
-    # Wipe portfolio items (privacy policy: "Portfolio se smaže s účtem")
+    # Potomci portfolia nemají vazbu na uživatele, jen na položku — musí ven
+    # dřív, než ta položka zmizí, jinak by osiřeli.
     conn.execute('DELETE FROM portfolio_item_sizes WHERE item_id IN '
                  '(SELECT id FROM portfolio_items WHERE user_id = ?)', (uid,))
-    conn.execute('DELETE FROM portfolio_items WHERE user_id = ?', (uid,))
-    # Clear active push subscriptions
-    conn.execute('DELETE FROM push_subscriptions WHERE user_id = ?', (uid,))
+    # Poznámky o klientovi visí na `clients`, ne na uživateli. Mažou se
+    # z obou stran: co si tatér psal o něm i co si on psal o svých klientech.
+    conn.execute('DELETE FROM client_notes WHERE client_id IN '
+                 '(SELECT id FROM clients WHERE user_id = ? OR artist_id = ?)',
+                 (uid, uid))
+    # Zbytek řídí registr — viz PERSONAL_DATA.
+    _erase_personal_data(conn, uid, email)
 
 
 @app.route('/api/me/delete', methods=['POST'])

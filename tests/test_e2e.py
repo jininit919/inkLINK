@@ -3784,6 +3784,185 @@ class _FakeStripe:
         self.Transfer = _FakeStripe.Transfer
 
 
+class PersonalDataRegistryTests(_Sprint2Base):
+    """Registr osobních údajů je jediné místo pravdy pro export i výmaz.
+
+    Bez tohohle testu se to rozjelo: databáze měla 42 tabulek, export jich
+    pokrýval 11 a anonymizace 6. Nová tabulka se prostě přidala a nikdo
+    nerozhodl, jestli v ní osobní údaje jsou."""
+
+    def _tables(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        rows = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%'")]
+        conn.close()
+        return set(rows)
+
+    def test_every_table_has_a_decision(self):
+        import server
+        missing = self._tables() - set(server.PERSONAL_DATA)
+        self.assertFalse(missing,
+                         'Tabulky bez rozhodnutí v PERSONAL_DATA: '
+                         + ', '.join(sorted(missing))
+                         + '. Doplň je i s tím, co se s nimi má stát při výmazu.')
+
+    def test_export_really_contains_registry_tables(self):
+        """Cyklus přes registr běžel omylem až po zavření spojení, takže
+        tiše nevracel nic — a testy to nechytly, protože kontrolovaly jen
+        ručně psané sekce. Test proto sahá na tabulku, kterou umí doplnit
+        jedině registr."""
+        import io, json as _json, sqlite3, zipfile
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO favorite_cities (user_id, name, lat, lng) "
+                     "VALUES (2,'Brno',49.19,16.60)")
+        conn.commit(); conn.close()
+        r = self.client.get('/api/me/export')
+        self.assertEqual(r.status_code, 200)
+        zf = zipfile.ZipFile(io.BytesIO(r.data))
+        self.assertIn('favorite_cities.json', zf.namelist(), zf.namelist())
+        self.assertEqual(_json.loads(zf.read('favorite_cities.json'))[0]['name'], 'Brno')
+
+    def test_export_never_leaks_tokens(self):
+        import io, sqlite3, zipfile
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO instagram_accounts (user_id, ig_user_id, access_token) "
+                     "VALUES (2,'ig-7','SUPERTAJNY')")
+        conn.commit(); conn.close()
+        r = self.client.get('/api/me/export')
+        zf = zipfile.ZipFile(io.BytesIO(r.data))
+        self.assertIn('instagram_accounts.json', zf.namelist())
+        self.assertNotIn(b'SUPERTAJNY', b''.join(zf.read(n) for n in zf.namelist()))
+
+    def test_registry_has_no_ghosts(self):
+        """Opačný směr: co v registru zbylo po smazané tabulce, mate."""
+        import server
+        ghosts = set(server.PERSONAL_DATA) - self._tables()
+        self.assertFalse(ghosts, 'Registr zná tabulky, které neexistují: '
+                                 + ', '.join(sorted(ghosts)))
+
+    def test_scrub_rules_name_real_columns(self):
+        """Překlep ve jménu sloupce by výmaz tiše přeskočil."""
+        import sqlite3, server
+        conn = sqlite3.connect(self.db)
+        for table, rule in server.PERSONAL_DATA.items():
+            if rule['erase'] != 'scrub':
+                continue
+            cols = {c[1] for c in conn.execute(f'PRAGMA table_info({table})')}
+            for col in tuple(rule.get('scrub', ())) + tuple(rule.get('null', ())):
+                self.assertIn(col, cols, f'{table}.{col} neexistuje')
+            for col in rule.get('link', ()):
+                self.assertIn(col, cols, f'{table}.{col} neexistuje')
+        conn.close()
+
+    def test_link_columns_exist(self):
+        import sqlite3, server
+        conn = sqlite3.connect(self.db)
+        for table, rule in server.PERSONAL_DATA.items():
+            cols = {c[1] for c in conn.execute(f'PRAGMA table_info({table})')}
+            for col in rule.get('link', ()):
+                self.assertIn(col, cols, f'{table}.{col} neexistuje')
+        conn.close()
+
+
+class ErasureTests(_Sprint2Base):
+    """Výmaz účtu po 30 dnech. Účetnictví zůstává, osobní údaje ne."""
+
+    def _seed(self):
+        """Uživatel 2 (klient) po sobě nechá stopu ve všech rizikových místech."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET email='klient@test.cz' WHERE id=2")
+        conn.execute("INSERT INTO instagram_accounts (user_id, ig_user_id, access_token) "
+                     "VALUES (2,'ig-1','tajny-token')")
+        conn.execute("INSERT INTO native_push_tokens (user_id, token, provider, platform) "
+                     "VALUES (2,'dev-token','apns','ios')")
+        conn.execute("INSERT INTO favorite_cities (user_id, name, lat, lng) "
+                     "VALUES (2,'Praha',50.08,14.44)")
+        conn.execute("INSERT INTO waitlist (email, role) VALUES ('klient@test.cz','client')")
+        conn.execute("INSERT INTO clients (artist_id, user_id, name, email, phone, note, created_by) "
+                     "VALUES (1, 2, 'Tereza N.', 'klient@test.cz', '777123456', "
+                     "'alergie na latex', 1)")
+        cid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.execute("INSERT INTO client_notes (client_id, author_id, body) "
+                     "VALUES (?, 1, 'volat po 18:00')", (cid,))
+        conn.execute("INSERT INTO vouchers (code, amount_cents, buyer_id, recipient_name, "
+                     "message, status, expires_at) VALUES "
+                     "('AAAA-BBBB-CCCC', 200000, 2, 'Jana', 'Vse nej', 'active', '2027-01-01')")
+        conn.commit(); conn.close()
+        return cid
+
+    def _erase(self):
+        import sqlite3, server
+        conn = server.get_db()
+        server._anonymize_user(conn, 2)
+        conn.commit(); conn.close()
+
+    def _q(self, sql, *a):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.row_factory = sqlite3.Row
+        r = conn.execute(sql, a).fetchall()
+        conn.close()
+        return [dict(x) for x in r]
+
+    def test_secrets_and_devices_are_gone(self):
+        """Přístupový token k Instagramu je to nejcitlivější, co po účtu zbývá."""
+        self._seed()
+        self._erase()
+        self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
+        self.assertEqual(self._q('SELECT * FROM native_push_tokens WHERE user_id=2'), [])
+        self.assertEqual(self._q('SELECT * FROM favorite_cities WHERE user_id=2'), [])
+
+    def test_crm_row_survives_but_says_nothing(self):
+        """Řádek zůstane kvůli statistikám tatéra, identita z něj zmizí —
+        včetně user_id, které by ji přes users vrátilo zpátky."""
+        self._seed()
+        self._erase()
+        c = self._q('SELECT * FROM clients WHERE artist_id=1')[0]
+        self.assertEqual((c['name'], c['email'], c['phone'], c['note']), ('', '', '', ''))
+        self.assertIsNone(c['user_id'])
+        self.assertEqual(self._q('SELECT * FROM client_notes'), [])
+
+    def test_waitlist_entry_goes_by_email(self):
+        """Na waitlist se člověk zapsal před registrací — vazba je jen adresa."""
+        self._seed()
+        self._erase()
+        self.assertEqual(self._q("SELECT * FROM waitlist WHERE email='klient@test.cz'"), [])
+
+    def test_voucher_keeps_the_money_and_drops_the_third_party(self):
+        self._seed()
+        self._erase()
+        v = self._q('SELECT * FROM vouchers WHERE buyer_id=2')[0]
+        self.assertEqual(v['amount_cents'], 200000)      # finanční záznam zůstává
+        self.assertEqual((v['recipient_name'], v['message']), ('', ''))
+
+    def test_accounting_is_untouched(self):
+        """10letá retence dle zákona o účetnictví — rezervace se nemažou."""
+        self._seed()
+        slot = self._mk_slot(self._day_at(4, 10), self._day_at(4, 18))
+        bid = self._book(slot, self._day_at(4, 12)).get_json()['id']
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE bookings SET internal_note='alergie', design_note='vlk' "
+                     "WHERE id=?", (bid,))
+        conn.commit(); conn.close()
+        self._erase()
+        b = self._q('SELECT * FROM bookings WHERE id=?', bid)[0]
+        self.assertEqual(b['deposit_cents'] is not None, True)
+        # ale volný text, kam si tatér píše zdravotní věci, mizí
+        self.assertEqual(b['internal_note'], '')
+        self.assertEqual(b['design_note'], '')
+
+    def test_is_idempotent(self):
+        """Cron může doručit dvakrát; druhý průchod nesmí spadnout."""
+        self._seed()
+        self._erase()
+        self._erase()
+        self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
+
+
 class MetaCallbackTests(_Sprint2Base):
     """Callbacky pro Metu. Bez toho na smazání dat neprojde App Review —
     a Meta je volá server na server, takže je nesmí chytit coming-soon
