@@ -3784,6 +3784,93 @@ class _FakeStripe:
         self.Transfer = _FakeStripe.Transfer
 
 
+class MetaCallbackTests(_Sprint2Base):
+    """Callbacky pro Metu. Bez toho na smazání dat neprojde App Review —
+    a Meta je volá server na server, takže je nesmí chytit coming-soon
+    brána ani vyžadovat přihlášení."""
+
+    SECRET = 'app-secret-123'
+
+    def setUp(self):
+        super().setUp()
+        import server
+        self._real = server.INSTAGRAM_APP_SECRET
+        server.INSTAGRAM_APP_SECRET = self.SECRET
+        self._connect_ig('ig-999', user_id=1)
+
+    def tearDown(self):
+        import server
+        server.INSTAGRAM_APP_SECRET = self._real
+        super().tearDown()
+
+    def _connect_ig(self, ig_user_id, user_id=1):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('INSERT OR REPLACE INTO instagram_accounts '
+                     '(user_id, ig_user_id, username, access_token) VALUES (?,?,?,?)',
+                     (user_id, ig_user_id, 'tatoo_artist', 'tok'))
+        conn.execute('INSERT INTO instagram_imports (user_id, ig_media_id) VALUES (?,?)',
+                     (user_id, 'media-1'))
+        conn.commit(); conn.close()
+
+    def _signed(self, payload, secret=None):
+        import base64, hashlib, hmac, json as _json
+        raw = base64.urlsafe_b64encode(_json.dumps(payload).encode()).rstrip(b'=')
+        sig = hmac.new((secret or self.SECRET).encode(), raw, hashlib.sha256).digest()
+        return base64.urlsafe_b64encode(sig).rstrip(b'=').decode() + '.' + raw.decode()
+
+    def _rows(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        n = (conn.execute('SELECT COUNT(*) FROM instagram_accounts').fetchone()[0],
+             conn.execute('SELECT COUNT(*) FROM instagram_imports').fetchone()[0])
+        conn.close()
+        return n
+
+    def test_deletion_removes_the_connection_and_answers_meta(self):
+        body = self._signed({'algorithm': 'HMAC-SHA256', 'user_id': 'ig-999'})
+        r = self.client.post('/api/instagram/data-deletion',
+                             data={'signed_request': body})
+        self.assertEqual(r.status_code, 200, r.data[:200])
+        j = r.get_json()
+        # Meta obojí ukazuje uživateli — bez toho žádost neuzavře.
+        self.assertTrue(j['confirmation_code'])
+        self.assertIn('/instagram/deletion', j['url'])
+        self.assertEqual(self._rows(), (0, 0))
+
+    def test_forged_signature_deletes_nothing(self):
+        body = self._signed({'algorithm': 'HMAC-SHA256', 'user_id': 'ig-999'},
+                            secret='cizi-secret')
+        r = self.client.post('/api/instagram/data-deletion',
+                             data={'signed_request': body})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self._rows(), (1, 1))
+
+    def test_deauthorize_drops_the_dead_token(self):
+        body = self._signed({'algorithm': 'HMAC-SHA256', 'user_id': 'ig-999'})
+        r = self.client.post('/api/instagram/deauthorize', data={'signed_request': body})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._rows(), (0, 0))
+
+    def test_repeated_request_gives_the_same_code(self):
+        """Meta doručuje opakovaně; dva různé kódy vypadají jako dvě žádosti."""
+        body = self._signed({'algorithm': 'HMAC-SHA256', 'user_id': 'ig-999'})
+        a = self.client.post('/api/instagram/data-deletion',
+                             data={'signed_request': body}).get_json()
+        b = self.client.post('/api/instagram/data-deletion',
+                             data={'signed_request': body}).get_json()
+        self.assertEqual(a['confirmation_code'], b['confirmation_code'])
+
+    def test_callbacks_are_not_behind_the_gate_or_a_login(self):
+        import server
+        for path in ('/api/instagram/data-deletion', '/api/instagram/deauthorize',
+                     '/instagram/deletion'):
+            self.assertTrue(server._gate_is_open_path(path), path)
+        # Bez přihlášení: odmítne se kvůli podpisu, ne kvůli session.
+        r = self.client.post('/api/instagram/data-deletion', data={})
+        self.assertEqual(r.status_code, 400)
+
+
 class CronAuthTests(_Sprint2Base):
     """Crony hlídaly dva různé zámky — část CRON_SECRET přes Bearer, část
     RECONCILE_TOKEN přes X-Cron-Token. Který kde nešlo poznat jinak než

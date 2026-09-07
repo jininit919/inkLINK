@@ -185,8 +185,14 @@ _GATE_ALWAYS_OPEN = (
 # odbavila 503 — každý běh spadl na `curl -sf` a Railway ho označil za crash.
 # Nic to neotvírá: každý cron endpoint si sám ověřuje RECONCILE_TOKEN, což je
 # proti nepovolanému spuštění silnější zámek než brána.
+# Meta volá callbacky server na server, bez session a bez cookies — za
+# bránou by dostala 503 a App Review by na tom spadl. Podpis `signed_request`
+# je hlídá sám, takže se tím nic neotvírá.
 _GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/',
-                       '/vouchers/', '/api/cron/')
+                       '/vouchers/', '/api/cron/',
+                       '/api/instagram/data-deletion',
+                       '/api/instagram/deauthorize',
+                       '/instagram/deletion')
 _GATE_OPEN_API = (
     '/api/login', '/api/register', '/api/logout', '/api/me',
     '/api/verify', '/api/forgot-password', '/api/reset-password',
@@ -9970,6 +9976,116 @@ def instagram_callback():
     conn.commit()
     conn.close()
     return redirect('/artist-setup?ig=ok')
+
+
+# ── Meta: smazání dat a odpojení aplikace ────────────────────────────────
+# Bez callbacku na smazání dat neprojde App Review — Meta ho vyžaduje
+# u každé aplikace, která čte uživatelská data.
+#
+# Meta volá server na server, bez session a bez našich cookies. Podepisuje
+# to `signed_request`: base64 payload + HMAC-SHA256 přes app secret. Ověřit
+# podpis je nutné — bez toho by nám kdokoliv mohl mazat cizí propojení.
+
+
+def _parse_signed_request(raw):
+    """Rozebere a ověří `signed_request` od Mety. Vrací payload nebo None.
+
+    Base64 je URL-varianta bez zarovnání, tak si `=` doplníme sami —
+    standardní dekodér by jinak spadl na chybné délce.
+    """
+    import base64, hashlib, hmac, json as _json
+    if not raw or '.' not in raw or not INSTAGRAM_APP_SECRET:
+        return None
+    sig_b64, payload_b64 = raw.split('.', 1)
+
+    def _b64(v):
+        return base64.urlsafe_b64decode(v + '=' * (-len(v) % 4))
+
+    try:
+        sig = _b64(sig_b64)
+        payload = _json.loads(_b64(payload_b64))
+    except Exception:
+        return None
+    expected = hmac.new(INSTAGRAM_APP_SECRET.encode(), payload_b64.encode(),
+                        hashlib.sha256).digest()
+    # compare_digest, ne ==: porovnání po bajtech prozradí podpis časem.
+    if not hmac.compare_digest(sig, expected):
+        return None
+    if payload.get('algorithm', '').upper() != 'HMAC-SHA256':
+        return None
+    return payload
+
+
+def _forget_instagram(conn, ig_user_id):
+    """Zapomene propojení s Instagramem. Vrací id uživatele, nebo None.
+
+    Fotky, které si tatér už naimportoval do portfolia, mažeme schválně
+    NE: jsou to jeho vlastní práce, které do InkLinku vědomě přenesl, a
+    žádost u Mety se týká propojení, ne jeho portfolia. Mizí token,
+    identita účtu a stopa po tom, co odkud přišlo.
+    """
+    row = conn.execute('SELECT user_id FROM instagram_accounts WHERE ig_user_id=?',
+                       (str(ig_user_id),)).fetchone()
+    if not row:
+        return None
+    uid = row['user_id']
+    conn.execute('DELETE FROM instagram_imports WHERE user_id=?', (uid,))
+    conn.execute('DELETE FROM instagram_accounts WHERE user_id=?', (uid,))
+    conn.commit()
+    return uid
+
+
+@app.route('/api/instagram/data-deletion', methods=['POST'])
+def instagram_data_deletion():
+    """Callback pro smazání dat (Meta App Dashboard → Data Deletion).
+
+    Odpověď musí obsahovat URL, kde si člověk může stav ověřit, a kód
+    žádosti — Meta obojí ukazuje uživateli.
+    """
+    payload = _parse_signed_request(request.form.get('signed_request', ''))
+    if payload is None:
+        return jsonify({'error': 'invalid signed_request'}), 400
+    ig_user_id = payload.get('user_id') or ''
+    conn = get_db()
+    uid = _forget_instagram(conn, ig_user_id)
+    conn.close()
+    app.logger.info(f'[meta] data deletion for ig user {ig_user_id} → user {uid}')
+    # Kód je odvozený od id účtu, ne náhodný: kdyby Meta žádost zopakovala,
+    # dostane stejný kód a nevznikne dojem dvou různých žádostí.
+    import hashlib
+    code = hashlib.sha256(f'ig-del-{ig_user_id}'.encode()).hexdigest()[:16]
+    return jsonify({
+        'url': f'{APP_BASE_URL.rstrip("/")}/instagram/deletion?code={code}',
+        'confirmation_code': code,
+    })
+
+
+@app.route('/api/instagram/deauthorize', methods=['POST'])
+def instagram_deauthorize():
+    """Uživatel odebral aplikaci na straně Instagramu. Token, který nám
+    zbyl, je od té chvíle k ničemu — držet ho dál by bylo jen riziko."""
+    payload = _parse_signed_request(request.form.get('signed_request', ''))
+    if payload is None:
+        return jsonify({'error': 'invalid signed_request'}), 400
+    conn = get_db()
+    uid = _forget_instagram(conn, payload.get('user_id') or '')
+    conn.close()
+    app.logger.info(f'[meta] deauthorized → user {uid}')
+    return jsonify({'ok': True})
+
+
+@app.route('/instagram/deletion')
+def instagram_deletion_status():
+    """Stránka, na kterou Meta pošle uživatele ověřit si stav žádosti."""
+    from html import escape as _h
+    code = _h((request.args.get('code') or '')[:64])
+    return _plain_page(
+        'Propojení s Instagramem je smazané. Odstranili jsme přístupový token '
+        'i záznam o tom, které příspěvky odkud pocházely. Fotky, které sis '
+        'přenesl do portfolia, zůstávají tvoje a v InkLinku jsou dál — smazat '
+        'je můžeš v nastavení profilu.'
+        + (f'<br><br>Číslo žádosti: <b>{code}</b>' if code else '')
+    )
 
 
 @app.route('/api/instagram/status')

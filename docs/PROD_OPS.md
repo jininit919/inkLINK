@@ -488,6 +488,49 @@ Co hlídat:
 Když `failed` neprázdné víc dní po sobě, dojdi se podívat na Stripe balance —
 peníze za poukazy tam musí být dřív, než se z nich vyplácí.
 
+## 5.6 Meta / Instagram — co bude chtít App Review
+
+Import portfolia z Instagramu je **urychlovač onboardingu, ne nosná funkce**.
+Bez nakonfigurované Mety se karta v `artist-setup` vůbec nezobrazí, takže
+spuštění to neblokuje.
+
+### Do Railway
+
+| Proměnná | Kde ji vzít |
+|---|---|
+| `INSTAGRAM_APP_ID` | Meta App Dashboard → App settings → Basic |
+| `INSTAGRAM_APP_SECRET` | tamtéž (do chatu ani do gitu nepatří) |
+
+### Do nastavení aplikace u Mety
+
+Musí sedět **přesně**, jinak Instagram vrátí chybu ještě před přihlášením:
+
+```
+OAuth redirect URI:        https://www.inklink.club/api/instagram/callback
+Deauthorize callback:      https://www.inklink.club/api/instagram/deauthorize
+Data deletion callback:    https://www.inklink.club/api/instagram/data-deletion
+Privacy policy:            https://www.inklink.club/privacy
+```
+
+Callbacky pro Metu **procházejí coming-soon bránou** (viz `_GATE_OPEN_PREFIXES`)
+— Meta je volá server na server bez session a za bránou by dostala 503.
+Chráněné jsou podpisem `signed_request` přes app secret, ne bránou.
+
+Smazání dat maže **token a záznam o importech, ne portfolio**. Fotky, které
+si tatér přenesl, jsou jeho vlastní práce; žádost u Mety se týká propojení.
+
+### Na co se to zasekne
+
+- **Rozsah `instagram_business_basic` vyžaduje App Review.** Sám sobě
+  portfolio natáhneš hned, ostatní tatéři až po schválení. Trvá to týdny —
+  začít se musí dřív než den před spuštěním.
+- **Reviewer se musí dostat na web.** Dokud běží `COMING_SOON`, uvidí
+  waitlist. Pošli mu v žádosti odkaz s `?preview=<COMING_SOON_TOKEN>` nebo
+  bránu na dobu review vypni.
+- **Ověření firmy** (Business Verification) chce doklady k IČO.
+- Tatér navíc potřebuje **profesionální Instagram účet** (Business/Creator),
+  osobní nestačí. Je to v UI napsané, ale počítej s dotazy.
+
 ## 6. Backup strategy
 
 ### Postgres (Railway)
