@@ -2576,21 +2576,21 @@ class MessageValidationTests(_Sprint2Base):
         """Bez stropu projde cokoliv až do MAX_CONTENT_LENGTH (500 MB) —
         rovnou do úložiště a rovnou do vlákna, které se pak nenačte."""
         import io, server
-        big = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * (server.MESSAGE_IMAGE_MAX_BYTES + 1))
+        big = io.BytesIO(b'\x89PNG\r\n\x1a\n' + b'0' * (server.MESSAGE_IMAGE_MAX_BYTES + 1))
         r = self.client.post('/api/messages/1', data={'image': (big, 'huge.png')},
                              content_type='multipart/form-data')
         self.assertEqual(r.status_code, 400)
 
     def test_small_photo_passes(self):
         import io
-        small = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 512)
+        small = io.BytesIO(b'\x89PNG\r\n\x1a\n' + b'0' * 512)
         r = self.client.post('/api/messages/1', data={'image': (small, 'ok.png')},
                              content_type='multipart/form-data')
         self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
 
     def test_photo_to_a_stranger_is_refused(self):
         import io
-        img = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 64)
+        img = io.BytesIO(b'\x89PNG\r\n\x1a\n' + b'0' * 64)
         r = self.client.post('/api/messages/999999', data={'image': (img, 'a.png')},
                              content_type='multipart/form-data')
         self.assertEqual(r.status_code, 404)
@@ -3146,7 +3146,7 @@ class AftercareTests(_Sprint2Base):
         import io, sqlite3, server
         token = server._aftercare_token(self.bid)
         fresh = server.app.test_client()          # klient bez přihlášení
-        img = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 64)
+        img = io.BytesIO(b'\x89PNG\r\n\x1a\n' + b'0' * 64)
         r = fresh.post('/aftercare/photo',
                        data={'b': str(self.bid), 't': token, 'photo': (img, 'healed.png')},
                        content_type='multipart/form-data')
@@ -3162,7 +3162,7 @@ class AftercareTests(_Sprint2Base):
     def test_photo_upload_needs_a_valid_token(self):
         import io, server
         fresh = server.app.test_client()
-        img = io.BytesIO(b'\\x89PNG\\r\\n\\x1a\\n' + b'0' * 64)
+        img = io.BytesIO(b'\x89PNG\r\n\x1a\n' + b'0' * 64)
         r = fresh.post('/aftercare/photo',
                        data={'b': str(self.bid), 't': 'spatny', 'photo': (img, 'x.png')},
                        content_type='multipart/form-data')
@@ -3961,6 +3961,41 @@ class ErasureTests(_Sprint2Base):
         self._erase()
         self._erase()
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
+
+
+class UploadContentTests(_Sprint2Base):
+    """`allowed_image()` s kontrolou magic bytes byla v kódu napsaná a
+    nevolala ji ani jedna z deseti cest pro nahrávání — všechny věřily
+    příponě. Kontrola je teď v save_upload(), tedy na jednom místě, které
+    se nedá u jedenácté cesty zapomenout."""
+
+    PNG = (b'\x89PNG\r\n\x1a\n' + b'\x00' * 64)
+
+    def _send(self, data, name):
+        import io
+        self._as_client()
+        return self.client.post(
+            '/api/messages/1',
+            data={'image': (io.BytesIO(data), name)},
+            content_type='multipart/form-data')
+
+    def test_real_png_goes_through(self):
+        r = self._send(self.PNG, 'foto.png')
+        self.assertEqual(r.status_code, 200, r.data[:200])
+
+    def test_renamed_file_is_refused(self):
+        """Přejmenovaný .html na .jpg projde kontrolou přípony bez potíží."""
+        r = self._send(b'<html><script>alert(1)</script></html>', 'zlo.jpg')
+        self.assertEqual(r.status_code, 400, r.data[:200])
+        self.assertNotIn(b'Internal Server Error', r.data)
+
+    def test_nothing_lands_in_storage_when_refused(self):
+        import sqlite3
+        self._send(b'PK\x03\x04 tohle je zip', 'archiv.png')
+        conn = sqlite3.connect(self.db)
+        n = conn.execute("SELECT COUNT(*) FROM messages WHERE content_type='image'").fetchone()[0]
+        conn.close()
+        self.assertEqual(n, 0)
 
 
 class MessagePushTests(_Sprint2Base):

@@ -253,6 +253,18 @@ limiter = Limiter(
 )
 
 # Security headers
+class UnsupportedUpload(Exception):
+    """Nahraný soubor není tím, čím se tváří podle přípony. Deklarovaná
+    tady, protože @errorhandler ji potřebuje znát už při importu."""
+
+
+@app.errorhandler(UnsupportedUpload)
+def _unsupported_upload(e):
+    # Bez tohohle by přejmenovaný soubor skončil jako 500 a uživatel by
+    # nevěděl, co udělal špatně.
+    return jsonify({'error': str(e) or 'Nepodporovaný soubor.'}), 400
+
+
 @app.after_request
 def security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
@@ -306,7 +318,17 @@ if R2_BUCKET and R2_ACCESS_KEY and R2_ACCOUNT_ID:
     )
 
 def save_upload(file_storage, filename):
-    """Uloží soubor buď do R2 (produkce) nebo na disk (lokální dev)."""
+    """Uloží soubor buď do R2 (produkce) nebo na disk (lokální dev).
+
+    Obsah se ověřuje tady, ne u volajících. `allowed_image()` s kontrolou
+    magic bytes byla napsaná, ale nevolala ji ani jedna z deseti cest —
+    všechny se spoléhaly jen na příponu. Jedno místo se nedá zapomenout
+    při jedenácté.
+    """
+    name = (filename or '').lower()
+    if name.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+        if not check_magic(file_storage.stream, IMAGE_MAGIC):
+            raise UnsupportedUpload('Soubor není obrázek.')
     file_storage.seek(0)
     if _s3 and R2_BUCKET:
         _s3.upload_fileobj(file_storage, R2_BUCKET, filename)
