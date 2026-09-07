@@ -26,7 +26,8 @@
   --red: #1a1a1a;--red2: #0a0a0a;--red3: #000;
   --txt: #0a0a0a;--txt2: #2a2a2a;--txt3: #5a5a5a;
   --border: #d4cfbf;--border2: #a8a399;
-  --accent:#0a84ff;            /* iOS blue accent */
+  --accent:#5b3fa0;            /* stencil ink violet */
+  --accent-rgb:91,63,160;      /* pro průsvitné varianty */
   --ok:#30d158;
   --r-md:8px;
   --r-lg:14px;
@@ -65,7 +66,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 /* WEEK GRID */
 .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:24px}
 .day-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 12px;min-height:200px;display:flex;flex-direction:column;gap:8px;transition:border-color 0.15s,background 0.15s}
-.day-col.today{background:linear-gradient(180deg, rgba(10,132,255,0.05) 0%, var(--bg2) 100%);border-color:rgba(10,132,255,0.3)}
+.day-col.today{background:linear-gradient(180deg, rgba(var(--accent-rgb),0.05) 0%, var(--bg2) 100%);border-color:rgba(var(--accent-rgb),0.3)}
 .day-col.past{opacity:0.5}
 .day-col:hover{border-color:var(--border2)}
 .day-head{display:flex;flex-direction:column;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:4px}
@@ -116,7 +117,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
   white-space:nowrap}
 .add-event-link:hover{border-color:var(--txt);color:var(--txt)}
 .day-col .empty-day{color:var(--txt3);font-size:10px;letter-spacing:0.06em;text-align:center;padding:20px 0;border:1px dashed var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
-.day-col .empty-day:hover{border-color:var(--accent);color:var(--accent);background:rgba(10,132,255,0.05)}
+.day-col .empty-day:hover{border-color:var(--accent);color:var(--accent);background:rgba(var(--accent-rgb),0.05)}
 
 /* ── Mobilní zobrazení: den = řádek, ne dlaždice ────────────────────────────
    Inspirováno seznamem v iOS kalendáři. Sedmisloupcová mřížka se na mobilu
@@ -209,7 +210,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .fld label .hint{font-size:9px;color:var(--txt3);text-transform:none;letter-spacing:0.04em;font-weight:300}
 .fld input[type="date"],.fld input[type="time"],.fld input[type="number"],.fld input[type="text"],.fld select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;padding:11px 14px;border-radius:8px;outline:none;transition:all 0.12s;letter-spacing:0.02em;-webkit-appearance:none;-moz-appearance:none;appearance:none}
 .fld input::-webkit-calendar-picker-indicator,.fld input::-webkit-date-and-time-value{filter:invert(0.7)}
-.fld input:focus,.fld select:focus{border-color:var(--accent);background:var(--bg4);box-shadow:0 0 0 4px rgba(10,132,255,0.15)}
+.fld input:focus,.fld select:focus{border-color:var(--accent);background:var(--bg4);box-shadow:0 0 0 4px rgba(var(--accent-rgb),0.15)}
 
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:420px){.row2{grid-template-columns:1fr}}
@@ -281,7 +282,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .sheet-foot .btn{flex:1;padding:13px 16px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);transition:all 0.12s;font-weight:500}
 .sheet-foot .btn:hover{background:var(--bg4)}
 .sheet-foot .btn.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);flex:1.5}
-.sheet-foot .btn.btn-primary:hover{background:#0a7aff}
+.sheet-foot .btn.btn-primary:hover{background:#4a3184}
 .sheet-foot .btn[disabled]{opacity:0.5;cursor:not-allowed}
 
 .flash{padding:11px 14px;border-radius:8px;font-size:12px;letter-spacing:0.04em;text-align:center}
