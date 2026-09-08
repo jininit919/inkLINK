@@ -4099,6 +4099,79 @@ class PremiumFeaturesTests(_Sprint2Base):
             self.assertIn(el, block, el)
 
 
+class PremiumIsolationTests(_Sprint2Base):
+    """Premium data jsou tatérova pracovní kartotéka: klienti, výdělky,
+    komu psal. Že je vidí jen on, se nedá ověřit přečtením — musí to
+    zkusit někdo druhý."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3, server
+        conn = sqlite3.connect(self.db)
+        # tatér 1 = premium s daty, tatér 3 = premium cizí, klient 2
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email, "
+                     "is_artist, premium_until) VALUES ('b','Béta','x','b@t.cz',1,'2099-01-01')")
+        conn.execute("UPDATE users SET premium_until='2099-01-01' WHERE id=1")
+        conn.execute("INSERT INTO campaigns (artist_id, subject, body, recipients) "
+                     "VALUES (1, 'Tajná rozesílka Alfy', 'x', 7)")
+        cid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.execute('INSERT INTO campaign_recipients (campaign_id, client_id, user_id) '
+                     'VALUES (?,1,2)', (cid,))
+        conn.execute("INSERT INTO clients (artist_id, user_id, name, email, created_by) "
+                     "VALUES (1, 2, 'Klient Alfy', 'k@t.cz', 1)")
+        conn.commit(); conn.close()
+        self._realkey = server.RESEND_API_KEY
+        server.RESEND_API_KEY = 'test-key'
+
+    def tearDown(self):
+        import server
+        server.RESEND_API_KEY = self._realkey
+        super().tearDown()
+
+    def _as(self, uid):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = uid
+
+    PREMIUM_PATHS = ('/api/me/campaigns', '/api/me/campaigns/recipients',
+                     '/api/me/stats', '/api/me/aftercare',
+                     '/api/me/accounting/export?from=2026-01-01&to=2026-12-31')
+
+    def test_another_artist_sees_none_of_it(self):
+        self._as(3)
+        for path in self.PREMIUM_PATHS:
+            r = self.client.get(path)
+            self.assertEqual(r.status_code, 200, path)
+            body = r.get_data(as_text=True)
+            self.assertNotIn('Tajná rozesílka Alfy', body, path)
+            self.assertNotIn('Klient Alfy', body, path)
+
+    def test_a_client_gets_no_premium_data(self):
+        """Klient není tatér. Paywall ho odmítne; /api/me/aftercare projde,
+        ale vrací JEHO vlastní (prázdné) nastavení, ne cizí."""
+        self._as(2)
+        for path in self.PREMIUM_PATHS:
+            r = self.client.get(path)
+            if path == '/api/me/aftercare':
+                d = r.get_json()
+                self.assertFalse(d['premium'])
+                self.assertEqual(d['text'], '')
+            else:
+                self.assertIn(r.status_code, (402, 403), f'{path}: {r.status_code}')
+
+    def test_logged_out_gets_nothing(self):
+        self.client.post('/api/logout')
+        for path in self.PREMIUM_PATHS:
+            r = self.client.get(path)
+            self.assertIn(r.status_code, (401, 402, 403), f'{path}: {r.status_code}')
+
+    def test_the_owner_does_see_it(self):
+        """Kontrola naopak: kdyby to neviděl ani vlastník, testy výš by
+        procházely a funkce by přitom byla rozbitá."""
+        self._as(1)
+        hist = self.client.get('/api/me/campaigns').get_json()
+        self.assertEqual([c['subject'] for c in hist], ['Tajná rozesílka Alfy'])
+
+
 class ShareCardTests(_Sprint2Base):
     """Kartička, kterou si tatér vystaví na Instagram. Nejlevnější cesta,
     jak se o InkLinku dozvědí jeho klienti — proto musí fungovat i tehdy,
