@@ -682,6 +682,38 @@ znovu. Jeden sdílený klíč by ty dvě váhy spojil dohromady.
 - Špatný klíč vede na prázdný token, čitelnou chybu a nové propojení —
   ne na pád. V logu je jen `token decrypt failed`, nikdy hodnota.
 
+## 5.7 Mapa tatérů
+
+**API klíč nepotřebuje.** Běží na Leafletu s dlaždicemi od CARTO
+(`basemaps.cartocdn.com`), které jsou zdarma a atribuci mají v patičce
+mapy. Klíč nechce ani geokodér.
+
+Prázdná byla z jiného důvodu: `/api/artists/map` vrací jen tatéry s
+`lat`/`lng`, server je uměl uložit, ale **formulář je nikdy neposílal** a
+geokódování v projektu nebylo. Souřadnice teď dopočítá server sám z
+adresy studia (nepovinné pole) nebo z města.
+
+| | |
+|---|---|
+| geokodér | Nominatim (OpenStreetMap), bez klíče |
+| cache | tabulka `geo_cache`, klíčem je text dotazu |
+| kdy se volá | při uložení profilu, když nedorazí `lat`/`lng` |
+| když selže | profil se uloží bez souřadnic, chyba jen do logu |
+
+**Nominatim si klade podmínky:** identifikovat se v User-Agentu (posíláme
+`InkLink/1.0 (+<APP_BASE_URL>)`) a nechodit častěji než jednou za vteřinu.
+Profil se ukládá zřídka a opakované dotazy odchytí cache, takže se do
+limitu vejdeme. Kdyby přibylo tatérů skokem, je to první místo, které
+narazí — pak je na řadě Mapy.cz (lepší česká data, ale chce klíč).
+
+Negativní odpověď se cachuje, výpadek geokodéru ne — jinak by jedna
+nedostupnost zamkla adresu jako „neexistuje".
+
+Kdo adresu nevyplní, dostane souřadnice města, takže všichni z Prahy
+sedí na jednom bodě. Mapa proto duplicitní souřadnice rozseje do spirály
+(zlatý úhel, první kruh ~50 m), aby šlo kliknout na každého. Není to
+skutečná poloha — u tatérů bez adresy ani být nemůže.
+
 ## 6. Backup strategy
 
 ### Postgres (Railway)

@@ -1117,9 +1117,23 @@ def init_db():
                 # Artist liability consent — must be accepted before profile
                 # save switches the account into is_artist=1. Stores ISO
                 # timestamp of acceptance (NULL = not accepted).
-                'artist_terms_accepted_at TEXT DEFAULT NULL'):
+                'artist_terms_accepted_at TEXT DEFAULT NULL',
+                # Adresa studia. Nepovinná schválně: kdo tetuje doma, ji
+                # zveřejňovat nechce. Bez ní se geokóduje jen město, což
+                # stačí na „tatéři v Brně", ne na navigaci ke dveřím.
+                "studio_address TEXT DEFAULT ''"):
         add_col('users', col)
     conn.commit()
+
+    # Odpovědi z geokodéru. Bez cache by se „Praha" ptalo znovu za každého
+    # tatéra — a Nominatim má limit jeden dotaz za vteřinu.
+    c.execute('''CREATE TABLE IF NOT EXISTS geo_cache (
+        query      TEXT PRIMARY KEY,
+        lat        REAL,
+        lng        REAL,
+        found      INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
 
     # ── follows / messages / favorite_cities (kept from hear-me-out) ────────
     c.execute('''CREATE TABLE IF NOT EXISTS follows (
@@ -3008,7 +3022,8 @@ def me():
         return jsonify(None), 200
     conn = get_db()
     user = conn.execute('''SELECT id, username, display_name, city, avatar, emoji,
-                                  is_artist, artist_slug, studio, instagram, styles,
+                                  is_artist, artist_slug, studio, studio_address,
+                                  instagram, styles,
                                   deposit_pct_default, hourly_rate_min, hourly_rate_max,
                                   default_payment_mode,
                                   cancel_refund_full_hours, cancel_refund_half_hours,
@@ -4155,6 +4170,73 @@ ALLOWED_TATTOO_STYLES = (
 )
 
 
+# ── Geokódování ───────────────────────────────────────────────────────────
+# Mapa běží na Leafletu s dlaždicemi od CARTO, které klíč nepotřebují.
+# Chyběly jí souřadnice: `lat`/`lng` uměl server uložit, ale nikdo je
+# neposílal, takže /api/artists/map vracelo pořád prázdno. Adresu proto
+# přeloží na souřadnice server sám, přes Nominatim (OpenStreetMap) —
+# taky bez klíče.
+#
+# Nominatim si klade dvě podmínky: identifikovat se v User-Agentu a
+# nechodit častěji než jednou za vteřinu. Profil se ukládá zřídka a
+# opakované dotazy odchytí `geo_cache`, takže se do limitu vejdeme.
+GEOCODE_URL = 'https://nominatim.openstreetmap.org/search'
+
+
+def _geocode(query: str):
+    """(lat, lng) pro adresu, nebo None. Selhání nesmí shodit uložení."""
+    q = ' '.join((query or '').split())[:200]
+    if not q:
+        return None
+
+    conn = get_db()
+    row = conn.execute('SELECT lat, lng, found FROM geo_cache WHERE query=?',
+                       (q.lower(),)).fetchone()
+    if row is not None:
+        conn.close()
+        return (row['lat'], row['lng']) if row['found'] else None
+
+    lat = lng = None
+    try:
+        import requests as _rq
+        r = _rq.get(GEOCODE_URL,
+                    params={'q': q, 'format': 'json', 'limit': 1},
+                    headers={'User-Agent': f'InkLink/1.0 (+{APP_BASE_URL})',
+                             'Accept-Language': 'cs,en'},
+                    timeout=6)
+        r.raise_for_status()
+        hits = r.json()
+        if hits:
+            lat, lng = float(hits[0]['lat']), float(hits[0]['lon'])
+    except Exception as e:
+        # Výpadek geokodéru neznamená, že adresa neexistuje — proto se
+        # negativní odpověď necachuje a příště to zkusíme znovu.
+        app.logger.warning(f'[geocode] failed for {q!r}: {type(e).__name__}')
+        conn.close()
+        return None
+
+    conn.execute(
+        'INSERT OR REPLACE INTO geo_cache (query, lat, lng, found) VALUES (?,?,?,?)',
+        (q.lower(), lat, lng, 1 if lat is not None else 0))
+    conn.commit()
+    conn.close()
+    return (lat, lng) if lat is not None else None
+
+
+def _geocode_profile(studio_address: str, city: str):
+    """Nejdřív přesná adresa, pak samotné město. Bez země by „Brno"
+    mohlo skončit v Německu."""
+    for q in (f'{studio_address}, {city}, Česko' if studio_address and city else None,
+              f'{studio_address}, Česko' if studio_address and not city else None,
+              f'{city}, Česko' if city else None):
+        if not q:
+            continue
+        hit = _geocode(q)
+        if hit:
+            return hit
+    return None
+
+
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
     err = require_login()
@@ -4165,6 +4247,7 @@ def update_profile():
     bio          = request.form.get('bio', '').strip()
     studio       = request.form.get('studio', '').strip()
     instagram    = request.form.get('instagram', '').strip().lstrip('@')
+    studio_address = request.form.get('studio_address', '').strip()[:160]
     styles_raw   = request.form.get('styles', '').strip()
 
     # Artist liability consent — must be accepted (once) before profile save
@@ -4217,6 +4300,14 @@ def update_profile():
     except (ValueError, TypeError):
         lng = None
 
+    # Formulář souřadnice neposílá — nikdy je neposílal, a proto byla mapa
+    # prázdná. Když nedorazí, odvodíme je z adresy. Výpadek geokodéru
+    # nesmí zabránit uložení profilu, proto se chyba jen zaloguje.
+    if lat is None or lng is None:
+        hit = _geocode_profile(studio_address, city)
+        if hit:
+            lat, lng = hit
+
     if not display_name:
         return jsonify({'error': 'Jméno nemůže být prázdné'}), 400
     if len(display_name) > 60:
@@ -4245,20 +4336,23 @@ def update_profile():
                                           hourly_rate_min=?, hourly_rate_max=?,
                                           default_payment_mode=?,
                                           cancel_refund_full_hours=?, cancel_refund_half_hours=?,
-                                          lat=?, lng=?
+                                          studio_address=?, lat=?, lng=?
                         WHERE id=?''',
                      (display_name, city, bio, studio, instagram, styles, deposit_pct,
-                      hourly_min, hourly_max, pay_mode, cancel_full, cancel_half, lat, lng,
+                      hourly_min, hourly_max, pay_mode, cancel_full, cancel_half,
+                      studio_address, lat, lng,
                       session['user_id']))
     else:
         conn.execute('''UPDATE users SET display_name=?, city=?, bio=?, studio=?, instagram=?,
                                           styles=?, deposit_pct_default=?,
                                           hourly_rate_min=?, hourly_rate_max=?,
                                           default_payment_mode=?,
-                                          cancel_refund_full_hours=?, cancel_refund_half_hours=?
+                                          cancel_refund_full_hours=?, cancel_refund_half_hours=?,
+                                          studio_address=?
                         WHERE id=?''',
                      (display_name, city, bio, studio, instagram, styles, deposit_pct,
                       hourly_min, hourly_max, pay_mode, cancel_full, cancel_half,
+                      studio_address,
                       session['user_id']))
 
     # Fakturační údaje zvlášť: jsou nepovinné a nemají co dělat ve dvou
@@ -8268,6 +8362,11 @@ PERSONAL_DATA = {
     'app_settings':          {'link': (), 'erase': 'none'},
     'discount_codes':        {'link': (), 'erase': 'none'},
     'processed_stripe_events': {'link': (), 'erase': 'none'},
+    # Odpovědi geokodéru na adresu, ne na osobu: klíčem je text dotazu
+    # („praha, česko"), bez vazby na uživatele. Adresa studia je navíc
+    # veřejný údaj o provozovně a tatér ji vyplňuje dobrovolně.
+    'geo_cache':             {'link': (), 'erase': 'none',
+                              'why': 'souřadnice adresy, bez vazby na osobu'},
     'portfolio_item_sizes':  {'link': (), 'erase': 'none',
                               'why': 'maže se s portfolio_items'},
     'booking_status_log':    {'link': (), 'erase': 'none',

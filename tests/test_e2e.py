@@ -1863,6 +1863,55 @@ class OwnProfileAffordanceTests(unittest.TestCase):
 
 
 
+class GeocodeTests(unittest.TestCase):
+    """Mapa byla prázdná ne kvůli chybějícímu klíči (CARTO ho nechce),
+    ale protože `lat`/`lng` uměl server uložit a nikdo je neposílal.
+    Souřadnice teď dopočítá z adresy sám.
+
+    Testy jdou přes cache, aby nesahaly na síť — geokodér venku může
+    být pomalý nebo mimo a test by padal bez viny kódu."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        import server
+        self.srv = server
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def _cache(self, query, lat, lng, found=1):
+        conn = self.srv.get_db()
+        conn.execute('INSERT OR REPLACE INTO geo_cache (query, lat, lng, found) '
+                     'VALUES (?,?,?,?)', (query, lat, lng, found))
+        conn.commit()
+        conn.close()
+
+    def test_cached_answer_skips_the_network(self):
+        self._cache('praha, česko', 50.08, 14.42)
+        self.assertEqual(self.srv._geocode_profile('', 'Praha'), (50.08, 14.42))
+
+    def test_address_wins_over_city(self):
+        # Bez adresy skončí všichni z města na jednom bodě, takže když
+        # ji tatér vyplní, musí se použít.
+        self._cache('praha, česko', 50.08, 14.42)
+        self._cache('dlouhá 12, praha, česko', 50.09, 14.43)
+        self.assertEqual(self.srv._geocode_profile('Dlouhá 12', 'Praha'), (50.09, 14.43))
+
+    def test_known_miss_is_not_retried(self):
+        self._cache('qwertz, česko', None, None, found=0)
+        self.assertIsNone(self.srv._geocode_profile('', 'Qwertz'))
+
+    def test_empty_input_asks_nothing(self):
+        self.assertIsNone(self.srv._geocode_profile('', ''))
+
+    def test_map_only_returns_artists_with_coordinates(self):
+        # Endpoint filtruje na NOT NULL — kdyby ne, Leaflet by na
+        # [null, null] spadl a mapa by zůstala prázdná i s tatéry.
+        src = open('server.py', encoding='utf-8').read()
+        i = src.index("def artists_map()")
+        self.assertIn('lat IS NOT NULL AND lng IS NOT NULL', src[i:i + 900])
+
+
 class NotifBellMountsTests(unittest.TestCase):
     """Zvonek s panelem oznámení čekal na `#notifMount` ve stránce.
 

@@ -305,11 +305,27 @@ async function init() {
       return;
     }
     const bounds = [];
+    // Kdo nevyplnil adresu studia, dostane souřadnice svého města — a
+    // všichni z Prahy by tak seděli na jednom bodě, kde jde kliknout jen
+    // na posledního. Duplicity rozsejeme do spirály zlatým úhlem, ať jsou
+    // rozeznatelné; první kruh je zhruba padesát metrů, takže to nikoho
+    // neposune do jiné čtvrti.
+    const seen = new Map();
     allArtists.forEach(a => {
-      const marker = L.marker([a.lat, a.lng], { icon: buildMarker(a) }).addTo(mapInstance);
+      const key = a.lat.toFixed(5) + ',' + a.lng.toFixed(5);
+      const n = seen.get(key) || 0;
+      seen.set(key, n + 1);
+      let lat = a.lat, lng = a.lng;
+      if (n > 0) {
+        const ang = n * 2.399963;
+        const rad = 0.00045 * Math.sqrt(n);
+        lat += rad * Math.cos(ang);
+        lng += rad * Math.sin(ang) / Math.max(0.2, Math.cos(a.lat * Math.PI / 180));
+      }
+      const marker = L.marker([lat, lng], { icon: buildMarker(a) }).addTo(mapInstance);
       marker.bindPopup(buildPopup(a), { maxWidth: 240, autoPan: true });
       artistMarkers.set(a.id, marker);
-      bounds.push([a.lat, a.lng]);
+      bounds.push([lat, lng]);
     });
     if (allArtists.length > 1) {
       mapInstance.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });

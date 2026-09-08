@@ -297,6 +297,16 @@ document.addEventListener('il-i18n-applied', function () {
             <input type="text" name="instagram" id="instagram" maxlength="50" placeholder="@your_handle">
           </div>
         </div>
+        <!-- Nepovinná schválně: kdo tetuje doma, adresu zveřejňovat nechce.
+             Bez ní se na mapu umístí podle města. -->
+        <div class="field">
+          <label data-i18n="as.studioAddress">Studio address</label>
+          <input type="text" name="studio_address" id="studio_address" maxlength="160"
+                 placeholder="Dlouhá 12">
+          <p class="hint" data-i18n="as.hStudioAddress">Shows you on the map. Without it we
+            place you by city only — where every artist from the same city lands on one spot.
+            Leave it empty if you don't want the address public.</p>
+        </div>
         <div class="field">
           <label data-i18n="as.bio">Bio</label>
           <textarea name="bio" id="bio" maxlength="500" placeholder="What you love, your experience, what makes your style unique…"></textarea>
@@ -547,6 +557,7 @@ async function init() {
   document.getElementById('display_name').value = me.display_name || '';
   document.getElementById('studio').value = me.studio || '';
   document.getElementById('city').value = me.city || '';
+  document.getElementById('studio_address').value = me.studio_address || '';
   document.getElementById('instagram').value = me.instagram || '';
   document.getElementById('deposit_pct_default').value = me.deposit_pct_default ?? 30;
   document.getElementById('hourly_rate_min').value = me.hourly_rate_min ?? '';
