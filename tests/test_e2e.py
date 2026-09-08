@@ -1892,6 +1892,18 @@ class SharedNavHomeTests(unittest.TestCase):
         self.assertLess(bar.find('i-home'), bar.find('i-calendar'),
                         'feed není v liště první')
 
+    def test_pages_using_home_icon_load_the_sprite(self):
+        """`<use href="#i-home">` bez načteného spritu nevykreslí nic —
+        a nikde to nezahlásí chybu. invite.html sprite nenačítal."""
+        import glob
+        for path in sorted(glob.glob('public/*.html')):
+            with open(path, encoding='utf-8') as fh:
+                src = fh.read()
+            if 'homeIcon()' not in src:
+                continue
+            self.assertIn('icons.js', src,
+                          path + ' kreslí domeček, ale nenačítá sprite')
+
     def test_standalone_home_is_hidden_when_bar_has_it(self):
         # Tatér má feed v liště; samostatný domeček by byl v navu podruhé.
         src = self._src('mobile-nav.js')

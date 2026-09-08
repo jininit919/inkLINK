@@ -52,13 +52,6 @@
   #il-abar svg{width:15px;height:15px;flex-shrink:0}
   nav.il-has-abar > .nav-logo{flex:0 0 auto !important}
   nav.il-has-abar > #il-abar{margin-right:auto}
-  /* Stránky si .nav-icon většinou stylují samy; messages.html ne. Sázíme
-     jen to, bez čeho by ikona nebyla vidět — rozměry nechává na stránce. */
-  #il-home{display:inline-flex;align-items:center;justify-content:center;
-    color:var(--txt3,#5a5a5a);text-decoration:none;cursor:pointer}
-  #il-home:hover{color:var(--txt,#0a0a0a)}
-  #il-home svg{width:18px;height:18px;stroke:currentColor;fill:none;
-    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   /* Úzký desktop: popisky pryč, ikony zůstanou — jinak lišta vytlačí ikony
      vpravo mimo obrazovku. */
   @media(max-width:1180px){
@@ -86,11 +79,34 @@
   }
   `;
 
+  const HOME_CSS = `
+  /* Stránky si .nav-icon většinou stylují samy; messages.html ne. Sázíme
+     jen to, bez čeho by ikona nebyla vidět — rozměry nechává na stránce. */
+  #il-home{display:inline-flex;align-items:center;justify-content:center;
+    color:var(--txt3,#5a5a5a);text-decoration:none;cursor:pointer}
+  #il-home:hover{color:var(--txt,#0a0a0a)}
+  /* Když ikona sedí přímo v navu, odstrčí se doprava sama — ne každá
+     stránka má logo s flex:1 (invite.html ho nemá a ikona se nalepila
+     rovnou na něj). Uvnitř .nav-icons to nechceme, tam patří ke svým. */
+  nav > #il-home{margin-left:auto}
+  #il-home svg{width:18px;height:18px;stroke:currentColor;fill:none;
+    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  `;
+
+  function injectHomeCSS() {
+    if (document.getElementById('il-home-css') ||
+        document.getElementById('il-mnav-css')) return;
+    const s = document.createElement('style');
+    s.id = 'il-home-css';
+    s.textContent = HOME_CSS;
+    document.head.appendChild(s);
+  }
+
   function injectCSS() {
     if (document.getElementById('il-mnav-css')) return;
     const s = document.createElement('style');
     s.id = 'il-mnav-css';
-    s.textContent = CSS;
+    s.textContent = CSS + HOME_CSS;
     document.head.appendChild(s);
   }
 
@@ -395,5 +411,19 @@
     }
   }
 
-  window.InkLinkMobileNav = { init, refreshBadge };
+  // Stránky mimo hlavní procházení (sdílené odkazy, studio) chtějí
+  // stejný domeček, ale ne spodní lištu ani lištu tatéra. Pět ručně
+  // psaných kopií v HTML by se dřív nebo později rozešlo.
+  function homeIcon() {
+    var run = function () {
+      try { injectHomeCSS(); ensureHomeIcon(); }
+      catch (e) { console && console.error && console.error('[il-mnav] home', e); }
+    };
+    // Ať nezáleží na tom, kde v HTML je <script> vůči <nav>.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run);
+    } else { run(); }
+  }
+
+  window.InkLinkMobileNav = { init, refreshBadge, homeIcon };
 })();
