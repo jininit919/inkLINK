@@ -177,6 +177,8 @@ _GATE_ALWAYS_OPEN = (
     # základ pro sběr e-mailu do waitlistu. Odkaz končící v bráně by ten
     # základ zrušil.
     '/privacy', '/terms',
+    # Nabídka pro značky. Za bránou by ji uviděl jen waitlist.
+    '/partners',
 )
 # /vouchers/ je záměrně veřejné: dárce odkaz pošle dál a obdarovaný
 # účet mít nemusí. Za bránou by místo dárku našel coming-soon stránku.
@@ -197,6 +199,8 @@ _GATE_OPEN_PREFIXES = ('/api/stripe/', '/api/webhook', '/uploads/', '/static/',
                        # Doklad si klient otevírá odkazem, taky bez účtu.
                        '/consent/', '/api/consent/', '/receipt/')
 _GATE_OPEN_API = (
+    # Poptávka spolupráce chodí zvenčí, typicky ještě před spuštěním.
+    '/api/partners',
     '/api/login', '/api/register', '/api/logout', '/api/me',
     '/api/verify', '/api/forgot-password', '/api/reset-password',
     # Waitlist je celý smysl coming-soon stránky — bránou projít musí.
@@ -1180,6 +1184,19 @@ def init_db():
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     c.execute('CREATE INDEX IF NOT EXISTS idx_consent_artist ON consent_forms(artist_id)')
+
+    # ── partner_leads ───────────────────────────────────────────────────────
+    # Poptávky spolupráce od firem. Ukládají se, ne jen posílají mailem:
+    # mail se ztratí ve schránce, řádek v databázi ne.
+    c.execute("""CREATE TABLE IF NOT EXISTS partner_leads (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        company    TEXT DEFAULT '',
+        email      TEXT NOT NULL,
+        message    TEXT NOT NULL,
+        ip         TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
 
     # ── waitlist (coming-soon stránka) ──────────────────────────────────────
     # Sbíráme jen e-mail a nepovinnou roli. Žádné jméno, žádný profil —
@@ -3820,6 +3837,51 @@ def book_showcase_page(username):
             .replace('{{OG_URL}}',   html_escape(page_url))
             .replace('{{USERNAME}}', html_escape(username))
             .replace('{{JSON_LD}}',  json_ld))
+
+
+@app.route('/api/partners', methods=['POST'])
+@limiter.limit('5 per hour')
+def partner_lead():
+    """Poptávka spolupráce. Veřejná a nepřihlášená, takže rate limit není
+    volitelný."""
+    d = request.get_json(silent=True) or request.form
+    name = (d.get('name') or '').strip()[:120]
+    email = (d.get('email') or '').strip().lower()[:190]
+    company = (d.get('company') or '').strip()[:120]
+    message = (d.get('message') or '').strip()[:2000]
+
+    if not name or not message:
+        return jsonify({'error': 'Vyplň prosím jméno a zprávu.'}), 400
+    # Stejně mírná validace jako u waitlistu: přísná regex odmítá platné adresy.
+    if not email or '@' not in email or '.' not in email.split('@')[-1]:
+        return jsonify({'error': 'Zadej platný e-mail.'}), 400
+
+    conn = get_db()
+    conn.execute('INSERT INTO partner_leads (name, company, email, message, ip) '
+                 'VALUES (?,?,?,?,?)',
+                 (name, company, email, message, (request.remote_addr or '')[:64]))
+    conn.commit(); conn.close()
+
+    # Mail je jen upozornění; zdrojem pravdy je řádek v databázi.
+    try:
+        from html import escape as _h
+        send_email('partner@inklink.club',
+                   f'Poptávka spolupráce — {company or name}',
+                   f'<p><b>{_h(name)}</b>'
+                   + (f' · {_h(company)}' if company else '')
+                   + f'<br>{_h(email)}</p><p>{_h(message)}</p>')
+    except Exception as e:
+        app.logger.error(f'[partners] notify failed: {e}')
+
+    return jsonify({'ok': True})
+
+
+@app.route('/partners')
+def partners_page():
+    """Nabídka spolupráce pro značky. Veřejná i za coming-soon bránou —
+    značka, která na ni narazí před spuštěním, je zrovna ta, o kterou
+    stojíme nejvíc."""
+    return send_from_directory('public', 'partners.html')
 
 
 @app.route('/events')
@@ -8071,7 +8133,7 @@ PROCESSING_ACTIVITIES = [
         'categories': 'E-mail, jméno, štítky, znění a datum souhlasu',
         'recipients': 'Resend',
         'retention': 'Do odhlášení; waitlist do spuštění nebo do odvolání souhlasu',
-        'tables': ('campaigns', 'waitlist', 'referrals'),
+        'tables': ('campaigns', 'waitlist', 'referrals', 'partner_leads'),
     },
     {
         'name': 'Propojení s Instagramem',
@@ -8172,6 +8234,11 @@ PERSONAL_DATA = {
     # právních nároků připouští. Odpovědi jsou navíc zašifrované.
     'consent_forms':         {'link': ('client_id', 'artist_id'), 'erase': 'keep',
                               'why': 'doklad o zdravotním prohlášení; šifrovaný'},
+    # Poptávka firmy. Není to zákazník ani uživatel — jen kontakt, který
+    # nám sám napsal. Maže se na požádání, jinak zůstává jako obchodní
+    # korespondence.
+    'partner_leads':         {'link': (), 'erase': 'none',
+                              'why': 'kontakt firmy, ne uživatele platformy'},
     'refund_requests':       {'link': ('client_id', 'artist_id'), 'erase': 'scrub',
                               'scrub': ('decision_note',)},
     'booking_reschedule_requests': {'link': ('requested_by', 'decision_by'),
@@ -12215,6 +12282,113 @@ def _offer_freed_slot(conn, booking, start_dt):
 def _username_of(conn, uid):
     r = conn.execute('SELECT username FROM users WHERE id=?', (uid,)).fetchone()
     return r['username'] if r else ''
+
+
+# ── Kartička na Instagram ────────────────────────────────────────────────
+# Tatéři žijí na Instagramu, ne na našem webu. Nejlevnější cesta k novým
+# klientům je dát jim něco, co si sami vystaví — s jejich jménem, ne s naším
+# logem přes celou plochu.
+#
+# QR tam je proto, že v příspěvku na Instagramu odkaz nefunguje; ve stories
+# ano, ale kartička má sloužit obojímu.
+
+SHARE_CARD_SIZES = {'story': (1080, 1920), 'post': (1080, 1080)}
+SHARE_BG = (250, 248, 243)
+SHARE_INK = (10, 10, 10)
+SHARE_MUTED = (110, 108, 100)
+
+
+def _share_font(name, size):
+    from PIL import ImageFont
+    path = os.path.join('public', 'fonts', name)
+    try:
+        return ImageFont.truetype(path, size)
+    except Exception:
+        # Bez firemního fontu je kartička ošklivá, ale pořád použitelná —
+        # spadnout kvůli písmu by bylo horší.
+        return ImageFont.load_default()
+
+
+def _render_share_card(username, display_name, city, fmt='story'):
+    import io as _io
+    import segno
+    from PIL import Image, ImageDraw
+
+    W, H = SHARE_CARD_SIZES.get(fmt, SHARE_CARD_SIZES['story'])
+    img = Image.new('RGB', (W, H), SHARE_BG)
+    d = ImageDraw.Draw(img)
+
+    url = f"{APP_BASE_URL.rstrip('/')}/profile/{username}"
+    story = fmt == 'story'
+
+    # Logo nahoře. Kartičku vystavuje tatér, takže naše značka drží odstup.
+    try:
+        logo = Image.open(os.path.join('public', 'img', 'inklink-logo.png')).convert('RGBA')
+        lw = int(W * 0.34)
+        logo = logo.resize((lw, max(1, int(logo.height * lw / logo.width))))
+        img.paste(logo, ((W - lw) // 2, int(H * (0.10 if story else 0.09))), logo)
+    except Exception:
+        pass
+
+    def center(text, y, font, fill=SHARE_INK):
+        w = d.textbbox((0, 0), text, font=font)[2]
+        d.text(((W - w) // 2, y), text, font=font, fill=fill)
+
+    name_size = 96 if story else 78
+    center(display_name[:22], int(H * (0.30 if story else 0.26)),
+           _share_font('BebasNeue-Regular.ttf', name_size))
+    center('@' + username, int(H * (0.375 if story else 0.365)),
+           _share_font('DMMono-Regular.ttf', 34), SHARE_MUTED)
+    if city:
+        center(city[:28], int(H * (0.405 if story else 0.405)),
+               _share_font('DMMono-Regular.ttf', 28), SHARE_MUTED)
+
+    center('REZERVUJ TERMÍN ONLINE', int(H * (0.47 if story else 0.475)),
+           _share_font('BebasNeue-Regular.ttf', 44 if story else 38))
+
+    # QR na profil. Tmavý na krémovém, aby ladil se zbytkem.
+    qr = segno.make(url, error='m')
+    buf = _io.BytesIO()
+    qr.save(buf, kind='png', scale=20, border=2,
+            dark='#0a0a0a', light='#faf8f3')
+    buf.seek(0)
+    qsize = int(W * (0.42 if story else 0.34))
+    qimg = Image.open(buf).convert('RGB').resize((qsize, qsize), Image.NEAREST)
+    img.paste(qimg, ((W - qsize) // 2, int(H * (0.55 if story else 0.55))))
+
+    center(url.replace('https://', ''), int(H * (0.86 if story else 0.90)),
+           _share_font('DMMono-Medium.ttf', 30), SHARE_MUTED)
+
+    out = _io.BytesIO()
+    img.save(out, format='PNG', optimize=True)
+    out.seek(0)
+    return out
+
+
+@app.route('/api/me/share-card.png')
+def share_card():
+    err = require_login()
+    if err: return err
+    fmt = request.args.get('format', 'story')
+    if fmt not in SHARE_CARD_SIZES:
+        fmt = 'story'
+    conn = get_db()
+    u = conn.execute('SELECT username, display_name, city FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
+    conn.close()
+    if not u:
+        return jsonify({'error': 'not found'}), 404
+    try:
+        buf = _render_share_card(u['username'], u['display_name'] or u['username'],
+                                 u['city'] or '', fmt)
+    except Exception as e:
+        app.logger.error(f'[share-card] {type(e).__name__}: {e}')
+        return jsonify({'error': 'Kartičku se nepodařilo vytvořit.'}), 500
+    return Response(buf.read(), mimetype='image/png', headers={
+        'Content-Disposition':
+            f'attachment; filename="inklink-{u["username"]}-{fmt}.png"',
+        'Cache-Control': 'no-store',
+    })
 
 
 def _receipt_token(booking_id):

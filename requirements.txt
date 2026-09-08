@@ -20,3 +20,6 @@ requests>=2.32
 # Šifrování zdravotních údajů v souhlasech. Dosud se tahala jen tranzitivně
 # přes pywebpush — explicitně proto, aby ji jejich update nemohl odnést.
 cryptography>=42.0
+# QR kód do sdílecí kartičky pro Instagram. Čistě pythonové, bez závislostí
+# a bez nativního buildu — na Railway se nemá o co zaseknout.
+segno>=1.6

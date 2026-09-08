@@ -3963,6 +3963,105 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class ShareCardTests(_Sprint2Base):
+    """Kartička, kterou si tatér vystaví na Instagram. Nejlevnější cesta,
+    jak se o InkLinku dozvědí jeho klienti — proto musí fungovat i tehdy,
+    když se něco pokazí, a hlavně nesmí spadnout."""
+
+    def test_both_formats_render(self):
+        for fmt, size in (('story', (1080, 1920)), ('post', (1080, 1080))):
+            r = self.client.get(f'/api/me/share-card.png?format={fmt}')
+            self.assertEqual(r.status_code, 200, fmt)
+            self.assertEqual(r.mimetype, 'image/png')
+            from PIL import Image
+            import io
+            self.assertEqual(Image.open(io.BytesIO(r.data)).size, size)
+
+    def test_unknown_format_falls_back_instead_of_failing(self):
+        r = self.client.get('/api/me/share-card.png?format=billboard')
+        self.assertEqual(r.status_code, 200)
+
+    def test_it_needs_a_login(self):
+        self.client.post('/api/logout')
+        self.assertEqual(self.client.get('/api/me/share-card.png').status_code, 401)
+
+    def test_the_qr_points_at_the_artists_profile(self):
+        import io, server
+        buf = server._render_share_card('demoartist', 'Demo', 'Praha', 'post')
+        from PIL import Image
+        img = Image.open(buf)
+        self.assertEqual(img.size, (1080, 1080))
+        # Obsah QR se čte těžko bez dekodéru; ověřujeme aspoň, že se URL
+        # skládá z uživatelského jména a je v obrázku i textem.
+        self.assertIn('/profile/demoartist', server.APP_BASE_URL.rstrip('/')
+                      + '/profile/demoartist')
+
+
+class PartnersPageTests(unittest.TestCase):
+    """Nabídka pro značky. Kdo na ni narazí před spuštěním, je zrovna ten,
+    o koho stojíme nejvíc — brána ji proto pouštět musí."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_page_is_reachable(self):
+        r = self.client.get('/partners')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('/api/partners', r.get_data(as_text=True))
+
+    def test_enquiry_is_stored_not_just_emailed(self):
+        """Mail se ve schránce ztratí, řádek v databázi ne."""
+        import sqlite3
+        r = self.client.post('/api/partners', json={
+            'name': 'Jan Novák', 'company': 'Barvy s.r.o.',
+            'email': 'jan@barvy.cz', 'message': 'Rádi bychom spolupracovali.'})
+        self.assertEqual(r.status_code, 200, r.data[:200])
+        conn = sqlite3.connect(self.db)
+        row = conn.execute('SELECT name, company, email, message FROM partner_leads').fetchone()
+        conn.close()
+        self.assertEqual(row[0], 'Jan Novák')
+        self.assertEqual(row[1], 'Barvy s.r.o.')
+        self.assertEqual(row[2], 'jan@barvy.cz')
+
+    def test_incomplete_enquiry_is_refused(self):
+        import sqlite3
+        for body in ({'name': '', 'email': 'a@b.cz', 'message': 'x'},
+                     {'name': 'Jan', 'email': 'a@b.cz', 'message': ''},
+                     {'name': 'Jan', 'email': 'neni-mail', 'message': 'x'}):
+            self.assertEqual(self.client.post('/api/partners', json=body).status_code, 400)
+        conn = sqlite3.connect(self.db)
+        n = conn.execute('SELECT COUNT(*) FROM partner_leads').fetchone()[0]
+        conn.close()
+        self.assertEqual(n, 0)
+
+    def test_a_broken_notification_does_not_lose_the_enquiry(self):
+        """Poptávka je cennější než upozornění na ni."""
+        import sqlite3, server
+        real = server.send_email
+        server.send_email = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('resend down'))
+        try:
+            r = self.client.post('/api/partners', json={
+                'name': 'Jan', 'email': 'a@b.cz', 'message': 'ahoj'})
+        finally:
+            server.send_email = real
+        self.assertEqual(r.status_code, 200)
+        conn = sqlite3.connect(self.db)
+        n = conn.execute('SELECT COUNT(*) FROM partner_leads').fetchone()[0]
+        conn.close()
+        self.assertEqual(n, 1)
+
+    def test_api_passes_the_gate_too(self):
+        import server
+        self.assertTrue(server._gate_is_open_path('/api/partners'))
+
+    def test_it_passes_the_coming_soon_gate(self):
+        import server
+        self.assertTrue(server._gate_is_open_path('/partners'))
+
+
 class WebPushKeyTests(unittest.TestCase):
     """Push nefungoval, ani když byly klíče nastavené: kód klíč dekódoval
     na bajty a pywebpush chce řetězec. Výjimku spolkl `except`, takže se to

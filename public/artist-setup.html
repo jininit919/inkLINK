@@ -251,6 +251,18 @@ document.addEventListener('il-i18n-applied', function () {
       <div id="igBody" style="margin-top:14px"></div>
     </div>
 
+    <!-- Sdílecí kartička. Tatéři žijí na Instagramu, ne na našem webu —
+         tohle je nejlevnější cesta, jak se o InkLinku dozvědí jejich
+         klienti. Proto je hned pod importem, ne schovaná dole. -->
+    <div class="card">
+      <h2 data-i18n="sc.title">Sdílet na Instagram</h2>
+      <p class="hint" data-i18n="sc.hint">Kartička s tvým jménem a QR kódem na tvůj profil. Stáhni si ji a vystav jako příspěvek nebo story — klienti si termín rezervují sami.</p>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <a class="btn" href="/api/me/share-card.png?format=story" download data-i18n="sc.story">Stáhnout story</a>
+        <a class="btn" href="/api/me/share-card.png?format=post" download data-i18n="sc.post">Stáhnout příspěvek</a>
+      </div>
+    </div>
+
     <div class="card">
       <h2 data-i18n="as.publicProfile">Public profile</h2>
       <p class="hint">This info is visible to clients on your profile. Once saved you'll be listed as an artist.</p>
