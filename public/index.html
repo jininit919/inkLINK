@@ -99,46 +99,6 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 @media(max-width:560px){.filter-floating{top:34px;right:16px}}
 
 /* Add Portfolio Modal */
-#addPortfolioModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:9999;padding:60px 16px 16px;-webkit-tap-highlight-color:transparent}
-#addPortfolioModal.show{display:flex}
-/* Mobile: reserve space for fixed bottom-nav (74px) + iOS home indicator */
-@media(max-width:768px){#addPortfolioModal{padding:20px 12px calc(90px + env(safe-area-inset-bottom))}}
-.addp-card{width:100%;max-width:640px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;max-height:calc(100dvh - 76px);overflow-y:auto;box-shadow:0 24px 60px rgba(20,16,8,0.18);display:flex;flex-direction:column}
-@media(max-width:768px){.addp-card{max-height:calc(100dvh - 110px - env(safe-area-inset-bottom))}}
-.addp-head{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:5}
-.addp-head h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:20px;letter-spacing:0.16em;color:var(--txt);margin:0;font-weight:400}
-.addp-close{background:transparent;border:none;color:var(--txt3);cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.12s}
-.addp-close:hover{background:var(--bg3);color:var(--txt)}
-.addp-body{padding:20px 22px 22px;display:flex;flex-direction:column;gap:16px}
-.addp-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:520px){.addp-row{grid-template-columns:1fr}}
-.addp-field{display:flex;flex-direction:column;gap:6px}
-.addp-field label{font-size:10px;letter-spacing:0.14em;color:var(--txt3);text-transform:uppercase;display:flex;align-items:center;gap:6px}
-.addp-field label .hint{font-size:9px;color:var(--txt3);text-transform:none;letter-spacing:0.04em;font-weight:300}
-.addp-field input[type="text"],.addp-field input[type="number"],.addp-field select{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;padding:10px 14px;border-radius:6px;outline:none;transition:all 0.12s;letter-spacing:0.02em}
-.addp-field input:focus,.addp-field select:focus{border-color:var(--txt);background:var(--bg4);box-shadow:0 0 0 3px rgba(255,255,255,0.05)}
-.addp-field input[type="file"]{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;color:var(--txt2);padding:8px 0}
-.addp-field input[type="file"]::-webkit-file-upload-button{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:7px 12px;border-radius:6px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;margin-right:10px}
-.addp-field input[type="file"]::-webkit-file-upload-button:hover{background:var(--bg4)}
-#addpPreview{display:none;grid-template-columns:repeat(4,1fr);gap:6px;max-width:340px;margin-top:8px}
-#addpPreview.show{display:grid}
-#addpPreview img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid var(--border2)}
-.addp-styles{display:flex;flex-wrap:wrap;gap:6px}
-.addp-style-chip{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10px;letter-spacing:0.08em;padding:6px 11px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2);border-radius:999px;cursor:pointer;text-transform:uppercase;transition:all 0.12s;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;gap:5px}
-.addp-style-chip:hover{border-color:var(--txt3);color:var(--txt)}
-.addp-style-chip.on{background:var(--txt);color:var(--bg);border-color:var(--txt)}
-.addp-style-chip.on .icon{display:inline-block;width:11px;height:11px}
-.addp-hint{font-size:11px;color:var(--txt3);line-height:1.6;letter-spacing:0.02em;padding:10px 12px;background:var(--bg3);border-radius:6px;border-left:2px solid var(--border2)}
-.addp-hint b{color:var(--txt2);font-weight:400}
-.addp-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:6px}
-.addp-foot .btn{flex:0 0 auto;padding:11px 22px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);transition:all 0.12s}
-.addp-foot .btn:hover{background:var(--bg4)}
-.addp-foot .btn.btn-primary{background:var(--txt);color:var(--bg);border-color:var(--txt)}
-.addp-foot .btn.btn-primary:hover{background:#fff;border-color:#fff}
-.addp-foot .btn[disabled]{opacity:0.4;cursor:not-allowed}
-.addp-flash{padding:10px 12px;border-radius:6px;font-size:12px;letter-spacing:0.04em}
-.addp-flash.ok{background:rgba(48,209,88,0.12);color:#4dd964;border:1px solid rgba(48,209,88,0.25)}
-.addp-flash.err{background:rgba(255,69,58,0.12);color:#ff453a;border:1px solid rgba(255,69,58,0.25)}
 
 /* FAB — kruh vlevo dole pro přidání skicy (jen desktop) */
 .fab-add{position:fixed;bottom:24px;left:24px;width:56px;height:56px;border-radius:50%;background:var(--red2);color:var(--bg);display:none;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;box-shadow:0 12px 32px rgba(20,16,8,0.10),0 2px 6px rgba(20,16,8,0.08);transition:transform 0.18s cubic-bezier(0.32,0.72,0,1),background 0.15s;z-index:300;border:none;font-family:'Bristol','Caveat',cursive;font-size:50px;line-height:1;padding:0;overflow:hidden}
@@ -226,6 +186,24 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
    proportions regardless of source image dimensions. object-fit:cover crops
    to fill, preserving artist framing without collapsing masonry. */
 .card .img{background:var(--bg4);overflow:hidden;position:relative;aspect-ratio:4/5;width:100%}
+/* Lajkování ve feedu chybělo: `toggleLike()` v kódu byla, ale nic ji
+   nevolalo, takže se ze feedu nedalo přidat nic do Oblíbených.
+   Vpravo dole nad fotkou, aby nezakrývalo motiv. */
+.card-like{position:absolute;right:9px;bottom:9px;width:34px;height:34px;
+  border-radius:50%;border:none;padding:0;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;color:#fff;
+  background:rgba(20,16,8,0.42);backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);z-index:3;
+  transition:background 0.14s,color 0.14s,transform 0.12s}
+.card-like svg{width:18px;height:18px;stroke:currentColor;fill:none;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.card-like:hover{background:rgba(20,16,8,0.62)}
+.card-like:active{transform:scale(0.88)}
+.card-like .ic-on{display:none}
+.card-like.on{color:#b49bf5;background:rgba(20,16,8,0.5)}
+.card-like.on .ic-off{display:none}
+.card-like.on .ic-on{display:block}
+.card-like.on .ic-on svg,.card-like.on svg{fill:currentColor}
 .card .img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.5s cubic-bezier(0.32,0.72,0,1)}
 .card .img img.broken{display:none}
 .card:hover .img img{transform:scale(1.03)}
@@ -334,8 +312,9 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
   </div>
 </nav>
 <script src="/notifs.js?v=19"></script>
+<script src="/add-portfolio.js?v=1"></script>
 <script src="/i18n.js?v=16"></script>
-<script src="/mobile-nav.js?v=29"></script>
+<script src="/mobile-nav.js?v=30"></script>
 <script src="/voucher-buy.js?v=16"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();
 const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
@@ -375,62 +354,6 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 <button class="fab-add" id="fabAdd" type="button" onclick="openAddPortfolio()" data-i18n-attr="fd.navAdd:title" title="Add sketch or healed work" aria-label="Add sketch"><span>+</span></button>
 
 <!-- Add Portfolio Modal — focused form (sketch / done) -->
-<div id="addPortfolioModal" onclick="if(event.target===this)closeAddPortfolio()">
-  <div class="addp-card">
-    <div class="addp-head">
-      <h3 id="addpTitle" data-i18n="fd.addSketch">Add sketch</h3>
-      <button class="addp-close" type="button" onclick="closeAddPortfolio()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
-    </div>
-    <form id="addPortfolioForm" class="addp-body">
-      <div class="addp-row">
-        <div class="addp-field">
-          <label data-i18n="fd.type">Type</label>
-          <select name="kind" id="addpKind" required>
-            <option value="sketch" data-i18n="fd.sketchDesign">Sketch / tattoo design</option>
-            <option value="done" data-i18n="fd.healedWork">Finished work</option>
-          </select>
-        </div>
-        <div class="addp-field">
-          <label>Price (CZK) <span class="hint">— optional</span></label>
-          <input type="number" name="price_kc" min="0" placeholder="4500">
-        </div>
-      </div>
-
-      <div class="addp-field">
-        <label data-i18n="fd.caption">Caption / title</label>
-        <input type="text" name="caption" maxlength="500" data-i18n-attr="fd.captionPh:placeholder" placeholder="Wolf on forearm, realism">
-      </div>
-
-      <div class="addp-field">
-        <label>Images <span class="hint">(1-4, JPG/PNG/WEBP, up to 10 MB)</span></label>
-        <input type="file" id="addpImage" accept="image/jpeg,image/png,image/webp" multiple required>
-        <div id="addpPreview"></div>
-      </div>
-
-      <div class="addp-row">
-        <div class="addp-field">
-          <label>Estimated hours <span class="hint">— optional</span></label>
-          <input type="number" name="estimated_hours" min="0.5" max="24" step="0.5" placeholder="3">
-        </div>
-        <div class="addp-field">
-          <label>Styles <span class="hint">— up to 4</span></label>
-          <div class="addp-styles" id="addpStylesGrid"></div>
-        </div>
-      </div>
-
-      <p class="addp-hint">
-        If you fill in <b>price + hours for a sketch</b>, clients can book this design directly at the fixed price.
-      </p>
-
-      <div id="addpFlash"></div>
-
-      <div class="addp-foot">
-        <button type="button" class="btn" onclick="closeAddPortfolio()" data-i18n="bk.cancel">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="addpSubmit" data-i18n="fd.upload">Upload</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <div id="welcomeModal" onclick="if(event.target===this)closeWelcome()">
   <div class="welcome-card">
@@ -752,129 +675,9 @@ function closeFilterModal() {
 }
 
 // ── Add Portfolio Modal ──────────────────────────────────────────────────────
-let _addpStylesLoaded = false;
-
-async function openAddPortfolio() {
-  if (!me) { location.href = '/login'; return; }
-  // Nemusíš už být is_artist=1 — POST /api/portfolio tě na server sám
-  // promuje při prvním uploadu. Dřívější gate sem pustil jen existující
-  // tatéry, což byl slepý kruh: bez portfolia se is_artist nikdy nenastavilo.
-  const modal = document.getElementById('addPortfolioModal');
-  if (!modal) return;
-  modal.classList.add('show');
-  // Pre-fill kind podle aktivní záložky
-  const activeTab = document.querySelector('.feed-tab.active');
-  const kindEl = document.getElementById('addpKind');
-  if (kindEl && activeTab) kindEl.value = activeTab.dataset.kind === 'done' ? 'done' : 'sketch';
-  updateAddpTitle();
-  // Lazy-load styly při prvním otevření
-  if (!_addpStylesLoaded) await loadAddpStyles();
-}
-
-function closeAddPortfolio() {
-  const modal = document.getElementById('addPortfolioModal');
-  if (modal) modal.classList.remove('show');
-}
-
-function updateAddpTitle() {
-  const k = document.getElementById('addpKind')?.value;
-  const el = document.getElementById('addpTitle');
-  if (el) el.textContent = k === 'done' ? t('fd.addHealed') : t('fd.addSketch');
-}
-
-async function loadAddpStyles() {
-  const grid = document.getElementById('addpStylesGrid');
-  if (!grid) return;
-  try {
-    const styles = await fetch('/api/styles').then(r => r.json()).catch(() => []);
-    grid.innerHTML = styles.map(s =>
-      `<button class="addp-style-chip" type="button" data-style="${escapeHtml(s)}"><svg class="icon" style="display:none"><use href="#i-check"/></svg>${escapeHtml(s)}</button>`
-    ).join('');
-    grid.querySelectorAll('.addp-style-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const onCount = grid.querySelectorAll('.addp-style-chip.on').length;
-        if (!chip.classList.contains('on') && onCount >= 4) return;
-        chip.classList.toggle('on');
-        const ico = chip.querySelector('.icon');
-        if (ico) ico.style.display = chip.classList.contains('on') ? 'inline-block' : 'none';
-      });
-    });
-    _addpStylesLoaded = true;
-  } catch {}
-}
-
-function readAddpStyles() {
-  return Array.from(document.querySelectorAll('#addpStylesGrid .addp-style-chip.on'))
-    .map(c => c.dataset.style).join(',');
-}
-
-// Image preview + form submit (wired up on DOMContentLoaded — after modal exists)
-document.addEventListener('DOMContentLoaded', () => {
-  const imageInput = document.getElementById('addpImage');
-  const preview = document.getElementById('addpPreview');
-  if (imageInput && preview) {
-    imageInput.addEventListener('change', () => {
-      const files = Array.from(imageInput.files || []).slice(0, 4);
-      preview.innerHTML = files.map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join('');
-      preview.classList.toggle('show', files.length > 0);
-    });
-  }
-  const kindEl = document.getElementById('addpKind');
-  if (kindEl) kindEl.addEventListener('change', updateAddpTitle);
-  const form = document.getElementById('addPortfolioForm');
-  if (form) form.addEventListener('submit', submitAddPortfolio);
-});
-
-async function submitAddPortfolio(e) {
-  e.preventDefault();
-  const flash = document.getElementById('addpFlash');
-  const submitBtn = document.getElementById('addpSubmit');
-  const imageInput = document.getElementById('addpImage');
-  const files = Array.from(imageInput.files || []).slice(0, 4);
-  if (!files.length) {
-    flash.innerHTML = `<div class="addp-flash err">${t('fd.pickImage')}</div>`;
-    return;
-  }
-  submitBtn.disabled = true;
-  submitBtn.textContent = t('fd.uploading');
-
-  const fd = new FormData();
-  fd.set('image', files[0]);
-  if (files[1]) fd.set('image2', files[1]);
-  if (files[2]) fd.set('image3', files[2]);
-  if (files[3]) fd.set('image4', files[3]);
-  for (const el of e.target.elements) {
-    if (el.name && el.type !== 'file') fd.set(el.name, el.value);
-  }
-  fd.set('styles', readAddpStyles());
-
-  try {
-    const r = await fetch('/api/portfolio', { method: 'POST', body: fd });
-    if (r.ok) {
-      flash.innerHTML = `<div class="addp-flash ok">${t('fd.itemAdded')}</div>`;
-      e.target.reset();
-      document.getElementById('addpPreview').innerHTML = '';
-      document.getElementById('addpPreview').classList.remove('show');
-      document.querySelectorAll('#addpStylesGrid .addp-style-chip.on').forEach(c => {
-        c.classList.remove('on');
-        const ico = c.querySelector('.icon');
-        if (ico) ico.style.display = 'none';
-      });
-      setTimeout(() => {
-        closeAddPortfolio();
-        flash.innerHTML = '';
-        loadFeed();  // refresh feed
-      }, 800);
-    } else {
-      const j = await r.json().catch(() => ({}));
-      flash.innerHTML = `<div class="addp-flash err">${escapeHtml(j.error || t('fd.uploadFailed'))}</div>`;
-    }
-  } catch {
-    flash.innerHTML = `<div class="addp-flash err">${t('fd.netErrorRetry')}</div>`;
-  }
-  submitBtn.disabled = false;
-  submitBtn.textContent = t('fd.upload');
-}
+// Formulář na přidání práce bydlí v /add-portfolio.js — sdílí ho profil.
+// Po úspěchu si každá stránka řekne sama, co překreslit.
+InkLinkAddPortfolio.onDone(() => loadFeed());
 
 function openSearchOverlay() {
   const o = document.getElementById('searchOverlay');
@@ -1014,6 +817,12 @@ function render() {
         <div class="img">
           <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy" onerror="this.classList.add('broken')">
         </div>
+        <button class="card-like${p.liked ? ' on' : ''}" type="button"
+                onclick="event.stopPropagation(); toggleLike(${p.id}, this)"
+                aria-label="${escapeHtml(t('fd.navLiked'))}">
+          <svg class="ic-off"><use href="#i-heart"/></svg>
+          <svg class="ic-on"><use href="#i-heart-filled"/></svg>
+        </button>
       </article>
     `;
   });

@@ -276,7 +276,6 @@
     { href: '/',             ico: 'i-home',     lbl: T('mnav.feed',     'Feed') },
     { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
     { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
-    { href: '/artist-setup', ico: 'i-grid',     lbl: T('anav.profile',  'Profile & portfolio') },
     { href: '/premium',      ico: 'i-star',     lbl: T('anav.premium',  'Premium') },
   ];
 
@@ -346,8 +345,11 @@
   }
 
   // Co je v liště, nemá smysl mít vedle ještě jako ikonu nebo položku menu.
+  // `#amSetup` v seznamu není schválně: profil a portfolio se z lišty
+  // vyřadily (upravit profil je na profilu), takže menu pod avatarem
+  // zůstává jediná cesta na /artist-setup.
   function hideDuplicateNavItems(nav) {
-    var dupes = nav.querySelectorAll('#navCalendar, #amSetup, #amEarnings, #il-home');
+    var dupes = nav.querySelectorAll('#navCalendar, #amEarnings, #il-home');
     for (var i = 0; i < dupes.length; i++) dupes[i].style.display = 'none';
     // Oddělovač v menu pod avatarem má smysl, jen když nad ním něco zbylo.
     var menu = nav.querySelector('.avatar-menu');

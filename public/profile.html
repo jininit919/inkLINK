@@ -133,20 +133,37 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .btn:disabled{opacity:0.5;cursor:not-allowed}
 /* Proužek s kreditem. Tlačítka jsou v mřížce stejně širokých sloupců —
    s pouhým flexem jedno uteklo doprava a zbylá dvě zůstala pod ním. */
-#creditStrip{display:none;margin-top:16px;padding:14px;background:var(--bg3);
-  border:1px solid var(--border);border-radius:8px;text-align:left}
+/* Váha podle obsahu. Prázdný kredit je nabídka, ne stav — okrová
+   tabulka přes celou šířku kvůli větě „nic tu nemáš" byla nepoměr.
+   Bez kreditu je to tichý řádek, s kreditem teprve karta. */
+#creditStrip{display:none;margin-top:14px}
 #creditStrip.on{display:block}
-#creditStrip .cs-bal{font-size:12.5px;color:var(--txt2);margin-bottom:11px}
-#creditStrip .cs-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-#creditStrip.two .cs-actions{grid-template-columns:repeat(2,1fr)}
-/* Tři sloupce i na telefonu. Delší popisek se zalomí a mřížka srovná výšku,
-   takže řádek zůstane celý — dvě tlačítka nahoře a třetí samo pod nimi
-   vypadalo rozsypaně. */
-#creditStrip .cs-actions .btn{width:100%;padding:9px 6px;letter-spacing:0.06em;
-  line-height:1.35;text-align:center}
-@media(max-width:420px){
-  #creditStrip .cs-actions{gap:6px}
-  #creditStrip .cs-actions .btn{font-size:11px;padding:8px 4px}
+
+#creditStrip.empty{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  padding:10px 0;border-top:1px solid var(--border)}
+#creditStrip.empty .cs-bal{font-size:12.5px;color:var(--txt3);margin:0}
+#creditStrip.empty .cs-actions{display:flex;gap:14px;margin-left:auto}
+#creditStrip.empty .cs-link{background:none;border:none;padding:0;cursor:pointer;
+  font-family:inherit;font-size:12.5px;color:var(--txt2);letter-spacing:0.01em;
+  border-bottom:1px solid var(--border2);transition:color .12s,border-color .12s}
+#creditStrip.empty .cs-link:hover{color:var(--txt);border-color:var(--txt)}
+
+#creditStrip.funded{background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:16px 18px;display:flex;align-items:center;
+  gap:16px;flex-wrap:wrap}
+#creditStrip.funded .cs-amount{font-size:26px;line-height:1.05;color:var(--txt);
+  letter-spacing:-0.01em;font-variant-numeric:tabular-nums}
+#creditStrip.funded .cs-label{font-size:10.5px;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--txt3);margin-top:4px}
+#creditStrip.funded .cs-actions{display:flex;gap:7px;margin-left:auto;flex-wrap:wrap}
+#creditStrip.funded .cs-actions .btn{padding:9px 15px;letter-spacing:0.06em;
+  font-size:11px;white-space:nowrap}
+@media(max-width:460px){
+  #creditStrip.empty{flex-direction:column;align-items:flex-start;gap:9px}
+  #creditStrip.empty .cs-actions{margin-left:0}
+  #creditStrip.funded{gap:12px}
+  #creditStrip.funded .cs-actions{margin-left:0;width:100%}
+  #creditStrip.funded .cs-actions .btn{flex:1;text-align:center}
 }
 .badge{display:inline-block;font-size:10px;padding:2px 8px;border:1px solid var(--red);color:var(--red2);letter-spacing:0.1em;margin-left:8px;vertical-align:middle}
 
@@ -281,8 +298,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   <a class="nav-icon" id="setupLink" href="/artist-setup" title="Edit profile" style="display:none"><svg class="icon"><use href="#i-settings"/></svg></a>
 </nav>
 <script src="/notifs.js?v=19"></script>
+<script src="/add-portfolio.js?v=1"></script>
 <script src="/i18n.js?v=16"></script>
-<script src="/mobile-nav.js?v=29"></script>
+<script src="/mobile-nav.js?v=30"></script>
 <script src="/bookings-panel.js?v=16"></script>
 <script src="/voucher-buy.js?v=16"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
@@ -319,11 +337,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
 
     <div id="tab-portfolio">
-      <!-- Portfolio je tady, ale přidávalo se výhradně z feedu. Formulář
-           zůstává tam (jeden, ne dva) — odsud na něj vede odkaz, stejně
-           jako z „+" ve spodní liště. -->
+      <!-- Formulář je sdílená komponenta (/add-portfolio.js), takže se
+           otevře tady na místě. Dřív to byl odkaz na feed, což z profilu
+           — kde portfolio bydlí — nedávalo smysl. -->
       <div id="portfolioAdd" style="display:none;margin-bottom:18px">
-        <a class="btn" href="/?add=1" data-i18n="fd.navAdd">Add sketch or healed work</a>
+        <button class="btn" type="button" onclick="InkLinkAddPortfolio.open()"
+                data-i18n="fd.navAdd">Add sketch or healed work</button>
       </div>
       <div class="grid" id="grid"></div>
       <div class="empty" id="portfolioEmpty" style="display:none" data-i18n="pf.noPortfolio">No portfolio items.</div>
@@ -665,6 +684,9 @@ function render() {
     actions.innerHTML = btns;
     document.getElementById('setupLink').style.display = 'flex';
     document.getElementById('portfolioAdd').style.display = 'block';
+    // Po nahrání se portfolio musí objevit — profil se překreslí celý,
+    // protože položka mění i počet u záložky.
+    if (window.InkLinkAddPortfolio) InkLinkAddPortfolio.onDone(() => location.reload());
   } else if (me) {
     actions.innerHTML = `
       <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? tr('pf.following') : tr('pf.follow')}</button>
@@ -1498,21 +1520,25 @@ function renderCreditStrip() {
   if (!el) return;
   InkLinkVoucher.options().then(d => {
     const c = (d.credit_cents || 0) / 100;
-    const bal = c > 0
-      ? tr('pf.creditBalance').replace('{amount}', InkLinkI18N.money(c, d.currency))
-      : `<span style="color:var(--txt3)">${tr('pf.creditNone')}</span>`;
+    const funded = c > 0;
+    // Bez kreditu jsou to textové odkazy, s kreditem tlačítka — jinak by
+    // nabídka vypadala důležitěji než samotný zůstatek.
+    const cls = funded ? 'btn muted' : 'cs-link';
     const btns = [
-      `<button class="btn muted" type="button" onclick="InkLinkVoucher.openRedeem()">${tr('pf.redeemVoucherShort')}</button>`,
-      `<button class="btn muted" type="button" onclick="InkLinkVoucher.openBuy()">${tr('pf.buyVoucherShort')}</button>`,
+      `<button class="${cls}" type="button" onclick="InkLinkVoucher.openRedeem()">${tr('pf.redeemVoucherShort')}</button>`,
+      `<button class="${cls}" type="button" onclick="InkLinkVoucher.openBuy()">${tr('pf.buyVoucherShort')}</button>`,
     ];
     // „Moje poukazy" jen tomu, kdo nějaký koupil — jinak by to bylo tlačítko
     // do prázdna.
     if (d.bought_count > 0) {
       btns.splice(1, 0,
-        `<button class="btn muted" type="button" onclick="InkLinkVoucher.openMine()">${tr('pf.myVouchers')}</button>`);
+        `<button class="${cls}" type="button" onclick="InkLinkVoucher.openMine()">${tr('pf.myVouchers')}</button>`);
     }
-    el.className = 'on' + (btns.length === 2 ? ' two' : '');
-    el.innerHTML = `<div class="cs-bal">${bal}</div>`
+    el.className = 'on ' + (funded ? 'funded' : 'empty');
+    el.innerHTML = (funded
+        ? `<div><div class="cs-amount">${InkLinkI18N.money(c, d.currency)}</div>`
+          + `<div class="cs-label">${tr('pf.creditLabel')}</div></div>`
+        : `<div class="cs-bal">${tr('pf.creditNone')}</div>`)
       + `<div class="cs-actions">${btns.join('')}</div>`;
   }).catch(() => { /* zůstatek není kritický, profil jede dál */ });
 }
