@@ -3963,6 +3963,44 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class HealthConfigTests(unittest.TestCase):
+    """Tiché vypínače. Crony neběžely měsíce a zvenčí to nešlo poznat —
+    health proto hlásí, co je nastavené a kdy co naposledy doběhlo."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_reports_what_is_configured_without_leaking_values(self):
+        import os as _os
+        _os.environ['MEDICAL_NOTES_KEY'] = 'tajny-klic-xyz'
+        try:
+            d = self.client.get('/__health').get_json()
+        finally:
+            _os.environ.pop('MEDICAL_NOTES_KEY', None)
+        self.assertTrue(d['medical_key_set'])
+        self.assertNotIn('tajny-klic-xyz', str(d))
+        for k in ('web_push_set', 'ios_push_set', 'cron_token_set'):
+            self.assertIn(k, d)
+
+    def test_missing_key_is_reported_as_missing(self):
+        import os as _os
+        _os.environ.pop('MEDICAL_NOTES_KEY', None)
+        self.assertFalse(self.client.get('/__health').get_json()['medical_key_set'])
+
+    def test_never_run_cron_shows_as_never(self):
+        """Prázdná hodnota je ta odpověď, kterou jsme měsíce neviděli."""
+        d = self.client.get('/__health').get_json()
+        self.assertIn('cron_last_run', d)
+        self.assertIsNone(d['cron_last_run'].get('reconcile'))
+
+    def test_health_stays_open_behind_the_gate(self):
+        import server
+        self.assertTrue(server._gate_is_open_path('/__health'))
+
+
 class ReceiptTests(_Sprint2Base):
     """Doklad pro klienta. Účetní export řeší tatérovu účetní; klient, který
     zaplatí 15 000 Kč a půlku v hotovosti, dosud nedostal nic."""

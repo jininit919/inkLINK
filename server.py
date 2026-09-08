@@ -15122,6 +15122,31 @@ def register_native_push():
     return jsonify({'ok': True})
 
 
+def _cron_last_runs():
+    """Kdy naposledy doběhl který cron. Čte se z notifikací a telemetrie,
+    ne z vlastní tabulky — cron, který zapisuje jen sám o sobě, může
+    hlásit úspěch i když nic neudělal."""
+    out = {}
+    try:
+        conn = get_db()
+        row = conn.execute(
+            "SELECT MAX(created_at) AS t FROM telemetry_events "
+            "WHERE event_name = 'reconciliation.completed'").fetchone()
+        out['reconcile'] = row['t'] if row else None
+        row = conn.execute(
+            "SELECT MAX(created_at) AS t FROM notifications "
+            "WHERE type = 'consent_due'").fetchone()
+        out['consent_nudge'] = row['t'] if row else None
+        row = conn.execute(
+            "SELECT MAX(created_at) AS t FROM telemetry_events "
+            "WHERE event_name = 'credit_payouts.run'").fetchone()
+        out['credit_payouts'] = row['t'] if row else None
+        conn.close()
+    except Exception:
+        return {}
+    return out
+
+
 @app.route('/__health')
 def __health():
     """Health/version endpoint — pro ověření že Railway nasadil čerstvou verzi.
@@ -15145,6 +15170,17 @@ def __health():
         'email_from': RESEND_FROM,
         'email_from_is_shared_sandbox': 'resend.dev' in RESEND_FROM,
         'cron_token_set': bool(RECONCILE_TOKEN),
+        # Bez klíče se souhlas neuloží (503) a upozornění se neposílají.
+        # Zvenčí to jinak nejde poznat — a nepoznat se to dá dlouho.
+        'medical_key_set': bool(os.environ.get('MEDICAL_NOTES_KEY', '').strip()),
+        # Push bez klíčů tiše nic nedoručí; notifikace se uloží a zůstane
+        # jen v aplikaci.
+        'web_push_set': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
+        'ios_push_set': bool(APNS_KEY_ID and APNS_TEAM_ID
+                             and (APNS_KEY_PEM or APNS_KEY_PATH)),
+        # Kdy naposledy doběhl který cron. Prázdné pole znamená, že
+        # nikdy — přesně ten stav, který se předtím schoval na měsíce.
+        'cron_last_run': _cron_last_runs(),
         'stripe_mode': ('off' if not STRIPE_SECRET_KEY
                         else 'live' if STRIPE_SECRET_KEY.startswith('sk_live')
                         else 'test'),
