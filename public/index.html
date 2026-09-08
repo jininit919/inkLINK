@@ -1189,13 +1189,23 @@ function openLb(i) {
   // Psaní zpráv bydlí na profilu tatéra. Odsud vede poptávka vlastního
   // návrhu — z fotky v feedu je to ta akce, kterou člověk opravdu chce.
   const askBtn = document.getElementById('lb-ask');
-  askBtn.querySelector('use').setAttribute('href', isMine ? '#i-edit' : '#i-sparkles');
+  const askIco = askBtn.querySelector('use');
   if (isMine) {
-    askBtn.href = '/profile/' + encodeURIComponent(username) + '#portfolio';
+    // Dřív to vedlo jen na záložku portfolia a úpravu musel člověk najít
+    // sám. Teď se rovnou otevře formulář, kterým se položka zakládá.
+    askBtn.href = '/profile/' + encodeURIComponent(username) + '#edit-' + p.id;
+    askIco.setAttribute('href', '#i-edit');
     askBtn.querySelector('span').textContent = t('fd.editItem');
-  } else {
+    askBtn.style.display = 'inline-flex';
+  } else if (!isSketch) {
     askBtn.href = '/profile/' + encodeURIComponent(username) + '#ask';
+    askIco.setAttribute('href', '#i-sparkles');
     askBtn.querySelector('span').textContent = t('pf.askCta');
+    askBtn.style.display = 'inline-flex';
+  } else {
+    // Skica je hotový produkt z katalogu — poptávat u ní vlastní návrh
+    // nedává smysl, rezervuje se tak, jak je.
+    askBtn.style.display = 'none';
   }
   const bookBtn = document.getElementById('lb-book');
   // Book vždy zobrazit pro skicy — pokud chybí cena/hours, profil ukáže fallback modal

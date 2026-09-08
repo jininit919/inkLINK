@@ -1827,6 +1827,18 @@ class OwnProfileAffordanceTests(unittest.TestCase):
         self.assertIn('if (!isMine)', src[i:i + 400],
                       'rezervace není za kontrolou vlastnictví')
 
+    def test_lightbox_deep_links_have_routes_on_profile(self):
+        """Lightbox posílá na profil dvě hluboké adresy — poptávku
+        vlastního návrhu a formulář položky. Je to kontrakt přes dva
+        soubory: přejmenování routy by odkaz utrhlo a poznalo by se to
+        až tím, že klik nikam nevede."""
+        feed = self._src('index.html')
+        prof = self._src('profile.html')
+        self.assertIn("+ '#ask'", feed)
+        self.assertIn("location.hash === '#ask'", prof)
+        self.assertIn("'#edit-' + p.id", feed)
+        self.assertIn("#edit-(\\d+)", prof)
+
     def test_sketch_detail_checks_owner(self):
         src = self._src('sketch.html')
         self.assertIn('me && me.username === u.username', src)

@@ -722,6 +722,11 @@ function render() {
   // na jednom místě. Na vlastním profilu ani u neaktivního tatéra ne.
   if (location.hash === '#ask' && profile.is_artist && !profile.is_own) openAsk();
 
+  // /profile/<u>#edit-<id> → formulář položky. Odkaz sem vede z „Upravit"
+  // v lightboxu ve feedu.
+  const em = (location.hash || '').match(/^#edit-(\d+)$/);
+  if (em && profile.is_own) openItemEdit(parseInt(em[1], 10));
+
   document.getElementById('slotsCount').textContent = profile.slots.length;
   const slotsEl = document.getElementById('slots');
   if (!profile.slots.length) {
