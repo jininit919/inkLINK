@@ -13232,6 +13232,23 @@ def campaign_recipients():
                     'max': CAMPAIGN_MAX_RECIPIENTS})
 
 
+@app.route('/api/me/campaigns')
+def campaign_history():
+    """Co už tatér rozeslal. Bez tohohle rozešle mail a nikdy se nedozví
+    komu, co a kdy — a při druhé rozesílce netuší, jestli se neopakuje."""
+    err = require_premium()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT id, subject, tag, recipients, created_at FROM campaigns '
+        'WHERE artist_id=? ORDER BY id DESC LIMIT 30',
+        (session['user_id'],)).fetchall()
+    conn.close()
+    return jsonify([{'id': r['id'], 'subject': r['subject'], 'tag': r['tag'] or '',
+                     'recipients': r['recipients'] or 0,
+                     'created_at': r['created_at']} for r in rows])
+
+
 @app.route('/api/me/campaigns', methods=['POST'])
 @limiter.limit('6 per hour')
 def send_campaign():

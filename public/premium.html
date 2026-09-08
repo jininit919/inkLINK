@@ -57,6 +57,14 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
 .feat input:focus,.feat textarea:focus{border-color:var(--txt)}
 .feat textarea{width:100%;min-height:110px;resize:vertical}
 .locked{opacity:0.55;pointer-events:none}
+.mailsub{border-top:1px solid var(--border);margin-top:20px;padding-top:18px}
+.mailsub:first-of-type{border-top:none;margin-top:10px;padding-top:0}
+.mailsub h3{font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;font-weight:500}
+.camp-hist{margin-top:18px}
+.camp-hist .hh{font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:8px}
+.camp-hist .row-i{display:flex;gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid var(--border);font-size:13px}
+.camp-hist .row-i .s{flex:1;min-width:0;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.camp-hist .row-i .m{color:var(--txt3);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .flash{font-size:12px;letter-spacing:0.03em;margin-top:10px;min-height:16px}
 .flash.err{color:var(--err)}
 .flash.ok{color:var(--txt2)}
@@ -91,6 +99,41 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
 
   <div class="state" id="state"></div>
 
+  <!-- Maily klientům pohromadě. Dřív to byly dvě samostatné sekce s
+       účetnictvím mezi nimi, takže tatér netušil, že spolu souvisí:
+       jedno chodí samo po sezení, druhé posílá on sám. -->
+  <div class="feat" id="featMail">
+    <h2 data-i18n="pr.mailTitle">Maily klientům</h2>
+
+    <div class="mailsub">
+      <h3 data-i18n="pr.mailAuto">Automaticky po sezení</h3>
+      <p data-i18n="pr.acBody">Po každém sezení běží sekvence sama: v den dokončení tvoje instrukce, sedmý den kontrola, třicátý den prosba o fotku zhojené práce a recenzi. Klient ji může kdykoli zastavit.</p>
+      <label class="acsw"><input type="checkbox" id="acEnabled" onchange="saveAftercare()"> <span data-i18n="pr.acEnabled">Posílat automaticky</span></label>
+      <div class="fld" style="margin-top:12px"><label for="acText" data-i18n="pr.acText">Tvoje instrukce k hojení</label>
+        <textarea id="acText" maxlength="2000" data-i18n-attr="pr.acTextPh:placeholder" placeholder="Fólii nech 24 h. Pak omýt vlažnou vodou…" onblur="saveAftercare()"></textarea></div>
+      <div class="hint" data-i18n="pr.acHint">Píšeš je ty, ne my — každý má svůj postup a platforma nemá co radit v něčem zdravotním. Když pole necháš prázdné, mail jen odkáže na to, co jsi klientovi řekl.</div>
+      <div class="flash" id="acFlash"></div>
+    </div>
+
+    <div class="mailsub">
+      <h3 data-i18n="pr.mailManual">Ručně, když potřebuješ</h3>
+      <p data-i18n="pr.campBody">Jde jen tvým klientům, kteří u tebe opravdu byli, a v každém mailu je jednoklikové odhlášení. Kdo se odhlásí, už ho neuvidíš mezi příjemci.</p>
+      <div id="campCount" class="hint"></div>
+      <div class="fld" style="margin-top:10px"><label for="campSubject" data-i18n="pr.subject">Předmět</label>
+        <input id="campSubject" maxlength="150" data-i18n-attr="pr.subjectPh:placeholder" placeholder="Flash day 12. října"></div>
+      <div class="fld" style="margin-top:10px"><label for="campBody" data-i18n="pr.message">Zpráva</label>
+        <textarea id="campBody" maxlength="4000" data-i18n-attr="pr.messagePh:placeholder" placeholder="Co chceš klientům vzkázat…"></textarea></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="campBtn" onclick="sendCampaign()" data-i18n="pr.send">Odeslat</button>
+      </div>
+      <div class="flash" id="campFlash"></div>
+
+      <!-- Historie: bez ní tatér při druhé rozesílce netuší, jestli se
+           neopakuje, a nemá čím doložit, co komu poslal. -->
+      <div id="campHistory" class="camp-hist"></div>
+    </div>
+  </div>
+
   <div class="feat" id="featAccounting">
     <h2 data-i18n="pr.accTitle">Účetní export</h2>
     <p data-i18n="pr.accBody">Řádek na každou rezervaci: datum sezení, klient, cena, záloha, doplatek, hotovost na místě, provize a čistý příjem. Plus součty. CSV otevřete v Excelu, účetní ho vezme rovnou.</p>
@@ -108,29 +151,6 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
     <div id="statsBody"></div>
   </div>
 
-  <div class="feat" id="featAftercare">
-    <h2 data-i18n="pr.acTitle">Hojení</h2>
-    <p data-i18n="pr.acBody">Po každém sezení běží sekvence sama: v den dokončení tvoje instrukce, sedmý den kontrola, třicátý den prosba o fotku zhojené práce a recenzi. Klient ji může kdykoli zastavit.</p>
-    <label class="acsw"><input type="checkbox" id="acEnabled" onchange="saveAftercare()"> <span data-i18n="pr.acEnabled">Posílat automaticky</span></label>
-    <div class="fld" style="margin-top:12px"><label for="acText" data-i18n="pr.acText">Tvoje instrukce k hojení</label>
-      <textarea id="acText" maxlength="2000" data-i18n-attr="pr.acTextPh:placeholder" placeholder="Fólii nech 24 h. Pak omýt vlažnou vodou…" onblur="saveAftercare()"></textarea></div>
-    <div class="hint" data-i18n="pr.acHint">Píšeš je ty, ne my — každý má svůj postup a platforma nemá co radit v něčem zdravotním. Když pole necháš prázdné, mail jen odkáže na to, co jsi klientovi řekl.</div>
-    <div class="flash" id="acFlash"></div>
-  </div>
-
-  <div class="feat" id="featCampaign">
-    <h2 data-i18n="pr.campTitle">Rozeslat klientům</h2>
-    <p data-i18n="pr.campBody">Jde jen tvým klientům, kteří u tebe opravdu byli, a v každém mailu je jednoklikové odhlášení. Kdo se odhlásí, už ho neuvidíš mezi příjemci.</p>
-    <div id="campCount" class="hint"></div>
-    <div class="fld" style="margin-top:10px"><label for="campSubject" data-i18n="pr.subject">Předmět</label>
-      <input id="campSubject" maxlength="150" data-i18n-attr="pr.subjectPh:placeholder" placeholder="Flash day 12. října"></div>
-    <div class="fld" style="margin-top:10px"><label for="campBody" data-i18n="pr.message">Zpráva</label>
-      <textarea id="campBody" maxlength="4000" data-i18n-attr="pr.messagePh:placeholder" placeholder="Co chceš klientům vzkázat…"></textarea></div>
-    <div class="row" style="margin-top:12px">
-      <button class="btn primary" id="campBtn" onclick="sendCampaign()" data-i18n="pr.send">Odeslat</button>
-    </div>
-    <div class="flash" id="campFlash"></div>
-  </div>
 </div>
 <script>
 const t = k => window.InkLinkI18N ? InkLinkI18N.t(k) : k;
@@ -156,7 +176,7 @@ async function init() {
 
   premium = await fetch('/api/premium/status').then(r => r.json()).catch(() => null);
   renderState();
-  if (premium && premium.active) { loadStats(); loadCampaignCount(); loadAftercare(); }
+  if (premium && premium.active) { loadStats(); loadCampaignCount(); loadCampaignHistory(); loadAftercare(); }
 }
 
 function renderState() {
@@ -165,7 +185,7 @@ function renderState() {
 
   // Zamčené funkce necháváme vidět, jen se nedají použít. Skrýt je by
   // znamenalo, že tatér neví, co si kupuje.
-  ['featAccounting', 'featStats', 'featAftercare', 'featCampaign'].forEach(id =>
+  ['featMail', 'featAccounting', 'featStats'].forEach(id =>
     document.getElementById(id).classList.toggle('locked', !premium.active));
 
   if (premium.active) {
@@ -268,6 +288,24 @@ async function saveAftercare() {
     f.className = 'flash ok'; f.textContent = t('pr.saved');
     setTimeout(() => { f.textContent = ''; }, 2000);
   } catch (e) { f.className = 'flash err'; f.textContent = t('pr.failed'); }
+}
+
+async function loadCampaignHistory() {
+  const el = document.getElementById('campHistory');
+  if (!el) return;
+  const list = await fetch('/api/me/campaigns').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!list || !list.length) { el.innerHTML = ''; return; }
+  const when = iso => {
+    try { return new Date(String(iso).replace(' ', 'T'))
+      .toLocaleDateString(locale(), {day:'numeric', month:'numeric', year:'numeric'}); }
+    catch (e) { return ''; }
+  };
+  el.innerHTML = `<div class="hh">${esc(t('pr.campSent'))}</div>` + list.map(c => `
+    <div class="row-i">
+      <span class="s">${esc(c.subject)}</span>
+      <span class="m">${c.recipients}&nbsp;${esc(t('pr.campTo'))}</span>
+      <span class="m">${esc(when(c.created_at))}</span>
+    </div>`).join('');
 }
 
 async function loadCampaignCount() {

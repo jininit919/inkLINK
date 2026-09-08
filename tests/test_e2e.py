@@ -3963,6 +3963,91 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class PremiumFeaturesTests(_Sprint2Base):
+    """Všechny premium funkce naráz. Backend fungoval, ale rozesílky neměly
+    historii — tatér mail odeslal a už se nikdy nedozvěděl komu a kdy."""
+
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE users SET premium_until='2099-01-01' WHERE id=1")
+        conn.commit(); conn.close()
+        self._as_artist()
+        # Rozesílka se bez nastaveného odesílání e-mailů odmítne (503),
+        # což je správně — pro test ho nasimulujeme.
+        import server
+        self._realkey, self._realsend = server.RESEND_API_KEY, server.send_email
+        server.RESEND_API_KEY = 'test-key'
+        self.mails = []
+        server.send_email = lambda to, subj, html: self.mails.append(to) or True
+
+    def tearDown(self):
+        import server
+        server.RESEND_API_KEY, server.send_email = self._realkey, self._realsend
+        super().tearDown()
+
+    def _client_with_booking(self):
+        """Rozesílka smí jen klientům, kteří u tatéra opravdu byli."""
+        import sqlite3
+        slot = self._mk_slot(self._day_at(3, 10), self._day_at(3, 18))
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO bookings (slot_id, artist_id, client_id, status, "
+                     "deposit_cents, booking_start_at, duration_hours) "
+                     "VALUES (?,1,2,'completed',0,?,2)",
+                     (slot, self._day_at(3, 12).isoformat()))
+        conn.execute("INSERT INTO clients (artist_id, user_id, name, email, created_by) "
+                     "VALUES (1, 2, 'Klient', 'k@t.cz', 1)")
+        conn.commit(); conn.close()
+
+    def test_every_premium_endpoint_answers(self):
+        for path in ('/api/premium/status', '/api/me/stats', '/api/me/aftercare',
+                     '/api/me/campaigns', '/api/me/campaigns/recipients',
+                     '/api/me/accounting/export?from=2026-01-01&to=2026-12-31'):
+            r = self.client.get(path)
+            self.assertEqual(r.status_code, 200, f'{path}: {r.data[:120]}')
+
+    def test_sent_campaign_shows_up_in_history(self):
+        self._client_with_booking()
+        r = self.client.post('/api/me/campaigns', json={
+            'subject': 'Flash day 12. října',
+            'body': 'Přijď si vybrat, motivy visí na profilu. Těším se!'})
+        self.assertEqual(r.status_code, 200, r.data[:200])
+        hist = self.client.get('/api/me/campaigns').get_json()
+        self.assertEqual(len(hist), 1)
+        self.assertEqual(hist[0]['subject'], 'Flash day 12. října')
+        self.assertEqual(hist[0]['recipients'], 1)
+        self.assertTrue(hist[0]['created_at'])
+
+    def test_history_is_only_mine(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, email, "
+                     "is_artist, premium_until) VALUES ('b','B','x','b@t.cz',1,'2099-01-01')")
+        conn.execute("INSERT INTO campaigns (artist_id, subject, body, recipients) "
+                     "VALUES (3, 'Cizí rozesílka', 'x', 5)")
+        conn.commit(); conn.close()
+        subjects = [c['subject'] for c in self.client.get('/api/me/campaigns').get_json()]
+        self.assertNotIn('Cizí rozesílka', subjects)
+
+    def test_history_is_behind_the_paywall(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute('UPDATE users SET premium_until=NULL WHERE id=1')
+        conn.commit(); conn.close()
+        self.assertEqual(self.client.get('/api/me/campaigns').status_code, 402)
+
+    def test_mail_features_sit_in_one_block(self):
+        """Hojení a rozesílky spolu souvisí — dřív je na stránce dělilo
+        účetnictví, takže to nebylo poznat."""
+        page = open('public/premium.html', encoding='utf-8').read()
+        self.assertIn('id="featMail"', page)
+        self.assertLess(page.index('id="featMail"'), page.index('id="featAccounting"'))
+        block = page[page.index('id="featMail"'):page.index('id="featAccounting"')]
+        for el in ('acEnabled', 'campSubject', 'campHistory'):
+            self.assertIn(el, block, el)
+
+
 class ShareCardTests(_Sprint2Base):
     """Kartička, kterou si tatér vystaví na Instagram. Nejlevnější cesta,
     jak se o InkLinku dozvědí jeho klienti — proto musí fungovat i tehdy,
