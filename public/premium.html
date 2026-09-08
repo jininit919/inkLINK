@@ -65,6 +65,11 @@ h1{font-size:34px;letter-spacing:0.1em;margin-bottom:6px}
 .camp-hist .row-i{display:flex;gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid var(--border);font-size:13px}
 .camp-hist .row-i .s{flex:1;min-width:0;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .camp-hist .row-i .m{color:var(--txt3);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* Nula se nezvýrazňuje — zvýraznit „0 rezervací" je posměch. */
+.camp-hist .row-i .m.good{color:var(--txt);font-weight:600}
+.camp-hist .note{font-size:11px;color:var(--txt3);margin-top:10px;line-height:1.6}
+.rcpt{margin-top:6px;font-size:12px;color:var(--txt2);line-height:1.6}
+.rcpt .more{color:var(--txt3)}
 .flash{font-size:12px;letter-spacing:0.03em;margin-top:10px;min-height:16px}
 .flash.err{color:var(--err)}
 .flash.ok{color:var(--txt2)}
@@ -304,15 +309,24 @@ async function loadCampaignHistory() {
     <div class="row-i">
       <span class="s">${esc(c.subject)}</span>
       <span class="m">${c.recipients}&nbsp;${esc(t('pr.campTo'))}</span>
+      <span class="m ${c.booked ? 'good' : ''}">${c.booked}&nbsp;${esc(t('pr.campBooked'))}</span>
       <span class="m">${esc(when(c.created_at))}</span>
-    </div>`).join('');
+    </div>`).join('')
+    + `<div class="note">${esc(t('pr.campNote'))}</div>`;
 }
 
 async function loadCampaignCount() {
   const d = await fetch('/api/me/campaigns/recipients').then(r => r.ok ? r.json() : null).catch(() => null);
   const el = document.getElementById('campCount');
   if (!d) { el.textContent = ''; return; }
-  el.textContent = t('pr.recipients').replace('{n}', d.count);
+  // Samotné číslo nedá jistotu, že mail jde těm správným lidem.
+  // Jména ano — adresy schválně ne, ať z toho není exportovatelný seznam.
+  const names = (d.names || []).map(esc);
+  const more = d.count - names.length;
+  el.innerHTML = esc(t('pr.recipients').replace('{n}', d.count))
+    + (names.length ? `<div class="rcpt">${names.join(' · ')}`
+        + (more > 0 ? ` <span class="more">${esc(t('pr.andMore').replace('{n}', more))}</span>` : '')
+        + '</div>' : '');
   document.getElementById('campBtn').disabled = d.count === 0;
 }
 

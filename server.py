@@ -1385,6 +1385,18 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_campaigns_artist ON campaigns(artist_id)')
 
+    # Komu rozesílka doopravdy šla. Dřív se ukládal jen počet, takže se
+    # nedalo zjistit, jestli z ní něco bylo — a to je jediné číslo, kvůli
+    # kterému si tatér premium zaplatí podruhé.
+    c.execute("""CREATE TABLE IF NOT EXISTS campaign_recipients (
+        campaign_id INTEGER NOT NULL,
+        client_id   INTEGER NOT NULL,
+        user_id     INTEGER,
+        PRIMARY KEY (campaign_id, client_id)
+    )""")
+    c.execute('CREATE INDEX IF NOT EXISTS idx_camp_rcpt_user '
+              'ON campaign_recipients(user_id)')
+
     # Hojení — automatická sekvence po sezení (premium).
     # Text instrukcí píše tatér: každý má svůj protokol (fólie vs. Second
     # Skin, jiná mast) a platforma nemá co radit v něčem zdravotním.
@@ -8140,7 +8152,8 @@ PROCESSING_ACTIVITIES = [
         'categories': 'E-mail, jméno, štítky, znění a datum souhlasu',
         'recipients': 'Resend',
         'retention': 'Do odhlášení; waitlist do spuštění nebo do odvolání souhlasu',
-        'tables': ('campaigns', 'waitlist', 'referrals', 'partner_leads'),
+        'tables': ('campaigns', 'campaign_recipients', 'waitlist', 'referrals',
+                   'partner_leads'),
     },
     {
         'name': 'Propojení s Instagramem',
@@ -8244,6 +8257,8 @@ PERSONAL_DATA = {
     # Poptávka firmy. Není to zákazník ani uživatel — jen kontakt, který
     # nám sám napsal. Maže se na požádání, jinak zůstává jako obchodní
     # korespondence.
+    'campaign_recipients':   {'link': ('user_id',), 'erase': 'delete',
+                              'why': 'komu šla rozesílka; s účtem mizí'},
     'partner_leads':         {'link': (), 'erase': 'none',
                               'why': 'kontakt firmy, ne uživatele platformy'},
     'refund_requests':       {'link': ('client_id', 'artist_id'), 'erase': 'scrub',
@@ -13213,7 +13228,9 @@ def _campaign_recipients(conn, artist_id, tag=None):
             u = conn.execute('SELECT email FROM users WHERE id=?', (r['user_id'],)).fetchone()
             email = (u['email'] or '').strip() if u else ''
         if email:
-            out.append({'client_id': r['id'], 'name': r['name'] or '', 'email': email})
+            out.append({'client_id': r['id'], 'name': r['name'] or '', 'email': email,
+                        # Bez user_id se rezervace k rozesílce nepřiřadí.
+                        'user_id': r['user_id']})
     return out
 
 
@@ -13232,6 +13249,21 @@ def campaign_recipients():
                     'max': CAMPAIGN_MAX_RECIPIENTS})
 
 
+# Za jak dlouho po rozesílce ještě rezervaci počítáme jako související.
+# Dva týdny: kdo se rozhoupe později, přišel nejspíš odjinud.
+CAMPAIGN_ATTRIBUTION_DAYS = 14
+
+
+def _campaign_window_end(created_at):
+    """Konec okna. created_at píše databáze přes CURRENT_TIMESTAMP, tedy
+    s mezerou místo 'T' — porovnává se jako řetězec, takže formát musí sedět."""
+    try:
+        base = _naive_dt(created_at)
+    except (ValueError, TypeError):
+        return '9999-12-31'
+    return (base + timedelta(days=CAMPAIGN_ATTRIBUTION_DAYS)).isoformat(sep=' ')
+
+
 @app.route('/api/me/campaigns')
 def campaign_history():
     """Co už tatér rozeslal. Bez tohohle rozešle mail a nikdy se nedozví
@@ -13239,14 +13271,35 @@ def campaign_history():
     err = require_premium()
     if err: return err
     conn = get_db()
+    uid = session['user_id']
     rows = conn.execute(
         'SELECT id, subject, tag, recipients, created_at FROM campaigns '
-        'WHERE artist_id=? ORDER BY id DESC LIMIT 30',
-        (session['user_id'],)).fetchall()
+        'WHERE artist_id=? ORDER BY id DESC LIMIT 30', (uid,)).fetchall()
+
+    # Kolik z oslovených si pak rezervovalo. Je to souvislost, ne důkaz —
+    # prokliky neměříme a netvrdíme, že rezervaci způsobil mail. Tohle
+    # číslo ale tatérovi řekne, jestli má smysl psát znovu.
+    out = []
+    for r in rows:
+        booked = conn.execute(
+            '''
+            SELECT COUNT(DISTINCT b.client_id) AS n
+            FROM bookings b
+            JOIN campaign_recipients cr ON cr.user_id = b.client_id
+            WHERE cr.campaign_id = ?
+              AND b.artist_id = ?
+              AND b.status IN ('confirmed','completed')
+              AND b.created_at >= ?
+              AND b.created_at <= ?
+            ''',
+            (r['id'], uid, r['created_at'],
+             _campaign_window_end(r['created_at']))).fetchone()
+        out.append({'id': r['id'], 'subject': r['subject'], 'tag': r['tag'] or '',
+                    'recipients': r['recipients'] or 0,
+                    'booked': (booked['n'] if booked else 0) or 0,
+                    'created_at': r['created_at']})
     conn.close()
-    return jsonify([{'id': r['id'], 'subject': r['subject'], 'tag': r['tag'] or '',
-                     'recipients': r['recipients'] or 0,
-                     'created_at': r['created_at']} for r in rows])
+    return jsonify(out)
 
 
 @app.route('/api/me/campaigns', methods=['POST'])
@@ -13293,6 +13346,12 @@ def send_campaign():
     who = artist['display_name'] or artist['username']
     conn.execute('INSERT INTO campaigns (artist_id, subject, body, tag, recipients) '
                  'VALUES (?,?,?,?,?)', (uid, subject, body, tag or '', len(recipients)))
+    cid = (conn.execute('SELECT last_insert_rowid()').fetchone()[0] if not conn._pg
+           else conn.execute('SELECT lastval()').fetchone()[0])
+    # DBConn nemá executemany (obaluje sqlite i Postgres) — po jednom.
+    for r in recipients:
+        conn.execute('INSERT INTO campaign_recipients (campaign_id, client_id, user_id) '
+                     'VALUES (?,?,?)', (cid, r['client_id'], r.get('user_id')))
     conn.commit()
     conn.close()
 

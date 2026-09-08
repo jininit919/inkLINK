@@ -3992,10 +3992,14 @@ class PremiumFeaturesTests(_Sprint2Base):
         import sqlite3
         slot = self._mk_slot(self._day_at(3, 10), self._day_at(3, 18))
         conn = sqlite3.connect(self.db)
+        # Dřívější sezení ukotvené do minulosti: kdyby vzniklo ve stejnou
+        # vteřinu jako rozesílka, spadlo by jí do okna a měření by lhalo.
+        from datetime import datetime, timedelta
+        past = (datetime.utcnow() - timedelta(days=90)).isoformat(sep=' ')
         conn.execute("INSERT INTO bookings (slot_id, artist_id, client_id, status, "
-                     "deposit_cents, booking_start_at, duration_hours) "
-                     "VALUES (?,1,2,'completed',0,?,2)",
-                     (slot, self._day_at(3, 12).isoformat()))
+                     "deposit_cents, booking_start_at, duration_hours, created_at) "
+                     "VALUES (?,1,2,'completed',0,?,2,?)",
+                     (slot, self._day_at(3, 12).isoformat(), past))
         conn.execute("INSERT INTO clients (artist_id, user_id, name, email, created_by) "
                      "VALUES (1, 2, 'Klient', 'k@t.cz', 1)")
         conn.commit(); conn.close()
@@ -4018,6 +4022,53 @@ class PremiumFeaturesTests(_Sprint2Base):
         self.assertEqual(hist[0]['subject'], 'Flash day 12. října')
         self.assertEqual(hist[0]['recipients'], 1)
         self.assertTrue(hist[0]['created_at'])
+
+    def test_booking_after_a_campaign_is_counted(self):
+        """Jediné číslo, kvůli kterému si tatér premium zaplatí podruhé:
+        vzniklo z toho něco?"""
+        import sqlite3
+        self._client_with_booking()
+        self.client.post('/api/me/campaigns', json={
+            'subject': 'Flash day', 'body': 'Přijď si vybrat motiv, těším se!'})
+
+        slot = self._mk_slot(self._day_at(20, 10), self._day_at(20, 18))
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO bookings (slot_id, artist_id, client_id, status, "
+                     "deposit_cents, booking_start_at, duration_hours) "
+                     "VALUES (?,1,2,'confirmed',0,?,2)",
+                     (slot, self._day_at(20, 12).isoformat()))
+        conn.commit(); conn.close()
+
+        hist = self.client.get('/api/me/campaigns').get_json()
+        self.assertEqual(hist[0]['booked'], 1)
+
+    def test_a_booking_long_after_is_not_credited(self):
+        """Kdo se rozhoupe za dva měsíce, přišel nejspíš odjinud."""
+        import sqlite3
+        from datetime import datetime, timedelta
+        self._client_with_booking()
+        self.client.post('/api/me/campaigns', json={
+            'subject': 'Flash day', 'body': 'Přijď si vybrat motiv, těším se!'})
+        slot = self._mk_slot(self._day_at(60, 10), self._day_at(60, 18))
+        late = (datetime.utcnow() + timedelta(days=45)).isoformat(sep=' ')
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO bookings (slot_id, artist_id, client_id, status, "
+                     "deposit_cents, booking_start_at, duration_hours, created_at) "
+                     "VALUES (?,1,2,'confirmed',0,?,2,?)",
+                     (slot, self._day_at(60, 12).isoformat(), late))
+        conn.commit(); conn.close()
+        self.assertEqual(self.client.get('/api/me/campaigns').get_json()[0]['booked'], 0)
+
+    def test_recipients_are_recorded_so_it_can_be_measured(self):
+        import sqlite3
+        self._client_with_booking()
+        self.client.post('/api/me/campaigns', json={
+            'subject': 'Flash day', 'body': 'Přijď si vybrat motiv, těším se!'})
+        conn = sqlite3.connect(self.db)
+        rows = conn.execute('SELECT campaign_id, user_id FROM campaign_recipients').fetchall()
+        conn.close()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], 2)
 
     def test_history_is_only_mine(self):
         import sqlite3
