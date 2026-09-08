@@ -1912,6 +1912,50 @@ class GeocodeTests(unittest.TestCase):
         self.assertIn('lat IS NOT NULL AND lng IS NOT NULL', src[i:i + 900])
 
 
+class SharedComponentWiringTests(unittest.TestCase):
+    """Dvakrát za den se ukázalo totéž: funkce v kódu je, ale nic ji
+    nevolá — zvonek oznámení čekal na kotvu, kterou nikdo neměl, a
+    `toggleLike()` byla od původního buildu bez tlačítka. Nespadne to,
+    jen ta věc chybí. Proto se vazby hlídají tady."""
+
+    @staticmethod
+    def _src(name):
+        with open('public/' + name, encoding='utf-8') as fh:
+            return fh.read()
+
+    def test_pages_calling_the_form_load_it(self):
+        import glob
+        for path in sorted(glob.glob('public/*.html')):
+            with open(path, encoding='utf-8') as fh:
+                src = fh.read()
+            if 'openAddPortfolio' not in src and 'InkLinkAddPortfolio' not in src:
+                continue
+            self.assertIn('add-portfolio.js', src,
+                          path + ' volá formulář, ale skript nenačítá')
+
+    def test_form_lives_in_exactly_one_place(self):
+        # Druhá kopie v HTML by se s komponentou dřív nebo později
+        # rozešla — kvůli tomu je z toho komponenta.
+        import glob
+        for path in sorted(glob.glob('public/*.html')):
+            with open(path, encoding='utf-8') as fh:
+                self.assertNotIn('id="addPortfolioModal"', fh.read(),
+                                 path + ' má vlastní kopii formuláře')
+        self.assertIn('id="addPortfolioModal"', self._src('add-portfolio.js'))
+
+    def test_feed_card_can_be_liked(self):
+        """Záložka Oblíbené existovala, ale ze feedu do ní nešlo nic
+        přidat — karta neměla tlačítko."""
+        src = self._src('index.html')
+        i = src.find('const tiles = items.map')
+        j = src.find('grid.innerHTML = tiles.join', i)
+        self.assertNotEqual(i, -1, 'renderování karet ve zdroji není')
+        card = src[i:j]
+        self.assertIn('toggleLike(', card, 'karta ve feedu nejde lajkovat')
+        self.assertIn('event.stopPropagation()', card,
+                      'lajk otevře i lightbox, protože klik probublá na kartu')
+
+
 class NotifBellMountsTests(unittest.TestCase):
     """Zvonek s panelem oznámení čekal na `#notifMount` ve stránce.
 
