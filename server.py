@@ -3629,12 +3629,19 @@ def notifications_count():
     if 'user_id' not in session:
         return jsonify({'count': 0})
     conn = get_db()
-    count = conn.execute(
-        'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read = 0',
-        (session['user_id'],)
-    ).fetchone()[0]
+    # Rozdělené podle toho, kde se na to dá reagovat. Jedna tečka „něco se
+    # někde stalo" nutí člověka hledat co; rezervace mají v liště vlastní
+    # místo, tak ať se rozsvítí tam. `ref_type='booking'` pokrývá zrušení,
+    # přesun, refund i prosbu o fotku zhojené práce.
+    row = conn.execute('''
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN ref_type = 'booking' THEN 1 ELSE 0 END) AS bookings
+        FROM notifications WHERE user_id = ? AND read = 0''',
+        (session['user_id'],)).fetchone()
     conn.close()
-    return jsonify({'count': count})
+    total = row['total'] or 0
+    bookings = row['bookings'] or 0
+    return jsonify({'count': total, 'bookings': bookings, 'other': total - bookings})
 
 
 @app.route('/api/notifications/read-all', methods=['POST'])
@@ -4133,10 +4140,15 @@ def update_profile_emoji():
     return jsonify({'ok': True, 'emoji': emoji})
 
 
+# Seznam vydává /api/styles a všechny stránky si ho odsud tahají —
+# ručně psaný druhý seznam v HTML by se rozešel.
 ALLOWED_TATTOO_STYLES = (
-    'Realism', 'Traditional', 'Neo-Traditional', 'Black & Grey',
-    'Blackwork', 'Minimalist', 'Geometric', 'Dotwork', 'Watercolor',
-    'Japanese', 'Tribal', 'Lettering', 'Anime', 'Fineline', 'Surreal',
+    'Realism', 'Microrealism', 'Traditional', 'Neo-Traditional',
+    'Black & Grey', 'Color', 'Blackwork', 'Blackout', 'Minimalist',
+    'Geometric', 'Ornamental', 'Dotwork', 'Watercolor', 'Japanese',
+    'Tribal', 'Neotribal', 'Lettering', 'Anime', 'Fineline', 'Surreal',
+    'Abstract', 'Floral', 'Woodcut', 'Ignorant', 'Trashpoke',
+    'Cybersigil', 'Underground', 'Eurotrash',
 )
 
 

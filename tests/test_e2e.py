@@ -2041,10 +2041,13 @@ class BookingsPanelTests(unittest.TestCase):
     def test_house_icon_is_the_feed(self):
         """Domeček znamená feed. Tatérovi pod ním chvíli byly rezervace."""
         src = self._src('mobile-nav.js')
-        i = src.index("ico: 'i-home'")
-        line_start = src.rindex('\n', 0, i)
-        self.assertIn("href: '/'", src[line_start:i])
-        self.assertNotIn("{ href: '/my-bookings'", src)
+        hits = [m.start() for m in re.finditer(r"ico: 'i-home'", src)]
+        self.assertTrue(hits, 'domeček ve zdroji vůbec není')
+        # Rezervace smí být v liště jinde (klient je tam má na záložce) —
+        # jen ne pod domečkem, kde ikona slibuje feed.
+        for i in hits:
+            line = src[src.rindex('\n', 0, i):i]
+            self.assertIn("href: '/'", line, 'domeček ukazuje jinam než na feed')
 
 
 

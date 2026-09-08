@@ -21,25 +21,25 @@
   if (window.InkLinkMobileNav) return;
 
   const CSS = `
-  .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:rgba(250,248,243,0.96) !important;backdrop-filter:blur(12px);border-top:1px solid var(--border,#d4cfbf);display:none;height:calc(62px + env(safe-area-inset-bottom) + 12px) !important;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;-webkit-tap-highlight-color:transparent;padding:0 0 calc(env(safe-area-inset-bottom) + 12px) 0 !important;margin:0 !important}
+  .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:rgba(18,16,13,0.94) !important;backdrop-filter:blur(16px) saturate(1.1);-webkit-backdrop-filter:blur(16px) saturate(1.1);border-top:1px solid rgba(255,255,255,0.07);display:none;height:calc(62px + env(safe-area-inset-bottom) + 12px) !important;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;-webkit-tap-highlight-color:transparent;padding:0 0 calc(env(safe-area-inset-bottom) + 12px) 0 !important;margin:0 !important}
   .il-mnav-grid{display:grid;grid-template-columns:repeat(5,1fr);height:100%}
-  .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#5a5a5a);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
+  .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8d867a;text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
   .il-mnav-item .ico{line-height:1;display:flex;align-items:center;justify-content:center}
   .il-mnav-item .ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-  .il-mnav-item .lbl{font-size:9px;letter-spacing:0.06em;color:var(--txt3,#5a5a5a);white-space:nowrap}
-  .il-mnav-item.active{color:var(--txt,#0a0a0a)}
-  .il-mnav-item.active .lbl{color:var(--txt,#0a0a0a)}
+  .il-mnav-item .lbl{font-size:9px;letter-spacing:0.06em;color:#8d867a;white-space:nowrap;transition:color .15s}
+  .il-mnav-item.active{color:#b49bf5}
+  .il-mnav-item.active .lbl{color:#b49bf5}
   .il-mnav-item:active .ico{transform:scale(0.92)}
   .il-mnav-item.primary{justify-content:flex-end;padding-bottom:8px}
-  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:var(--txt,#0a0a0a);color:var(--bg,#faf8f3);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(20,16,8,0.18);transition:transform 0.15s,box-shadow 0.15s;overflow:hidden}
+  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:#6d4fc4;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(70,44,140,0.45);transition:transform 0.15s,box-shadow 0.15s;overflow:hidden}
   .il-mnav-item.primary .ico-circle.bristol-plus{font-family:'Bristol','Caveat',cursive;font-size:42px;line-height:1;padding:0}
   .il-mnav-item.primary .ico-circle.bristol-plus > span{display:block;line-height:1;transform:translateY(0.02em)}
-  .il-mnav-item.primary .ico-circle svg{width:24px;height:24px;stroke:var(--bg,#faf8f3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .il-mnav-item.primary .ico-circle svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .il-mnav-item.primary:active .ico-circle{transform:scale(0.92);box-shadow:0 2px 8px rgba(20,16,8,0.10)}
-  .il-mnav-item.primary .lbl{color:var(--txt,#0a0a0a);font-weight:500}
-  .il-mnav-badge{position:absolute;top:6px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:var(--txt,#0a0a0a);border:1.5px solid var(--bg,#faf8f3);font-size:9px;color:var(--bg,#faf8f3);display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
+  .il-mnav-item.primary .lbl{color:#cdbcf7;font-weight:500}
+  .il-mnav-badge{position:absolute;top:6px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:#f4f1e9;border:1.5px solid #12100d;font-size:9px;color:#12100d;display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
   .il-mnav-badge.show{display:flex}
-  .il-mnav-dot{position:absolute;top:8px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:var(--txt,#0a0a0a);border:1.5px solid var(--bg,#faf8f3);display:none}
+  .il-mnav-dot{position:absolute;top:8px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:#b49bf5;border:1.5px solid #12100d;display:none}
   .il-mnav-dot.show{display:block}
 
   #il-abar{display:flex;gap:2px;align-items:center;margin-left:18px;
@@ -157,12 +157,23 @@
   }
 
   async function refreshBadge() {
-    const [notifCount, msgCount] = await Promise.all([
-      fetchCount('/api/notifications/count'),
+    const [notif, msgCount] = await Promise.all([
+      fetchJSON('/api/notifications/count'),
       fetchCount('/api/messages/unread'),
     ]);
     setBadge('il-mnav-msg-badge', msgCount);
-    setDot('il-mnav-profile-dot', notifCount > 0);
+    // Rezervační oznámení svítí u rezervací (klient) nebo kalendáře (tatér),
+    // kde se s nimi dá něco udělat. Na profilu zbyde zbytek — zvonek
+    // s panelem se nikde nemountuje, takže je to jediné, kde je vidět.
+    setDot('il-mnav-book-dot', (notif.bookings || 0) > 0);
+    setDot('il-mnav-profile-dot', (notif.other || 0) > 0);
+  }
+
+  async function fetchJSON(url) {
+    try {
+      const r = await fetch(url);
+      return r.ok ? await r.json() : {};
+    } catch { return {}; }
   }
 
   function renderItem(it) {
@@ -225,19 +236,26 @@
     if (isArtist) {
       return [
         { href: '/',            ico: 'i-home',     lbl: T('mnav.feed', 'Feed') },
-        { href: '/calendar',    ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
+        { href: '/calendar',    ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar'),
+          dotId: 'il-mnav-book-dot' },
         centerItem,
         { href: '/messages',    ico: 'i-message',  lbl: T('mnav.messages', 'Messages'), badgeId: 'il-mnav-msg-badge' },
         { href: profileHref,    ico: 'i-user',     lbl: T('mnav.profile', 'Profile'), dotId: 'il-mnav-profile-dot' },
       ];
     }
 
+    // Klient nemá jednu dominantní akci, tak nemá ani zvýrazněné kolečko —
+    // to si po celé aplikaci drží význam „něco, co tady uděláš jen ty".
+    // Hledání je navigace, ne akce, takže je běžný slot.
     return [
-      { href: '/',         ico: 'i-home',    lbl: T('mnav.feed', 'Feed') },
-      { href: '/liked',    ico: 'i-heart',   lbl: T('mnav.liked', 'Liked') },
-      centerItem,
-      { href: '/messages', ico: 'i-message', lbl: T('mnav.messages', 'Messages'), badgeId: 'il-mnav-msg-badge' },
-      { href: profileHref, ico: 'i-user',    lbl: me ? T('mnav.profile', 'Profile') : T('mnav.signIn', 'Sign in'), dotId: 'il-mnav-profile-dot' },
+      { href: '/',            ico: 'i-home',     lbl: T('mnav.feed', 'Feed') },
+      Object.assign({}, centerItem, { primary: false }),
+      // Rezervace jsou jediné místo, kde klient vidí kdy a kam má přijít.
+      // Dřív se tam dostal jen přes profil; oblíbené se odstěhovaly tam.
+      { href: '/my-bookings', ico: 'i-bookmark', lbl: T('fd.navBookings', 'Bookings'),
+        dotId: 'il-mnav-book-dot' },
+      { href: '/messages',    ico: 'i-message',  lbl: T('mnav.messages', 'Messages'), badgeId: 'il-mnav-msg-badge' },
+      { href: profileHref,    ico: 'i-user',     lbl: me ? T('mnav.profile', 'Profile') : T('mnav.signIn', 'Sign in'), dotId: 'il-mnav-profile-dot' },
     ];
   }
 
