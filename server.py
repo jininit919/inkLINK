@@ -4215,11 +4215,25 @@ def _geocode(query: str):
         conn.close()
         return None
 
-    conn.execute(
-        'INSERT OR REPLACE INTO geo_cache (query, lat, lng, found) VALUES (?,?,?,?)',
-        (q.lower(), lat, lng, 1 if lat is not None else 0))
-    conn.commit()
-    conn.close()
+    # Cache je jen zrychlení. Kdyby zápis selhal, souřadnice máme a
+    # uložení profilu na tom padat nesmí — `INSERT OR REPLACE` je
+    # SQLite-only a na Postgresu shodilo celý /api/profile/update.
+    try:
+        if getattr(conn, '_pg', False):
+            conn.execute(
+                'INSERT INTO geo_cache (query, lat, lng, found) VALUES (?,?,?,?) '
+                'ON CONFLICT (query) DO UPDATE SET lat=EXCLUDED.lat, '
+                'lng=EXCLUDED.lng, found=EXCLUDED.found',
+                (q.lower(), lat, lng, 1 if lat is not None else 0))
+        else:
+            conn.execute(
+                'INSERT OR REPLACE INTO geo_cache (query, lat, lng, found) VALUES (?,?,?,?)',
+                (q.lower(), lat, lng, 1 if lat is not None else 0))
+        conn.commit()
+    except Exception as e:
+        app.logger.warning(f'[geocode] cache write failed: {type(e).__name__}')
+    finally:
+        conn.close()
     return (lat, lng) if lat is not None else None
 
 
@@ -10616,8 +10630,17 @@ def add_favorite_city():
         return jsonify({'error': 'Name is required'}), 400
     conn = get_db()
     try:
-        conn.execute('INSERT OR IGNORE INTO favorite_cities (user_id, name, lat, lng) VALUES (?, ?, ?, ?)',
-                     (session['user_id'], name, lat, lng))
+        # `INSERT OR IGNORE` je SQLite-only; na Postgresu je to syntaktická
+        # chyba, takže uložení oblíbeného města vracelo 500. Klíč
+        # (user_id, name) je primární, tak stačí DO NOTHING.
+        if conn._pg:
+            conn.execute('INSERT INTO favorite_cities (user_id, name, lat, lng) '
+                         'VALUES (?, ?, ?, ?) ON CONFLICT (user_id, name) DO NOTHING',
+                         (session['user_id'], name, lat, lng))
+        else:
+            conn.execute('INSERT OR IGNORE INTO favorite_cities (user_id, name, lat, lng) '
+                         'VALUES (?, ?, ?, ?)',
+                         (session['user_id'], name, lat, lng))
         conn.commit()
     finally:
         conn.close()

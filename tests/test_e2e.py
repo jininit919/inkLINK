@@ -1912,6 +1912,33 @@ class GeocodeTests(unittest.TestCase):
         self.assertIn('lat IS NOT NULL AND lng IS NOT NULL', src[i:i + 900])
 
 
+class SqliteOnlySyntaxTests(unittest.TestCase):
+    """`INSERT OR REPLACE` a `INSERT OR IGNORE` umí jen SQLite.
+
+    Na Postgresu je to syntaktická chyba a spadne celý požadavek. Testy
+    běží na SQLite, takže to projde vším až na produkci: geokódování
+    takhle shodilo uložení profilu a `INSERT OR IGNORE` u oblíbených měst
+    tam ležel od začátku. Každý takový zápis musí mít větev pro Postgres.
+    """
+
+    def test_every_sqlite_only_write_has_a_postgres_branch(self):
+        with open('server.py', encoding='utf-8') as fh:
+            lines = fh.readlines()
+        bad = []
+        for i, line in enumerate(lines):
+            if 'INSERT OR REPLACE' not in line and 'INSERT OR IGNORE' not in line:
+                continue
+            if line.lstrip().startswith('#'):
+                continue          # zmínka v komentáři, ne dotaz
+            # Dva platné vzory: buď `if conn._pg:` o pár řádků výš, nebo
+            # zkusit Postgres a spadnout do SQLite na sqlite3.OperationalError.
+            window = ''.join(lines[max(0, i - 20):i])
+            if '_pg' not in window and 'except sqlite3' not in window:
+                bad.append('ř.%d: %s' % (i + 1, line.strip()[:70]))
+        self.assertEqual(bad, [], 'SQLite-only zápis bez větve pro Postgres:\n'
+                                  + '\n'.join(bad))
+
+
 class MapTilesNeedNoKeyTests(unittest.TestCase):
     """CARTO svoje basemapy uzavřelo za API klíč a mapa se kvůli tomu
     pokryla vodoznakem „API KEY REQUIRED". Dlaždice se přitom dál vracely
