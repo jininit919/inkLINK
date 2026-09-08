@@ -33,9 +33,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 #map{position:fixed;top:54px;left:0;right:0;bottom:0;background:#0a0a0a}
 @media(max-width:768px){#map{bottom:62px}}
 
-/* Černobílá mapa — odstraní barvy z dlaždic (tiles už dodává Carto dark_all) */
 .leaflet-container{background:#0a0a0a !important}
-.leaflet-tile-pane{filter:grayscale(1) contrast(1.05)}
+/* Z světlých OSM dlaždic děláme tmavou mapu: invert prohodí podklad
+   s cestami, grayscale sundá barvy. Markery a popupy jsou v jiné vrstvě,
+   takže se jich filtr netýká. */
+.leaflet-tile-pane{filter:invert(1) grayscale(1) brightness(0.92) contrast(1.1)}
 .leaflet-control-attribution{background:rgba(0,0,0,0.7) !important;color:#888 !important;font-size:10px !important}
 .leaflet-control-attribution a{color:#aaa !important}
 .leaflet-control-zoom a{background:var(--bg3) !important;color:var(--txt) !important;border-color:var(--border2) !important}
@@ -290,10 +292,13 @@ async function init() {
     attributionControl: true,
   });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  // CARTO svoje basemapy uzavřelo za API klíč — dlaždice se pořád načtou,
+  // ale přes celou mapu jde vodoznak „API KEY REQUIRED". Standardní OSM
+  // dlaždice jsou bez klíče; jsou světlé, tak je níž obracíme filtrem.
+  // Podmínkou OSM je identifikující se provoz a atribuce, obojí splňujeme.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(mapInstance);
 
   try {

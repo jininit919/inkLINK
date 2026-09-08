@@ -1912,6 +1912,35 @@ class GeocodeTests(unittest.TestCase):
         self.assertIn('lat IS NOT NULL AND lng IS NOT NULL', src[i:i + 900])
 
 
+class MapTilesNeedNoKeyTests(unittest.TestCase):
+    """CARTO svoje basemapy uzavřelo za API klíč a mapa se kvůli tomu
+    pokryla vodoznakem „API KEY REQUIRED". Dlaždice se přitom dál vracely
+    se stavem 200, takže se to nedalo poznat jinak než okem — proto to
+    hlídá test a ne monitoring."""
+
+    def test_no_keyed_tile_provider(self):
+        import glob
+        keyed = ('cartocdn.com', 'stadiamaps.com', 'mapbox.com',
+                 'maptiler.com', 'thunderforest.com', 'api.tomtom.com')
+        for path in sorted(glob.glob('public/*.html')):
+            with open(path, encoding='utf-8') as fh:
+                src = fh.read()
+            for host in keyed:
+                self.assertNotIn(host, src,
+                                 '%s bere dlaždice z %s, což chce klíč' % (path, host))
+
+    def test_maps_attribute_openstreetmap(self):
+        # Bez atribuce je použití OSM dlaždic v rozporu s jejich podmínkami.
+        import glob
+        for path in sorted(glob.glob('public/*.html')):
+            with open(path, encoding='utf-8') as fh:
+                src = fh.read()
+            if 'tile.openstreetmap.org' not in src:
+                continue
+            self.assertIn('openstreetmap.org/copyright', src,
+                          path + ' používá OSM dlaždice bez atribuce')
+
+
 class SharedComponentWiringTests(unittest.TestCase):
     """Dvakrát za den se ukázalo totéž: funkce v kódu je, ale nic ji
     nevolá — zvonek oznámení čekal na kotvu, kterou nikdo neměl, a

@@ -684,9 +684,20 @@ znovu. Jeden sdílený klíč by ty dvě váhy spojil dohromady.
 
 ## 5.7 Mapa tatérů
 
-**API klíč nepotřebuje.** Běží na Leafletu s dlaždicemi od CARTO
-(`basemaps.cartocdn.com`), které jsou zdarma a atribuci mají v patičce
-mapy. Klíč nechce ani geokodér.
+**API klíč nepotřebuje** — ale pozor, dlaždice se kvůli tomu jednou
+měnily. CARTO (`basemaps.cartocdn.com`) svoje basemapy uzavřelo za klíč:
+dlaždice se pořád načtou, jen přes ně jde vodoznak „API KEY REQUIRED",
+takže se to nepozná ze status kódu, jedině okem. Mapa proto jede na
+standardních dlaždicích OpenStreetMap (`tile.openstreetmap.org`), které
+klíč nechtějí. Jsou světlé, takže je CSS filtr obrací
+(`invert(1) grayscale(1)`) na tmavou mapu. Klíč nechce ani geokodér.
+
+Podmínkou OSM je identifikující se provoz a atribuce — obojí splňujeme.
+Kdyby provoz narostl, je to první místo, které narazí; pak je na řadě
+placený dlaždicový poskytovatel.
+
+Stejné dlaždice používá i `events.html` (dvě místa) — při změně je
+potřeba upravit obojí.
 
 Prázdná byla z jiného důvodu: `/api/artists/map` vrací jen tatéry s
 `lat`/`lng`, server je uměl uložit, ale **formulář je nikdy neposílal** a
