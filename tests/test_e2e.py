@@ -4026,6 +4026,18 @@ class HealthConfigTests(unittest.TestCase):
         for k in ('web_push_set', 'ios_push_set', 'cron_token_set'):
             self.assertIn(k, d)
 
+    def test_push_env_shows_names_and_lengths_not_values(self):
+        """Překlep ani mezera v názvu nejsou v Railway UI vidět. Délka
+        odhalí i to, že je proměnná založená, ale prázdná."""
+        import os as _os
+        _os.environ['PUSH_PUBLIC'] = 'BKjq8Gm'
+        try:
+            d = self.client.get('/__health').get_json()
+        finally:
+            _os.environ.pop('PUSH_PUBLIC', None)
+        self.assertEqual(d['push_env_seen'].get('PUSH_PUBLIC'), 7)
+        self.assertNotIn('BKjq8Gm', str(d))
+
     def test_missing_key_is_reported_as_missing(self):
         import os as _os
         _os.environ.pop('MEDICAL_NOTES_KEY', None)

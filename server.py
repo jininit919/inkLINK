@@ -15176,6 +15176,11 @@ def __health():
         # Push bez klíčů tiše nic nedoručí; notifikace se uloží a zůstane
         # jen v aplikaci.
         'web_push_set': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
+        # Jen NÁZVY a délky, nikdy hodnoty. Odhalí to, co v Railway UI není
+        # vidět: překlep, mezeru v názvu nebo nastavenou jen jednu z dvojice.
+        'push_env_seen': {k: len((os.environ.get(k) or '').strip())
+                          for k in sorted(os.environ)
+                          if 'PUSH' in k.upper() or 'VAPID' in k.upper()},
         'ios_push_set': bool(APNS_KEY_ID and APNS_TEAM_ID
                              and (APNS_KEY_PEM or APNS_KEY_PATH)),
         # Kdy naposledy doběhl který cron. Prázdné pole znamená, že
