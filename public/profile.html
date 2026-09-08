@@ -319,6 +319,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
     </div>
 
     <div id="tab-portfolio">
+      <!-- Portfolio je tady, ale přidávalo se výhradně z feedu. Formulář
+           zůstává tam (jeden, ne dva) — odsud na něj vede odkaz, stejně
+           jako z „+" ve spodní liště. -->
+      <div id="portfolioAdd" style="display:none;margin-bottom:18px">
+        <a class="btn" href="/?add=1" data-i18n="fd.navAdd">Add sketch or healed work</a>
+      </div>
       <div class="grid" id="grid"></div>
       <div class="empty" id="portfolioEmpty" style="display:none" data-i18n="pf.noPortfolio">No portfolio items.</div>
       <!-- Poukaz až pod portfoliem: nabízí se, až když si návštěvník práci
@@ -658,6 +664,7 @@ function render() {
     }
     actions.innerHTML = btns;
     document.getElementById('setupLink').style.display = 'flex';
+    document.getElementById('portfolioAdd').style.display = 'block';
   } else if (me) {
     actions.innerHTML = `
       <button class="btn" onclick="toggleFollow()" id="followBtn">${profile.is_following ? tr('pf.following') : tr('pf.follow')}</button>
