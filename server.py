@@ -145,7 +145,11 @@ INSTAGRAM_SCOPES     = 'instagram_business_basic'
 
 
 def _instagram_enabled() -> bool:
-    return bool(INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET)
+    # ID musí být samé číslice. Kopírování z Railway/Mety s sebou umí přinést
+    # rovnítko nebo mezeru a takové ID projde jako „vyplněné" — přihlášení
+    # pak spadne až u Instagramu, kde chybu nikdo z nás neuvidí. Radši ať
+    # se propojení neukáže vůbec a /__health řekne proč.
+    return bool(INSTAGRAM_APP_ID.isdigit() and INSTAGRAM_APP_SECRET)
 
 
 def _instagram_redirect_uri() -> str:
@@ -8022,7 +8026,7 @@ def my_export():
             'InkLink — export osobních údajů (GDPR článek 20)\n\n'
             'Tento ZIP obsahuje všechna data, která o tobě máme uložena.\n'
             'Soubory jsou ve formátu JSON (čitelný strojově i lidsky).\n\n'
-            'Pokud chceš data smazat, napiš nám na gdpr@inklink.cz.\n'
+            'Pokud chceš data smazat, napiš nám na contact@inklink.club.\n'
         )
         for key, value in bundle.items():
             zf.writestr(f'{key}.json', _json.dumps(value, ensure_ascii=False, indent=2, default=str))
@@ -15455,7 +15459,10 @@ def __health():
         # s nastavením u Mety, jinak Instagram odmítne ještě před loginem.
         'instagram_set': _instagram_enabled(),
         'instagram_app_id': INSTAGRAM_APP_ID or None,
-        'instagram_secret_set': bool(INSTAGRAM_APP_SECRET),
+        'instagram_app_id_numeric': INSTAGRAM_APP_ID.isdigit(),
+        # Délka, nikdy hodnota. Secret od Mety má 32 hex znaků; cokoli
+        # jiného znamená ulítlé rovnítko nebo mezeru při kopírování.
+        'instagram_secret_len': len(INSTAGRAM_APP_SECRET),
         'instagram_redirect_uri': _instagram_redirect_uri(),
         # Push bez klíčů tiše nic nedoručí; notifikace se uloží a zůstane
         # jen v aplikaci.

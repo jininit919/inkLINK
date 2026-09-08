@@ -6169,7 +6169,7 @@ class InstagramConnectTests(unittest.TestCase):
     samotné volání Instagramu (to je při testu stejně zaslepené)."""
 
     def setUp(self):
-        os.environ['INSTAGRAM_APP_ID'] = 'test-app-id'
+        os.environ['INSTAGRAM_APP_ID'] = '1234567890123456'
         os.environ['INSTAGRAM_APP_SECRET'] = 'test-secret'
         self.client, self.db = _fresh_client()
         import sqlite3
@@ -6304,6 +6304,42 @@ class InstagramDisabledTests(unittest.TestCase):
         d = self.client.get('/api/instagram/status').get_json()
         self.assertFalse(d['available'])
         self.assertFalse(d['connected'])
+
+
+class InstagramMalformedIdTests(unittest.TestCase):
+    """Nalezeno v produkci: v Railway skončilo v INSTAGRAM_APP_ID vedoucí
+    rovnítko (`=2128923884358929`), protože se zkopírovalo i s ním. Řetězec
+    je neprázdný, takže propojení vypadalo nastavené — ale Instagram by
+    `client_id==...` odmítl ještě před přihlášením a nikdo z nás by se to
+    nedozvěděl. ID musí být samé číslice."""
+
+    def _client_with(self, app_id):
+        os.environ['INSTAGRAM_APP_ID'] = app_id
+        os.environ['INSTAGRAM_APP_SECRET'] = 'x' * 32
+        return _fresh_client()
+
+    def tearDown(self):
+        os.environ.pop('INSTAGRAM_APP_ID', None)
+        os.environ.pop('INSTAGRAM_APP_SECRET', None)
+        os.unlink(self.db)
+
+    def test_stray_equals_counts_as_unconfigured(self):
+        self.client, self.db = self._client_with('=2128923884358929')
+        d = self.client.get('/__health').get_json()
+        self.assertFalse(d['instagram_set'])
+        self.assertFalse(d['instagram_app_id_numeric'])
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        self.assertEqual(self.client.get('/api/instagram/connect').status_code, 503)
+
+    def test_clean_id_is_accepted(self):
+        self.client, self.db = self._client_with('2128923884358929')
+        d = self.client.get('/__health').get_json()
+        self.assertTrue(d['instagram_set'])
+        self.assertTrue(d['instagram_app_id_numeric'])
+        self.assertEqual(d['instagram_secret_len'], 32)
+        # Secret se ven nesmí dostat ani omylem.
+        self.assertNotIn('x' * 32, json.dumps(d))
 
 
 class ComingSoonGateTests(unittest.TestCase):

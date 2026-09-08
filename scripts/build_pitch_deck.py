@@ -417,7 +417,7 @@ def slide_6_ask(c):
     c.drawString(28 * mm, 42 * mm, 'KONTAKT')
     c.setFillColor(INK_DARK)
     c.setFont('Helvetica', 12)
-    c.drawString(28 * mm, 32 * mm, 'matej@inklink.cz · inklink.club · IČO 29532744')
+    c.drawString(28 * mm, 32 * mm, 'contact@inklink.club · inklink.club · IČO 29532744')
 
     _draw_footer(c, 6, 6)
 
