@@ -541,8 +541,19 @@ spuštění to neblokuje.
 
 | Proměnná | Kde ji vzít |
 |---|---|
-| `INSTAGRAM_APP_ID` | Meta App Dashboard → App settings → Basic |
-| `INSTAGRAM_APP_SECRET` | tamtéž (do chatu ani do gitu nepatří) |
+| `INSTAGRAM_APP_ID` | Use cases → Instagram API → **API setup with Instagram login** → *Instagram app ID*. **Ne** App settings → Basic — tam je Meta App ID a to je jiné číslo. |
+| `INSTAGRAM_APP_SECRET` | tamtéž, *Instagram app secret* (do chatu ani do gitu nepatří) |
+
+Kód volá `instagram.com/oauth/authorize`, takže musí dostat **Instagram**
+app ID. S Meta App ID se přihlášení nerozjede a chybu uvidí až uživatel.
+
+> **Pozor na kopírování.** 8. 9. 2026 skončilo v `INSTAGRAM_APP_ID`
+> vedoucí rovnítko (`=2128923884358929`) — zkopírovalo se z řádku
+> `INSTAGRAM_APP_ID=...`. Řetězec byl neprázdný, takže vše vypadalo
+> nastavené, ale Instagram by `client_id==…` odmítl ještě před
+> přihlášením. Od té doby `_instagram_enabled()` vyžaduje samé číslice
+> a `/__health` hlásí `instagram_app_id_numeric` a `instagram_secret_len`
+> (Meta dává 32 znaků). Ověř oboje po každé změně proměnných.
 
 ### Do nastavení aplikace u Mety
 
@@ -559,6 +570,11 @@ Callbacky pro Metu **procházejí coming-soon bránou** (viz `_GATE_OPEN_PREFIXE
 — Meta je volá server na server bez session a za bránou by dostala 503.
 Chráněné jsou podpisem `signed_request` přes app secret, ne bránou.
 
+Hotovo k 8. 9. 2026: rozsah `instagram_business_basic` přidaný
+(*Ready for testing*), všechny tři adresy uložené v *Business login
+settings*, produkční endpointy ověřené (POST vrací 400
+`invalid signed_request`, ne 404 ani 503). Zbývá App Review.
+
 Smazání dat maže **token a záznam o importech, ne portfolio**. Fotky, které
 si tatér přenesl, jsou jeho vlastní práce; žádost u Mety se týká propojení.
 
@@ -571,6 +587,8 @@ si tatér přenesl, jsou jeho vlastní práce; žádost u Mety se týká propoje
   waitlist. Pošli mu v žádosti odkaz s `?preview=<COMING_SOON_TOKEN>` nebo
   bránu na dobu review vypni.
 - **Ověření firmy** (Business Verification) chce doklady k IČO.
+  Podnikatelský účet je *InkLink* (`business_id=929249429732359`); k IČO
+  29532744 patří jméno **Matěj Gajdoš** (OSVČ), ne „InkLink s.r.o."
 - Tatér navíc potřebuje **profesionální Instagram účet** (Business/Creator),
   osobní nestačí. Je to v UI napsané, ale počítej s dotazy.
 
