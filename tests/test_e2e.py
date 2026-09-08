@@ -1850,6 +1850,45 @@ class OwnProfileAffordanceTests(unittest.TestCase):
 
 
 
+class SharedNavHomeTests(unittest.TestCase):
+    """Domeček do feedu je jen v mobile-nav.js, ne v HTML stránek.
+
+    Šipka „zpět" byla na dvanácti stránkách a na patnácti chyběla, a
+    přitom všude vedla na `/`. Sjednoceno na jedno místo, takže to hlídá
+    čtení zdroje — v HTML by se to jinak zase rozešlo."""
+
+    @staticmethod
+    def _src(name):
+        return open('public/' + name, encoding='utf-8').read()
+
+    def test_home_icon_is_injected_and_called(self):
+        src = self._src('mobile-nav.js')
+        self.assertIn('function ensureHomeIcon()', src)
+        # Musí běžet hned, ne až po /api/me — jinak ikona probliká.
+        i = src.find('function mount()')
+        j = src.find('const me = await getMe()', i)
+        self.assertNotEqual(i, -1)
+        self.assertIn('ensureHomeIcon()', src[i:j],
+                      'domeček se přidává až po načtení uživatele')
+
+    def test_artist_bar_starts_with_feed(self):
+        src = self._src('mobile-nav.js')
+        i = src.find('const ARTIST_LINKS')
+        j = src.find('];', i)
+        bar = src[i:j]
+        self.assertIn("i-home", bar, 'lišta tatéra nemá feed')
+        self.assertLess(bar.find('i-home'), bar.find('i-calendar'),
+                        'feed není v liště první')
+
+    def test_standalone_home_is_hidden_when_bar_has_it(self):
+        # Tatér má feed v liště; samostatný domeček by byl v navu podruhé.
+        src = self._src('mobile-nav.js')
+        i = src.find('function hideDuplicateNavItems')
+        j = src.find('\n  }', i)
+        self.assertIn('#il-home', src[i:j],
+                      'domeček se tatérovi zobrazí dvakrát')
+
+
 class BookingActionsLiveInCalendarTests(unittest.TestCase):
     """Rezervaci tatér odbaví na jednom místě — v kalendáři.
 

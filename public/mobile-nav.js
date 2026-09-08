@@ -52,6 +52,13 @@
   #il-abar svg{width:15px;height:15px;flex-shrink:0}
   nav.il-has-abar > .nav-logo{flex:0 0 auto !important}
   nav.il-has-abar > #il-abar{margin-right:auto}
+  /* Stránky si .nav-icon většinou stylují samy; messages.html ne. Sázíme
+     jen to, bez čeho by ikona nebyla vidět — rozměry nechává na stránce. */
+  #il-home{display:inline-flex;align-items:center;justify-content:center;
+    color:var(--txt3,#5a5a5a);text-decoration:none;cursor:pointer}
+  #il-home:hover{color:var(--txt,#0a0a0a)}
+  #il-home svg{width:18px;height:18px;stroke:currentColor;fill:none;
+    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   /* Úzký desktop: popisky pryč, ikony zůstanou — jinak lišta vytlačí ikony
      vpravo mimo obrazovku. */
   @media(max-width:1180px){
@@ -232,11 +239,47 @@
   // Klienti tu nejsou schválně — bydlí jako záložka na profilu tatéra,
   // protože je to jeho pracovní kartotéka, ne další sekce navigace.
   const ARTIST_LINKS = () => [
+    { href: '/',             ico: 'i-home',     lbl: T('mnav.feed',     'Feed') },
     { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
     { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
     { href: '/artist-setup', ico: 'i-settings', lbl: T('anav.profile',  'Profile & portfolio') },
     { href: '/premium',      ico: 'i-star',     lbl: T('anav.premium',  'Premium') },
   ];
+
+  // Šipka „zpět" byla na dvanácti stránkách a na patnácti chyběla, a
+  // všude stejně vedla na `/`. Šipka slibuje krok zpátky v historii, což
+  // nedělala — domeček říká, kam vede, a může být všude stejný.
+  function ensureHomeIcon() {
+    if (isActive('/')) return;               // ve feedu domeček nedává smysl
+    var nav = document.querySelector('nav');
+    if (!nav || document.getElementById('il-home')) return;
+
+    // Existující „zpět" nepřidáváme podruhé — jen mu vyměníme ikonu.
+    var links = nav.querySelectorAll('a[href="/"]');
+    for (var i = 0; i < links.length; i++) {
+      var use = links[i].querySelector('use');
+      if (!use) continue;
+      var href = use.getAttribute('href') || use.getAttribute('xlink:href') || '';
+      if (href !== '#i-arrow-left' && href !== '#i-home') continue;
+      use.setAttribute('href', '#i-home');
+      links[i].id = 'il-home';
+      links[i].title = T('mnav.feed', 'Feed');
+      return;
+    }
+
+    var a = document.createElement('a');
+    a.id = 'il-home';
+    a.className = 'nav-icon';
+    a.href = '/';
+    a.title = T('mnav.feed', 'Feed');
+    a.innerHTML = svgIcon('i-home');
+
+    var icons = nav.querySelector('.nav-icons');
+    var logo  = nav.querySelector('.nav-logo');
+    if (icons) icons.insertBefore(a, icons.firstChild);
+    else if (logo && logo.nextSibling) nav.insertBefore(a, logo.nextSibling);
+    else nav.appendChild(a);
+  }
 
   function injectArtistBar() {
     if (document.getElementById('il-abar')) return;
@@ -270,7 +313,7 @@
 
   // Co je v liště, nemá smysl mít vedle ještě jako ikonu nebo položku menu.
   function hideDuplicateNavItems(nav) {
-    var dupes = nav.querySelectorAll('#navCalendar, #amSetup, #amEarnings');
+    var dupes = nav.querySelectorAll('#navCalendar, #amSetup, #amEarnings, #il-home');
     for (var i = 0; i < dupes.length; i++) dupes[i].style.display = 'none';
     // Oddělovač v menu pod avatarem má smysl, jen když nad ním něco zbylo.
     var menu = nav.querySelector('.avatar-menu');
@@ -299,6 +342,7 @@
 
   function mount() {
     try { injectCSS(); } catch (e) { console && console.error && console.error('[il-mnav] css', e); }
+    try { ensureHomeIcon(); } catch (e) { console && console.error && console.error('[il-mnav] home', e); }
 
     // 1) Render IMMEDIATELY s defaultem (= neauth/klient layout). Tím
     //    se nav objeví i kdyby /api/me selhalo nebo trvalo dlouho.
