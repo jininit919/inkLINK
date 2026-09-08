@@ -3963,6 +3963,47 @@ class ErasureTests(_Sprint2Base):
         self.assertEqual(self._q('SELECT * FROM instagram_accounts WHERE user_id=2'), [])
 
 
+class WebPushKeyTests(unittest.TestCase):
+    """Push nefungoval, ani když byly klíče nastavené: kód klíč dekódoval
+    na bajty a pywebpush chce řetězec. Výjimku spolkl `except`, takže se to
+    nikde neprojevilo — notifikace se uložila a nikam nedorazila."""
+
+    def _keys(self):
+        import base64
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+        b64 = lambda b: base64.urlsafe_b64encode(b).decode().rstrip('=')
+        priv = ec.generate_private_key(ec.SECP256R1())
+        pub = priv.public_key().public_bytes(
+            serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+        return b64(pub), b64(priv.private_numbers().private_value.to_bytes(32, 'big'))
+
+    def test_generated_key_is_accepted_and_bytes_are_not(self):
+        """Bez sítě: ověřuje se rozebrání klíče, ne doručení. Test, který
+        volá Google, spadne na DNS a nikdo mu pak nevěří."""
+        import base64
+        from py_vapid import Vapid02
+        _, priv = self._keys()
+        Vapid02.from_string(priv)                    # řetězec projít musí
+        with self.assertRaises(Exception):           # bajty byly ta chyba
+            Vapid02.from_string(base64.urlsafe_b64decode(priv + '=='))
+
+    def test_public_key_has_the_shape_the_browser_expects(self):
+        """applicationServerKey musí být nekomprimovaný bod (65 B, 0x04)."""
+        import base64
+        pub, _ = self._keys()
+        raw = base64.urlsafe_b64decode(pub + '==')
+        self.assertEqual(len(raw), 65)
+        self.assertEqual(raw[0], 0x04)
+
+    def test_server_passes_the_key_through_unchanged(self):
+        """Bajty místo řetězce byly celá ta chyba."""
+        import inspect, server
+        src = inspect.getsource(server.send_push)
+        self.assertNotIn('urlsafe_b64decode(VAPID_PRIVATE_KEY', src)
+        self.assertIn('vapid_private_key=web_key', src)
+
+
 class HealthConfigTests(unittest.TestCase):
     """Tiché vypínače. Crony neběžely měsíce a zvenčí to nešlo poznat —
     health proto hlásí, co je nastavené a kdy co naposledy doběhlo."""

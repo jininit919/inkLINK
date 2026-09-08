@@ -2005,18 +2005,16 @@ def send_push(user_id: int, title: str, body: str, url: str = '/'):
         return
 
     dead_ids = []
-    web_pem = None
-    if VAPID_PRIVATE_KEY:
-        try:
-            import base64
-            web_pem = base64.urlsafe_b64decode(VAPID_PRIVATE_KEY + '==')
-        except Exception:
-            web_pem = None
+    # pywebpush chce klíč jako base64url ŘETĚZEC, ne dekódované bajty.
+    # Dekódování tu bylo a končilo na „'bytes' object has no attribute
+    # 'encode'" — což spolkl except níž, takže push mlčky nefungoval
+    # a nikde se to neprojevilo.
+    web_key = VAPID_PRIVATE_KEY.strip() or None
 
     for sub in subs:
         provider = sub['provider']
         if provider == 'web':
-            if not web_pem:
+            if not web_key:
                 continue
             try:
                 from pywebpush import webpush, WebPushException
@@ -2028,14 +2026,16 @@ def send_push(user_id: int, title: str, body: str, url: str = '/'):
                     subscription_info={'endpoint': ep,
                                        'keys': {'p256dh': sub['p256dh'], 'auth': sub['auth']}},
                     data=payload,
-                    vapid_private_key=web_pem,
+                    vapid_private_key=web_key,
                     vapid_claims={'sub': 'mailto:admin@inklink.app', 'aud': 'https://' + aud},
                 )
             except WebPushException as ex:
                 if ex.response and ex.response.status_code in (404, 410):
                     dead_ids.append(sub['id'])
             except Exception as e:
-                print(f'[PUSH/web] {e}')
+                # Chyba formátu klíče vypadá stejně jako výpadek sítě, a
+                # právě proto zůstala rok neviditelná. Do logu ať jde typ.
+                app.logger.error(f'[PUSH/web] {type(e).__name__}: {e}')
         elif provider == 'apns':
             ok, purge = _send_apns_one(sub['endpoint'], title, body, url)
             if purge:

@@ -460,6 +460,26 @@ Po prvním běhu se koukni do **Deployments → logu** té služby. Čtyři řá
 `credit-payouts` vrací `paid` a `failed` — nenulové `failed` několik dní po
 sobě znamená prázdný Stripe balance, ne chybu v kódu.
 
+## 1.6 Web push — vygenerování klíčů
+
+`PUSH_PUBLIC` a `PUSH_PRIVATE` nebyly nikdy nastavené, takže se notifikace
+ukládaly a nikam nedoručovaly. Formát není libovolný a spletl se tu už
+jednou — použij skript, ne ruční base64:
+
+```bash
+python3 scripts/gen_vapid.py
+```
+
+Vypíše obě proměnné rovnou ve tvaru pro Railway → služba **INKLINK** →
+Variables. `PUSH_PRIVATE` nikam neposílej a ulož si ho do správce hesel.
+
+`PUSH_PUBLIC` jde rovnou do prohlížeče jako `applicationServerKey`, proto
+musí být base64url nekomprimovaného bodu bez zarovnání (87 znaků).
+`PUSH_PRIVATE` čeká pywebpush jako base64url **řetězec** (43 znaků) —
+dekódované bajty odmítne, a `except` v `send_push` tu chybu spolkne.
+
+Ověření: `/__health` → `web_push_set: true`.
+
 ## 3.55.1 Souhlas klienta — klíč a cron
 
 **`MEDICAL_NOTES_KEY` je povinný**, jinak formulář vrací 503 a upozornění se
