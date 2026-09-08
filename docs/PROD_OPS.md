@@ -592,6 +592,86 @@ si tatér přenesl, jsou jeho vlastní práce; žádost u Mety se týká propoje
 - Tatér navíc potřebuje **profesionální Instagram účet** (Business/Creator),
   osobní nestačí. Je to v UI napsané, ale počítej s dotazy.
 
+### Než se žádost podá
+
+Reviewer si musí projít **celý flow sám**. Nejčastější důvod zamítnutí
+není kód, ale to, že se reviewer nikam nedostane nebo nepochopí, co má
+dělat. Bez těchhle čtyř věcí žádost nepodávej:
+
+| | co | proč |
+|---|---|---|
+| 1 | `COMING_SOON_TOKEN` v Railway | Bez něj **neexistuje odkaz**, kterým reviewera pustíš dovnitř — uvidí waitlist. Guard je `if COMING_SOON_TOKEN and token == …`, prázdný token nepustí nikoho. |
+| 2 | Testovací účet tatéra na InkLinku | Meta chce e-mail + heslo. Účet musí mít `is_artist=1`, jinak `/artist-setup` nic neukáže. |
+| 3 | Business Verification | Chce doklady k IČO 29532744 (Matěj Gajdoš, OSVČ). Trvá to — začni dřív než zbytek. |
+| 4 | Screencast | Musí být vidět **od přihlášení až po naimportovanou fotku**, ne jen výsledek. |
+
+Reviewer používá **vlastní** profesionální Instagram účet — ten mu
+neposkytuješ. Tvůj testovací účet je jen vstupenka do InkLinku.
+
+### Text do žádosti
+
+Meta chce anglicky. Konkrétně, bez marketingu — popiš data, ne přínos.
+
+> **How will your app use instagram_business_basic?**
+>
+> InkLink is a booking platform for tattoo artists. Artists build a
+> portfolio on their InkLink profile so clients can browse their work
+> before booking.
+>
+> We use `instagram_business_basic` to read the artist's own Instagram
+> username and their own media, and to show those photos in a picker.
+> The artist selects which photos to copy into their InkLink portfolio.
+> Nothing is read or imported without the artist explicitly choosing it,
+> and we only ever access the account of the artist who connected it.
+>
+> We do not read other users' content, comments, messages, hashtags or
+> insights. We request no other permission.
+
+### Instrukce pro reviewera
+
+Ať jsou doslovné a klikací. Reviewer nezná produkt.
+
+```
+1. Open <PREVIEW_LINK>  (this unlocks the pre-launch gate for 30 days)
+2. Log in:  <TEST_EMAIL> / <TEST_PASSWORD>
+3. Go to  https://www.inklink.club/artist-setup
+4. Scroll to the "Instagram" card
+5. Click "Connect Instagram"
+6. Log in with a professional (Business or Creator) Instagram account
+7. You return to /artist-setup — your username is shown and a grid of
+   your Instagram photos loads
+8. Tick one or more photos and click Import
+9. The photos now appear in the portfolio on your public profile
+10. "Disconnect" removes the token and the import records
+```
+
+`<PREVIEW_LINK>` je `https://www.inklink.club/?preview=<COMING_SOON_TOKEN>`.
+
+### Kde to v kódu žije
+
+| část | kde |
+|---|---|
+| karta v UI | `public/artist-setup.html`, `#igCard` (skrytá, dokud `/api/instagram/status` nevrátí `available`) |
+| start OAuth | `GET /api/instagram/connect` — CSRF přes `state` v session |
+| návrat | `GET /api/instagram/callback` → `?ig=ok\|state\|denied\|error\|unconfigured` |
+| výpis médií | `GET /api/instagram/media` |
+| import | `POST /api/instagram/import` |
+| odpojení | `POST /api/instagram/disconnect` |
+
+Chybové stavy se tatérovi ukazují jako flash hláška podle `?ig=`. **Query
+musí být před fragmentem** — `#profile?ig=…` skončí v `location.hash`,
+`location.search` je prázdný a hláška se nezobrazí vůbec. Bylo to tak
+a hlídá to test `test_callback_puts_state_in_query_not_fragment`.
+
+### Otevřené
+
+- **Token se ukládá nešifrovaně** (`instagram_accounts.access_token`).
+  Meta se na uložení Platform Data ptá v Data Protection Assessment.
+  Fernet už v projektu je (`_medical_cipher`), ale běží na
+  `MEDICAL_NOTES_KEY` — sdílet klíč se souhlasy není dobrý nápad, jejich
+  ztráta má úplně jinou váhu. Chce to vlastní klíč. Teď je to levné,
+  protože **v tabulce nejsou žádné řádky**; po náběhu tatérů už ne.
+
 ## 6. Backup strategy
 
 ### Postgres (Railway)
