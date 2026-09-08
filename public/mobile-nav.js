@@ -258,7 +258,7 @@
     { href: '/',             ico: 'i-home',     lbl: T('mnav.feed',     'Feed') },
     { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
     { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
-    { href: '/artist-setup', ico: 'i-settings', lbl: T('anav.profile',  'Profile & portfolio') },
+    { href: '/artist-setup', ico: 'i-grid',     lbl: T('anav.profile',  'Profile & portfolio') },
     { href: '/premium',      ico: 'i-star',     lbl: T('anav.premium',  'Premium') },
   ];
 

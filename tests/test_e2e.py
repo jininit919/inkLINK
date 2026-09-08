@@ -15,6 +15,7 @@ Run:
 """
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -1860,6 +1861,25 @@ class OwnProfileAffordanceTests(unittest.TestCase):
                            src.rfind('if (profile.is_own) {', 0, i),
                            'follow tlačítko není ve větvi pro cizí profil')
 
+
+
+class NavElementContractTests(unittest.TestCase):
+    """Stránky si samy sahají na prvky v horní navigaci.
+
+    Když nav začne vykreslovat někdo jiný a prvek zmizí, `init()` spadne
+    na null — a všechno za tím se přestane provádět. Projevilo se to tím,
+    že feed zůstal prázdný: chyba byla jen v konzoli, na stránce nic.
+    Proto to hlídá test a ne pohled na lištu."""
+
+    def test_pages_keep_nav_ids_they_reference(self):
+        import glob
+        pat = re.compile(r"getElementById\('(nav[A-Z]\w*|am[A-Z]\w*)'\)")
+        for path in sorted(glob.glob('public/*.html')):
+            with open(path, encoding='utf-8') as fh:
+                src = fh.read()
+            for el in sorted(set(pat.findall(src))):
+                self.assertIn('id="%s"' % el, src,
+                              '%s sahá na #%s, ale ten v markupu není' % (path, el))
 
 
 class SharedNavHomeTests(unittest.TestCase):
