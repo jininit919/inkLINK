@@ -263,33 +263,48 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .welcome-cta-muted{display:block;width:100%;text-align:center;font-size:11px;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;padding:12px;margin-top:6px;background:none;border:none;cursor:pointer;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif}
 .welcome-cta-muted:hover{color:var(--red2)}
 
-#lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:200;padding:24px;cursor:pointer}
+#lightbox{position:fixed;inset:0;background:rgba(20,16,8,0.74);backdrop-filter:blur(10px) saturate(1.05);-webkit-backdrop-filter:blur(10px) saturate(1.05);display:none;align-items:center;justify-content:center;z-index:200;padding:24px;cursor:pointer}
 #lightbox.show{display:flex}
-#lightbox .lb-card{max-width:760px;width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;cursor:default;overflow:hidden;box-shadow:0 24px 60px rgba(20,16,8,0.18)}
-#lightbox #lb-img{width:100%;max-height:70vh;object-fit:contain;display:block;background:#000}
-#lightbox .lb-foot{padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--border)}
-#lightbox .lb-who{display:flex;align-items:center;gap:10px;cursor:pointer;flex:1 1 auto;min-width:0;padding:4px;margin:-4px;border-radius:8px;transition:background 0.12s;text-decoration:none;color:inherit}
+#lightbox .lb-card{position:relative;max-width:720px;width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:18px;cursor:default;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow:hidden auto;box-shadow:0 32px 80px rgba(20,16,8,0.30),0 2px 10px rgba(20,16,8,0.10)}
+/* Pasparta místo černé výplně. Fotka nikdy nemá poměr stran karty a
+   `background:#000` pod object-fit:contain z toho dělal rámeček televize.
+   Papírový tón oko čte jako součást karty, ne jako díru. */
+#lightbox .lb-stage{background:var(--bg3);padding:20px;display:flex;align-items:center;justify-content:center}
+#lightbox #lb-img{display:block;max-width:100%;max-height:min(64vh,620px);width:auto;height:auto;border-radius:8px;box-shadow:0 10px 28px rgba(20,16,8,0.20)}
+/* Zavřít šlo jen kliknutím vedle karty. Na mobilu karta zabírá skoro celou
+   plochu, takže se ven nedalo dostat jinak než zpátky. */
+#lightbox .lb-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(20,16,8,0.5);color:#fff;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;z-index:2;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#lightbox .lb-close:hover{background:rgba(20,16,8,0.82)}
+#lightbox .lb-cap{font-size:13px;color:var(--txt2);padding:16px 20px 14px;line-height:1.55;letter-spacing:0.01em}
+#lightbox .lb-cap[hidden]{display:none}
+#lightbox .lb-foot{padding:14px 20px 16px;display:flex;align-items:center;gap:12px 14px;flex-wrap:wrap;border-top:1px solid var(--border)}
+#lightbox .lb-who{display:flex;align-items:center;gap:11px;cursor:pointer;flex:1 1 190px;min-width:0;padding:6px 8px;margin:-6px -8px;border-radius:11px;transition:background 0.14s;text-decoration:none;color:inherit}
 #lightbox .lb-who:hover{background:var(--bg3)}
-#lightbox .lb-who .name{font-size:13px;color:var(--txt);line-height:1.3;letter-spacing:0.02em}
-#lightbox .lb-who .meta{font-size:11px;color:var(--txt3);letter-spacing:0.04em;line-height:1.4;margin-top:2px}
+#lightbox .lb-who .name{font-size:13.5px;color:var(--txt);line-height:1.3;letter-spacing:0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lightbox .lb-who .meta{font-size:11px;color:var(--txt3);letter-spacing:0.03em;line-height:1.4;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #lightbox .lb-meta-pills{display:flex;gap:6px;flex-wrap:wrap;flex:0 0 auto}
-#lightbox .lb-pill{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.04em;padding:6px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);border-radius:999px;flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;line-height:1.2;white-space:nowrap}
+#lightbox .lb-pill{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.02em;padding:7px 12px;background:var(--bg3);border:none;color:var(--txt2);border-radius:999px;flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;line-height:1.2;white-space:nowrap}
 #lightbox .lb-pill .icon{width:12px;height:12px;color:var(--txt3)}
 #lightbox .lb-pill.muted{color:var(--txt3)}
-#lightbox .lb-actions{display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto}
-#lightbox .lb-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.1em;padding:9px 16px;border-radius:999px;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;text-decoration:none;border:1px solid var(--border2);background:var(--bg3);color:var(--txt2);font-weight:400}
-#lightbox .lb-btn:hover{background:var(--bg4);border-color:var(--border3,var(--border2));color:var(--txt)}
+#lightbox .lb-actions{display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto;margin-left:auto}
+#lightbox .lb-btn{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:10.5px;letter-spacing:0.09em;padding:10px 16px;border-radius:999px;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;transition:background 0.15s,color 0.15s,border-color 0.15s;text-decoration:none;border:1px solid var(--border);background:transparent;color:var(--txt2);font-weight:400}
+#lightbox .lb-btn:hover{background:var(--bg3);border-color:var(--border2);color:var(--txt)}
 #lightbox .lb-btn.primary{background:var(--red2);color:var(--bg);border-color:var(--red2)}
-#lightbox .lb-btn.primary:hover{background:#fff;color:var(--bg)}
+/* Hover dřív přebarvil pozadí na bílou, ale text nechal krémový — tedy
+   neviditelné písmo. */
+#lightbox .lb-btn.primary:hover{background:var(--txt2);border-color:var(--txt2);color:var(--bg)}
 #lightbox .lb-btn .icon{width:13px;height:13px}
-#lightbox .lb-cap{font-size:12px;color:var(--txt2);padding:0 18px 16px;line-height:1.5;letter-spacing:0.02em}
 @media(max-width:560px){
-  #lightbox{padding:12px}
-  #lightbox .lb-foot{padding:12px;gap:10px}
+  #lightbox{padding:10px}
+  #lightbox .lb-card{border-radius:14px;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px)}
+  #lightbox .lb-stage{padding:12px}
+  #lightbox #lb-img{max-height:52vh}
+  #lightbox .lb-cap{padding:14px 14px 12px;font-size:12.5px}
+  #lightbox .lb-foot{padding:14px;gap:10px}
   #lightbox .lb-who{order:1;width:100%;flex:1 1 100%}
   #lightbox .lb-meta-pills{order:2;width:100%;justify-content:flex-start}
-  #lightbox .lb-actions{order:3;width:100%;justify-content:stretch}
-  #lightbox .lb-actions .lb-btn{flex:1;justify-content:center;padding:10px 8px;font-size:10px}
+  #lightbox .lb-actions{order:3;width:100%;justify-content:stretch;margin-left:0}
+  #lightbox .lb-actions .lb-btn{flex:1;justify-content:center;padding:11px 8px;font-size:10px}
 }
 </style>
 </head>
@@ -544,7 +559,9 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <div class="lb-card">
-    <img id="lb-img" src="">
+    <button class="lb-close" onclick="closeLightbox()" aria-label="Close">&times;</button>
+    <div class="lb-stage"><img id="lb-img" src="" alt=""></div>
+    <div class="lb-cap" id="lb-cap" hidden></div>
     <div class="lb-foot">
       <a class="lb-who" id="lb-who" href="#">
         <div class="card-avatar" id="lb-avatar">??</div>
@@ -559,11 +576,10 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
       </div>
       <div class="lb-actions">
         <a class="lb-btn" id="lb-profile" href="#"><svg class="icon"><use href="#i-user"/></svg> <span data-i18n="fd.profile">Profile</span></a>
-        <a class="lb-btn" id="lb-message" href="#"><svg class="icon"><use href="#i-message"/></svg> <span data-i18n="fd.message">Message</span></a>
+        <a class="lb-btn" id="lb-ask" href="#"><svg class="icon"><use href="#i-sparkles"/></svg> <span>Custom design</span></a>
         <a class="lb-btn primary" id="lb-book" href="#" style="display:none"><svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="fd.book">Book</span></a>
       </div>
     </div>
-    <div class="lb-cap" id="lb-cap"></div>
   </div>
 </div>
 
@@ -1126,7 +1142,9 @@ function openLb(i) {
   document.getElementById('lb-img').src = '/uploads/' + p.image;
   document.getElementById('lb-name').textContent = p.user.display_name;
   document.getElementById('lb-meta').textContent = [p.user.studio, p.user.city].filter(Boolean).join(' · ');
-  document.getElementById('lb-cap').textContent = p.caption || '';
+  const cap = document.getElementById('lb-cap');
+  cap.textContent = p.caption || '';
+  cap.hidden = !p.caption;
 
   // Avatar + jméno → klik vede na profil tatéra
   document.getElementById('lb-who').href = profileHref;
@@ -1168,18 +1186,23 @@ function openLb(i) {
   // Vlastní práce: napsat sám sobě ani si ji rezervovat nedává smysl.
   // Místo toho vede rovnou k úpravě položky.
   const isMine = !!(me && me.username && me.username === username);
-  const msgBtn = document.getElementById('lb-message');
+  // Psaní zpráv bydlí na profilu tatéra. Odsud vede poptávka vlastního
+  // návrhu — z fotky v feedu je to ta akce, kterou člověk opravdu chce.
+  const askBtn = document.getElementById('lb-ask');
+  askBtn.querySelector('use').setAttribute('href', isMine ? '#i-edit' : '#i-sparkles');
   if (isMine) {
-    msgBtn.href = '/profile/' + encodeURIComponent(username) + '#portfolio';
-    msgBtn.querySelector('span').textContent = t('fd.editItem');
+    askBtn.href = '/profile/' + encodeURIComponent(username) + '#portfolio';
+    askBtn.querySelector('span').textContent = t('fd.editItem');
   } else {
-    msgBtn.href = '/messages?user=' + encodeURIComponent(username);
-    msgBtn.querySelector('span').textContent = t('fd.message');
+    askBtn.href = '/profile/' + encodeURIComponent(username) + '#ask';
+    askBtn.querySelector('span').textContent = t('pf.askCta');
   }
   const bookBtn = document.getElementById('lb-book');
   // Book vždy zobrazit pro skicy — pokud chybí cena/hours, profil ukáže fallback modal
-  if (isSketch && !isMine) {
-    bookBtn.href = `/profile/${encodeURIComponent(username)}#book-${p.id}`;
+  if (!isMine) {
+    bookBtn.href = isSketch
+      ? `/profile/${encodeURIComponent(username)}#book-${p.id}`
+      : `/profile/${encodeURIComponent(username)}#slots`;
     bookBtn.style.display = 'inline-flex';
   } else {
     bookBtn.style.display = 'none';

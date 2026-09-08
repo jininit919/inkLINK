@@ -1819,8 +1819,13 @@ class OwnProfileAffordanceTests(unittest.TestCase):
         src = self._src('index.html')
         self.assertIn("me.username === username", src,
                       'lightbox nezná rozdíl mezi mojí a cizí prací')
-        # Rezervovat vlastní skicu nedává smysl.
-        self.assertIn('if (isSketch && !isMine)', src)
+        # Rezervovat vlastní práci nedává smysl. Podmínka se hlídá u
+        # samotného tlačítka — na čem přesně rezervace závisí (skica vs.
+        # zhojená práce) se měnit může, `!isMine` ne.
+        i = src.find("const bookBtn = document.getElementById('lb-book')")
+        self.assertNotEqual(i, -1, 'bookBtn ve zdroji není')
+        self.assertIn('if (!isMine)', src[i:i + 400],
+                      'rezervace není za kontrolou vlastnictví')
 
     def test_sketch_detail_checks_owner(self):
         src = self._src('sketch.html')

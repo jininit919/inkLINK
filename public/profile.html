@@ -717,6 +717,11 @@ function render() {
   // dřív by openTab() narazil na skrytou a tiše nic neudělal.
   if (location.hash.length > 1) openTab(location.hash.slice(1));
 
+  // /profile/<u>#ask → rovnou otevřít poptávku vlastního návrhu. Odkaz sem
+  // vede z lightboxu ve feedu; poptávka se dělá jen tady, aby byl formulář
+  // na jednom místě. Na vlastním profilu ani u neaktivního tatéra ne.
+  if (location.hash === '#ask' && profile.is_artist && !profile.is_own) openAsk();
+
   document.getElementById('slotsCount').textContent = profile.slots.length;
   const slotsEl = document.getElementById('slots');
   if (!profile.slots.length) {
