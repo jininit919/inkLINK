@@ -101,6 +101,9 @@
       if (!r.ok) return;
       const d = await r.json();
       unread = d.count || 0;
+      // Zvonek patří jen přihlášenému; host by koukal na prázdný panel.
+      const root = document.getElementById('notifMount');
+      if (root) root.style.display = d.authed ? 'inline-block' : 'none';
       renderBadge();
     } catch (e) { /* offline ok */ }
   }
@@ -195,7 +198,19 @@
     }).join('');
   }
 
+  // Panel měl `top:54px` natvrdo, jenže nav má na většině stránek 76 px
+  // a překrývaly by se. Posadíme ho pod zvonek, ať na výšce nezáleží.
+  function placePanel() {
+    const btn = document.getElementById('il-notif-btn');
+    const panel = document.getElementById('il-notif-panel');
+    if (!btn || !panel) return;
+    const r = btn.getBoundingClientRect();
+    panel.style.top = Math.round(r.bottom + 10) + 'px';
+    panel.style.right = Math.max(10, Math.round(window.innerWidth - r.right)) + 'px';
+  }
+
   async function openPanel() {
+    placePanel();
     const panel = document.getElementById('il-notif-panel');
     if (!panel) return;
     panel.classList.add('open');
@@ -328,8 +343,22 @@
   }
 
   function mount() {
-    const root = document.getElementById('notifMount');
-    if (!root) return;
+    // Původně čekal na `#notifMount` ve stránce — jenže ten nebyl ANI
+    // V JEDNÉ, takže se panel oznámení nikdy nevykreslil a byl celý
+    // nedostupný. Místo si proto najde sám, stejně jako odznak zpráv.
+    let root = document.getElementById('notifMount');
+    if (!root) {
+      const nav = document.querySelector('nav');
+      if (!nav) return;
+      root = document.createElement('div');
+      root.id = 'notifMount';
+      root.style.display = 'none';   // odkryje se, až víme, že je kdo přihlášený
+      const avatar = nav.querySelector('.nav-avatar-wrap, .nav-avatar');
+      const icons  = nav.querySelector('.nav-icons');
+      if (avatar && avatar.parentNode) avatar.parentNode.insertBefore(root, avatar);
+      else if (icons) icons.appendChild(root);
+      else nav.appendChild(root);
+    }
     root.innerHTML = `
       <div class="il-notif-wrap">
         <button class="il-notif-btn" id="il-notif-btn" aria-label="Notifikace" title="Notifikace">

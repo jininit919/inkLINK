@@ -3627,7 +3627,9 @@ def get_notifications():
 @app.route('/api/notifications/count')
 def notifications_count():
     if 'user_id' not in session:
-        return jsonify({'count': 0})
+        # `authed` odlišuje hosta od přihlášeného s nulou oznámení —
+        # jinak by zvonek visel v navigaci i tomu, kdo účet nemá.
+        return jsonify({'count': 0, 'bookings': 0, 'other': 0, 'authed': False})
     conn = get_db()
     # Rozdělené podle toho, kde se na to dá reagovat. Jedna tečka „něco se
     # někde stalo" nutí člověka hledat co; rezervace mají v liště vlastní
@@ -3641,7 +3643,8 @@ def notifications_count():
     conn.close()
     total = row['total'] or 0
     bookings = row['bookings'] or 0
-    return jsonify({'count': total, 'bookings': bookings, 'other': total - bookings})
+    return jsonify({'count': total, 'bookings': bookings,
+                    'other': total - bookings, 'authed': True})
 
 
 @app.route('/api/notifications/read-all', methods=['POST'])

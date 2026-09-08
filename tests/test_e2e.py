@@ -1863,6 +1863,39 @@ class OwnProfileAffordanceTests(unittest.TestCase):
 
 
 
+class NotifBellMountsTests(unittest.TestCase):
+    """Zvonek s panelem oznámení čekal na `#notifMount` ve stránce.
+
+    Ten ale nebyl ani v jedné z dvaceti stránek, takže `mount()` hned
+    skončil a celý panel — včetně nabídky zapnout push — byl nedostupný.
+    Nešlo to poznat: nic nespadlo, jen tam ikona nebyla. Proto komponenta
+    musí umět místo najít sama, stejně jako odznak zpráv."""
+
+    @staticmethod
+    def _src(name):
+        with open('public/' + name, encoding='utf-8') as fh:
+            return fh.read()
+
+    def test_bell_creates_its_own_mount_point(self):
+        src = self._src('notifs.js')
+        i = src.find('function mount()')
+        j = src.find('function ', i + 10)
+        self.assertNotEqual(i, -1, 'mount() ve zdroji není')
+        body = src[i:j]
+        self.assertIn("root.id = 'notifMount'", body,
+                      'zvonek pořád spoléhá na #notifMount ve stránce')
+        self.assertIn("querySelector('nav')", body)
+
+    def test_no_page_defines_the_mount_point(self):
+        # Kdyby ho někdo do HTML doplnil, přestane platit předpoklad výše
+        # a stojí za to se na to znovu podívat.
+        import glob
+        for path in sorted(glob.glob('public/*.html')):
+            with open(path, encoding='utf-8') as fh:
+                self.assertNotIn('id="notifMount"', fh.read(),
+                                 path + ' definuje #notifMount ručně')
+
+
 class NavElementContractTests(unittest.TestCase):
     """Stránky si samy sahají na prvky v horní navigaci.
 
