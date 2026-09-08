@@ -720,6 +720,21 @@ narazí — pak je na řadě Mapy.cz (lepší česká data, ale chce klíč).
 Negativní odpověď se cachuje, výpadek geokodéru ne — jinak by jedna
 nedostupnost zamkla adresu jako „neexistuje".
 
+### Staré účty
+
+Souřadnice se počítají při ukládání profilu, takže účty založené dřív
+je nemají a na mapě nejsou. Dopočítá je:
+
+```bash
+railway run python scripts/backfill_geo.py            # jen vypíše
+railway run python scripts/backfill_geo.py --apply    # zapíše
+```
+
+Bere jen tatéry bez souřadnic, takže se dá pouštět opakovaně — druhý běh
+zpracuje jen ty, na kterých ten první selhal. Pauzu kvůli limitu
+Nominatimu čeká jen tehdy, když se opravdu šlo na síť; deset tatérů
+z Prahy tak stojí jeden dotaz.
+
 Kdo adresu nevyplní, dostane souřadnice města, takže všichni z Prahy
 sedí na jednom bodě. Mapa proto duplicitní souřadnice rozseje do spirály
 (zlatý úhel, první kruh ~50 m), aby šlo kliknout na každého. Není to

@@ -4223,14 +4223,29 @@ def _geocode(query: str):
     return (lat, lng) if lat is not None else None
 
 
+def _geocode_queries(studio_address: str, city: str):
+    """Dotazy v pořadí od nejpřesnějšího. Bez země by „Brno" mohlo
+    skončit v Německu.
+
+    Vlastní funkce proto, že stejné pořadí potřebuje i dopočet souřadnic
+    starým účtům (scripts/backfill_geo.py) — kdyby si ho psal po svém,
+    rozešel by se s tím, co dělá ukládání profilu.
+    """
+    a = (studio_address or '').strip()
+    c = (city or '').strip()
+    out = []
+    if a and c:
+        out.append(f'{a}, {c}, Česko')
+    elif a:
+        out.append(f'{a}, Česko')
+    if c:
+        out.append(f'{c}, Česko')
+    return out
+
+
 def _geocode_profile(studio_address: str, city: str):
-    """Nejdřív přesná adresa, pak samotné město. Bez země by „Brno"
-    mohlo skončit v Německu."""
-    for q in (f'{studio_address}, {city}, Česko' if studio_address and city else None,
-              f'{studio_address}, Česko' if studio_address and not city else None,
-              f'{city}, Česko' if city else None):
-        if not q:
-            continue
+    """Nejdřív přesná adresa, pak samotné město."""
+    for q in _geocode_queries(studio_address, city):
         hit = _geocode(q)
         if hit:
             return hit
