@@ -395,5 +395,10 @@
     window.addEventListener('focus', refreshAll);
   }
 
-  window.InkLinkNotifs = { init, refresh: refreshAll, toggle: togglePanel, open: openPanel, close: closePanel };
+  // Horní lištu vykresluje mobile-nav.js až po nás, takže odkaz na
+  // /messages v tu chvíli ještě neexistuje a odznak by se neměl kam
+  // pověsit. Musí jít připnout znovu.
+  window.InkLinkNotifs = { init, refresh: refreshAll, toggle: togglePanel,
+                           open: openPanel, close: closePanel,
+                           mountMsgBadges };
 })();
