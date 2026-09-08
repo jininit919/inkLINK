@@ -39,6 +39,11 @@ def _fresh_client():
     return server.app.test_client(), db_file
 
 
+def _fernet_key():
+    from cryptography.fernet import Fernet
+    return Fernet.generate_key().decode()
+
+
 def _register(client, username, **extra):
     return client.post('/api/register', json={
         'username': username,
@@ -6171,6 +6176,7 @@ class InstagramConnectTests(unittest.TestCase):
     def setUp(self):
         os.environ['INSTAGRAM_APP_ID'] = '1234567890123456'
         os.environ['INSTAGRAM_APP_SECRET'] = 'test-secret'
+        os.environ['INSTAGRAM_TOKEN_KEY'] = _fernet_key()
         self.client, self.db = _fresh_client()
         import sqlite3
         conn = sqlite3.connect(self.db)
@@ -6184,6 +6190,7 @@ class InstagramConnectTests(unittest.TestCase):
         os.unlink(self.db)
         os.environ.pop('INSTAGRAM_APP_ID', None)
         os.environ.pop('INSTAGRAM_APP_SECRET', None)
+        os.environ.pop('INSTAGRAM_TOKEN_KEY', None)
 
     def _login(self):
         with self.client.session_transaction() as sess:
@@ -6288,6 +6295,7 @@ class InstagramDisabledTests(unittest.TestCase):
     def setUp(self):
         os.environ.pop('INSTAGRAM_APP_ID', None)
         os.environ.pop('INSTAGRAM_APP_SECRET', None)
+        os.environ.pop('INSTAGRAM_TOKEN_KEY', None)
         self.client, self.db = _fresh_client()
 
     def tearDown(self):
@@ -6328,11 +6336,13 @@ class InstagramMalformedIdTests(unittest.TestCase):
     def _client_with(self, app_id):
         os.environ['INSTAGRAM_APP_ID'] = app_id
         os.environ['INSTAGRAM_APP_SECRET'] = 'x' * 32
+        os.environ['INSTAGRAM_TOKEN_KEY'] = _fernet_key()
         return _fresh_client()
 
     def tearDown(self):
         os.environ.pop('INSTAGRAM_APP_ID', None)
         os.environ.pop('INSTAGRAM_APP_SECRET', None)
+        os.environ.pop('INSTAGRAM_TOKEN_KEY', None)
         os.unlink(self.db)
 
     def test_stray_equals_counts_as_unconfigured(self):
@@ -6352,6 +6362,57 @@ class InstagramMalformedIdTests(unittest.TestCase):
         self.assertEqual(d['instagram_secret_len'], 32)
         # Secret se ven nesmí dostat ani omylem.
         self.assertNotIn('x' * 32, json.dumps(d))
+
+
+class InstagramTokenAtRestTests(unittest.TestCase):
+    """Token je klíč od cizího Instagramu. Kdo se dostane k databázi,
+    nesmí se tím dostat i k účtům tatérů."""
+
+    def tearDown(self):
+        for k in ('INSTAGRAM_APP_ID', 'INSTAGRAM_APP_SECRET', 'INSTAGRAM_TOKEN_KEY'):
+            os.environ.pop(k, None)
+        os.unlink(self.db)
+
+    def _boot(self, with_key=True):
+        os.environ['INSTAGRAM_APP_ID'] = '1234567890123456'
+        os.environ['INSTAGRAM_APP_SECRET'] = 'x' * 32
+        if with_key:
+            os.environ['INSTAGRAM_TOKEN_KEY'] = _fernet_key()
+        else:
+            os.environ.pop('INSTAGRAM_TOKEN_KEY', None)
+        self.client, self.db = _fresh_client()
+        import server
+        return server
+
+    def test_token_is_not_stored_in_the_clear(self):
+        srv = self._boot()
+        stored = srv._ig_token_encrypt('IGQVJsecret-token')
+        self.assertTrue(stored.startswith('v1:'))
+        self.assertNotIn('IGQVJsecret-token', stored)
+        self.assertEqual(srv._ig_token({'access_token': stored}), 'IGQVJsecret-token')
+
+    def test_older_plaintext_row_still_works(self):
+        # Upgrade nesmí tiše odpojit účty propojené dřív.
+        srv = self._boot()
+        self.assertEqual(srv._ig_token({'access_token': 'legacy-plain'}), 'legacy-plain')
+
+    def test_wrong_key_does_not_crash(self):
+        srv = self._boot()
+        stored = srv._ig_token_encrypt('abc')
+        os.environ['INSTAGRAM_TOKEN_KEY'] = _fernet_key()   # jiný klíč
+        self.client, self.db2 = _fresh_client()
+        import server as srv2
+        self.assertEqual(srv2._ig_token({'access_token': stored}), '')
+        os.unlink(self.db2)
+
+    def test_without_key_connect_is_not_offered(self):
+        srv = self._boot(with_key=False)
+        d = self.client.get('/__health').get_json()
+        self.assertFalse(d['instagram_token_key_set'])
+        self.assertFalse(d['instagram_set'])
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        self.assertEqual(self.client.get('/api/instagram/connect').status_code, 503)
 
 
 class ComingSoonGateTests(unittest.TestCase):

@@ -543,6 +543,7 @@ spuštění to neblokuje.
 |---|---|
 | `INSTAGRAM_APP_ID` | Use cases → Instagram API → **API setup with Instagram login** → *Instagram app ID*. **Ne** App settings → Basic — tam je Meta App ID a to je jiné číslo. |
 | `INSTAGRAM_APP_SECRET` | tamtéž, *Instagram app secret* (do chatu ani do gitu nepatří) |
+| `INSTAGRAM_TOKEN_KEY` | vygeneruj: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Šifruje uložené přístupové tokeny. **Bez něj se propojení vůbec nenabídne.** |
 
 Kód volá `instagram.com/oauth/authorize`, takže musí dostat **Instagram**
 app ID. S Meta App ID se přihlášení nerozjede a chybu uvidí až uživatel.
@@ -663,14 +664,23 @@ musí být před fragmentem** — `#profile?ig=…` skončí v `location.hash`,
 `location.search` je prázdný a hláška se nezobrazí vůbec. Bylo to tak
 a hlídá to test `test_callback_puts_state_in_query_not_fragment`.
 
-### Otevřené
+### Uložený token
 
-- **Token se ukládá nešifrovaně** (`instagram_accounts.access_token`).
-  Meta se na uložení Platform Data ptá v Data Protection Assessment.
-  Fernet už v projektu je (`_medical_cipher`), ale běží na
-  `MEDICAL_NOTES_KEY` — sdílet klíč se souhlasy není dobrý nápad, jejich
-  ztráta má úplně jinou váhu. Chce to vlastní klíč. Teď je to levné,
-  protože **v tabulce nejsou žádné řádky**; po náběhu tatérů už ne.
+Přístupový token je klíč od Instagram účtu tatéra, takže se v databázi
+ukládá zašifrovaný (Fernet, prefix `v1:`) klíčem `INSTAGRAM_TOKEN_KEY`.
+Meta se na uložení Platform Data ptá v Data Protection Assessment.
+
+Klíč je **vlastní, ne `MEDICAL_NOTES_KEY`**. Ztráta klíče od souhlasů je
+nevratná a právně drahá; ztráta tohohle znamená jen, že se tatéři propojí
+znovu. Jeden sdílený klíč by ty dvě váhy spojil dohromady.
+
+- Bez klíče se propojení nenabídne vůbec — `_instagram_enabled()` je
+  `False` a `/__health` hlásí `instagram_token_key_set: false`. Ukládat
+  token načisto jen proto, že proměnná chybí, je horší než funkci nemít.
+- Záznamy bez prefixu `v1:` se čtou jako nešifrované, aby upgrade tiše
+  neodpojil nikoho, kdo se propojil dřív.
+- Špatný klíč vede na prázdný token, čitelnou chybu a nové propojení —
+  ne na pád. V logu je jen `token decrypt failed`, nikdy hodnota.
 
 ## 6. Backup strategy
 

@@ -26,6 +26,7 @@ Aktuální stav (co je nastaveno):
 | `CRON_SECRET` | ✅ |
 | `SENTRY_DSN` | ✅ |
 | `R2_*` (5 vars) | ✅ Cloudflare storage |
+| `INSTAGRAM_TOKEN_KEY` | ✅ bez něj se propojení Instagramu vůbec nenabídne; ověř `instagram_token_key_set` v `/__health` |
 | `RESEND_FROM` | ✅ contact@inklink.club — **ne** výchozí `onboarding@resend.dev`, ten doručuje jen majiteli účtu Resend |
 | `RESEND_API_KEY` | ✅ ověřeno přes `/__health` (`emails_enabled: true`) |
 | `ADMIN_USERNAME` | ✅ MGart |

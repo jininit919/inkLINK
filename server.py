@@ -142,6 +142,51 @@ def _set_secure_cookie():
 INSTAGRAM_APP_ID     = os.environ.get('INSTAGRAM_APP_ID', '').strip()
 INSTAGRAM_APP_SECRET = os.environ.get('INSTAGRAM_APP_SECRET', '').strip()
 INSTAGRAM_SCOPES     = 'instagram_business_basic'
+# Vlastní klíč, ne MEDICAL_NOTES_KEY. Ztráta klíče od souhlasů je
+# nevratná a právně drahá; ztráta tohohle znamená jen, že se tatéři
+# propojí znovu. Sdílet jeden klíč by ty dvě váhy spojilo dohromady.
+INSTAGRAM_TOKEN_KEY  = os.environ.get('INSTAGRAM_TOKEN_KEY', '').strip()
+_IG_ENC_PREFIX       = 'v1:'
+
+
+def _ig_cipher():
+    """Šifra na uložený přístupový token. None, když klíč není nastavený.
+
+    Klíč se NIKDY negeneruje sám — tichý nový klíč by odřízl všechny
+    propojené účty a nikdo by nevěděl proč.
+    """
+    if not INSTAGRAM_TOKEN_KEY:
+        return None
+    from cryptography.fernet import Fernet
+    return Fernet(INSTAGRAM_TOKEN_KEY.encode())
+
+
+def _ig_token_encrypt(token: str) -> str:
+    f = _ig_cipher()
+    if f is None:
+        return token
+    return _IG_ENC_PREFIX + f.encrypt(token.encode()).decode()
+
+
+def _ig_token(acc) -> str:
+    """Token ze záznamu, ať už je uložený zašifrovaně nebo ne.
+
+    Bez prefixu jde o starší nešifrovaný záznam; ten musí dál fungovat,
+    jinak by upgrade tiše odpojil každého, kdo se propojil dřív.
+    """
+    raw = acc['access_token'] or ''
+    if not raw.startswith(_IG_ENC_PREFIX):
+        return raw
+    f = _ig_cipher()
+    if f is None:
+        return ''
+    try:
+        return f.decrypt(raw[len(_IG_ENC_PREFIX):].encode()).decode()
+    except Exception:
+        # Špatný klíč. Prázdný token vede na čitelnou chybu a nové
+        # propojení, ne na pád.
+        app.logger.error('[instagram] token decrypt failed — wrong key?')
+        return ''
 
 
 def _instagram_enabled() -> bool:
@@ -149,7 +194,12 @@ def _instagram_enabled() -> bool:
     # rovnítko nebo mezeru a takové ID projde jako „vyplněné" — přihlášení
     # pak spadne až u Instagramu, kde chybu nikdo z nás neuvidí. Radši ať
     # se propojení neukáže vůbec a /__health řekne proč.
-    return bool(INSTAGRAM_APP_ID.isdigit() and INSTAGRAM_APP_SECRET)
+    #
+    # Bez šifrovacího klíče se propojení taky nenabízí: token je klíč od
+    # cizího Instagramu a ukládat ho načisto jen proto, že proměnná chybí,
+    # je horší než funkci na chvíli nemít.
+    return bool(INSTAGRAM_APP_ID.isdigit() and INSTAGRAM_APP_SECRET
+                and INSTAGRAM_TOKEN_KEY)
 
 
 def _instagram_redirect_uri() -> str:
@@ -10548,7 +10598,7 @@ def instagram_callback():
     conn.execute("""INSERT INTO instagram_accounts
                     (user_id, ig_user_id, username, access_token, token_expires_at)
                     VALUES (?,?,?,?,?)""",
-                 (uid, ig_user_id, username, token, expires_at))
+                 (uid, ig_user_id, username, _ig_token_encrypt(token), expires_at))
     conn.commit()
     conn.close()
     return redirect('/artist-setup?ig=ok')
@@ -10729,7 +10779,7 @@ def instagram_media():
         r = _rq.get(f'{IG_GRAPH}/me/media', params={
             'fields': 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp',
             'limit':  50,
-            'access_token': acc['access_token'],
+            'access_token': _ig_token(acc),
         }, timeout=20).json()
     except Exception as e:
         app.logger.error(f'[instagram] media fetch failed: {type(e).__name__}')
@@ -10793,7 +10843,7 @@ def instagram_import():
         try:
             m = _rq.get(f'{IG_GRAPH}/{mid}', params={
                 'fields': 'id,caption,media_type,media_url,thumbnail_url',
-                'access_token': acc['access_token'],
+                'access_token': _ig_token(acc),
             }, timeout=20).json()
             url = m.get('media_url') if m.get('media_type') != 'VIDEO' else m.get('thumbnail_url')
             if not url:
@@ -15465,6 +15515,9 @@ def __health():
         # Délka, nikdy hodnota. Secret od Mety má 32 hex znaků; cokoli
         # jiného znamená ulítlé rovnítko nebo mezeru při kopírování.
         'instagram_secret_len': len(INSTAGRAM_APP_SECRET),
+        # Bez něj se propojení vůbec nenabídne — token by jinak ležel
+        # v databázi čitelný.
+        'instagram_token_key_set': bool(INSTAGRAM_TOKEN_KEY),
         'instagram_redirect_uri': _instagram_redirect_uri(),
         # Push bez klíčů tiše nic nedoručí; notifikace se uloží a zůstane
         # jen v aplikaci.
