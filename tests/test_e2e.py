@@ -2606,7 +2606,7 @@ class SharedScriptVersionTests(unittest.TestCase):
     a na kterých, to záviselo na tom, kudy chodil."""
 
     SHARED = ('i18n.js', 'mobile-nav.js', 'notifs.js', 'icons.js', 'nav-avatar.js',
-              'ink-trail.js', 'cookie-consent.js', 'native.js', 'legal.js',
+              'ink-trail.js', 'cookie-consent.js', 'native.js',
               'bookings-panel.js')
 
     def _refs(self):
@@ -3977,9 +3977,29 @@ class ShareCardTests(_Sprint2Base):
             import io
             self.assertEqual(Image.open(io.BytesIO(r.data)).size, size)
 
-    def test_unknown_format_falls_back_instead_of_failing(self):
-        r = self.client.get('/api/me/share-card.png?format=billboard')
-        self.assertEqual(r.status_code, 200)
+    def test_both_variants_render_and_differ(self):
+        """Oznámení a výzva k rezervaci jsou dvě různé situace; jedna
+        kartička na obojí by byla polovičatá v obou."""
+        a = self.client.get('/api/me/share-card.png?variant=announce&format=post')
+        b = self.client.get('/api/me/share-card.png?variant=booking&format=post')
+        self.assertEqual(a.status_code, 200)
+        self.assertEqual(b.status_code, 200)
+        self.assertNotEqual(a.data, b.data)
+
+    def test_unknown_format_or_variant_falls_back_instead_of_failing(self):
+        for q in ('format=billboard', 'variant=nesmysl', 'format=x&variant=y'):
+            r = self.client.get('/api/me/share-card.png?' + q)
+            self.assertEqual(r.status_code, 200, q)
+
+    def test_long_headline_still_fits(self):
+        """Oznamovací text je delší; bez menšího stupně by přetekl."""
+        import server
+        self.assertGreater(len(server.SHARE_VARIANTS['announce']),
+                           len(server.SHARE_VARIANTS['booking']))
+        buf = server._render_share_card('a', 'Velmi Dlouhé Jméno Tatéra', 'Praha',
+                                        'post', 'announce')
+        from PIL import Image
+        self.assertEqual(Image.open(buf).size, (1080, 1080))
 
     def test_it_needs_a_login(self):
         self.client.post('/api/logout')
@@ -4052,6 +4072,30 @@ class PartnersPageTests(unittest.TestCase):
         n = conn.execute('SELECT COUNT(*) FROM partner_leads').fetchone()[0]
         conn.close()
         self.assertEqual(n, 1)
+
+    def test_the_enquiry_is_emailed_to_the_configured_inbox(self):
+        """Napevno zadaná adresa může tiše zahazovat poštu — Resend umí
+        z domény odesílat i bez schránky na ní."""
+        import server
+        sent = []
+        real = server.send_email
+        old_inbox = server.PARTNER_INBOX
+        server.send_email = lambda to, s_, h: sent.append((to, s_, h)) or True
+        server.PARTNER_INBOX = 'ja@icloud.com'
+        try:
+            self.client.post('/api/partners', json={
+                'name': 'Jan', 'company': 'Barvy', 'email': 'a@b.cz',
+                'message': 'ahoj'})
+        finally:
+            server.send_email = real
+            server.PARTNER_INBOX = old_inbox
+        self.assertEqual(len(sent), 1)
+        to, subject, html = sent[0]
+        self.assertEqual(to, 'ja@icloud.com')
+        self.assertIn('Barvy', subject)
+        # Odpovídat se musí dát rovnou z mailu, ne dohledáváním v databázi.
+        self.assertIn('a@b.cz', html)
+        self.assertIn('ahoj', html)
 
     def test_api_passes_the_gate_too(self):
         import server

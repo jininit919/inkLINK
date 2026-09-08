@@ -3839,6 +3839,13 @@ def book_showcase_page(username):
             .replace('{{JSON_LD}}',  json_ld))
 
 
+# Kam chodí poptávky spolupráce. Resend umí z domény odesílat, i když na ní
+# žádná schránka není — takže napevno zadaná adresa může tiše zahazovat
+# poštu. Proto proměnná: nastav ji na schránku, kterou opravdu čteš.
+PARTNER_INBOX = (os.environ.get('PARTNER_INBOX', '').strip()
+                 or RESEND_FROM or 'contact@inklink.club')
+
+
 @app.route('/api/partners', methods=['POST'])
 @limiter.limit('5 per hour')
 def partner_lead():
@@ -3865,7 +3872,7 @@ def partner_lead():
     # Mail je jen upozornění; zdrojem pravdy je řádek v databázi.
     try:
         from html import escape as _h
-        send_email('partner@inklink.club',
+        send_email(PARTNER_INBOX,
                    f'Poptávka spolupráce — {company or name}',
                    f'<p><b>{_h(name)}</b>'
                    + (f' · {_h(company)}' if company else '')
@@ -12309,7 +12316,16 @@ def _share_font(name, size):
         return ImageFont.load_default()
 
 
-def _render_share_card(username, display_name, city, fmt='story'):
+# Dvě situace, dvě sdělení. „Rezervuj" je výzva pro klienty, kteří tatéra
+# už sledují; „nově mě najdeš" je oznámení, které dává smysl jednou, když
+# se přidá. Jedna kartička na obojí by byla polovičatá v obou.
+SHARE_VARIANTS = {
+    'booking':  'REZERVUJ TERMÍN ONLINE',
+    'announce': 'NOVĚ BERU REZERVACE PŘES INKLINK',
+}
+
+
+def _render_share_card(username, display_name, city, fmt='story', variant='booking'):
     import io as _io
     import segno
     from PIL import Image, ImageDraw
@@ -12343,8 +12359,11 @@ def _render_share_card(username, display_name, city, fmt='story'):
         center(city[:28], int(H * (0.405 if story else 0.405)),
                _share_font('DMMono-Regular.ttf', 28), SHARE_MUTED)
 
-    center('REZERVUJ TERMÍN ONLINE', int(H * (0.47 if story else 0.475)),
-           _share_font('BebasNeue-Regular.ttf', 44 if story else 38))
+    headline = SHARE_VARIANTS.get(variant, SHARE_VARIANTS['booking'])
+    # Delší oznamovací text potřebuje menší stupeň, jinak přeteče na šířku.
+    hsize = (44 if story else 38) if len(headline) < 26 else (34 if story else 29)
+    center(headline, int(H * (0.47 if story else 0.475)),
+           _share_font('BebasNeue-Regular.ttf', hsize))
 
     # QR na profil. Tmavý na krémovém, aby ladil se zbytkem.
     qr = segno.make(url, error='m')
@@ -12372,6 +12391,9 @@ def share_card():
     fmt = request.args.get('format', 'story')
     if fmt not in SHARE_CARD_SIZES:
         fmt = 'story'
+    variant = request.args.get('variant', 'booking')
+    if variant not in SHARE_VARIANTS:
+        variant = 'booking'
     conn = get_db()
     u = conn.execute('SELECT username, display_name, city FROM users WHERE id=?',
                      (session['user_id'],)).fetchone()
@@ -12380,13 +12402,13 @@ def share_card():
         return jsonify({'error': 'not found'}), 404
     try:
         buf = _render_share_card(u['username'], u['display_name'] or u['username'],
-                                 u['city'] or '', fmt)
+                                 u['city'] or '', fmt, variant)
     except Exception as e:
         app.logger.error(f'[share-card] {type(e).__name__}: {e}')
         return jsonify({'error': 'Kartičku se nepodařilo vytvořit.'}), 500
     return Response(buf.read(), mimetype='image/png', headers={
         'Content-Disposition':
-            f'attachment; filename="inklink-{u["username"]}-{fmt}.png"',
+            f'attachment; filename="inklink-{u["username"]}-{variant}-{fmt}.png"',
         'Cache-Control': 'no-store',
     })
 
@@ -15344,6 +15366,9 @@ def __health():
         'email_from': RESEND_FROM,
         'email_from_is_shared_sandbox': 'resend.dev' in RESEND_FROM,
         'cron_token_set': bool(RECONCILE_TOKEN),
+        # Kam chodí poptávky ze /partners. Adresa není tajná a špatně
+        # nasměrovaná schránka se jinak pozná až podle ticha.
+        'partner_inbox': PARTNER_INBOX,
         # Bez klíče se souhlas neuloží (503) a upozornění se neposílají.
         # Zvenčí to jinak nejde poznat — a nepoznat se to dá dlouho.
         'medical_key_set': bool(os.environ.get('MEDICAL_NOTES_KEY', '').strip()),

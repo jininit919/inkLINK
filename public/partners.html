@@ -18,8 +18,11 @@ body{background:var(--bg);color:var(--txt);margin:0;padding:0 0 80px;
 .wrap{max-width:560px;margin:0 auto;padding:34px 20px}
 
 nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:42px}
-.logo{font-family:'Bristol','Caveat',cursive;font-size:38px;line-height:.9;color:var(--txt);
-  text-decoration:none}
+/* Logo jako obrázek, ne jako text: font Bristol se načítá z theme.css a
+   když ho stránka nemá, spadne to na kurzívní patkové písmo. PNG je
+   spolehlivé bez ohledu na to, co se kde načte. */
+.logo{display:inline-block;line-height:0}
+.logo img{width:132px;height:auto;display:block}
 nav a.back{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);
   text-decoration:none}
 nav a.back:hover{color:var(--txt)}
@@ -60,7 +63,8 @@ footer a{color:var(--txt3)}
 <div class="wrap">
 
   <nav>
-    <a class="logo" href="/">inklink</a>
+    <a class="logo" href="/" aria-label="InkLink">
+      <img src="/img/inklink-logo.png" alt="InkLink" width="1464" height="455"></a>
     <a class="back" href="/">zpět na InkLink</a>
   </nav>
 
@@ -96,6 +100,7 @@ footer a{color:var(--txt3)}
 
   <footer>
     <a href="/">InkLink</a>
+    <a href="/partners">spolupráce</a>
     <a href="/terms">obchodní podmínky</a>
     <a href="/privacy">ochrana údajů</a>
   </footer>

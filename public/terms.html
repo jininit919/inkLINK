@@ -16,24 +16,37 @@
 <script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
 <link rel="stylesheet" href="/theme.css">
 <style>
+/* Papírová paleta jako zbytek aplikace. Byly tu zbytky staré tmavé
+   šablony — světle šedý text a černé boxy na krémovém podkladu, což se
+   nedalo číst. */
+:root{
+  --bg:#faf8f3;--bg2:#f5f1e8;--bg3:#ede8db;
+  --txt:#0a0a0a;--txt2:#2a2a2a;--txt3:#5a5a5a;
+  --border:#d4cfbf;--border2:#a8a399;--accent:#5b3fa0;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg,#faf8f3);color:#ccc;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15px;line-height:1.8;min-height:100vh}
-a{color:#c62828;text-decoration:none}
+body{background:var(--bg);color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:15.5px;line-height:1.75;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
-.page{max-width:760px;margin:0 auto;padding:48px 24px}
-.nav-back{display:inline-flex;align-items:center;gap:8px;color:#555;font-size:15px;letter-spacing:0.1em;text-decoration:none;margin-bottom:40px;transition:color 0.15s}
-.nav-back:hover{color:#c62828;text-decoration:none}
-h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:36px;letter-spacing:0.1em;color:#eee;margin-bottom:6px}
-.subtitle{font-size:14px;color:#555;letter-spacing:0.08em;margin-bottom:40px}
-h2{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.1em;color:#ddd;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid #1a1a1a}
-p{margin-bottom:12px;color:#aaa}
-ul{margin:8px 0 12px 20px;color:#aaa}
-ul li{margin-bottom:6px}
-.highlight{background:#0e0e0e;border:1px solid #1a1a1a;border-left:3px solid #8b0000;padding:14px 16px;border-radius:2px;margin:16px 0}
-.highlight p{margin:0;color:#bbb}
-.contact-box{background:#0a0a0a;border:1px solid #222;padding:20px;margin-top:16px;border-radius:3px}
-.contact-box p{margin:0;line-height:2}
-.updated{font-size:14px;color:#444;margin-top:40px;padding-top:16px;border-top:1px solid #111}
+.page{max-width:720px;margin:0 auto;padding:44px 22px 90px}
+.nav-back{display:inline-flex;align-items:center;gap:8px;color:var(--txt3);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;text-decoration:none;margin-bottom:38px;transition:color 0.15s}
+.nav-back:hover{color:var(--txt);text-decoration:none}
+h1{font-size:clamp(27px,5vw,34px);letter-spacing:-0.02em;color:var(--txt);margin-bottom:6px;line-height:1.15}
+.subtitle{font-size:12.5px;color:var(--txt3);letter-spacing:0.06em;margin-bottom:40px}
+/* Číslo článku nese hierarchii dokumentu, proto smí být výrazné. */
+h2{font-size:16px;letter-spacing:-0.005em;font-weight:600;color:var(--txt);margin:38px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+p{margin-bottom:12px;color:var(--txt2);max-width:68ch}
+ul{margin:10px 0 14px 20px;color:var(--txt2);max-width:68ch}
+ul li{margin-bottom:7px}
+strong,b{color:var(--txt);font-weight:600}
+.highlight{background:var(--bg3);border:none;border-left:3px solid var(--accent);padding:15px 18px;border-radius:0 9px 9px 0;margin:18px 0;max-width:68ch}
+.highlight p{margin:0}
+.contact-box{background:var(--bg2);border:1px solid var(--border);padding:20px 22px;margin-top:16px;border-radius:11px;max-width:68ch}
+.contact-box p{margin:0;line-height:1.95}
+.updated{font-size:13px;color:var(--txt3);margin-top:44px;padding-top:18px;border-top:1px solid var(--border)}
+.page-foot{max-width:720px;margin:0 auto;padding:0 22px 60px;display:flex;gap:20px;flex-wrap:wrap;font-size:12.5px}
+.page-foot a{color:var(--txt3)}
+.page-foot a:hover{color:var(--txt)}
 </style>
 </head>
 <body>
@@ -182,7 +195,16 @@ ul li{margin-bottom:6px}
 
   <p class="updated">Tyto obchodní podmínky byly naposledy aktualizovány dne 8. 5. 2026.</p>
 </main>
-<script src="/legal.js?v=16"></script>
+
+<!-- Patičku dřív vkládal legal.js. Ten ale zároveň vykresloval druhou
+     cookie lištu (nečitelnou, tmavou na krémovém) a psal do ní vymyšlené
+     „IČO: 00000000", které si protiřečilo se skutečným číslem výš. -->
+<footer class="page-foot">
+  <a href="/">InkLink</a>
+  <a href="/privacy">Ochrana osobních údajů</a>
+  <a href="/terms">Obchodní podmínky</a>
+  <a href="/partners">Spolupráce</a>
+</footer>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>
 <script src="/ink-trail.js?v=16"></script>
 <script src="/cookie-consent.js?v=16"></script>

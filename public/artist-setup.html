@@ -257,9 +257,19 @@ document.addEventListener('il-i18n-applied', function () {
     <div class="card">
       <h2 data-i18n="sc.title">Sdílet na Instagram</h2>
       <p class="hint" data-i18n="sc.hint">Kartička s tvým jménem a QR kódem na tvůj profil. Stáhni si ji a vystav jako příspěvek nebo story — klienti si termín rezervují sami.</p>
-      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-        <a class="btn" href="/api/me/share-card.png?format=story" download data-i18n="sc.story">Stáhnout story</a>
-        <a class="btn" href="/api/me/share-card.png?format=post" download data-i18n="sc.post">Stáhnout příspěvek</a>
+
+      <!-- Dvě situace, dvě sdělení: oznámení dává smysl jednou, když se
+           tatér přidá; výzva k rezervaci kdykoliv potom. -->
+      <p class="hint" style="margin-top:16px;color:var(--txt2)" data-i18n="sc.announceLbl">Oznámení, že jsi nově na InkLinku</p>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <a class="btn" href="/api/me/share-card.png?variant=announce&format=post" download data-i18n="sc.post">Příspěvek</a>
+        <a class="btn" href="/api/me/share-card.png?variant=announce&format=story" download data-i18n="sc.story">Story</a>
+      </div>
+
+      <p class="hint" style="margin-top:16px;color:var(--txt2)" data-i18n="sc.bookingLbl">Výzva k rezervaci</p>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <a class="btn" href="/api/me/share-card.png?variant=booking&format=post" download data-i18n="sc.post">Příspěvek</a>
+        <a class="btn" href="/api/me/share-card.png?variant=booking&format=story" download data-i18n="sc.story">Story</a>
       </div>
     </div>
 
