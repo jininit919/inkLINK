@@ -10496,7 +10496,9 @@ def instagram_callback():
     err = require_login()
     if err: return err
     if not _instagram_enabled():
-        return redirect('/artist-setup#profile?ig=unconfigured')
+        # Query MUSÍ být před fragmentem, jinak skončí v location.hash
+        # a `location.search` je prázdný — hláška se pak nezobrazí vůbec.
+        return redirect('/artist-setup?ig=unconfigured#profile')
 
     # Jednorázový state — druhé použití už neprojde.
     expected = session.pop('ig_oauth_state', None)

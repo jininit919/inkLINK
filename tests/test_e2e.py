@@ -6305,6 +6305,18 @@ class InstagramDisabledTests(unittest.TestCase):
         self.assertFalse(d['available'])
         self.assertFalse(d['connected'])
 
+    def test_callback_puts_state_in_query_not_fragment(self):
+        # Frontend čte `location.search`. Když `?ig=` skončí za mřížkou,
+        # je search prázdný a tatér nedostane žádnou hlášku — jen klikne
+        # a nic se nestane.
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        loc = self.client.get('/api/instagram/callback').headers['Location']
+        self.assertIn('?ig=unconfigured', loc)
+        path, _, frag = loc.partition('#')
+        self.assertIn('ig=unconfigured', path)
+        self.assertNotIn('ig=', frag)
+
 
 class InstagramMalformedIdTests(unittest.TestCase):
     """Nalezeno v produkci: v Railway skončilo v INSTAGRAM_APP_ID vedoucí
