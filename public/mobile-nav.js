@@ -102,47 +102,11 @@
     document.head.appendChild(s);
   }
 
-
-  const NAV_CSS = `
-  /* Horní ikony vykresluje jedna definice, ne dvacet ručně psaných.
-     Rozešly se: /my-bookings mělo na dvou stránkách zakládací ikonu
-     a na třech kalendář, hledání volalo funkci, která existuje jen ve
-     feedu, a avatar někde otevíral menu a jinde vedl rovnou na profil. */
-  #il-navicons{display:flex;gap:6px;align-items:center;margin-left:auto}
-  #il-navicons .nav-icon{width:34px;height:34px;display:flex;align-items:center;
-    justify-content:center;cursor:pointer;color:var(--txt3,#5a5a5a);border-radius:8px;
-    background:none;border:none;padding:0;transition:color .15s,background .15s;
-    text-decoration:none;position:relative}
-  #il-navicons .nav-icon:hover{color:var(--txt,#0a0a0a);background:var(--bg3,#ede8db)}
-  #il-navicons .nav-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;
-    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-  #il-navicons .nav-avatar{width:30px;height:30px;border-radius:50%;
-    background:var(--bg4,#e3ddca);border:1.5px solid var(--red,#1a1a1a);display:flex;
-    align-items:center;justify-content:center;font-size:11px;color:var(--red2,#0a0a0a);
-    cursor:pointer;margin-left:2px;letter-spacing:.05em;overflow:hidden;flex-shrink:0}
-  #il-navicons .nav-avatar img{width:100%;height:100%;object-fit:cover}
-  #il-account{position:relative}
-  #il-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--bg2,#f5f1e8);
-    border:1px solid var(--border2,#a8a399);border-radius:10px;min-width:210px;padding:7px;
-    display:none;flex-direction:column;gap:1px;box-shadow:0 16px 40px rgba(20,16,8,.18);
-    z-index:300}
-  #il-menu.open{display:flex}
-  #il-menu a,#il-menu button{padding:9px 11px;font-family:inherit;font-size:12.5px;
-    letter-spacing:.02em;color:var(--txt2,#2a2a2a);border-radius:7px;display:flex;
-    align-items:center;gap:10px;cursor:pointer;background:none;border:none;
-    text-align:left;width:100%;text-decoration:none}
-  #il-menu a:hover,#il-menu button:hover{background:var(--bg3,#ede8db);color:var(--txt,#0a0a0a)}
-  #il-menu svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;
-    stroke-linecap:round;stroke-linejoin:round;color:var(--txt3,#5a5a5a);flex-shrink:0}
-  #il-menu hr{border:none;border-top:1px solid var(--border,#d4cfbf);margin:4px 2px}
-  @media(max-width:768px){ #il-navicons{display:none !important} }
-  `;
-
   function injectCSS() {
     if (document.getElementById('il-mnav-css')) return;
     const s = document.createElement('style');
     s.id = 'il-mnav-css';
-    s.textContent = CSS + HOME_CSS + NAV_CSS;
+    s.textContent = CSS + HOME_CSS;
     document.head.appendChild(s);
   }
 
@@ -294,7 +258,7 @@
     { href: '/',             ico: 'i-home',     lbl: T('mnav.feed',     'Feed') },
     { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
     { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
-    { href: '/artist-setup', ico: 'i-grid',     lbl: T('anav.profile',  'Profile & portfolio') },
+    { href: '/artist-setup', ico: 'i-settings', lbl: T('anav.profile',  'Profile & portfolio') },
     { href: '/premium',      ico: 'i-star',     lbl: T('anav.premium',  'Premium') },
   ];
 
@@ -331,125 +295,6 @@
     if (icons) icons.insertBefore(a, icons.firstChild);
     else if (logo && logo.nextSibling) nav.insertBefore(a, logo.nextSibling);
     else nav.appendChild(a);
-  }
-
-
-  // ── Horní lišta ikon ────────────────────────────────────────────────────
-  // Řada je stejná na všech stránkách. Pod avatarem zůstává jen to, co
-  // se týká účtu — schovávat tam hledání nebo mapu by znamenalo dvě
-  // místa na totéž.
-  function navRow(me) {
-    var row = [{ id: 'il-home', href: '/', ico: 'i-home', title: T('mnav.feed', 'Feed') },
-               { id: 'il-search', search: true, ico: 'i-search', title: T('fd.navSearch', 'Search') }];
-    row.push({ id: 'il-map', href: '/map', ico: 'i-map-pin', title: T('fd.navMap', 'Map') });
-    if (me) {
-      row.push({ id: 'il-liked',    href: '/liked',    ico: 'i-heart',   title: T('fd.navLiked', 'Liked') });
-      row.push({ id: 'il-messages', href: '/messages', ico: 'i-message', title: T('fd.navMessages', 'Messages') });
-    }
-    return row.filter(function (it) { return !(it.href && isActive(it.href)); });
-  }
-
-  function menuItems(me) {
-    var out = [{ href: '/profile/' + encodeURIComponent(me.username), ico: 'i-user',
-                 lbl: T('fd.myProfile', 'My profile') },
-               { href: '/my-bookings', ico: 'i-calendar', lbl: T('fd.navBookings', 'Bookings') },
-               { href: '/map',         ico: 'i-map-pin',  lbl: T('fd.navMap', 'Map') }];
-    // Tatér má Kalendář, Výdělky, Profil a Premium v liště vedle loga —
-    // v menu by to bylo podruhé.
-    return out;
-  }
-
-  function initials(me) {
-    var n = (me.display_name || me.username || '?').trim();
-    return n.split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
-  }
-
-  function renderNavIcons(me) {
-    var nav = document.querySelector('nav');
-    if (!nav) return;
-
-    var box = document.getElementById('il-navicons');
-    if (!box) {
-      // Stránky měly vlastní `.nav-icons` s různým obsahem; ta se stává
-      // naší, ať se ikony neobjeví dvakrát.
-      box = nav.querySelector('.nav-icons');
-      if (!box) {
-        box = document.createElement('div');
-        nav.appendChild(box);
-      }
-      box.id = 'il-navicons';
-    }
-    box.className = 'nav-icons';
-
-    // Ikony psané ručně přímo do <nav> (bez kontejneru) by nám zůstaly
-    // vedle. Na premium.html bylo „nastavení" dokonce znak ⚙ místo SVG.
-    var loose = nav.querySelectorAll(':scope > .nav-icon, :scope > .nav-avatar-wrap, :scope > .nav-avatar');
-    for (var i = 0; i < loose.length; i++) {
-      if (!box.contains(loose[i])) loose[i].remove();
-    }
-    box.innerHTML =
-      navRow(me).map(function (it) {
-        var tag = it.search ? 'button' : 'a';
-        return '<' + tag + ' class="nav-icon" id="' + it.id + '"' +
-               (it.search ? ' type="button"' : ' href="' + it.href + '"') +
-               ' title="' + it.title + '" aria-label="' + it.title + '">' +
-               svgIcon(it.ico) + '</' + tag + '>';
-      }).join('') +
-      (me
-        ? '<div id="il-account"><div class="nav-avatar" id="il-avatar" title="' +
-          T('fd.navAccount', 'Account') + '">' + initials(me) + '</div>' +
-          '<div id="il-menu">' +
-          menuItems(me).map(function (m) {
-            return '<a href="' + m.href + '">' + svgIcon(m.ico) + '<span>' + m.lbl + '</span></a>';
-          }).join('') +
-          '<hr><button type="button" id="il-logout">' + svgIcon('i-log-out') +
-          '<span>' + T('fd.signOut', 'Sign out') + '</span></button></div></div>'
-        : '<a class="nav-icon" id="il-login" href="/login" title="' +
-          T('fd.signIn', 'Sign in') + '">' + svgIcon('i-user') + '</a>');
-
-    if (me && me.avatar) {
-      document.getElementById('il-avatar').innerHTML =
-        '<img src="' + me.avatar + '" alt="">';
-    }
-
-    var search = document.getElementById('il-search');
-    if (search) {
-      search.addEventListener('click', function () {
-        // Overlay má jen feed. Jinde by volání spadlo — a spadalo:
-        // ikona byla i na výdělcích a skice, kde funkce neexistuje.
-        if (typeof window.openSearchOverlay === 'function') window.openSearchOverlay();
-        else location.href = '/';
-      });
-    }
-
-    var av = document.getElementById('il-avatar');
-    if (av) {
-      av.addEventListener('click', function (e) {
-        e.stopPropagation();
-        document.getElementById('il-menu').classList.toggle('open');
-      });
-      document.addEventListener('click', function () {
-        var m = document.getElementById('il-menu');
-        if (m) m.classList.remove('open');
-      });
-    }
-
-    var out = document.getElementById('il-logout');
-    if (out) {
-      out.addEventListener('click', async function () {
-        try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
-        location.href = '/login';
-      });
-    }
-
-    // Odznak zpráv se věší na `nav a[href="/messages"]`, který jsme právě
-    // vyrobili — notifs.js se inicializuje dřív než my.
-    try {
-      if (window.InkLinkNotifs && window.InkLinkNotifs.mountMsgBadges) {
-        window.InkLinkNotifs.mountMsgBadges();
-        if (window.InkLinkNotifs.refresh) window.InkLinkNotifs.refresh();
-      }
-    } catch (e) {}
   }
 
   function injectArtistBar() {
@@ -513,12 +358,12 @@
 
   function mount() {
     try { injectCSS(); } catch (e) { console && console.error && console.error('[il-mnav] css', e); }
+    try { ensureHomeIcon(); } catch (e) { console && console.error && console.error('[il-mnav] home', e); }
 
     // 1) Render IMMEDIATELY s defaultem (= neauth/klient layout). Tím
     //    se nav objeví i kdyby /api/me selhalo nebo trvalo dlouho.
     try {
       renderNav(buildItems(null));
-      renderNavIcons(null);
       console && console.log && console.log('[il-mnav] mounted with default items');
     } catch (e) {
       console && console.error && console.error('[il-mnav] render', e);
@@ -538,14 +383,12 @@
       try {
         const me = await getMe();
         renderNav(buildItems(me));
-        renderNavIcons(me);
         if (me && me.is_artist) injectArtistBar();
         // Přepnutí jazyka musí přepsat i navigaci, ne jen obsah stránky.
         document.addEventListener('il-i18n-applied', () => {
           const bar = document.getElementById('il-abar');
           if (bar) bar.remove();
           renderNav(buildItems(me));
-          renderNavIcons(me);
           if (me && me.is_artist) injectArtistBar();
         });
         console && console.log && console.log('[il-mnav] re-rendered', { isArtist: !!(me && me.is_artist), hasMe: !!me });
