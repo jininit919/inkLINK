@@ -15448,6 +15448,15 @@ def __health():
         # Bez klíče se souhlas neuloží (503) a upozornění se neposílají.
         # Zvenčí to jinak nejde poznat — a nepoznat se to dá dlouho.
         'medical_key_set': bool(os.environ.get('MEDICAL_NOTES_KEY', '').strip()),
+        # Chybí-li jedna z dvojice, propojení Instagramu se tatérovi jen
+        # neukáže — bez chyby, bez logu. Do Metě patří INSTAGRAM app ID
+        # (to z Embed URL), ne ID Meta aplikace; ID není tajné, tak ať je
+        # vidět a nedá se splést. Redirect URI se musí PŘESNĚ shodovat
+        # s nastavením u Mety, jinak Instagram odmítne ještě před loginem.
+        'instagram_set': _instagram_enabled(),
+        'instagram_app_id': INSTAGRAM_APP_ID or None,
+        'instagram_secret_set': bool(INSTAGRAM_APP_SECRET),
+        'instagram_redirect_uri': _instagram_redirect_uri(),
         # Push bez klíčů tiše nic nedoručí; notifikace se uloží a zůstane
         # jen v aplikaci.
         'web_push_set': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
