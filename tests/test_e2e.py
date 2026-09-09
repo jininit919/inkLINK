@@ -1912,6 +1912,39 @@ class GeocodeTests(unittest.TestCase):
         self.assertIn('lat IS NOT NULL AND lng IS NOT NULL', src[i:i + 900])
 
 
+class I18nCoverageTests(unittest.TestCase):
+    """Každý použitý překladový klíč musí existovat v obou jazycích.
+
+    Chybějící klíč se nevypíše jako chyba — na stránce prostě zůstane
+    jeho název (`FD.TABFILE`), takže si toho nikdo nemusí všimnout.
+    Poloviční překlad je stejný případ: česky to sedí, anglicky svítí
+    klíč."""
+
+    def test_every_used_key_exists_in_both_languages(self):
+        import glob
+        import collections
+        with open('public/i18n.js', encoding='utf-8') as fh:
+            src = fh.read()
+        defs = collections.Counter(re.findall(r"^\s*'([a-zA-Z0-9_.]+)':", src, re.M))
+
+        used = set()
+        for path in glob.glob('public/*.html') + glob.glob('public/*.js'):
+            if path.endswith('i18n.js'):
+                continue
+            with open(path, encoding='utf-8', errors='ignore') as fh:
+                t = fh.read()
+            used |= set(re.findall(r'data-i18n(?:-attr)?="([a-zA-Z0-9_.]+)', t))
+            for fn in ('t', 'tr', 'T'):
+                used |= set(re.findall(r"\b%s\(\s*'([a-zA-Z0-9_.]+)'" % fn, t))
+
+        # Klíče skládané za běhu (`t('size.' + k)`) se takhle chytit nedají.
+        used = {k for k in used if not k.endswith('.')}
+        missing = sorted(k for k in used if k not in defs)
+        half = sorted(k for k in used if defs.get(k) == 1)
+        self.assertEqual(missing, [], 'klíč se nikde nepřekládá: %s' % missing)
+        self.assertEqual(half, [], 'klíč je jen v jednom jazyce: %s' % half)
+
+
 class InstagramReturnPathTests(unittest.TestCase):
     """Po propojení Instagramu se vracíme tam, odkud se vyšlo.
 
