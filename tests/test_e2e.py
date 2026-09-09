@@ -1912,6 +1912,73 @@ class GeocodeTests(unittest.TestCase):
         self.assertIn('lat IS NOT NULL AND lng IS NOT NULL', src[i:i + 900])
 
 
+class InstagramReturnPathTests(unittest.TestCase):
+    """Po propojení Instagramu se vracíme tam, odkud se vyšlo.
+
+    Picker bydlí ve formuláři na přidání práce, který se otevírá z feedu
+    i z profilu — bez toho by člověk skončil v nastavení. Návratová cesta
+    ale chodí z URL, takže musí být omezená na tenhle web: jinak by z ní
+    byl otevřený redirect a šlo by přes náš odkaz poslat kohokoliv jinam.
+    """
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        import server
+        self.srv = server
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_local_paths_pass_through(self):
+        for p in ('/', '/profile/ktosi', '/artist-setup#profile'):
+            self.assertEqual(self.srv._safe_return_path(p), p)
+
+    def test_external_targets_are_refused(self):
+        for p in ('//zlo.cz', 'https://zlo.cz', 'http://zlo.cz',
+                  'javascript:alert(1)', '\\\\zlo.cz', '', None):
+            self.assertEqual(self.srv._safe_return_path(p), '/artist-setup',
+                             'projde %r jako návratová cesta' % (p,))
+
+    def test_status_goes_before_the_fragment(self):
+        # Frontend čte location.search; za mřížkou by stav skončil
+        # v location.hash a nikdo by ho nenašel.
+        with self.srv.app.test_request_context('/'):
+            from flask import session
+            session['ig_oauth_return'] = '/artist-setup#profile'
+            out = self.srv._ig_return('ok')
+        self.assertEqual(out, '/artist-setup?ig=ok#profile')
+
+    def test_return_is_consumed_once(self):
+        with self.srv.app.test_request_context('/'):
+            from flask import session
+            session['ig_oauth_return'] = '/profile/x'
+            self.assertEqual(self.srv._ig_return('ok'), '/profile/x?ig=ok')
+            # Podruhé už tam nic není — jinak by se stará cesta držela
+            # a příští propojení skončilo jinde, než člověk čeká.
+            self.assertEqual(self.srv._ig_return('ok'), '/artist-setup?ig=ok')
+
+
+class StaleSessionTests(unittest.TestCase):
+    """Session ukazující na smazaný účet shodila /api/me na 500.
+
+    Volá ho úplně každá stránka, takže z toho byla rozbitá aplikace —
+    místo aby se člověk prostě odhlásil."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_missing_user_logs_out_instead_of_500(self):
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 999999          # takový účet neexistuje
+        r = self.client.get('/api/me')
+        self.assertEqual(r.status_code, 401)
+        with self.client.session_transaction() as sess:
+            self.assertNotIn('user_id', sess, 'mrtvá session zůstala')
+
+
 class SqliteOnlySyntaxTests(unittest.TestCase):
     """`INSERT OR REPLACE` a `INSERT OR IGNORE` umí jen SQLite.
 

@@ -202,6 +202,19 @@ def _instagram_enabled() -> bool:
                 and INSTAGRAM_TOKEN_KEY)
 
 
+def _safe_return_path(path: str) -> str:
+    """Cesta v rámci webu, kam se po propojení vrátit.
+
+    Jen lokální cesta: `//zlo.cz` ani `https://…` sem nesmí, jinak by se
+    z návratu stal otevřený redirect a šlo by přes něj poslat uživatele
+    kamkoliv pod naší doménou v odkazu.
+    """
+    p = (path or '').strip()
+    if not p.startswith('/') or p.startswith('//') or '\\' in p:
+        return '/artist-setup'
+    return p[:200]
+
+
 def _instagram_redirect_uri() -> str:
     # Musí se PŘESNĚ shodovat s tím, co je v nastavení aplikace u Mety —
     # jinak Instagram vrátí chybu ještě před přihlášením.
@@ -3034,6 +3047,15 @@ def me():
                                   premium_until, premium_cancel_at_period_end, currency
                            FROM users WHERE id = ?''',
                         (session['user_id'],)).fetchone()
+    if user is None:
+        # Session ukazuje na účet, který v databázi není — smazaný profil
+        # nebo obnovená záloha. Dřív to spadlo na dict(None) a uživatel
+        # dostal 500 na každé stránce, protože /api/me volá úplně všechno.
+        # Správná odpověď je odhlásit ho, ne se rozbít.
+        conn.close()
+        session.clear()
+        return jsonify({'error': 'Not logged in'}), 401
+
     push_n = conn.execute('SELECT COUNT(*) FROM push_subscriptions WHERE user_id=?',
                           (session['user_id'],)).fetchone()[0]
     conn.close()
@@ -10682,6 +10704,10 @@ def instagram_connect():
     import secrets as _secrets
     state = _secrets.token_urlsafe(24)
     session['ig_oauth_state'] = state
+    # Odkud se vyšlo. Picker bydlí ve formuláři na přidání práce, který se
+    # otevírá z feedu i z profilu — bez tohohle by se člověk po propojení
+    # vždycky ocitl v nastavení, tedy jinde, než odkud klikl.
+    session['ig_oauth_return'] = _safe_return_path(request.args.get('return'))
 
     from urllib.parse import urlencode
     return redirect(IG_AUTH_URL + '?' + urlencode({
@@ -10693,6 +10719,16 @@ def instagram_connect():
     }))
 
 
+def _ig_return(status: str) -> str:
+    """Návratová adresa se stavem. Query musí být před fragmentem —
+    za mřížkou skončí v location.hash a frontend ji nenajde."""
+    base = session.pop('ig_oauth_return', None) or '/artist-setup'
+    sep = '&' if '?' in base else '?'
+    base, _, frag = base.partition('#')
+    out = f'{base}{sep}ig={status}'
+    return out + ('#' + frag if frag else '')
+
+
 @app.route('/api/instagram/callback')
 def instagram_callback():
     err = require_login()
@@ -10700,14 +10736,14 @@ def instagram_callback():
     if not _instagram_enabled():
         # Query MUSÍ být před fragmentem, jinak skončí v location.hash
         # a `location.search` je prázdný — hláška se pak nezobrazí vůbec.
-        return redirect('/artist-setup?ig=unconfigured#profile')
+        return redirect(_ig_return('unconfigured'))
 
     # Jednorázový state — druhé použití už neprojde.
     expected = session.pop('ig_oauth_state', None)
     if not expected or request.args.get('state') != expected:
-        return redirect('/artist-setup?ig=state')
+        return redirect(_ig_return('state'))
     if request.args.get('error') or not request.args.get('code'):
-        return redirect('/artist-setup?ig=denied')
+        return redirect(_ig_return('denied'))
 
     import requests as _rq
     try:
@@ -10741,7 +10777,7 @@ def instagram_callback():
     except Exception as e:
         # Token ani kód se do logu nedostanou — jen typ chyby.
         app.logger.error(f'[instagram] connect failed: {type(e).__name__}')
-        return redirect('/artist-setup?ig=error')
+        return redirect(_ig_return('error'))
 
     expires_at = (_prague_now_naive() + timedelta(seconds=expires_in)).isoformat() if expires_in else None
     uid = session['user_id']
@@ -10753,7 +10789,7 @@ def instagram_callback():
                  (uid, ig_user_id, username, _ig_token_encrypt(token), expires_at))
     conn.commit()
     conn.close()
-    return redirect('/artist-setup?ig=ok')
+    return redirect(_ig_return('ok'))
 
 
 # ── Meta: smazání dat a odpojení aplikace ────────────────────────────────

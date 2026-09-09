@@ -571,6 +571,13 @@ Callbacky pro Metu **procházejí coming-soon bránou** (viz `_GATE_OPEN_PREFIXE
 — Meta je volá server na server bez session a za bránou by dostala 503.
 Chráněné jsou podpisem `signed_request` přes app secret, ne bránou.
 
+Import fotek bydlí ve **formuláři na přidání práce** (záložka
+„Z Instagramu"), ne v nastavení profilu — přidává se tam práce.
+V nastavení zůstal jen stav propojení, protože účet je nastavení.
+`/api/instagram/connect` bere `?return=<cesta>`, aby se člověk po
+propojení vrátil tam, odkud vyšel; cesta se omezuje na tenhle web
+(`_safe_return_path`), jinak by z ní byl otevřený redirect.
+
 Hotovo k 8. 9. 2026: rozsah `instagram_business_basic` přidaný
 (*Ready for testing*), všechny tři adresy uložené v *Business login
 settings*, produkční endpointy ověřené (POST vrací 400

@@ -57,6 +57,41 @@
 .addp-flash{padding:10px 12px;border-radius:6px;font-size:12px;letter-spacing:0.04em}
 .addp-flash.ok{background:rgba(48,209,88,0.12);color:#4dd964;border:1px solid rgba(48,209,88,0.25)}
 .addp-flash.err{background:rgba(255,69,58,0.12);color:#ff453a;border:1px solid rgba(255,69,58,0.25)}
+
+/* Záložky: nahrát ze souboru vs. vytáhnout z Instagramu. Import bydlel
+   v nastavení profilu, což je divné místo — přidává se práce, ne mění
+   nastavení. Připojení účtu zůstalo v nastavení, protože to nastavení je. */
+.addp-tabs{display:flex;gap:2px;padding:0 22px;border-bottom:1px solid var(--border);
+  background:var(--bg2);position:sticky;top:57px;z-index:4}
+.addp-tab{background:none;border:none;font-family:inherit;font-size:11px;
+  letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3);cursor:pointer;
+  padding:12px 14px;border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:color .14s,border-color .14s}
+.addp-tab:hover{color:var(--txt2)}
+.addp-tab.on{color:var(--txt);border-bottom-color:var(--txt)}
+.addp-pane{display:none}
+.addp-pane.on{display:flex;flex-direction:column;gap:16px}
+#addpIgPane{padding:20px 22px 22px}
+
+.ig-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:14px;max-height:340px;overflow-y:auto}
+.ig-tile{position:relative;aspect-ratio:1;border:2px solid transparent;border-radius:6px;overflow:hidden;cursor:pointer;background:var(--bg3)}
+.ig-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.ig-tile.on{border-color:var(--red2)}
+.ig-tile.done{opacity:0.4;cursor:default}
+.ig-tile .mark{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:var(--red2);color:var(--bg);font-size:11px;display:none;align-items:center;justify-content:center;line-height:1}
+.ig-tile.on .mark{display:flex}
+.ig-tile .lbl{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;letter-spacing:0.04em;padding:2px 4px;text-align:center}
+.ig-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.ig-user{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--txt2)}
+.ig-user svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6}
+/* Tlačítka v panelu Instagramu: styl .btn je v komponentě navázaný na
+   patičku formuláře, takže sem nedosáhne a braly by se ze stránky. */
+.ig-actions .btn{flex:0 0 auto;padding:11px 22px;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt);transition:all 0.12s;text-decoration:none;display:inline-flex;align-items:center}
+.ig-actions .btn:hover{background:var(--bg4)}
+.ig-actions .btn.btn-primary{background:var(--txt);color:var(--bg);border-color:var(--txt)}
+.ig-actions .btn.btn-primary:hover{background:var(--txt2);border-color:var(--txt2)}
+.ig-actions .btn[disabled]{opacity:0.4;cursor:not-allowed}
+.ig-actions select{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;padding:9px 12px;border-radius:6px}
   `;
 
   const HTML = `
@@ -66,7 +101,12 @@
       <h3 id="addpTitle" data-i18n="fd.addSketch">Add sketch</h3>
       <button class="addp-close" type="button" onclick="closeAddPortfolio()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
-    <form id="addPortfolioForm" class="addp-body">
+    <div class="addp-tabs" id="addpTabs">
+      <button type="button" class="addp-tab on" data-pane="file" data-i18n="fd.tabFile">From file</button>
+      <button type="button" class="addp-tab" data-pane="ig" data-i18n="fd.tabInstagram">From Instagram</button>
+    </div>
+    <div class="addp-pane on" id="addpIgPane" style="display:none"></div>
+    <form id="addPortfolioForm" class="addp-body addp-pane on" data-pane="file">
       <div class="addp-row">
         <div class="addp-field">
           <label data-i18n="fd.type">Type</label>
@@ -141,6 +181,146 @@
     return cachedMe;
   }
 
+
+  // ── Instagram ─────────────────────────────────────────────────────────
+  // Picker se přestěhoval z nastavení profilu sem. Přidává se práce, ne
+  // mění nastavení — a formulář je jediné místo, kde se práce přidává.
+  let igMedia = [], igPicked = new Set(), igLoaded = false;
+
+  function showPane(name) {
+    document.querySelectorAll('#addpTabs .addp-tab').forEach(b =>
+      b.classList.toggle('on', b.dataset.pane === name));
+    const form = document.getElementById('addPortfolioForm');
+    const ig = document.getElementById('addpIgPane');
+    form.style.display = name === 'file' ? '' : 'none';
+    ig.style.display = name === 'ig' ? '' : 'none';
+    if (name === 'ig' && !igLoaded) { igLoaded = true; loadInstagram(); }
+  }
+
+  async function loadInstagram() {
+    const box = document.getElementById('addpIgPane');
+    if (!box) return;
+    box.innerHTML = `<div class="addp-hint">${escapeHtml(t('ig.loadingMedia'))}</div>`;
+
+    let st;
+    try { st = await fetch('/api/instagram/status').then(r => r.json()); }
+    catch (_) {
+      box.innerHTML = `<div class="addp-hint">${escapeHtml(t('ig.error'))}</div>`;
+      return;
+    }
+
+    // Server bez nakonfigurované Mety — tlačítko, které skončí chybou,
+    // je horší než poctivé vysvětlení.
+    if (!st.available) {
+      box.innerHTML = `<div class="addp-hint">${escapeHtml(t('ig.unavailable'))}</div>`;
+      return;
+    }
+
+    if (!st.connected) {
+      // Po propojení se chceme vrátit sem, ne do nastavení.
+      const back = encodeURIComponent(location.pathname + location.search);
+      box.innerHTML =
+        `<div class="addp-hint">${escapeHtml(t('ig.hint'))}</div>` +
+        `<div class="addp-hint" style="margin-top:10px">${escapeHtml(t('ig.needPro'))}</div>` +
+        `<div class="ig-actions"><a class="btn btn-primary" ` +
+        `href="/api/instagram/connect?return=${back}">${escapeHtml(t('ig.connect'))}</a></div>`;
+      return;
+    }
+
+    box.innerHTML = `
+      <div class="ig-actions" style="margin-top:0">
+        <span class="ig-user"><svg><use href="#i-instagram"/></svg>
+          ${escapeHtml(t('ig.connectedAs'))} <b>@${escapeHtml(st.username || '')}</b></span>
+      </div>
+      <div class="addp-hint" style="margin-top:10px">${escapeHtml(t('ig.importedCount').replace('{n}', st.imported_count))}</div>
+      <div id="igPicker" style="margin-top:14px">
+        <div class="addp-hint">${escapeHtml(t('ig.loadingMedia'))}</div>
+      </div>`;
+    loadInstagramMedia();
+  }
+
+  async function loadInstagramMedia() {
+    const box = document.getElementById('igPicker');
+    if (!box) return;
+    let d;
+    try { d = await fetch('/api/instagram/media').then(r => r.json().then(j => ({ok: r.ok, j}))); }
+    catch (_) { box.innerHTML = `<div class="addp-hint">${escapeHtml(t('ig.error'))}</div>`; return; }
+    if (!d.ok) {
+      // Vypršelý token není chyba serveru — je to výzva k novému propojení.
+      const msg = d.j && d.j.reconnect ? t('ig.reconnect') : t('ig.error');
+      const back = encodeURIComponent(location.pathname + location.search);
+      box.innerHTML = `<div class="addp-hint">${escapeHtml(msg)}</div>
+        <div class="ig-actions"><a class="btn" href="/api/instagram/connect?return=${back}">${escapeHtml(t('ig.connect'))}</a></div>`;
+      return;
+    }
+    igMedia = d.j.media || [];
+    igPicked = new Set();
+    if (!igMedia.length) { box.innerHTML = `<div class="addp-hint">${escapeHtml(t('ig.noMedia'))}</div>`; return; }
+
+    box.innerHTML = `
+      <div class="addp-hint">${escapeHtml(t('ig.pickPhotos'))}</div>
+      <div class="ig-grid">${igMedia.map(m => `
+        <div class="ig-tile${m.imported ? ' done' : ''}" data-id="${escapeHtml(m.id)}"
+             title="${escapeHtml(m.caption || '')}">
+          <img src="${escapeHtml(m.thumb || '')}" alt="" loading="lazy">
+          <span class="mark">✓</span>
+          ${m.imported ? `<span class="lbl">${escapeHtml(t('ig.alreadyIn'))}</span>` : ''}
+        </div>`).join('')}</div>
+      <div class="ig-actions">
+        <label class="addp-hint" style="margin:0;padding:0;background:none;border:none">${escapeHtml(t('ig.importAs'))}</label>
+        <select id="igKind">
+          <option value="done">${escapeHtml(t('fd.healedWork'))}</option>
+          <option value="sketch">${escapeHtml(t('fd.sketchDesign'))}</option>
+        </select>
+        <button class="btn btn-primary" type="button" id="igImportBtn">${escapeHtml(t('ig.importBtn'))}</button>
+      </div>
+      <div id="igFlash" class="addp-hint" style="margin-top:10px;display:none"></div>`;
+
+    box.querySelectorAll('.ig-tile:not(.done)').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.id;
+        if (igPicked.has(id)) { igPicked.delete(id); el.classList.remove('on'); }
+        else { igPicked.add(id); el.classList.add('on'); }
+      });
+    });
+    document.getElementById('igImportBtn').addEventListener('click', runIgImport);
+  }
+
+  async function runIgImport() {
+    const flash = document.getElementById('igFlash');
+    const say = msg => { flash.textContent = msg; flash.style.display = ''; };
+    if (!igPicked.size) { say(t('ig.selectSome')); return; }
+    const btn = document.getElementById('igImportBtn');
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = t('ig.importing');
+    flash.style.display = 'none';
+    try {
+      const r = await fetch('/api/instagram/import', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: [...igPicked], kind: document.getElementById('igKind').value})
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'failed');
+      // Hlásíme i přeskočené a nepovedené — „naimportováno 3" u výběru pěti
+      // fotek by tatéra nechalo hádat, co se stalo se zbytkem.
+      const parts = [t('ig.importDone').replace('{n}', j.imported)];
+      if (j.skipped) parts.push(t('ig.importSkipped').replace('{n}', j.skipped));
+      if (j.failed)  parts.push(t('ig.importFailed').replace('{n}', j.failed));
+      say(parts.join(' · '));
+      if (j.imported && typeof onDone === 'function') {
+        setTimeout(() => { closeAddPortfolio(); onDone(); }, 1200);
+      } else {
+        await loadInstagram();
+      }
+    } catch (e) {
+      say(e.message || t('ig.error'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
   function ensureMounted() {
     if (mounted) return;
     mounted = true;
@@ -152,13 +332,16 @@
     wrap.innerHTML = HTML;
     while (wrap.firstChild) document.body.appendChild(wrap.firstChild);
     wire();
+    document.querySelectorAll('#addpTabs .addp-tab').forEach(b =>
+      b.addEventListener('click', () => showPane(b.dataset.pane)));
     if (window.InkLinkI18N && window.InkLinkI18N.apply) window.InkLinkI18N.apply();
   }
 
   let _addpStylesLoaded = false;
 
-  async function openAddPortfolio(kind) {
+  async function openAddPortfolio(kind, pane) {
     ensureMounted();
+    showPane(pane === 'ig' ? 'ig' : 'file');
     if (!(await isLoggedIn())) { location.href = '/login'; return; }
     // Nemusíš už být is_artist=1 — POST /api/portfolio tě na server sám
     // promuje při prvním uploadu. Dřívější gate sem pustil jen existující
@@ -284,6 +467,30 @@
     submitBtn.disabled = false;
     submitBtn.textContent = t('fd.upload');
   }
+
+  // Návrat z propojení Instagramu. Server nás pošle tam, odkud jsme vyšli,
+  // takže formulář otevřeme rovnou na té záložce a řekneme, jak to dopadlo.
+  (function () {
+    const st = new URLSearchParams(location.search).get('ig');
+    if (!st) return;
+    const run = async () => {
+      await openAddPortfolio(null, 'ig');
+      if (st !== 'ok') {
+        const map = {state: 'ig.errState', denied: 'ig.errDenied',
+                     error: 'ig.errGeneric', unconfigured: 'ig.errGeneric'};
+        const box = document.getElementById('addpIgPane');
+        if (box && map[st]) {
+          box.insertAdjacentHTML('afterbegin',
+            `<div class="addp-flash err">${escapeHtml(t(map[st]))}</div>`);
+        }
+      }
+      // Stav z adresy pryč, ať se to neopakuje při obnovení stránky.
+      history.replaceState({}, '', location.pathname + location.hash);
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run);
+    } else { run(); }
+  })();
 
   window.InkLinkAddPortfolio = {
     open: openAddPortfolio,
