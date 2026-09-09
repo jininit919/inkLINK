@@ -571,6 +571,10 @@ Callbacky pro Metu **procházejí coming-soon bránou** (viz `_GATE_OPEN_PREFIXE
 — Meta je volá server na server bez session a za bránou by dostala 503.
 Chráněné jsou podpisem `signed_request` přes app secret, ne bránou.
 
+Scénář výš odpovídá stavu po 9. 9. 2026, kdy se import přestěhoval do
+formuláře. Kdyby se cesta zase změnila, je potřeba přepsat i ho —
+reviewer podle něj kliká doslova.
+
 Import fotek bydlí ve **formuláři na přidání práce** (záložka
 „Z Instagramu"), ne v nastavení profilu — přidává se tam práce.
 V nastavení zůstal jen stav propojení, protože účet je nastavení.
@@ -611,7 +615,7 @@ dělat. Bez těchhle čtyř věcí žádost nepodávej:
 | 1 | `COMING_SOON_TOKEN` v Railway | Bez něj **neexistuje odkaz**, kterým reviewera pustíš dovnitř — uvidí waitlist. Guard je `if COMING_SOON_TOKEN and token == …`, prázdný token nepustí nikoho. |
 | 2 | Testovací účet tatéra na InkLinku | Meta chce e-mail + heslo. Účet musí mít `is_artist=1`, jinak `/artist-setup` nic neukáže. |
 | 3 | Business Verification | Chce doklady k IČO 29532744 (Matěj Gajdoš, OSVČ). Trvá to — začni dřív než zbytek. |
-| 4 | Screencast | Musí být vidět **od přihlášení až po naimportovanou fotku**, ne jen výsledek. |
+| 4 | Screencast | Musí být vidět **od přihlášení až po naimportovanou fotku**, ne jen výsledek. Jeden záběr, bez střihů — střih vypadá, že se něco schovává. |
 
 Reviewer používá **vlastní** profesionální Instagram účet — ten mu
 neposkytuješ. Tvůj testovací účet je jen vstupenka do InkLinku.
@@ -642,15 +646,19 @@ Ať jsou doslovné a klikací. Reviewer nezná produkt.
 ```
 1. Open <PREVIEW_LINK>  (this unlocks the pre-launch gate for 30 days)
 2. Log in:  <TEST_EMAIL> / <TEST_PASSWORD>
-3. Go to  https://www.inklink.club/artist-setup
-4. Scroll to the "Instagram" card
+3. You land on the feed. Click the round "+" button (bottom left on
+   desktop, centre of the bottom bar on mobile)
+4. In the dialog that opens, switch to the "From Instagram" tab
 5. Click "Connect Instagram"
 6. Log in with a professional (Business or Creator) Instagram account
-7. You return to /artist-setup — your username is shown and a grid of
-   your Instagram photos loads
-8. Tick one or more photos and click Import
+   and approve access
+7. You return to the same page and the dialog reopens on that tab —
+   your username is shown and a grid of your Instagram photos loads
+8. Tick one or more photos, choose Healed work or Sketch, click Import
 9. The photos now appear in the portfolio on your public profile
-10. "Disconnect" removes the token and the import records
+   (avatar menu → My profile)
+10. To disconnect: Artist settings → Instagram → Disconnect. This removes
+    the token and the import records
 ```
 
 `<PREVIEW_LINK>` je `https://www.inklink.club/?preview=<COMING_SOON_TOKEN>`.

@@ -390,16 +390,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
       <button class="sheet-close" type="button" onclick="closeSlotSheet()" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form id="slotSheetForm" class="sheet-body">
-      <!-- Termín = tady se dá rezervovat. Blokace = tady nejsem. -->
-      <div class="fld">
-        <div class="segmented" data-count="2">
-          <input type="radio" name="sheetMode" id="modeSlot" value="slot" checked>
-          <label for="modeSlot" data-i18n="cal.freeSlot">Open slot</label>
-          <input type="radio" name="sheetMode" id="modeBlock" value="block">
-          <label for="modeBlock" data-i18n="cal.blockTime">Time off</label>
-        </div>
-      </div>
-
+      <!-- Přepínač termín/blokace je pryč: tetuje se jen ve vypsaných
+           termínech, takže „kdy nejsem" nemá co říct. Kdo termín nevypíše,
+           je tím pádem nedostupný. Dřív založené blokace se dál zobrazují
+           a jdou smazat, ať po nich nezůstane nedostupný čas. -->
       <div class="fld">
         <label>Date</label>
         <input type="date" id="ssDate" required>
@@ -424,13 +418,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
       </div>
 
       <!-- Blokace: jen důvod, žádné ceny ani opakování -->
-      <div id="blockOnlyFields" style="display:none">
-        <div class="fld">
-          <label><span data-i18n="cal.fReason">Reason</span> <span class="hint" data-i18n="cal.reasonHint">— optional, only you see it</span></label>
-          <input type="text" id="ssBlockReason" maxlength="200" data-i18n-attr="cal.reasonPh:placeholder" placeholder="Holiday, doctor, personal">
-        </div>
-      </div>
-
       <div id="slotOnlyFields">
       <div class="row2">
         <div class="fld">
@@ -1144,18 +1131,6 @@ function setRecurDays(arr) {
   });
 }
 
-function currentSheetMode() {
-  const el = document.querySelector('input[name="sheetMode"]:checked');
-  return el ? el.value : 'slot';
-}
-
-function applySheetMode() {
-  const isBlock = currentSheetMode() === 'block';
-  document.getElementById('slotOnlyFields').style.display = isBlock ? 'none' : '';
-  document.getElementById('blockOnlyFields').style.display = isBlock ? '' : 'none';
-  document.getElementById('ssTitle').textContent = isBlock ? t('cal.blockTime') : t('cal.newSlot');
-  document.getElementById('ssSubmit').textContent = isBlock ? t('cal.saveBlock') : t('cal.save');
-}
 
 async function submitSlot() {
   const flash = document.getElementById('ssFlash');
@@ -1169,8 +1144,6 @@ async function submitSlot() {
   if (from >= to) {
     flash.innerHTML = `<div class="flash err">${t('cal.endAfterStart')}</div>`; return;
   }
-  if (currentSheetMode() === 'block') { return submitBlock(); }
-
   btn.disabled = true; btn.textContent = t('cal.saving');
   const start_at = `${date}T${from}:00`;
   const end_at = `${date}T${to}:00`;
@@ -1235,41 +1208,6 @@ async function submitSlot() {
   btn.disabled = false; btn.textContent = t('cal.save');
 }
 
-async function submitBlock() {
-  const flash = document.getElementById('ssFlash');
-  const btn = document.getElementById('ssSubmit');
-  const date = document.getElementById('ssDate').value;
-  const from = document.getElementById('ssFrom').value;
-  const to = document.getElementById('ssTo').value;
-
-  btn.disabled = true; btn.textContent = t('cal.saving');
-  try {
-    const r = await fetch('/api/blocked-time', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        start_at: `${date}T${from}:00`,
-        end_at: `${date}T${to}:00`,
-        reason: document.getElementById('ssBlockReason').value || '',
-      }),
-    });
-    if (r.ok) {
-      flash.innerHTML = `<div class="flash ok">${t('cal.okBlock')}</div>`;
-      setTimeout(() => {
-        closeSlotSheet();
-        document.getElementById('ssBlockReason').value = '';
-        loadWeek();
-      }, 700);
-    } else {
-      const j = await r.json().catch(() => ({}));
-      flash.innerHTML = `<div class="flash err">${escapeHtml(j.error || t('cal.errBlock'))}</div>`;
-    }
-  } catch {
-    flash.innerHTML = `<div class="flash err">${t('cal.errNetwork')}</div>`;
-  }
-  btn.disabled = false;
-  applySheetMode();
-}
 
 async function delSlot(id) {
   if (!confirm(t('cal.confirmDelSlot'))) return;
@@ -1284,10 +1222,6 @@ async function delBlock(id) {
   if (r.ok) await loadWeek();
   else alert((await r.json().catch(() => ({}))).error || t('cal.errDelete'));
 }
-
-document.querySelectorAll('input[name="sheetMode"]').forEach(el => {
-  el.addEventListener('change', applySheetMode);
-});
 
 init();
 </script>

@@ -92,6 +92,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 main{padding:24px 24px 80px;min-width:0;position:relative}
 .feed-toolbar{display:flex;align-items:center;justify-content:flex-start;margin-bottom:20px;font-size:11px;letter-spacing:0.1em;color:var(--txt3);gap:10px}
+/* Lišta drží jen odznaky aktivních filtrů. Když žádné nejsou, byl to
+   prázdný pruh s odsazením, který jen odtlačoval příspěvky od linky. */
+.feed-toolbar:has(#activeChips:empty){display:none}
 .feed-toolbar .left{display:flex;gap:12px;align-items:center;flex-wrap:wrap;flex:1}
 
 /* Filter button — floating top-right of main area */
@@ -328,7 +331,6 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
 
     <div class="feed-toolbar">
       <div class="left">
-        <span id="feedCount"></span>
         <div id="activeChips" style="display:flex;gap:6px"></div>
       </div>
     </div>
@@ -772,8 +774,6 @@ async function loadFeed() {
 function render() {
   const grid = document.getElementById('feed');
   const empty = document.getElementById('emptyState');
-  const count = document.getElementById('feedCount');
-  count.textContent = items.length ? `${items.length}` : '';
 
   const chips = [];
   if (styleFilter) chips.push(`<span class="chip">${escapeHtml(styleFilter)} <span class="x" onclick="setStyle('${escapeHtml(styleFilter)}', document.querySelector('.style-row.active'))">×</span></span>`);
