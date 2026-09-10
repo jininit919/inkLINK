@@ -7255,7 +7255,7 @@ class MapPageTests(unittest.TestCase):
     def test_no_half_translated_strings_come_back(self):
         page = self.page()
         for bad in ('Cancel filtr', 'Failed načíst', 'V mém okolí',
-                    'Near me</button>'):
+                    'Near me</button>', '>Open profile'):
             self.assertNotIn(bad, page, f'v mapě zase visí napevno: {bad}')
 
     def test_radius_is_not_a_native_select(self):
@@ -7274,10 +7274,28 @@ class MapPageTests(unittest.TestCase):
         j = page.index('#geoBar{')
         self.assertNotIn('var(--border2)', page[j:page.index('}', j)])
 
+    def test_popup_button_outranks_leaflet_link_colour(self):
+        """Leaflet barví odkazy uvnitř mapy vlastním `.leaflet-container a`,
+        které je specifičtější než naše třída. Bez !important svítí
+        tlačítko „Otevřít profil" modře jako nestylovaný odkaz."""
+        page = self.page()
+        i = page.index('.artist-pop-cta{')
+        css = page[i:page.index('}', i)]
+        self.assertIn('!important', css)
+
+    def test_english_review_plural_is_not_built_by_czech_rules(self):
+        """Dřív se na anglická slova pouštěla česká pravidla: „review"
+        pro jednu až čtyři, „reviews" až od pěti."""
+        with open('public/i18n.js', encoding='utf-8') as f:
+            i18n = f.read()
+        en = i18n[i18n.index("'mp.r1'", i18n.index("'mp.r1'") + 5):]
+        self.assertIn("'mp.r24':                '{n} reviews'", en)
+
     def test_map_strings_exist_in_both_languages(self):
         with open('public/i18n.js', encoding='utf-8') as f:
             i18n = f.read()
-        for key in ('mp.nearMe', 'mp.clearFilter', 'mp.n1', 'mp.n24', 'mp.n5'):
+        for key in ('mp.nearMe', 'mp.clearFilter', 'mp.n1', 'mp.n24', 'mp.n5',
+                    'mp.openProfile', 'mp.r1', 'mp.r24', 'mp.r5'):
             self.assertEqual(2, i18n.count(f"'{key}'"),
                              f'{key} chybí v jednom z jazyků')
 
