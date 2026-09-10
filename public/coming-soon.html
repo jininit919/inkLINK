@@ -50,7 +50,10 @@ body{
   display:block; margin:0 auto;
 }
 
-.wl{margin-top:40px}
+/* Rozšíření stránky kvůli popisu nesmí rozhodit waitlist — ten si drží
+   svou původní šířku, jinak se centrovaný souhlas přestane krýt se
+   zbytkem a řádky se rozsypou. */
+.wl{margin-top:40px;max-width:360px;margin-left:auto;margin-right:auto}
 .wl h1{
   font-size:15px; font-weight:500;
   letter-spacing:0.14em; text-transform:uppercase;
@@ -85,9 +88,7 @@ body{
 .wl-row button:disabled{opacity:0.45;cursor:not-allowed}
 
 .wl-msg{font-size:13px;line-height:1.6;margin-top:12px;min-height:19px;color:var(--txt3)}
-.wl-biz{font-size:11.5px;margin:14px 0 0;color:var(--txt3)}
-.wl-biz a{color:var(--txt3);text-decoration:underline}
-.wl-consent{font-size:11.5px;line-height:1.65;margin:10px 0 0;color:var(--txt3);max-width:44ch}
+.wl-consent{font-size:11.5px;line-height:1.65;margin:12px auto 0;color:var(--txt3);max-width:40ch}
 .wl-consent a{color:var(--txt3);text-decoration:underline}
 .wl-msg.err{color:#b3261e}
 .wl-done{font-size:14px;line-height:1.6;color:var(--txt2);padding:14px 0}
@@ -117,8 +118,7 @@ body{
          jediný doklad o tom, k čemu člověk adresu dal. -->
     <p class="wl-consent" id="wlConsent">We will email you once, when InkLink opens.
       Nothing else, no sharing with anyone. Unsubscribe from that email or write to us
-      and we delete your address. <a href="/privacy">Privacy</a></p>
-    <p class="wl-biz">A brand that belongs with tattooing? <a href="/partners">Let's talk</a></p>
+      and we delete your address.</p>
   </div>
 
   <div class="about">
