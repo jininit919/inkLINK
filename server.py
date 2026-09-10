@@ -2118,60 +2118,115 @@ def initials(name):
     return ''.join(p[0] for p in parts[:2]).upper() if parts else '?'
 
 
-_apns_client = None
+# ── APNs (iOS push) ───────────────────────────────────────────────────────
+# Dřív to jelo přes knihovnu `apns2`. Ta je roky neudržovaná a na Pythonu
+# 3.12 se ani nenaimportuje (`collections.Iterable` z jazyka zmizel), takže
+# push na iOS mlčky nefungoval — import je uvnitř try a chybu spolkl.
+#
+# APNs je přitom jen HTTP/2 požadavek s podepsaným tokenem, takže si ho
+# posíláme sami. Ubyla tím závislost, která se stejně nedala opravit.
+_apns_token_cache = {'jwt': None, 'at': 0}
+_APNS_TOKEN_TTL_S = 45 * 60      # platí hodinu, Apple nechce obnovu častěji než po 20 min
 
 
-def _get_apns_client():
-    """Lazy singleton — apns2 token client. Returns None if not configured."""
-    global _apns_client
-    if _apns_client is not None:
-        return _apns_client
-    if not APNS_KEY_ID or not APNS_TEAM_ID:
-        return None
-    if not APNS_KEY_PEM and not APNS_KEY_PATH:
-        return None
-    try:
-        from apns2.client import APNsClient
-        from apns2.credentials import TokenCredentials
-        import tempfile
-        # apns2 expects a file path. If we have the PEM in env, write to /tmp once.
-        key_path = APNS_KEY_PATH
-        if not key_path and APNS_KEY_PEM:
-            tmp = tempfile.NamedTemporaryFile(
-                mode='w', suffix='.p8', delete=False, prefix='apns_key_'
-            )
-            tmp.write(APNS_KEY_PEM)
-            tmp.close()
-            key_path = tmp.name
-        creds = TokenCredentials(
-            auth_key_path=key_path,
-            auth_key_id=APNS_KEY_ID,
-            team_id=APNS_TEAM_ID,
-        )
-        _apns_client = APNsClient(credentials=creds, use_sandbox=APNS_USE_SANDBOX)
-        return _apns_client
-    except Exception as e:
-        app.logger.error(f'[APNS] init failed: {e}')
-        return None
+def _b64u(raw: bytes) -> str:
+    import base64
+    return base64.urlsafe_b64encode(raw).rstrip(b'=').decode()
+
+
+def _apns_jwt() -> str:
+    """Podepsaný token pro APNs. Drží se v paměti — Apple odmítá klienty,
+    kteří si ho generují moc často."""
+    import json as _json, time as _time
+    now = int(_time.time())
+    cached = _apns_token_cache
+    if cached['jwt'] and now - cached['at'] < _APNS_TOKEN_TTL_S:
+        return cached['jwt']
+
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec, utils as _ecutils
+
+    pem = APNS_KEY_PEM
+    if not pem and APNS_KEY_PATH:
+        with open(APNS_KEY_PATH, 'r') as f:
+            pem = f.read()
+    key = serialization.load_pem_private_key(pem.encode(), password=None)
+
+    header = _b64u(_json.dumps({'alg': 'ES256', 'kid': APNS_KEY_ID},
+                               separators=(',', ':')).encode())
+    claims = _b64u(_json.dumps({'iss': APNS_TEAM_ID, 'iat': now},
+                               separators=(',', ':')).encode())
+    signing_input = f'{header}.{claims}'.encode()
+
+    der = key.sign(signing_input, ec.ECDSA(hashes.SHA256()))
+    # JWT chce podpis jako dvě 32bajtová čísla za sebou, `cryptography` ho
+    # ale vrací v DER. Bez převodu APNs odpoví 403 InvalidProviderToken.
+    r, s = _ecutils.decode_dss_signature(der)
+    sig = r.to_bytes(32, 'big') + s.to_bytes(32, 'big')
+
+    token = f'{signing_input.decode()}.{_b64u(sig)}'
+    cached['jwt'] = token
+    cached['at'] = now
+    return token
+
+
+def _apns_host() -> str:
+    return ('https://api.sandbox.push.apple.com' if APNS_USE_SANDBOX
+            else 'https://api.push.apple.com')
+
+
+# Tokeny, které Apple odmítne jako neplatné — zařízení už notifikace nechce
+# a subscription se má smazat, jinak by se to zkoušelo donekonečna.
+_APNS_DEAD_REASONS = {'BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic',
+                      'TopicDisallowed'}
 
 
 def _send_apns_one(token: str, title: str, body: str, url: str) -> tuple:
-    """Send one APNs notification. Returns (ok, should_delete)."""
-    try:
-        from apns2.payload import Payload
-        from apns2.errors import BadDeviceToken, Unregistered, DeviceTokenNotForTopic
-        client = _get_apns_client()
-        if client is None:
-            return (False, False)
-        payload = Payload(alert={'title': title, 'body': body},
-                          sound='default', badge=1, custom={'url': url})
-        client.send_notification(token, payload, topic=APNS_BUNDLE_ID)
-        return (True, False)
-    except (BadDeviceToken, Unregistered, DeviceTokenNotForTopic):
-        return (False, True)  # purge stale token
-    except Exception as e:
-        app.logger.error(f'[APNS] send failed for token …{token[-8:] if token else "?"}: {e}')
+    """Odešle jednu notifikaci na iOS. Vrací (povedlo se, smazat token)."""
+    if not (APNS_KEY_ID and APNS_TEAM_ID and (APNS_KEY_PEM or APNS_KEY_PATH)):
         return (False, False)
+    try:
+        import httpx, json as _json
+        payload = {
+            'aps': {
+                'alert': {'title': title, 'body': body},
+                'sound': 'default',
+                'badge': 1,
+            },
+            'url': url,
+        }
+        with httpx.Client(http2=True, timeout=10.0) as client:
+            resp = client.post(
+                f'{_apns_host()}/3/device/{token}',
+                content=_json.dumps(payload),
+                headers={
+                    'authorization': f'bearer {_apns_jwt()}',
+                    'apns-topic': APNS_BUNDLE_ID,
+                    'apns-push-type': 'alert',
+                    'apns-priority': '10',
+                    'content-type': 'application/json',
+                },
+            )
+        if resp.status_code == 200:
+            return (True, False)
+
+        reason = ''
+        try:
+            reason = (resp.json() or {}).get('reason', '')
+        except Exception:
+            pass
+        if resp.status_code == 410 or reason in _APNS_DEAD_REASONS:
+            return (False, True)
+        # Vypršelý token se zahodí, ať se příští odeslání podepíše znovu.
+        if reason in ('ExpiredProviderToken', 'InvalidProviderToken'):
+            _apns_token_cache['jwt'] = None
+        app.logger.error(f'[APNS] {resp.status_code} {reason or resp.text[:120]}')
+        return (False, False)
+    except Exception as e:
+        tail = token[-8:] if token else '?'
+        app.logger.error(f'[APNS] send failed for token …{tail}: {type(e).__name__}: {e}')
+        return (False, False)
+
 
 
 def send_push(user_id: int, title: str, body: str, url: str = '/'):

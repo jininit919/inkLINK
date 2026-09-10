@@ -59,23 +59,11 @@ def main():
         print('\n✗ Nastavení není kompletní: ' + ', '.join(chybi))
         return 1
 
-    # Podepsání tokenu je to jediné, co klíč opravdu prověří.
+    # Podepsání tokenu je to jediné, co klíč opravdu prověří — a jede
+    # přes stejnou funkci, jakou používá odesílání.
     print('\nPodepisuju token klíčem…')
     try:
-        import tempfile
-        from apns2.credentials import TokenCredentials
-        key_path = path
-        if not key_path:
-            tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.p8', delete=False)
-            tmp.write(pem)
-            tmp.close()
-            key_path = tmp.name
-        creds = TokenCredentials(auth_key_path=key_path,
-                                 auth_key_id=server.APNS_KEY_ID,
-                                 team_id=server.APNS_TEAM_ID)
-        token = creds.get_authorization_header(server.APNS_BUNDLE_ID)
-        if not key_path == path:
-            os.unlink(key_path)
+        token = server._apns_jwt()
     except Exception as e:
         print(f'\n✗ Klíč se nepodařilo použít: {type(e).__name__}: {e}')
         print('  Nejčastěji to znamená poškozený PEM — zkus ho do Railway')

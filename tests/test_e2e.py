@@ -7512,5 +7512,83 @@ class IosPermissionStringsTests(unittest.TestCase):
             self.assertIn('aps-environment', f.read())
 
 
+class ApnsSigningTests(unittest.TestCase):
+    """Push na iOS jel přes knihovnu `apns2`, která je roky neudržovaná
+    a na Pythonu 3.12 se ani nenaimportuje. Import byl uvnitř try, takže
+    push mlčky nefungoval a nikde se to neprojevilo.
+
+    Podepisujeme si tedy sami — a nejzrádnější je převod podpisu z DER
+    na dva holé bloky, který JWT vyžaduje. Chyba tam se projeví až tím,
+    že Apple odpoví 403, tedy zase mlčky."""
+
+    def setUp(self):
+        import tempfile
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+        self.key = ec.generate_private_key(ec.SECP256R1())
+        pem = self.key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption()).decode()
+        self.f = tempfile.NamedTemporaryFile('w', suffix='.p8', delete=False)
+        self.f.write(pem)
+        self.f.close()
+
+        import server
+        self.server = server
+        self._old = (server.APNS_KEY_ID, server.APNS_TEAM_ID,
+                     server.APNS_KEY_PEM, server.APNS_KEY_PATH)
+        server.APNS_KEY_ID = 'TESTKEYID1'
+        server.APNS_TEAM_ID = 'TESTTEAM01'
+        server.APNS_KEY_PEM = ''
+        server.APNS_KEY_PATH = self.f.name
+        server._apns_token_cache['jwt'] = None
+
+    def tearDown(self):
+        (self.server.APNS_KEY_ID, self.server.APNS_TEAM_ID,
+         self.server.APNS_KEY_PEM, self.server.APNS_KEY_PATH) = self._old
+        self.server._apns_token_cache['jwt'] = None
+        os.unlink(self.f.name)
+
+    def parts(self):
+        return self.server._apns_jwt().split('.')
+
+    def test_header_names_the_key(self):
+        import base64, json
+        h = self.parts()[0]
+        data = json.loads(base64.urlsafe_b64decode(h + '=' * (-len(h) % 4)))
+        self.assertEqual('ES256', data['alg'])
+        self.assertEqual('TESTKEYID1', data['kid'])
+
+    def test_signature_is_raw_not_der(self):
+        """DER podpis má proměnnou délku a Apple ho odmítne. JWT chce dvě
+        pevná 32bajtová čísla za sebou."""
+        import base64
+        sig = self.parts()[2]
+        raw = base64.urlsafe_b64decode(sig + '=' * (-len(sig) % 4))
+        self.assertEqual(64, len(raw), 'podpis není v holém formátu')
+
+    def test_signature_verifies_with_the_public_key(self):
+        """Přesně ta zkouška, kterou dělá Apple."""
+        import base64
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec, utils
+        h, c, sig = self.parts()
+        raw = base64.urlsafe_b64decode(sig + '=' * (-len(sig) % 4))
+        der = utils.encode_dss_signature(int.from_bytes(raw[:32], 'big'),
+                                         int.from_bytes(raw[32:], 'big'))
+        self.key.public_key().verify(der, f'{h}.{c}'.encode(),
+                                     ec.ECDSA(hashes.SHA256()))
+
+    def test_token_is_reused(self):
+        """Apple odmítá klienty, kteří si token generují moc často."""
+        self.assertEqual(self.server._apns_jwt(), self.server._apns_jwt())
+
+    def test_no_dependency_on_the_abandoned_library(self):
+        with open('requirements.txt', encoding='utf-8') as f:
+            self.assertNotIn('apns2', f.read(),
+                             'apns2 na Pythonu 3.12 neběží — nesmí se vrátit')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
