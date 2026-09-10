@@ -745,7 +745,14 @@ async function loadPushStatus() {
   dot.classList.remove('ready');
   act.innerHTML = '';
 
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+  // V nativním obalu žádný service worker ani PushManager není — push
+  // tam jede přes APNs. Bez téhle větve tu stálo „push nepodporován"
+  // a tlačítko se vůbec nenabídlo, takže si ho v aplikaci nikdo zapnout
+  // nemohl. A zvoneček v horní liště, kde je ten druhý přepínač, mobilní
+  // navigace schovává — takže tohle je jediná cesta, kudy to jde.
+  const NP = window.InkLinkNative;
+  const native = !!(NP && NP.isNative && NP.requestPushPermission);
+  if (!native && (!('serviceWorker' in navigator) || !('PushManager' in window))) {
     txt.textContent = t('as.pushUnsupported');
     return;
   }
@@ -754,13 +761,18 @@ async function loadPushStatus() {
     return;
   }
 
-  let perm = Notification.permission;
-  let subscribed = false;
-  try {
-    const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
-    const sub = await reg.pushManager.getSubscription();
-    subscribed = !!sub;
-  } catch { subscribed = false; }
+  let perm, subscribed = false;
+  if (native) {
+    perm = await NP.pushState();
+    subscribed = perm === 'granted';
+  } else {
+    perm = Notification.permission;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
+      const sub = await reg.pushManager.getSubscription();
+      subscribed = !!sub;
+    } catch { subscribed = false; }
+  }
 
   if (perm === 'denied') {
     txt.textContent = t('as.notifBlocked');
@@ -777,6 +789,13 @@ async function loadPushStatus() {
 }
 
 async function enablePush() {
+  const NP = window.InkLinkNative;
+  if (NP && NP.isNative && NP.requestPushPermission) {
+    const ok = await NP.requestPushPermission();
+    flash(ok ? t('as.pushEnabled') : t('as.pushDenied'), ok ? '' : 'err');
+    await loadPushStatus();
+    return;
+  }
   try {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { flash(t('as.pushDenied'), 'err'); await loadPushStatus(); return; }
@@ -800,6 +819,13 @@ async function enablePush() {
 }
 
 async function disablePush() {
+  const NP = window.InkLinkNative;
+  if (NP && NP.isNative && NP.disablePush) {
+    await NP.disablePush();
+    flash(t('as.pushOff'));
+    await loadPushStatus();
+    return;
+  }
   try {
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = reg && await reg.pushManager.getSubscription();

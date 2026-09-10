@@ -7634,5 +7634,41 @@ class AppIconTests(unittest.TestCase):
         self.assertEqual(self.CREAM, px)
 
 
+class PushIsReachableOnAPhoneTests(unittest.TestCase):
+    """Přepínač pushu byl na dvou místech a v aplikaci nefungovalo ani
+    jedno. Zvoneček v horní liště mobilní navigace pod 768 px schovává;
+    nastavení profilu zase hlásilo „push nepodporován", protože ve
+    WebView není service worker. Push tedy v nativní aplikaci nešel
+    zapnout vůbec — a to je jediné místo, kde na něm záleží."""
+
+    def page(self, name):
+        with open('public/' + name, encoding='utf-8') as f:
+            return f.read()
+
+    def test_settings_offer_push_inside_the_app(self):
+        """Nastavení profilu je na telefonu dostupné, na rozdíl od horní
+        lišty — takže tady ta větev být musí."""
+        src = self.page('artist-setup.html')
+        i = src.index('async function loadPushStatus')
+        self.assertIn('isNative', src[i:i + 900],
+                      'nastavení profilu v aplikaci push nenabídne')
+
+    def test_settings_enable_uses_the_native_path(self):
+        src = self.page('artist-setup.html')
+        i = src.index('async function enablePush')
+        self.assertIn('requestPushPermission', src[i:i + 500])
+
+    def test_settings_disable_uses_the_native_path(self):
+        src = self.page('artist-setup.html')
+        i = src.index('async function disablePush')
+        self.assertIn('disablePush', src[i:i + 400])
+
+    def test_bell_still_covered_too(self):
+        """Druhé místo, pro desktop."""
+        src = self.page('notifs.js')
+        i = src.index('async function enablePush')
+        self.assertIn('requestPushPermission', src[i:i + 500])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
