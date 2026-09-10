@@ -620,6 +620,23 @@ dělat. Bez těchhle čtyř věcí žádost nepodávej:
 Reviewer používá **vlastní** profesionální Instagram účet — ten mu
 neposkytuješ. Tvůj testovací účet je jen vstupenka do InkLinku.
 
+### Testovací účet a úklid před natáčením
+
+```bash
+# přihlašovací údaje pro Metu (heslo se vygeneruje a vypíše)
+cd /app && /opt/venv/bin/python scripts/review_setup.py reviewer --apply
+
+# smazat práce naimportované z Instagramu, ať jde import natočit načisto
+cd /app && /opt/venv/bin/python scripts/review_setup.py purge-ig --user <jmeno>
+cd /app && /opt/venv/bin/python scripts/review_setup.py purge-ig --user <jmeno> --apply
+```
+
+Bez `--apply` se jen vypíše, co by se stalo. `purge-ig` maže **jen** práce
+se záznamem v `instagram_imports` — ručně nahraných fotek se nedotkne.
+
+Heslo se nikde neukládá čitelně. Když se ztratí, spusť `reviewer --apply`
+znovu; vygeneruje nové a staré přepíše.
+
 ### Text do žádosti
 
 Meta chce anglicky. Konkrétně, bez marketingu — popiš data, ne přínos.

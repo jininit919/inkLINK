@@ -4700,6 +4700,10 @@ def delete_portfolio_item(item_id):
         return jsonify({'error': 'not found'}), 404
     conn.execute('DELETE FROM portfolio_likes WHERE item_id=?', (item_id,))
     conn.execute('DELETE FROM portfolio_item_sizes WHERE item_id=?', (item_id,))
+    # Bez tohohle zůstane záznam o importu a fotka se v pickeru napořád
+    # tváří jako „už naimportováno" — smazanou práci by tak nešlo z
+    # Instagramu vzít znovu.
+    conn.execute('DELETE FROM instagram_imports WHERE portfolio_item_id=?', (item_id,))
     conn.execute('DELETE FROM portfolio_items WHERE id=?', (item_id,))
     conn.commit()
     conn.close()

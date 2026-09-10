@@ -1912,6 +1912,44 @@ class GeocodeTests(unittest.TestCase):
         self.assertIn('lat IS NOT NULL AND lng IS NOT NULL', src[i:i + 900])
 
 
+class DeletedImportCanBeRetakenTests(unittest.TestCase):
+    """Smazání práce musí smazat i záznam o importu z Instagramu.
+
+    Picker značí fotky jako „už naimportováno" podle `instagram_imports`.
+    Když záznam po smazání zůstane, tvářila by se fotka jako importovaná
+    napořád a nešla by vzít znovu — přitom v portfoliu už není."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        import server
+        self.srv = server
+        _register(self.client, 'tater')
+
+    def tearDown(self):
+        os.unlink(self.db)
+
+    def test_delete_clears_the_import_record(self):
+        conn = self.srv.get_db()
+        conn.execute("INSERT INTO portfolio_items (user_id, image, caption, kind) "
+                     "VALUES (1, 'x.png', 'z instagramu', 'done')")
+        conn.commit()
+        item_id = conn.execute('SELECT id FROM portfolio_items').fetchone()['id']
+        conn.execute('INSERT INTO instagram_imports (user_id, ig_media_id, portfolio_item_id) '
+                     'VALUES (1, ?, ?)', ('IG_1', item_id))
+        conn.commit()
+        conn.close()
+
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+        r = self.client.delete('/api/portfolio/%d' % item_id)
+        self.assertEqual(r.status_code, 200)
+
+        conn = self.srv.get_db()
+        left = conn.execute('SELECT COUNT(*) AS n FROM instagram_imports').fetchone()['n']
+        conn.close()
+        self.assertEqual(left, 0, 'fotka by šla z Instagramu vzít znovu, ale nejde')
+
+
 class I18nCoverageTests(unittest.TestCase):
     """Každý použitý překladový klíč musí existovat v obou jazycích.
 
