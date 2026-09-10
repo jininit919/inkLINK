@@ -4328,6 +4328,15 @@ def update_profile():
             'error': 'Před uložením musíš odsouhlasit odpovědnostní podmínky tatéra.',
             'code': 'artist_terms_required'
         }), 400
+
+    # Bez města tatér tiše zmizí: mapa i hledání v okolí stojí na souřadnicích
+    # a ty se počítají z města (adresa je nepovinná a skládá se s ním). Prázdné
+    # město dosud znamenalo profil, který nikdo nenajde — a nic to neřeklo.
+    if not city:
+        return jsonify({
+            'error': 'Vyplň město — bez něj tě klienti nenajdou na mapě ani v okolí.',
+            'code': 'city_required'
+        }), 400
     try:
         deposit_pct = int(request.form.get('deposit_pct_default', '30'))
     except (ValueError, TypeError):

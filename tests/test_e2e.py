@@ -7124,7 +7124,8 @@ class ItemEditInTileTests(unittest.TestCase):
     u každé fotky a u importu z Instagramu to bolelo desetkrát."""
 
     def page(self):
-        return open('public/profile.html', encoding='utf-8').read()
+        with open('public/profile.html', encoding='utf-8') as f:
+            return f.read()
 
     def test_no_stacked_modal(self):
         self.assertNotIn('id="itemModal"', self.page(),
@@ -7147,8 +7148,8 @@ class ItemEditInTileTests(unittest.TestCase):
         page = self.page()
         if 'i-trash' not in page:
             self.skipTest('koš se nepoužívá')
-        self.assertIn('id="i-trash"',
-                      open('public/icons.svg', encoding='utf-8').read())
+        with open('public/icons.svg', encoding='utf-8') as f:
+            self.assertIn('id="i-trash"', f.read())
 
     def test_hidden_price_list_is_explained(self):
         """Ceník se u hotové práce jen schová, ale rezervovatelnost se řídí
@@ -7204,6 +7205,38 @@ class PublicListingsShowOnlyLiveArtistsTests(unittest.TestCase):
     def test_sitemap_does_not_offer_deleted_profiles(self):
         body = self.client.get('/sitemap.xml').get_data(as_text=True)
         self.assertNotIn('deleted-77', body)
+
+
+class ArtistNeedsCityTests(unittest.TestCase):
+    """Mapa i hledání v okolí stojí na souřadnicích a ty se počítají
+    z města. Tatér bez města se dosud uložil, nikde se neobjevil a nic
+    mu to neřeklo."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        _register(self.client, 'novytater')
+        _login(self.client, 'novytater')
+
+    def save(self, **extra):
+        data = {'display_name': 'Novy Tater', 'is_artist': '1',
+                'artist_terms_accepted': '1', **extra}
+        return self.client.post('/api/profile/update', data=data)
+
+    def test_save_without_city_is_refused(self):
+        r = self.save(city='')
+        self.assertEqual(400, r.status_code)
+        self.assertEqual('city_required', r.get_json().get('code'))
+
+    def test_save_with_city_goes_through(self):
+        self.assertEqual(200, self.save(city='Brno').status_code)
+
+    def test_form_marks_city_required(self):
+        """Záchytka na serveru je až poslední obrana — pole to má říct
+        dřív, než člověk klikne na uložit."""
+        with open('public/artist-setup.html', encoding='utf-8') as f:
+            page = f.read()
+        i = page.index('id="city"')
+        self.assertIn('required', page[i:i + 120])
 
 
 if __name__ == '__main__':
