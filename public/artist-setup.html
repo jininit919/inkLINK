@@ -184,7 +184,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   <a class="nav-logo" href="/">inklink</a>
   <a class="nav-icon" href="/" title="Back"><svg class="icon"><use href="#i-arrow-left"/></svg></a>
 </nav>
-<script src="/notifs.js?v=20"></script>
+<script src="/notifs.js?v=21"></script>
 <script src="/i18n.js?v=23"></script>
 <script src="/mobile-nav.js?v=30"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();
@@ -764,7 +764,14 @@ async function loadPushStatus() {
   let perm, subscribed = false;
   if (native) {
     perm = await NP.pushState();
-    subscribed = perm === 'granted';
+    // Přihlášení se pozná podle toho, že server má naše zařízení — ne
+    // podle systémového oprávnění. To totiž vypnutí v aplikaci nezmění
+    // (mění se jen v nastavení telefonu), takže by přepínač vypadal
+    // zaseknutý na „zapnuto".
+    try {
+      const fresh = await fetch('/api/me').then(r => r.json());
+      subscribed = (fresh && fresh.push_native || 0) > 0;
+    } catch { subscribed = false; }
   } else {
     perm = Notification.permission;
     try {
@@ -1046,6 +1053,6 @@ init();
 <script src="/icons.js?v=16"></script>
 <script src="/ink-trail.js?v=16"></script>
 <script src="/cookie-consent.js?v=17"></script>
-<script src="/native.js?v=17"></script>
+<script src="/native.js?v=18"></script>
 </body>
 </html>

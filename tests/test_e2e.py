@@ -7670,5 +7670,54 @@ class PushIsReachableOnAPhoneTests(unittest.TestCase):
         self.assertIn('requestPushPermission', src[i:i + 500])
 
 
+class PushToggleReflectsServerTests(unittest.TestCase):
+    """Stav přepínače se v aplikaci odvozoval ze systémového oprávnění.
+    Jenže to vypnutí v aplikaci nezmění — mění se jen v nastavení
+    telefonu — takže přepínač zůstal viset na „zapnuto" a vypnout to
+    nešlo. Pravdu má server: buď naše zařízení má, nebo ne."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        _register(self.client, 'pushuser')
+        _login(self.client, 'pushuser')
+
+    def test_me_reports_native_devices(self):
+        d = self.client.get('/api/me').get_json()
+        self.assertIn('push_native', d)
+        self.assertEqual(0, d['push_native'])
+
+    def test_me_counts_only_native_not_web(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO push_subscriptions (user_id, endpoint, p256dh,"
+                     " auth, provider) VALUES (1,'w','','','web')")
+        conn.execute("INSERT INTO push_subscriptions (user_id, endpoint, p256dh,"
+                     " auth, provider) VALUES (1,'a','','','apns')")
+        conn.commit(); conn.close()
+        self.assertEqual(1, self.client.get('/api/me').get_json()['push_native'])
+
+    def test_unregister_without_token_clears_native(self):
+        """Token zná jen relace, ve které přišla registrace. Po restartu
+        aplikace ho nikdo nemá — a vypnout push se musí dát i tak."""
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO push_subscriptions (user_id, endpoint, p256dh,"
+                     " auth, provider) VALUES (1,'a','','','apns')")
+        conn.execute("INSERT INTO push_subscriptions (user_id, endpoint, p256dh,"
+                     " auth, provider) VALUES (1,'w','','','web')")
+        conn.commit(); conn.close()
+        r = self.client.post('/api/native/unregister-push', json={})
+        self.assertEqual(200, r.status_code)
+        d = self.client.get('/api/me').get_json()
+        self.assertEqual(0, d['push_native'], 'nativní zařízení zůstalo')
+        self.assertEqual(1, d['push_subscriptions'], 'smazalo i webové')
+
+    def test_frontend_asks_the_server_not_the_phone(self):
+        with open('public/artist-setup.html', encoding='utf-8') as f:
+            src = f.read()
+        i = src.index('async function loadPushStatus')
+        self.assertIn('push_native', src[i:i + 1600])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

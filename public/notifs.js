@@ -280,9 +280,9 @@
     let perm, sub = null;
     if (native) {
       perm = await NP.pushState();
-      // V aplikaci je „povoleno" totéž co „zapnuto" — systém drží jen
-      // jeden stav a token se registruje hned po udělení svolení.
-      pushSubscribed = perm === 'granted';
+      // Ne podle systémového oprávnění — to vypnutí v aplikaci nezmění.
+      // Přihlášení znamená, že server naše zařízení opravdu má.
+      pushSubscribed = (me.push_native || 0) > 0;
     } else {
       perm = Notification.permission;
       try {

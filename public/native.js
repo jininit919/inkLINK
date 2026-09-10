@@ -139,14 +139,15 @@
     if (!Push) return false;
     try {
       await Push.unregister();
-      if (lastPushToken) {
-        await fetch('/api/native/unregister-push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: lastPushToken }),
-        });
-        lastPushToken = null;
-      }
+      // Token zná jen ta relace, ve které přišla registrační událost —
+      // po restartu aplikace ho nemáme. Server si v tom případě smaže
+      // všechna nativní zařízení uživatele sám.
+      await fetch('/api/native/unregister-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lastPushToken ? { token: lastPushToken } : {}),
+      });
+      lastPushToken = null;
       return true;
     } catch (e) { return false; }
   }

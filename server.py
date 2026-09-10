@@ -3137,13 +3137,20 @@ def native_unregister_push():
         return jsonify({'error': 'Not signed in'}), 401
     data = request.json or {}
     token = (data.get('token') or '').strip()
-    if not token:
-        return jsonify({'error': 'Invalid payload'}), 400
     conn = get_db()
-    conn.execute(
-        'DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?',
-        (token, session['user_id'])
-    )
+    if token:
+        conn.execute(
+            'DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?',
+            (token, session['user_id'])
+        )
+    else:
+        # Token zná jen ta relace, ve které přišla registrační událost.
+        # Po restartu aplikace ho nikdo nemá — a vypnout push se musí dát
+        # i tak. Maže se proto všechno nativní, co uživateli patří.
+        conn.execute(
+            "DELETE FROM push_subscriptions WHERE user_id = ? "
+            "AND provider IN ('apns','fcm')", (session['user_id'],)
+        )
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
@@ -3202,6 +3209,19 @@ def me():
     d['premium'] = _is_premium_from_row(d)
     d['premium_until'] = d.get('premium_until')
     d['push_subscriptions'] = push_n
+    # Zvlášť zařízení s nativní aplikací. Aplikace se podle toho pozná,
+    # jestli je přihlášená k pushi — systémové oprávnění na to nestačí,
+    # protože vypnutí v aplikaci ho nezmění a přepínač by vypadal zaseknutý.
+    try:
+        conn2 = get_db()
+        d['push_native'] = conn2.execute(
+            "SELECT COUNT(*) FROM push_subscriptions WHERE user_id=? "
+            "AND provider IN ('apns','fcm')",
+            (session['user_id'],)).fetchone()[0]
+        conn2.close()
+    except Exception as e:
+        app.logger.warning(f'[me] push_native failed: {type(e).__name__}')
+        d['push_native'] = 0
     d['push_available'] = bool(VAPID_PUBLIC_KEY)
     # Compute purge_at for UI banner — let frontend show countdown.
     if d.get('deletion_requested_at'):
