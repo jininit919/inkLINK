@@ -54,14 +54,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .leaflet-popup-content-wrapper{background:var(--bg2) !important;color:var(--txt) !important;border:1px solid var(--border2) !important;border-radius:0 !important;box-shadow:0 12px 32px rgba(20,16,8,0.14) !important;padding:0 !important}
 .leaflet-popup-tip{background:var(--bg2) !important;border:1px solid var(--border2) !important}
 .leaflet-popup-content{margin:0 !important;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif !important;width:240px !important}
-.leaflet-popup-close-button{color:var(--txt3) !important;padding:8px 10px !important}
+/* Leaflet lepí zavírací křížek do rohu na nulu, zatímco obsah bubliny má
+   odsazení — vypadalo to nesrovnaně a na delším jméně tatéra křížek ležel
+   přímo v textu. Má teď vlastní odsazení, čtvercovou plochu na kliknutí
+   a glyf uprostřed; místo pro něj drží padding hlavičky. */
+.leaflet-popup-close-button{top:8px !important;right:8px !important;width:24px !important;height:24px !important;padding:0 !important;display:flex !important;align-items:center;justify-content:center;font:400 18px/1 'Helvetica Neue','Helvetica','Arial',sans-serif !important;color:var(--txt3) !important;border-radius:4px;transition:background 0.12s,color 0.12s}
+.leaflet-popup-close-button:hover{background:var(--bg3) !important;color:var(--txt) !important}
 
 .artist-pop{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .artist-pop-head{display:flex;align-items:center;gap:10px}
 .artist-pop-avatar{width:42px;height:42px;border-radius:50%;background:var(--bg4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:14px;color:var(--red2);overflow:hidden;flex-shrink:0}
 .artist-pop-avatar img{width:100%;height:100%;object-fit:cover}
 .artist-pop-info{flex:1;min-width:0}
-.artist-pop-info .name{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.1em;color:var(--red2);line-height:1.2}
+/* Křížek zasahuje jen do prvního řádku jména, takže místo drží jméno —
+   kdyby ho držela celá hlavička, zalomil by se zbytečně i řádek s městem. */
+.artist-pop-info .name{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;letter-spacing:0.1em;color:var(--red2);line-height:1.2;padding-right:22px}
 .artist-pop-info .meta{font-size:11px;color:var(--txt3);letter-spacing:0.04em;margin-top:3px}
 .artist-pop-rating{font-size:11px;color:#e8c87f;letter-spacing:0.04em;margin-top:6px}
 .artist-pop-styles{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}

@@ -7291,6 +7291,20 @@ class MapPageTests(unittest.TestCase):
         en = i18n[i18n.index("'mp.r1'", i18n.index("'mp.r1'") + 5):]
         self.assertIn("'mp.r24':                '{n} reviews'", en)
 
+    def test_close_button_is_not_jammed_into_the_corner(self):
+        """Leaflet lepí zavírací křížek na top:0/right:0, zatímco obsah
+        bubliny má odsazení — a na delším jméně tatéra ležel křížek přímo
+        v textu."""
+        page = self.page()
+        i = page.index('.leaflet-popup-close-button{')
+        css = page[i:page.index('}', i)]
+        self.assertIn('top:8px', css)
+        self.assertIn('right:8px', css)
+        # Místo pod křížkem drží jméno, ne celá hlavička: kdyby ho držela
+        # hlavička, zalomil by se zbytečně i řádek s městem.
+        j = page.index('.artist-pop-info .name{')
+        self.assertIn('padding-right', page[j:page.index('}', j)])
+
     def test_map_strings_exist_in_both_languages(self):
         with open('public/i18n.js', encoding='utf-8') as f:
             i18n = f.read()
