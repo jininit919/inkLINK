@@ -7383,5 +7383,44 @@ class RootStaysPythonTests(unittest.TestCase):
         self.assertTrue(os.path.exists('native/package.json'))
 
 
+class NativePushIsReachableTests(unittest.TestCase):
+    """Trubka na nativní push byla hotová od začátku do konce — server ji
+    umí odeslat, `native.js` umí požádat o svolení a poslat token — jen
+    ji nikdo nikdy nezapnul. Klasická tichá díra: kód existuje, ale nic
+    ho nevolá."""
+
+    def js(self, name):
+        with open('public/' + name, encoding='utf-8') as f:
+            return f.read()
+
+    def test_something_actually_asks_for_permission(self):
+        """Bez volání zvenčí je požadavek o svolení mrtvý kód."""
+        notifs = self.js('notifs.js')
+        self.assertIn('requestPushPermission', notifs,
+                      'o svolení k pushi nikdo nežádá — push se nezapne')
+
+    def test_panel_shows_up_inside_the_app(self):
+        """V obalu není service worker ani PushManager. Bez vlastní větve
+        by se nabídka na zapnutí v aplikaci vůbec neukázala."""
+        notifs = self.js('notifs.js')
+        i = notifs.index('async function checkPushState')
+        block = notifs[i:i + 1600]
+        self.assertIn('isNative', block)
+
+    def test_turning_push_off_tells_the_server(self):
+        """Odhlášení musí smazat token na serveru, jinak notifikace chodí
+        dál i po vypnutí."""
+        self.assertIn('unregister-push', self.js('native.js'))
+
+    def test_register_endpoint_is_defined_once(self):
+        """Routa byla v serveru dvakrát. Obsluhovala ta první, druhá byla
+        mrtvá — i s limitem na počet pokusů, který tím pádem neplatil."""
+        import server
+        rules = [r for r in server.app.url_map.iter_rules()
+                 if str(r) == '/api/native/register-push']
+        self.assertEqual(1, len(rules),
+                         'endpoint na registraci pushe je definovaný víckrát')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

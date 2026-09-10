@@ -121,6 +121,36 @@
   }
 
   // ── Push notifications ────────────────────────────────────────────────────
+  // Token přijde až v události `registration`. Odhlášení ho ale potřebuje
+  // poslat serveru, jinak by na něj chodily notifikace i po vypnutí.
+  let lastPushToken = null;
+
+  async function pushState() {
+    const Push = plugin('PushNotifications');
+    if (!Push) return null;
+    try {
+      const p = await Push.checkPermissions();
+      return (p && p.receive) || 'prompt';
+    } catch (e) { return null; }
+  }
+
+  async function disablePush() {
+    const Push = plugin('PushNotifications');
+    if (!Push) return false;
+    try {
+      await Push.unregister();
+      if (lastPushToken) {
+        await fetch('/api/native/unregister-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: lastPushToken }),
+        });
+        lastPushToken = null;
+      }
+      return true;
+    } catch (e) { return false; }
+  }
+
   async function requestPushPermission() {
     const Push = plugin('PushNotifications');
     if (!Push) return false;
@@ -139,6 +169,7 @@
     const Push = plugin('PushNotifications');
     if (!Push) return;
     Push.addListener('registration', async (token) => {
+      lastPushToken = token && token.value;
       try {
         await fetch('/api/native/register-push', {
           method: 'POST',
@@ -191,7 +222,7 @@
     isNative: isCapacitor,
     platform: platform,
     haptic, share,
-    requestPushPermission, pickImage,
+    requestPushPermission, pushState, disablePush, pickImage,
   };
 
   if (isCapacitor) {

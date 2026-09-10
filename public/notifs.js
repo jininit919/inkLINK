@@ -259,7 +259,13 @@
     const btn  = document.getElementById('il-notif-push-btn');
     if (!wrap || !text || !btn) return;
 
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    // V nativním obalu žádný service worker ani PushManager není — push
+    // tam jede přes APNs/FCM. Bez téhle větve by se nabídka v aplikaci
+    // vůbec neukázala a push by si nikdo nezapnul.
+    const NP = window.InkLinkNative;
+    const native = !!(NP && NP.isNative && NP.requestPushPermission);
+    if (!native && (!('serviceWorker' in navigator) || !('PushManager' in window)
+                    || !('Notification' in window))) {
       wrap.classList.remove('show');
       return;
     }
@@ -271,17 +277,27 @@
       if (!pushAvailable) { wrap.classList.remove('show'); return; }
     } catch { wrap.classList.remove('show'); return; }
 
-    let perm = Notification.permission;
-    let sub = null;
-    try {
-      const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
-      sub = await reg.pushManager.getSubscription();
-    } catch {}
-    pushSubscribed = !!sub;
+    let perm, sub = null;
+    if (native) {
+      perm = await NP.pushState();
+      // V aplikaci je „povoleno" totéž co „zapnuto" — systém drží jen
+      // jeden stav a token se registruje hned po udělení svolení.
+      pushSubscribed = perm === 'granted';
+    } else {
+      perm = Notification.permission;
+      try {
+        const reg = await navigator.serviceWorker.getRegistration()
+                    || await navigator.serviceWorker.register('/sw.js');
+        sub = await reg.pushManager.getSubscription();
+      } catch {}
+      pushSubscribed = !!sub;
+    }
 
     wrap.classList.add('show');
     if (perm === 'denied') {
-      text.textContent = 'Notifikace zablokované — povol je v nastavení prohlížeče.';
+      text.textContent = native
+        ? 'Notifikace zablokované — povol je v nastavení telefonu.'
+        : 'Notifikace zablokované — povol je v nastavení prohlížeče.';
       btn.style.display = 'none';
       return;
     }
@@ -313,6 +329,11 @@
   }
 
   async function enablePush() {
+    const NP = window.InkLinkNative;
+    if (NP && NP.isNative && NP.requestPushPermission) {
+      await NP.requestPushPermission();
+      return;
+    }
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') return;
     const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
@@ -330,6 +351,11 @@
   }
 
   async function disablePush() {
+    const NP = window.InkLinkNative;
+    if (NP && NP.isNative && NP.disablePush) {
+      await NP.disablePush();
+      return;
+    }
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = reg && await reg.pushManager.getSubscription();
     if (sub) {
