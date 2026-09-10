@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Bez tohohle oprávnění selže registrace k pushi přímo na zařízení
+	     a APNs klíč je k ničemu. Při exportu do App Store Xcode hodnotu
+	     sám přepne na "production". -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
