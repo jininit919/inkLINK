@@ -32,13 +32,40 @@
   color:#fff;border:none;padding:5px 10px;font-family:inherit;font-size:10px;
   letter-spacing:0.12em;text-transform:uppercase;cursor:pointer}
 .tile-editbtn:hover{background:var(--red2)}
-#itemModal{position:fixed;inset:0;background:rgba(20,16,8,0.55);display:none;
-  align-items:center;justify-content:center;z-index:210;padding:20px}
-#itemModal.show{display:flex}
-#itemModal .book-card input,#itemModal .book-card select{width:100%;background:var(--bg3);
-  border:1px solid var(--border2);color:var(--txt);font-family:inherit;font-size:13px;
-  padding:10px 12px;outline:none}
-#itemModal .book-card input:focus,#itemModal .book-card select:focus{border-color:var(--red2)}
+/* Hotová práce se neprodává, takže na ní není co upravovat — druh si tatér
+   volí už při importu z Instagramu. Zbývá jediná akce, a ta má být vidět
+   na první pohled. */
+.tile-delbtn{position:absolute;bottom:6px;right:6px;z-index:3;background:rgba(0,0,0,0.72);
+  color:#fff;border:none;width:30px;height:30px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;padding:0}
+.tile-delbtn:hover{background:#a3231f}
+.tile-delbtn .icon{width:15px;height:15px}
+/* Úprava práce se děje v dlaždici, ne v okně navíc. Do čtverce se ceník
+   nevejde, takže se editovaná dlaždice roztáhne přes celou šířku mřížky.
+   Vzhled je převzatý z formuláře na přidání skici, ať to je jedna řeč. */
+.tile.editing{aspect-ratio:auto;grid-column:1/-1;cursor:default;overflow:visible;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:6px}
+.tile.editing:hover img{transform:none}
+.tile-edit{display:grid;grid-template-columns:170px 1fr;gap:20px;padding:18px;text-align:left}
+.tile.editing .tile-edit-thumb{width:170px;height:170px;object-fit:cover;
+  border-radius:6px;border:1px solid var(--border2)}
+.tile-edit-form{display:flex;flex-direction:column;gap:14px}
+.tile-edit-field{display:flex;flex-direction:column;gap:6px}
+.tile-edit-field label{font-size:10px;letter-spacing:0.14em;color:var(--txt3);
+  text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.tile-edit input[type=text],.tile-edit input[type=number],.tile-edit select{width:100%;
+  background:var(--bg3);border:1px solid var(--border2);color:var(--txt);
+  font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:13px;
+  padding:10px 14px;border-radius:6px;outline:none;transition:all 0.12s;letter-spacing:0.02em}
+.tile-edit input:focus,.tile-edit select:focus{border-color:var(--txt);background:var(--bg4);
+  box-shadow:0 0 0 3px rgba(0,0,0,0.06)}
+.tile-edit .sz-grid input{padding:8px 10px}
+.tile-edit-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.tile-edit-actions .btn.danger{margin-right:auto}
+@media(max-width:720px){
+  .tile-edit{grid-template-columns:1fr;gap:14px;padding:14px}
+  .tile.editing .tile-edit-thumb{width:100%;height:200px}
+}
 .sz-grid{display:grid;grid-template-columns:1fr 110px 90px;gap:8px;align-items:center;margin-top:6px}
 .sz-head{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3)}
 .sz-name{font-size:12px;color:var(--txt2)}
@@ -299,7 +326,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 </nav>
 <script src="/notifs.js?v=19"></script>
 <script src="/add-portfolio.js?v=4"></script>
-<script src="/i18n.js?v=18"></script>
+<script src="/i18n.js?v=19"></script>
 <script src="/mobile-nav.js?v=30"></script>
 <script src="/bookings-panel.js?v=16"></script>
 <script src="/voucher-buy.js?v=16"></script>
@@ -394,27 +421,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 
 <!-- Úprava vlastní práce. Bydlí u portfolia, protože tady ho tatér vidí;
      v artist-setup byl editor bez markupu, takže se k němu nedalo dostat. -->
-<div id="itemModal" onclick="if(event.target===this)closeItemEdit()">
-  <div class="book-card">
-    <h3 data-i18n="pf.editItemTitle">Edit item</h3>
-    <div id="im-flash"></div>
-    <label for="im-caption" data-i18n="pf.imCaption">Description / design name</label>
-    <input type="text" id="im-caption" maxlength="500" data-i18n-attr="pf.imCaptionPh:placeholder" placeholder="Wolf on the forearm">
-    <label for="im-kind" data-i18n="pf.imKind">Type</label>
-    <select id="im-kind">
-      <option value="done" data-i18n="pf.imDone">Finished work</option>
-      <option value="sketch" data-i18n="pf.imSketch">Sketch / tattoo design</option>
-    </select>
-    <label data-i18n="pf.imPriceList">Price list — optional</label>
-    <p class="ask-hint" style="margin-top:0" data-i18n="pf.imPriceListHint">Fill in only the sizes you offer. The client picks one when booking; it sets both the price and the session length.</p>
-    <div class="sz-grid" id="im-sizes"></div>
-    <div class="actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
-      <button class="btn danger" type="button" onclick="deleteItem()" style="margin-right:auto" data-i18n="pf.imDelete">Delete</button>
-      <button class="btn muted" type="button" onclick="closeItemEdit()" data-i18n="pf.askCancel">Cancel</button>
-      <button class="btn" type="button" id="im-submit" onclick="saveItemEdit()" data-i18n="pf.imSave">Save</button>
-    </div>
-  </div>
-</div>
 
 <!-- Poptávka vlastního návrhu. Nezakládá frontu ani rezervaci — složí
      strukturovanou zprávu a pošle tatérovi mail. Je to začátek rozhovoru. -->
@@ -721,7 +727,7 @@ function render() {
       const canBookThis = !profile.is_own && p.price_kc && p.estimated_hours && profile.slots.length > 0;
       const imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
       return `
-      <div class="tile" onclick="openLightbox(${i}, 0)">
+      <div class="tile" data-item="${p.id}" onclick="openLightbox(${i}, 0)">
         <img src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy">
         <div class="tile-kind">${p.kind === 'sketch' ? 'SKETCH' : 'HEALED'}</div>
         ${imgs.length > 1 ? `<div class="tile-imgs-badge">⧉ +${imgs.length - 1}</div>` : ''}
@@ -730,7 +736,9 @@ function render() {
           <div class="tile-meta">${escapeHtml(p.caption || '')}</div>
         </div>
         ${canBookThis ? `<button class="tile-bookbtn" onclick="event.stopPropagation();bookPortfolioItem(${p.id})" data-i18n="pf.bookThis">Book this design</button>` : ''}
-        ${profile.is_own ? `<button class="tile-editbtn" type="button" onclick="event.stopPropagation();openItemEdit(${p.id})" title="${tr('pf.editItem')}">${tr('pf.editItem')}</button>` : ''}
+        ${!profile.is_own ? '' : (p.kind === 'sketch'
+          ? `<button class="tile-editbtn" type="button" onclick="event.stopPropagation();openItemEdit(${p.id})" title="${tr('pf.editItem')}">${tr('pf.editItem')}</button>`
+          : `<button class="tile-delbtn" type="button" onclick="event.stopPropagation();deleteItemDirect(${p.id})" title="${tr('pf.imDelete')}" aria-label="${tr('pf.imDelete')}"><svg class="icon"><use href="#i-trash"/></svg></button>`)}
       </div>`;
     }).join('');
   }
@@ -1290,14 +1298,26 @@ let editingItemId = null;
 async function openItemEdit(id) {
   const p = (profile.portfolio || []).find(x => x.id === id);
   if (!p) return;
+  if (editingItemId !== null && editingItemId !== id) closeItemEdit();
   await loadSizes();
+  const tile = document.querySelector(`.tile[data-item="${id}"]`);
+  if (!tile) return;
   editingItemId = id;
-  document.getElementById('im-caption').value = p.caption || '';
-  document.getElementById('im-kind').value = p.kind || 'done';
-  document.getElementById('im-flash').innerHTML = '';
+  // Původní obsah dlaždice si schováme, aby ji Zrušit vrátilo beze změny
+  // a nemusela se kvůli tomu překreslovat celá mřížka.
+  tile.dataset.tileHtml = tile.innerHTML;
+  tile.classList.add('editing');
+  tile.innerHTML = itemEditCard(p);
+  document.getElementById('im-kind').addEventListener('change', syncItemPriceList);
+  syncItemPriceList();
+  tile.scrollIntoView({block: 'center', behavior: 'smooth'});
+  document.getElementById('im-caption').focus();
+}
+
+function itemEditCard(p) {
   const by = {};
   (p.sizes || []).forEach(v => { by[v.size_label] = v; });
-  document.getElementById('im-sizes').innerHTML = `
+  const sizes = `
     <div class="sz-head"></div>
     <div class="sz-head">${tr('pf.szPrice')}</div>
     <div class="sz-head">${tr('pf.szHours')}</div>` +
@@ -1306,11 +1326,60 @@ async function openItemEdit(id) {
       <input type="number" min="1" step="100" id="im-price-${k}" value="${by[k] ? by[k].price_kc : ''}">
       <input type="number" min="0.5" max="24" step="0.5" id="im-hours-${k}" value="${by[k] ? by[k].estimated_hours : ''}">
     `).join('');
-  document.getElementById('itemModal').classList.add('show');
+  return `
+    <div class="tile-edit" onclick="event.stopPropagation()">
+      <img class="tile-edit-thumb" src="/uploads/${escapeHtml(p.image)}" alt="" loading="lazy">
+      <div class="tile-edit-form">
+        <div id="im-flash"></div>
+        <div class="tile-edit-field">
+          <label for="im-caption">${tr('pf.imCaption')}</label>
+          <input type="text" id="im-caption" maxlength="500" value="${escapeHtml(p.caption || '')}"
+                 placeholder="${escapeHtml(tr('pf.imCaptionPh'))}">
+        </div>
+        <div class="tile-edit-field">
+          <label for="im-kind">${tr('pf.imKind')}</label>
+          <select id="im-kind">
+            <option value="done"${p.kind === 'sketch' ? '' : ' selected'}>${tr('pf.imDone')}</option>
+            <option value="sketch"${p.kind === 'sketch' ? ' selected' : ''}>${tr('pf.imSketch')}</option>
+          </select>
+        </div>
+        <div class="tile-edit-field" id="im-priceblock">
+          <label>${tr('pf.imPriceList')}</label>
+          <p class="ask-hint" style="margin:0">${tr('pf.imPriceListHint')}</p>
+          <div class="sz-grid" id="im-sizes">${sizes}</div>
+        </div>
+        <p class="ask-hint" id="im-kept" style="margin:0;display:none">${tr('pf.imKeptPrices')}</p>
+        <div class="tile-edit-actions">
+          <button class="btn danger" type="button" onclick="deleteItem()">${tr('pf.imDelete')}</button>
+          <button class="btn muted" type="button" onclick="closeItemEdit()">${tr('pf.askCancel')}</button>
+          <button class="btn" type="button" id="im-submit" onclick="saveItemEdit()">${tr('pf.imSave')}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Ceník má smysl jen u skici — ta je zbožím v katalogu. Hotová práce
+// (typicky fotka z Instagramu) se neprodává, tak se ceník schová a
+// z úpravy zbyde popisek, druh a smazání. Hodnoty zůstávají v poli,
+// takže přepnutím zpátky na skicu se ceník vrátí i s čísly.
+function syncItemPriceList() {
+  const sketch = document.getElementById('im-kind').value === 'sketch';
+  document.getElementById('im-priceblock').style.display = sketch ? '' : 'none';
+  // Schovaný ceník se nemaže, jen není vidět — a rezervovatelnost se řídí
+  // cenou, ne druhem. Bez téhle věty by tatér přepnul na hotovou práci,
+  // ceník by mu zmizel z očí a položka by šla dál rezervovat.
+  const keep = document.getElementById('im-kept');
+  const has = SKETCH_SIZES.some(k => (document.getElementById('im-price-' + k) || {}).value);
+  keep.style.display = (!sketch && has) ? '' : 'none';
 }
 
 function closeItemEdit() {
-  document.getElementById('itemModal').classList.remove('show');
+  const tile = document.querySelector('.tile.editing');
+  if (tile) {
+    tile.classList.remove('editing');
+    tile.innerHTML = tile.dataset.tileHtml || '';
+    delete tile.dataset.tileHtml;
+  }
   editingItemId = null;
 }
 
@@ -1341,6 +1410,15 @@ async function saveItemEdit() {
     document.getElementById('im-flash').innerHTML =
       `<div class="flash-modal err">${escapeHtml(e.message || tr('pf.bookingFailed'))}</div>`;
   }
+}
+
+// Mazání rovnou z dlaždice — u hotové práce je to jediná úprava, která
+// dává smysl, tak se kvůli ní neotvírá formulář.
+async function deleteItemDirect(id) {
+  if (!confirm(tr('pf.imConfirmDelete'))) return;
+  const r = await fetch('/api/portfolio/' + id, {method: 'DELETE'});
+  if (r.ok) location.reload();
+  else alert(tr('pf.bookingFailed'));
 }
 
 async function deleteItem() {
@@ -1726,7 +1804,7 @@ function closeLightbox() { document.getElementById('lightbox').classList.remove(
 
 window.addEventListener('keydown', e => {
   const lbOpen = document.getElementById('lightbox').classList.contains('show');
-  if (e.key === 'Escape') { closeLightbox(); closeBook(); return; }
+  if (e.key === 'Escape') { closeLightbox(); closeBook(); closeItemEdit(); return; }
   if (!lbOpen) return;
   if (e.key === 'ArrowRight') { e.preventDefault(); lbNext(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); lbPrev(); }

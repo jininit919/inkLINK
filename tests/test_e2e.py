@@ -7119,5 +7119,42 @@ class PragueTimeTests(unittest.TestCase):
         self.assertEqual(naive, aware)
 
 
+class ItemEditInTileTests(unittest.TestCase):
+    """Úprava práce se odehrává v dlaždici. Okno navíc byl krok navíc
+    u každé fotky a u importu z Instagramu to bolelo desetkrát."""
+
+    def page(self):
+        return open('public/profile.html', encoding='utf-8').read()
+
+    def test_no_stacked_modal(self):
+        self.assertNotIn('id="itemModal"', self.page(),
+                         'úprava položky se vrátila do modálního okna')
+
+    def test_tile_carries_its_item_id(self):
+        """Bez id na dlaždici nemá formulář kam naskočit."""
+        self.assertIn('data-item="${p.id}"', self.page())
+
+    def test_finished_work_offers_only_delete(self):
+        """Hotová práce se neprodává a druh si tatér volí už při importu,
+        takže na ní není co upravovat — zbývá koš."""
+        page = self.page()
+        self.assertIn('tile-delbtn', page)
+        self.assertIn('deleteItemDirect', page)
+
+    def test_trash_icon_is_in_the_sprite(self):
+        """Chybějící symbol by vykreslil prázdné tlačítko a nikdo by si
+        toho nevšiml — <use> na neexistující id mlčí."""
+        page = self.page()
+        if 'i-trash' not in page:
+            self.skipTest('koš se nepoužívá')
+        self.assertIn('id="i-trash"',
+                      open('public/icons.svg', encoding='utf-8').read())
+
+    def test_hidden_price_list_is_explained(self):
+        """Ceník se u hotové práce jen schová, ale rezervovatelnost se řídí
+        cenou, ne druhem. Tichý stav by tatéra překvapil."""
+        self.assertIn('im-kept', self.page())
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
