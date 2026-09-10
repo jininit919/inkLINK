@@ -7459,5 +7459,58 @@ class NativeFeaturesAreUsedTests(unittest.TestCase):
             self.assertIn('id="i-camera"', f.read())
 
 
+class IosPermissionStringsTests(unittest.TestCase):
+    """iOS ukáže popisek oprávnění v systémovém dotazu — a když chybí,
+    aplikaci při prvním použití funkce rovnou ukončí. Nezjistí se to
+    v prohlížeči ani v testech webu, jen na zařízení.
+
+    Test si požadavek odvozuje z toho, co web opravdu dělá, takže na
+    popisek nejde zapomenout u nové funkce."""
+
+    PLIST = 'native/ios/App/App/Info.plist'
+
+    def setUp(self):
+        if not os.path.exists(self.PLIST):
+            self.skipTest('nativní obal zatím neexistuje')
+        with open(self.PLIST, encoding='utf-8') as f:
+            self.plist = f.read()
+
+    def web_uses(self, needle):
+        import glob
+        for f in glob.glob('public/*.html') + glob.glob('public/*.js'):
+            with open(f, encoding='utf-8') as fh:
+                if needle in fh.read():
+                    return True
+        return False
+
+    def assertDescribed(self, key):
+        self.assertIn(key, self.plist,
+                      f'{key} chybí — iOS aplikaci při použití té funkce ukončí')
+        # Prázdný nebo jednoslovný popisek Apple v recenzi vrací.
+        i = self.plist.index(key)
+        chunk = self.plist[i:i + 400]
+        val = chunk.split('<string>')[1].split('</string>')[0]
+        self.assertGreater(len(val.split()), 5,
+                           f'{key} má moc krátký popisek — recenze ho vrátí')
+
+    def test_camera_is_described(self):
+        if not self.web_uses('pickImage'):
+            self.skipTest('fotoaparát se nepoužívá')
+        self.assertDescribed('NSCameraUsageDescription')
+        self.assertDescribed('NSPhotoLibraryUsageDescription')
+
+    def test_location_is_described(self):
+        if not self.web_uses('navigator.geolocation'):
+            self.skipTest('geolokace se nepoužívá')
+        self.assertDescribed('NSLocationWhenInUseUsageDescription')
+
+    def test_push_entitlement_exists(self):
+        """Bez oprávnění selže registrace k pushi přímo na zařízení."""
+        ent = 'native/ios/App/App/App.entitlements'
+        self.assertTrue(os.path.exists(ent), 'chybí .entitlements')
+        with open(ent, encoding='utf-8') as f:
+            self.assertIn('aps-environment', f.read())
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

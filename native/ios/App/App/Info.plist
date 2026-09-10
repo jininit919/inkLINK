@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Popisky oprávnění. iOS je ukáže v systémovém dotazu a bez nich
+	     aplikaci při prvním použití funkce rovnou ukončí. Zatím anglicky:
+	     recenzent App Store jim musí rozumět. Českou verzi doplníme přes
+	     InfoPlist.strings, až se budou lokalizovat i ostatní texty. -->
+	<key>NSCameraUsageDescription</key>
+	<string>InkLink uses the camera so you can photograph your work and add it straight to your portfolio.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>InkLink needs access to your photos so you can add existing pictures of your work to your portfolio.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>InkLink uses your location to show tattoo artists near you on the map. Browsing works without it.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
