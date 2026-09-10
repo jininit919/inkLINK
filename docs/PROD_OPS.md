@@ -631,7 +631,12 @@ cd /app && /opt/venv/bin/python scripts/review_setup.py purge-ig --user <jmeno>
 cd /app && /opt/venv/bin/python scripts/review_setup.py purge-ig --user <jmeno> --apply
 ```
 
-Bez `--apply` se jen vypíše, co by se stalo. `purge-ig` maže **jen** práce
+Bez `--apply` se jen vypíše, co by se stalo. Krok 9 zmiňuje feed i profil schválně: naimportovaná práce je vidět na
+obou místech a screencast nemusí ukazovat oba. Kdyby instrukce mluvily
+jen o profilu a video ukázalo feed, reviewer by hledal nesoulad, který
+tam není.
+
+`purge-ig` maže **jen** práce
 se záznamem v `instagram_imports` — ručně nahraných fotek se nedotkne.
 
 Heslo se nikde neukládá čitelně. Když se ztratí, spusť `reviewer --apply`
@@ -672,8 +677,8 @@ Ať jsou doslovné a klikací. Reviewer nezná produkt.
 7. You return to the same page and the dialog reopens on that tab —
    your username is shown and a grid of your Instagram photos loads
 8. Tick one or more photos, choose Healed work or Sketch, click Import
-9. The photos now appear in the portfolio on your public profile
-   (avatar menu → My profile)
+9. The imported photos now appear in the feed straight away, and in the
+   portfolio on your public profile (avatar menu → My profile)
 10. To disconnect: Artist settings → Instagram → Disconnect. This removes
     the token and the import records
 ```
