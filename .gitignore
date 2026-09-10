@@ -28,6 +28,7 @@ uploads/
 *.swp
 
 # Node / mobile
+native/node_modules/
 node_modules/
 mobile/node_modules/
 mobile/package-lock.json

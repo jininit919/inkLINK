@@ -1,0 +1,25 @@
+{
+  "name": "inklink-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "InkLink — nativní obal pro iOS a Android. Leží schválně v podadresáři: package.json v kořeni repa přepne Railway/Nixpacks z Pythonu na Node a server pak vůbec nenaběhne.",
+  "scripts": {
+    "sync": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 cap sync",
+    "sync:ios": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 cap sync ios",
+    "ios": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 cap open ios",
+    "android": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 cap open android"
+  },
+  "devDependencies": { "@capacitor/cli": "^7.0.0" },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/push-notifications": "^7.0.0",
+    "@capacitor/share": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "@capacitor/camera": "^7.0.0"
+  }
+}

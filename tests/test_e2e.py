@@ -7358,5 +7358,30 @@ class CronVisibilityTests(unittest.TestCase):
         self.assertIsNone(self.health().get('aftercare'))
 
 
+class RootStaysPythonTests(unittest.TestCase):
+    """Railway staví přes Nixpacks a ten hádá jazyk podle kořene repa.
+    Jakmile v kořeni leží package.json, přepne se z Pythonu na Node,
+    Flask vůbec nenaběhne a web vrací 502. Nativní obal proto bydlí
+    v native/ a v kořeni po něm nesmí zůstat stopa."""
+
+    def test_no_node_manifest_in_repo_root(self):
+        for f in ('package.json', 'package-lock.json', 'yarn.lock',
+                  'pnpm-lock.yaml', 'capacitor.config.json',
+                  'capacitor.config.ts'):
+            self.assertFalse(os.path.exists(f),
+                             f'{f} v kořeni přepne Railway na Node — patří do native/')
+
+    def test_no_node_modules_in_repo_root(self):
+        self.assertFalse(os.path.isdir('node_modules'),
+                         'node_modules v kořeni — patří do native/')
+
+    def test_native_project_lives_in_its_own_directory(self):
+        """Když native/ existuje, musí mít vlastní package.json — jinak
+        někdo obal rozdělal a půlka zůstala v kořeni."""
+        if not os.path.isdir('native'):
+            self.skipTest('nativní obal zatím neexistuje')
+        self.assertTrue(os.path.exists('native/package.json'))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
