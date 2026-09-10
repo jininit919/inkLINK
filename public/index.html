@@ -98,8 +98,14 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
 .feed-toolbar .left{display:flex;gap:12px;align-items:center;flex-wrap:wrap;flex:1}
 
 /* Filter button — floating top-right of main area */
-.filter-floating{position:absolute;top:30px;right:24px;z-index:20}
+.filter-floating{position:absolute;top:30px;right:24px;z-index:20;display:flex;gap:8px;align-items:center}
 @media(max-width:560px){.filter-floating{top:34px;right:16px}}
+/* Mapu má v horní liště ikona, jenže tu mobilní lišta pod 768 px schovává
+   a mezi jejích pět míst se mapa nevešla — na telefonu se na ni tím pádem
+   nedalo dostat vůbec. Na desktopu tohle tlačítko schované zůstává, tam
+   by bylo druhé v pořadí hned vedle toho v liště. */
+.filter-floating .filter-btn-map{display:none;padding:6px 10px;text-decoration:none}
+@media(max-width:768px){.filter-floating .filter-btn-map{display:inline-flex}}
 
 /* Add Portfolio Modal */
 
@@ -336,6 +342,8 @@ const t = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;</script>
     </div>
 
     <div class="filter-floating">
+      <a class="filter-btn filter-btn-map" href="/map" aria-label="Artist map"
+         data-i18n-attr="fd.navMap:title" title="Map"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg></a>
       <button class="filter-btn" id="filterBtn" onclick="openFilterModal()" aria-label="Filter and sort" data-i18n-attr="fd.filterSort:title" title="Filter &amp; sort">
         <svg class="icon icon-sm"><use href="#i-filter"/></svg><span class="count" id="filterCount" style="display:none">0</span>
       </button>

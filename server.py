@@ -339,6 +339,67 @@ def _unsupported_upload(e):
     return jsonify({'error': str(e) or 'Nepodporovaný soubor.'}), 400
 
 
+# Seznam existuje, aby /__health uměl říct „tenhle cron nikdy neběžel".
+# Bez něj by chybějící cron chyběl i ve výpisu, a to se nepozná.
+CRON_JOBS = ('reconcile', 'consent-nudge', 'credit-payouts', 'welcome-emails',
+             'booking-reminders', 'account-deletions', 'aftercare')
+
+
+@app.after_request
+def cron_heartbeat(resp):
+    """Zaznamená doběhnutý cron. Měření nesmí shodit běh, který se povedl,
+    proto je celé v try."""
+    try:
+        path = request.path
+        if not path.startswith('/api/cron/'):
+            return resp
+        # Zapisuje se i neúspěšný běh. Cron, který Railway spouští, ale
+        # pokaždé spadne, by se jinak nepoznal od cronu, který nikdo
+        # nespouští — a to jsou dvě úplně jiné opravy.
+        if resp.status_code in (401, 403):
+            return resp    # cizí pokus o spuštění není běh
+        job = path[len('/api/cron/'):].strip('/')
+        if job not in CRON_JOBS:
+            return resp
+        data = resp.get_json(silent=True)
+        ok = resp.status_code == 200
+        # „Něco udělal" = některé počítadlo v odpovědi je nenulové. Samotné
+        # `ok: true` nestačí, to řekne i běh, který nenašel nic k práci.
+        worked = ok and isinstance(data, dict) and any(
+            isinstance(v, int) and not isinstance(v, bool) and v > 0
+            for v in data.values())
+        now = datetime.utcnow().isoformat()
+        import json as _json
+        summary = _json.dumps(data)[:300] if isinstance(data, dict) else None
+        conn = get_db()
+        try:
+            if getattr(conn, '_pg', False):
+                conn.execute(
+                    'INSERT INTO cron_runs (job, last_run_at, last_ok_at, '
+                    'last_work_at, last_result, runs) VALUES (?,?,?,?,?,1) '
+                    'ON CONFLICT (job) DO UPDATE SET last_run_at=EXCLUDED.last_run_at, '
+                    'last_ok_at=COALESCE(EXCLUDED.last_ok_at, cron_runs.last_ok_at), '
+                    'last_work_at=COALESCE(EXCLUDED.last_work_at, cron_runs.last_work_at), '
+                    'last_result=EXCLUDED.last_result, runs=cron_runs.runs+1',
+                    (job, now, now if ok else None, now if worked else None, summary))
+            else:
+                row = conn.execute('SELECT last_ok_at, last_work_at, runs '
+                                   'FROM cron_runs WHERE job=?', (job,)).fetchone()
+                ok_at = now if ok else (row['last_ok_at'] if row else None)
+                work_at = now if worked else (row['last_work_at'] if row else None)
+                runs = (row['runs'] if row else 0) + 1
+                conn.execute('INSERT OR REPLACE INTO cron_runs '
+                             '(job, last_run_at, last_ok_at, last_work_at, '
+                             'last_result, runs) VALUES (?,?,?,?,?,?)',
+                             (job, now, ok_at, work_at, summary, runs))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        app.logger.warning(f'[cron] heartbeat failed: {type(e).__name__}')
+    return resp
+
+
 @app.after_request
 def security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
@@ -1764,6 +1825,19 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_native_push_user ON native_push_tokens(user_id)')
+
+    # Tep cronů. Ze sedmi jich bylo vidět jen pár, a i ty nepřímo přes
+    # vedlejší účinky — cron, který nemá co dělat, a cron, který Railway
+    # vůbec nespouští, vypadaly zvenčí stejně. Proto dvě značky:
+    # `last_run_at` = běh proběhl, `last_work_at` = běh něco udělal.
+    c.execute('''CREATE TABLE IF NOT EXISTS cron_runs (
+        job          TEXT PRIMARY KEY,
+        last_run_at  TIMESTAMP,
+        last_ok_at   TIMESTAMP,
+        last_work_at TIMESTAMP,
+        last_result  TEXT,
+        runs         INTEGER DEFAULT 0
+    )''')
 
     # ── Pricing module — founding flags + account credits ──────────────────
     # See pricing/config.py for rate definitions. These columns store the
@@ -8442,6 +8516,8 @@ PERSONAL_DATA = {
     # veřejný údaj o provozovně a tatér ji vyplňuje dobrovolně.
     'geo_cache':             {'link': (), 'erase': 'none',
                               'why': 'souřadnice adresy, bez vazby na osobu'},
+    'cron_runs':             {'link': (), 'erase': 'none',
+                              'why': 'kdy doběhl který cron, sedm řádků bez identity'},
     'portfolio_item_sizes':  {'link': (), 'erase': 'none',
                               'why': 'maže se s portfolio_items'},
     'booking_status_log':    {'link': (), 'erase': 'none',
@@ -15663,24 +15739,22 @@ def register_native_push():
 
 
 def _cron_last_runs():
-    """Kdy naposledy doběhl který cron. Čte se z notifikací a telemetrie,
-    ne z vlastní tabulky — cron, který zapisuje jen sám o sobě, může
-    hlásit úspěch i když nic neudělal."""
-    out = {}
+    """Kdy který cron naposledy doběhl a kdy naposledy něco udělal.
+
+    Job, který v tabulce vůbec není, se nikdy nespustil — a to je ta
+    informace, kvůli které tenhle výpis vznikl: chybějící rozvrh v Railway
+    se jinak nepozná od cronu, který jen nemá co dělat.
+    """
+    out = {j: None for j in CRON_JOBS}
     try:
         conn = get_db()
-        row = conn.execute(
-            "SELECT MAX(created_at) AS t FROM telemetry_events "
-            "WHERE event_name = 'reconciliation.completed'").fetchone()
-        out['reconcile'] = row['t'] if row else None
-        row = conn.execute(
-            "SELECT MAX(created_at) AS t FROM notifications "
-            "WHERE type = 'consent_due'").fetchone()
-        out['consent_nudge'] = row['t'] if row else None
-        row = conn.execute(
-            "SELECT MAX(created_at) AS t FROM telemetry_events "
-            "WHERE event_name = 'credit_payouts.run'").fetchone()
-        out['credit_payouts'] = row['t'] if row else None
+        for r in conn.execute('SELECT job, last_run_at, last_ok_at, '
+                              'last_work_at, runs FROM cron_runs').fetchall():
+            if r['job'] in out:
+                out[r['job']] = {'last_run': r['last_run_at'],
+                                 'last_ok': r['last_ok_at'],
+                                 'last_did_work': r['last_work_at'],
+                                 'runs': r['runs']}
         conn.close()
     except Exception:
         return {}
@@ -15705,6 +15779,9 @@ def __health():
         # chodit maily nebo běhat crony, což se pozná až na chybějící
         # rezervaci. Hodnoty nikdy neprozrazujeme, jen jestli jsou nastavené.
         'emails_enabled': bool(RESEND_API_KEY),
+        # Ověření e-mailu je za proměnnou a nic ho dál nevynucuje — kdo
+        # kód nezadá, aplikaci používá dál. Ať je aspoň vidět, jestli běží.
+        'verify_email': os.environ.get('VERIFY_EMAIL', '0') == '1',
         # Výchozí onboarding@resend.dev doručuje JEN majiteli účtu Resend.
         # Klientům z něj nikdy nic nepřijde a nikde to nezahlásí.
         'email_from': RESEND_FROM,

@@ -7314,5 +7314,49 @@ class MapPageTests(unittest.TestCase):
                              f'{key} chybí v jednom z jazyků')
 
 
+class CronVisibilityTests(unittest.TestCase):
+    """Ze sedmi cronů byly vidět tři, a i ty nepřímo přes vedlejší účinky.
+    Cron, který nemá co dělat, cron, který pokaždé spadne, a cron, který
+    Railway vůbec nespouští, vypadaly zvenčí stejně — přitom každý z nich
+    znamená jinou opravu."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+        self.hdr = {'X-Cron-Token': 'test-token'}
+
+    def health(self):
+        return self.client.get('/__health').get_json().get('cron_last_run') or {}
+
+    def test_every_cron_is_listed_even_before_it_runs(self):
+        """Chybějící job by ve výpisu chyběl, a to se nepozná."""
+        import server
+        listed = self.health()
+        for job in server.CRON_JOBS:
+            self.assertIn(job, listed)
+
+    def test_never_run_cron_reads_as_never_run(self):
+        self.assertIsNone(self.health().get('aftercare'))
+
+    def test_run_is_recorded(self):
+        self.client.get('/api/cron/aftercare', headers=self.hdr)
+        beat = self.health().get('aftercare')
+        self.assertIsNotNone(beat, 'běh cronu se nezaznamenal')
+        self.assertTrue(beat['last_run'])
+        self.assertEqual(1, beat['runs'])
+
+    def test_quiet_run_is_not_counted_as_work(self):
+        """Prázdná databáze znamená, že cron nemá co dělat. To není totéž
+        co „udělal práci" — jinak by mlčení vypadalo jako úspěch."""
+        self.client.get('/api/cron/booking-reminders', headers=self.hdr)
+        beat = self.health().get('booking-reminders')
+        self.assertTrue(beat['last_ok'])
+        self.assertIsNone(beat['last_did_work'])
+
+    def test_unauthorised_attempt_is_not_a_run(self):
+        """Cizí zaťukání na endpoint není běh cronu."""
+        self.client.get('/api/cron/aftercare')
+        self.assertIsNone(self.health().get('aftercare'))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
