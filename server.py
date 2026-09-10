@@ -2350,7 +2350,8 @@ def sitemap():
             (SELECT MAX(created_at) FROM portfolio_items WHERE user_id = users.id),
             users.created_at
         ) AS updated
-        FROM users WHERE is_artist = 1 AND username IS NOT NULL
+        FROM users WHERE is_artist = 1 AND deleted_at IS NULL
+                         AND username IS NOT NULL
         ORDER BY updated DESC
         LIMIT 5000
     ''').fetchall()
@@ -2851,13 +2852,17 @@ def browse_artists():
         like = f'%{q}%'
         rows = conn.execute('''
             SELECT id, username, display_name, city, genres, avatar, emoji
-            FROM users WHERE display_name LIKE ? OR username LIKE ? OR city LIKE ? OR genres LIKE ?
+            FROM users
+            WHERE is_artist = 1 AND deleted_at IS NULL
+              AND (display_name LIKE ? OR username LIKE ? OR city LIKE ? OR genres LIKE ?)
             ORDER BY display_name ASC LIMIT ? OFFSET ?
         ''', (like, like, like, like, limit, offset)).fetchall()
     else:
         rows = conn.execute('''
             SELECT id, username, display_name, city, genres, avatar, emoji
-            FROM users ORDER BY id DESC LIMIT ? OFFSET ?
+            FROM users
+            WHERE is_artist = 1 AND deleted_at IS NULL
+            ORDER BY id DESC LIMIT ? OFFSET ?
         ''', (limit, offset)).fetchall()
     conn.close()
     return jsonify([{
@@ -2882,7 +2887,7 @@ def global_search():
                (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
                (SELECT COUNT(*)   FROM reviews WHERE artist_id = users.id) AS rating_count
         FROM users
-        WHERE is_artist = 1
+        WHERE is_artist = 1 AND deleted_at IS NULL
           AND (display_name LIKE ? OR username LIKE ? OR city LIKE ?
                OR studio LIKE ? OR styles LIKE ?)
         ORDER BY rating_count DESC, display_name ASC
@@ -2894,7 +2899,7 @@ def global_search():
                u.username, u.display_name, u.avatar
         FROM portfolio_items p
         JOIN users u ON u.id = p.user_id
-        WHERE u.is_artist = 1
+        WHERE u.is_artist = 1 AND u.deleted_at IS NULL
           AND (p.caption LIKE ? OR p.styles LIKE ? OR u.display_name LIKE ? OR u.styles LIKE ?)
         ORDER BY p.created_at DESC
         LIMIT 8
@@ -3112,7 +3117,7 @@ def feed():
                EXISTS(SELECT 1 FROM portfolio_likes WHERE user_id = ? AND item_id = p.id) AS liked
         FROM portfolio_items p
         JOIN users u ON p.user_id = u.id
-        WHERE u.is_artist = 1
+        WHERE u.is_artist = 1 AND u.deleted_at IS NULL
     '''
 
     if city_filter and city_filter != 'All':
@@ -3755,7 +3760,7 @@ def suggested():
         SELECT u.id, u.username, u.display_name, u.city, u.genres, u.avatar,
                EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = u.id) AS following
         FROM users u
-        WHERE u.id != ?
+        WHERE u.id != ? AND u.is_artist = 1 AND u.deleted_at IS NULL
         ORDER BY RANDOM()
         LIMIT 5
     ''', (session['user_id'], session['user_id'])).fetchall()
@@ -3801,7 +3806,9 @@ def profile_page(username):
     conn = get_db()
     u = conn.execute('''SELECT id, display_name, username, city, studio, bio, avatar, styles,
                                is_artist, created_at
-                        FROM users WHERE username = ?''', (username,)).fetchone()
+                        FROM users
+                        WHERE username = ? AND deleted_at IS NULL''',
+                     (username,)).fetchone()
     review_agg = None
     if u:
         review_agg = conn.execute(
@@ -3877,7 +3884,9 @@ def book_showcase_page(username):
     conn = get_db()
     u = conn.execute('''SELECT id, display_name, username, city, studio, bio, avatar, styles,
                                is_artist, instagram, hourly_rate_min, hourly_rate_max, created_at
-                        FROM users WHERE username = ?''', (username,)).fetchone()
+                        FROM users
+                        WHERE username = ? AND deleted_at IS NULL''',
+                     (username,)).fetchone()
     if not u or not u['is_artist']:
         conn.close()
         # Fallback: client profil → redirect na regular /profile/
@@ -4035,7 +4044,9 @@ def get_profile(username):
                                deposit_pct_default, hourly_rate_min, hourly_rate_max,
                                default_payment_mode,
                                stripe_charges_enabled, currency
-                        FROM users WHERE username = ?''', (username,)).fetchone()
+                        FROM users
+                        WHERE username = ? AND deleted_at IS NULL''',
+                     (username,)).fetchone()
     if not u:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
@@ -6438,7 +6449,7 @@ def list_styles():
 def artists_similar(username):
     """Doporučení podobných tatérů — pro 'Lidé také navštívili' sekci na profilu."""
     conn = get_db()
-    target = conn.execute('SELECT id, city, styles FROM users WHERE username = ? AND is_artist = 1',
+    target = conn.execute('SELECT id, city, styles FROM users WHERE username = ? AND is_artist = 1 AND deleted_at IS NULL',
                           (username,)).fetchone()
     if not target:
         conn.close()
@@ -6453,7 +6464,7 @@ def artists_similar(username):
                (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
                (SELECT COUNT(*)    FROM reviews WHERE artist_id = users.id) AS rating_count
         FROM users
-        WHERE is_artist = 1 AND id != ?
+        WHERE is_artist = 1 AND deleted_at IS NULL AND id != ?
         ORDER BY rating_count DESC, rating_avg DESC, id DESC
         LIMIT 200
     ''', (target['id'],)).fetchall()
@@ -6496,7 +6507,7 @@ def artists_map():
                (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
                (SELECT COUNT(*)    FROM reviews WHERE artist_id = users.id) AS rating_count
         FROM users
-        WHERE is_artist = 1
+        WHERE is_artist = 1 AND deleted_at IS NULL
           AND lat IS NOT NULL AND lng IS NOT NULL
         ORDER BY display_name ASC
     ''').fetchall()
@@ -6566,7 +6577,7 @@ def artists_near():
                (SELECT AVG(rating) FROM reviews WHERE artist_id = users.id) AS rating_avg,
                (SELECT COUNT(*)    FROM reviews WHERE artist_id = users.id) AS rating_count
         FROM users
-        WHERE is_artist = 1
+        WHERE is_artist = 1 AND deleted_at IS NULL
           AND lat IS NOT NULL AND lng IS NOT NULL
           AND lat BETWEEN ? AND ?
           AND lng BETWEEN ? AND ?

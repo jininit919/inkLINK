@@ -7156,5 +7156,55 @@ class ItemEditInTileTests(unittest.TestCase):
         self.assertIn('im-kept', self.page())
 
 
+class PublicListingsShowOnlyLiveArtistsTests(unittest.TestCase):
+    """Veřejný adresář se ptal `FROM users` bez filtru, takže mezi tatéry
+    vypisoval i klienty. A smazaný účet zůstával všude viset jako
+    „Smazaný účet", protože mazání ruší jméno, ale ne příznak tatéra."""
+
+    def setUp(self):
+        import sqlite3
+        self.client, self.db = _fresh_client()
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash, "
+                     "email, is_artist, city) VALUES "
+                     "('zivy', 'Zivy Tater', 'x', 'z@t.cz', 1, 'Praha')")
+        conn.execute("INSERT INTO users (username, display_name, password_hash, "
+                     "email, is_artist, city) VALUES "
+                     "('klient', 'Klient', 'x', 'k@t.cz', 0, 'Praha')")
+        conn.execute("INSERT INTO users (username, display_name, password_hash, "
+                     "email, is_artist, city, deleted_at) VALUES "
+                     "('deleted-77', 'Smazaný účet', 'x', '', 1, '', "
+                     "'2026-01-01T00:00:00')")
+        conn.commit()
+        conn.close()
+
+    def listed(self):
+        return [a['username'] for a in self.client.get('/api/artists').get_json()]
+
+    def test_live_artist_is_listed(self):
+        self.assertIn('zivy', self.listed())
+
+    def test_client_is_not_listed_among_artists(self):
+        self.assertNotIn('klient', self.listed())
+
+    def test_deleted_account_is_not_listed(self):
+        self.assertNotIn('deleted-77', self.listed())
+
+    def test_search_skips_deleted_account(self):
+        found = self.client.get('/api/search?q=Smaz').get_json()
+        self.assertNotIn('deleted-77',
+                         [a['username'] for a in found.get('artists', [])])
+
+    def test_deleted_profile_is_not_served(self):
+        """Adresa smazaného účtu je uhodnutelná (`deleted-<id>`), takže
+        profil sám musí mlčet, ne jen zmizet z výpisu."""
+        self.assertNotEqual(200,
+                            self.client.get('/api/profile/deleted-77').status_code)
+
+    def test_sitemap_does_not_offer_deleted_profiles(self):
+        body = self.client.get('/sitemap.xml').get_data(as_text=True)
+        self.assertNotIn('deleted-77', body)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
