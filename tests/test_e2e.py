@@ -7239,5 +7239,48 @@ class ArtistNeedsCityTests(unittest.TestCase):
         self.assertIn('required', page[i:i + 120])
 
 
+class MapPageTests(unittest.TestCase):
+    """Mapa byla jediná stránka bez i18n. Texty tam vznikaly napevno,
+    a proto se míchaly jazyky uprostřed věty — „1 artist", ale
+    „3 tatéři"; tlačítko říkalo „Near me" a po vypnutí filtru
+    „V mém okolí"."""
+
+    def page(self):
+        with open('public/map.html', encoding='utf-8') as f:
+            return f.read()
+
+    def test_map_loads_the_translator(self):
+        self.assertIn('i18n.js', self.page())
+
+    def test_no_half_translated_strings_come_back(self):
+        page = self.page()
+        for bad in ('Cancel filtr', 'Failed načíst', 'V mém okolí',
+                    'Near me</button>'):
+            self.assertNotIn(bad, page, f'v mapě zase visí napevno: {bad}')
+
+    def test_radius_is_not_a_native_select(self):
+        """Nativní rozbalovací nabídka byla na tmavém panelu cizí těleso."""
+        page = self.page()
+        self.assertNotIn('id="geoRadius"', page)
+        self.assertIn('geo-radius', page)
+
+    def test_floating_panels_carry_their_own_dark_colours(self):
+        """Panely leží na tmavé mapě. Dokud braly barvu textu ze světlého
+        motivu webu, byl text tmavý na tmavém a přečetl se až po najetí
+        myší."""
+        page = self.page()
+        i = page.index('#mapInfo{')
+        self.assertNotIn('var(--txt2)', page[i:page.index('}', i)])
+        j = page.index('#geoBar{')
+        self.assertNotIn('var(--border2)', page[j:page.index('}', j)])
+
+    def test_map_strings_exist_in_both_languages(self):
+        with open('public/i18n.js', encoding='utf-8') as f:
+            i18n = f.read()
+        for key in ('mp.nearMe', 'mp.clearFilter', 'mp.n1', 'mp.n24', 'mp.n5'):
+            self.assertEqual(2, i18n.count(f"'{key}'"),
+                             f'{key} chybí v jednom z jazyků')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

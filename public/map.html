@@ -69,16 +69,38 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .artist-pop-cta{display:block;text-align:center;padding:10px;background:var(--red2);color:var(--bg);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;margin-top:4px;transition:background 0.15s}
 .artist-pop-cta:hover{background:var(--red3)}
 
-#mapInfo{position:fixed;top:66px;left:12px;z-index:500;background:rgba(20,16,8,0.55);backdrop-filter:blur(8px);border:1px solid var(--border2);padding:10px 14px;font-size:11px;letter-spacing:0.06em;color:var(--txt2);display:flex;align-items:center;gap:8px;max-width:calc(100vw - 24px)}
+/* Oba plovoucí panely leží na tmavé mapě, ne na papírovém pozadí webu.
+   Barvy si proto nesou vlastní — dokud braly --txt2 ze světlého motivu,
+   byl text tmavý na tmavém a přečíst se dal jen při najetí myší. */
+#mapInfo{position:fixed;top:66px;left:12px;z-index:500;background:rgba(18,16,13,0.92);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:10px 14px;font-size:11px;letter-spacing:0.06em;color:#ece7dc;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 24px)}
 #mapInfo .il-spinner{margin-right:2px}
 
-#geoBar{position:fixed;top:66px;right:12px;z-index:500;background:rgba(20,16,8,0.55);backdrop-filter:blur(8px);border:1px solid var(--border2);padding:6px 8px;display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0.06em}
-#geoBar button{background:transparent;border:1px solid var(--border2);color:var(--txt2);padding:6px 10px;font-size:11px;letter-spacing:0.08em;cursor:pointer;font-family:inherit;text-transform:uppercase;transition:all 0.15s}
-#geoBar button:hover{background:var(--bg3);color:var(--red2)}
-#geoBar button.active{background:var(--red2);color:var(--bg);border-color:var(--red2)}
-#geoBar select{background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:6px 8px;font-size:11px;font-family:inherit;letter-spacing:0.06em}
+#geoBar{position:fixed;top:66px;right:12px;z-index:500;background:rgba(18,16,13,0.92);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:6px;display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.06em}
+/* Okruh jako přepínač, ne rozbalovací nabídka: čtyři možnosti se vejdou
+   vedle sebe a odpadne nativní ovládací prvek, který na tmavém panelu
+   vypadal jako cizí těleso. */
+.geo-radius{display:flex;align-items:center;gap:2px;background:rgba(255,255,255,0.06);border-radius:6px;padding:2px}
+.geo-radius button{background:transparent;border:none;border-radius:4px;color:rgba(236,231,220,0.62);padding:5px 9px;font-size:11px;font-family:inherit;letter-spacing:0.04em;cursor:pointer;transition:background 0.12s,color 0.12s}
+.geo-radius button:hover{color:#ece7dc;background:rgba(255,255,255,0.08)}
+.geo-radius button.on{background:#6d4fc4;color:#fff}
+.geo-unit{color:rgba(236,231,220,0.5);padding:0 6px 0 3px;font-size:10px;letter-spacing:0.1em}
+#geoBtn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid rgba(255,255,255,0.22);border-radius:6px;color:#ece7dc;padding:6px 11px;font-size:11px;letter-spacing:0.08em;cursor:pointer;font-family:inherit;text-transform:uppercase;transition:all 0.15s;white-space:nowrap}
+#geoBtn:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.42)}
+#geoBtn.active{background:#6d4fc4;color:#fff;border-color:#6d4fc4}
+#geoBtn .icon{width:13px;height:13px;flex:none}
+.icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 #geoBar.busy{opacity:0.6;pointer-events:none}
-@media(max-width:520px){#geoBar{top:auto;bottom:74px;right:8px;flex-direction:column;gap:4px;padding:6px}#geoBar select{width:100%}}
+/* Leaflet staví ovládání zoomu do levého horního rohu — přesně tam, kde
+   sedí panel s počtem tatérů, takže se pod ním schovávalo. A světlé
+   tlačítko na tmavé mapě svítilo jako cizí prvek. */
+.leaflet-top.leaflet-left{margin-top:48px}
+.leaflet-control-zoom{border:1px solid rgba(255,255,255,0.14)!important;border-radius:8px!important;overflow:hidden;box-shadow:none!important}
+.leaflet-control-zoom a{background:rgba(18,16,13,0.92)!important;color:#ece7dc!important;border-bottom:1px solid rgba(255,255,255,0.12)!important;backdrop-filter:blur(8px)}
+.leaflet-control-zoom a:hover{background:rgba(52,46,38,0.95)!important;color:#fff!important}
+/* Atribuci OpenStreetMap vyžaduje licence dlaždic, takže nesmí zůstat
+   schovaná pod spodní lištou. */
+@media(max-width:720px){.leaflet-bottom.leaflet-right{bottom:64px}}
+@media(max-width:520px){#geoBar{top:auto;bottom:74px;right:8px;flex-direction:column;gap:6px;padding:6px}#geoBar .geo-radius{width:100%;justify-content:center}#geoBtn{width:100%;justify-content:center}}
 
 .geo-marker{width:18px;height:18px;border-radius:50%;background:#4a9eff;border:3px solid #fff;box-shadow:0 0 0 6px rgba(74,158,255,0.25),0 4px 10px rgba(0,0,0,0.4)}
 </style>
@@ -92,25 +114,43 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   </div>
 </nav>
 
-<div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText">Loading artists…</span></div>
+<div id="mapInfo"><span class="il-spinner"></span> <span id="mapInfoText" data-i18n="mp.loading">Loading artists…</span></div>
 <div id="geoBar">
-  <select id="geoRadius" aria-label="Okruh">
-    <option value="5">5 km</option>
-    <option value="25" selected>25 km</option>
-    <option value="50">50 km</option>
-    <option value="100">100 km</option>
-  </select>
-  <button id="geoBtn" type="button" onclick="toggleGeo()">📍 Near me</button>
+  <div class="geo-radius" role="group" data-i18n-attr="mp.radius:aria-label" aria-label="Radius">
+    <button type="button" data-km="5">5</button>
+    <button type="button" data-km="25" class="on">25</button>
+    <button type="button" data-km="50">50</button>
+    <button type="button" data-km="100">100</button>
+    <span class="geo-unit">km</span>
+  </div>
+  <button id="geoBtn" type="button" onclick="toggleGeo()">
+    <svg class="icon"><use href="#i-map-pin"/></svg>
+    <span id="geoBtnLabel" data-i18n="mp.nearMe">Near me</span>
+  </button>
 </div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/i18n.js?v=21"></script>
 <script src="/notifs.js?v=19"></script>
 <script src="/mobile-nav.js?v=30"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <script>
 let me = null;
+const tr = k => window.InkLinkI18N ? window.InkLinkI18N.t(k) : k;
+
+// Ikona v tlačítku musí přežít změnu popisku, proto se přepisuje jen text
+// uvnitř <span>, ne celé tlačítko.
+function setGeoBtn(key) {
+  document.getElementById('geoBtnLabel').textContent = tr(key);
+}
+
+function currentRadius() {
+  const on = document.querySelector('.geo-radius button.on');
+  return parseInt(on && on.dataset.km, 10) || 25;
+}
+
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 async function initNav() {
@@ -170,12 +210,26 @@ let allArtists = [];           // all artists from /api/artists/map
 let artistMarkers = new Map(); // id → Leaflet marker
 let geoState = { active: false, lat: null, lng: null, marker: null, circle: null };
 
+// Čeština má tři tvary, angličtina dva. Dřív se to míchalo v jedné větě:
+// „1 artist", ale „3 tatéři".
 function countLabel(n) {
-  return `${n} ${n === 1 ? 'artist' : (n < 5 ? 'tatéři' : 'tatérů')}`;
+  const key = n === 1 ? 'mp.n1' : (n < 5 ? 'mp.n24' : 'mp.n5');
+  return tr(key).replace('{n}', n);
 }
 
+// Panel drží buď hotový text, nebo funkci, která si ho složí. Ta druhá
+// možnost je tu kvůli přepnutí jazyka: počet tatérů se musí přeložit znovu,
+// jinak by po přepnutí zůstalo „1 artist" v české verzi.
+let _infoThunk = null;
+
 function setMapInfo(text, busy=false) {
-  document.getElementById('mapInfoText').textContent = text;
+  const el = document.getElementById('mapInfoText');
+  // Do prvního výsledku drží text překladač („Načítám tatéry…"), od téhle
+  // chvíle obsah řídí JS. Bez odebrání atributu by přepnutí jazyka vrátilo
+  // hlášku o načítání místo počtu tatérů.
+  el.removeAttribute('data-i18n');
+  _infoThunk = (typeof text === 'function') ? text : null;
+  el.textContent = _infoThunk ? _infoThunk() : text;
   document.querySelector('#mapInfo .il-spinner').style.display = busy ? '' : 'none';
 }
 
@@ -217,30 +271,29 @@ async function toggleGeo() {
     geoState.active = false;
     geoState.lat = geoState.lng = null;
     btn.classList.remove('active');
-    btn.textContent = '📍 V mém okolí';
+    setGeoBtn('mp.nearMe');
     renderAllMarkers();
-    setMapInfo(countLabel(allArtists.length));
+    setMapInfo(() => countLabel(allArtists.length));
     return;
   }
   if (!navigator.geolocation) {
-    alert('Geolocation not available in this browser.');
+    alert(tr('mp.geoUnavailable'));
     return;
   }
   bar.classList.add('busy');
-  btn.textContent = '⏳ Finding location…';
+  setGeoBtn('mp.finding');
   navigator.geolocation.getCurrentPosition(
     pos => {
       bar.classList.remove('busy');
       const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      const km = parseInt(document.getElementById('geoRadius').value, 10) || 25;
+      const km = currentRadius();
       applyGeoFilter(lat, lng, km);
     },
     err => {
       bar.classList.remove('busy');
-      btn.textContent = '📍 V mém okolí';
-      const msg = err && err.code === err.PERMISSION_DENIED
-        ? 'You didn\'t allow location access. Change this in your browser settings.'
-        : 'Failed to get location.';
+      setGeoBtn('mp.nearMe');
+      const msg = tr(err && err.code === err.PERMISSION_DENIED
+                     ? 'mp.geoDenied' : 'mp.geoFailed');
       alert(msg);
     },
     { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
@@ -270,15 +323,27 @@ function applyGeoFilter(lat, lng, km) {
 
   const btn = document.getElementById('geoBtn');
   btn.classList.add('active');
-  btn.textContent = '✕ Cancel filtr';
-  setMapInfo(`${countLabel(inside)} do ${km} km`);
+  setGeoBtn('mp.clearFilter');
+  setMapInfo(() => tr('mp.withinKm').replace('{label}', countLabel(inside))
+                                    .replace('{km}', km));
 }
 
-document.addEventListener('change', e => {
-  if (e.target && e.target.id === 'geoRadius' && geoState.active) {
-    const km = parseInt(e.target.value, 10) || 25;
-    applyGeoFilter(geoState.lat, geoState.lng, km);
+// Přepnutí jazyka překreslí i to, co si panel spočítal sám.
+document.addEventListener('il-i18n-applied', () => {
+  if (_infoThunk) {
+    document.getElementById('mapInfoText').textContent = _infoThunk();
   }
+});
+
+document.querySelectorAll('.geo-radius button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.geo-radius button')
+            .forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    if (geoState.active) {
+      applyGeoFilter(geoState.lat, geoState.lng, currentRadius());
+    }
+  });
 });
 
 async function init() {
@@ -306,7 +371,7 @@ async function init() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     allArtists = await r.json();
     if (!allArtists.length) {
-      setMapInfo('No artists on the map yet.');
+      setMapInfo(() => tr('mp.noArtists'));
       return;
     }
     const bounds = [];
@@ -337,9 +402,9 @@ async function init() {
     } else if (allArtists.length === 1) {
       mapInstance.setView(bounds[0], 12);
     }
-    setMapInfo(countLabel(allArtists.length));
+    setMapInfo(() => countLabel(allArtists.length));
   } catch (e) {
-    setMapInfo('Failed načíst tatéry.');
+    setMapInfo(() => tr('mp.loadFailed'));
   }
 }
 
