@@ -74,3 +74,18 @@ htmlcov/
 
 # Temporary Sentry key file (written by APNs bootstrap)
 apns_key_*.p8
+
+# Nativní obal (Capacitor)
+# Pods a synchronizovaná kopie webu se generují z package.json a public/,
+# takže do gitu nepatří — `npm install && npm run sync` je vyrobí znovu.
+node_modules/
+ios/App/Pods/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/capacitor-cordova-ios-plugins/
+android/app/src/main/assets/public/
+android/.gradle/
+android/build/
+android/app/build/
+**/xcuserdata/
+DerivedData/

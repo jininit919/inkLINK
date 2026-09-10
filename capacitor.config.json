@@ -1,0 +1,22 @@
+{
+  "appId": "club.inklink.app",
+  "appName": "InkLink",
+  "webDir": "public",
+  "server": {
+    "url": "https://www.inklink.club",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#faf8f3"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#faf8f3"
+    },
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
