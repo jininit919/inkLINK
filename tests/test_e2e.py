@@ -7590,5 +7590,49 @@ class ApnsSigningTests(unittest.TestCase):
                              'apns2 na Pythonu 3.12 neběží — nesmí se vrátit')
 
 
+class AppIconTests(unittest.TestCase):
+    """Capacitor si při zakládání projektu nasadí vlastní modrou ikonu
+    a úvodní obrazovku. S nimi by aplikaci recenze vrátila obratem —
+    a `cap add ios` je umí vrátit zpátky, takže na to hlídač patří."""
+
+    ICON = ('native/ios/App/App/Assets.xcassets/AppIcon.appiconset/'
+            'AppIcon-512@2x.png')
+    SPLASH = ('native/ios/App/App/Assets.xcassets/Splash.imageset/'
+              'splash-2732x2732.png')
+    CREAM = (250, 248, 243)
+
+    def setUp(self):
+        if not os.path.exists(self.ICON):
+            self.skipTest('nativní obal zatím neexistuje')
+        try:
+            from PIL import Image  # noqa
+        except ImportError:
+            self.skipTest('Pillow není k dispozici')
+
+    def img(self, path):
+        from PIL import Image
+        return Image.open(path)
+
+    def test_icon_has_no_transparency(self):
+        """Apple ikonu s průhledností odmítne už při nahrávání."""
+        self.assertNotIn(self.img(self.ICON).mode, ('RGBA', 'LA', 'P'))
+
+    def test_icon_is_full_size(self):
+        self.assertEqual((1024, 1024), self.img(self.ICON).size)
+
+    def test_icon_is_ours_not_capacitor_default(self):
+        """Výchozí ikona je bílá s modrým křížkem. Poznáme ji podle toho,
+        že roh není papírová barva webu."""
+        px = self.img(self.ICON).convert('RGB').getpixel((12, 12))
+        self.assertEqual(self.CREAM, px,
+                         'ikona není naše — vypadá jako výchozí od Capacitoru')
+
+    def test_splash_is_ours_too(self):
+        if not os.path.exists(self.SPLASH):
+            self.skipTest('splash chybí')
+        px = self.img(self.SPLASH).convert('RGB').getpixel((12, 12))
+        self.assertEqual(self.CREAM, px)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
