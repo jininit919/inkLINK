@@ -5494,7 +5494,9 @@ class WaitlistConsentTests(unittest.TestCase):
         člověk viděl na obrazovce."""
         import server, re
         page = open('public/coming-soon.html', encoding='utf-8').read()
-        shown = re.search(r'id="wlConsent">(.*?)<a ', page, re.S)
+        # Konec odstavce, ne první odkaz: dřív se regex vázal na <a> se
+        # zásadami a rozbil se, jakmile ten odkaz z odstavce zmizel.
+        shown = re.search(r'id="wlConsent">(.*?)</p>', page, re.S)
         self.assertIsNotNone(shown, 'na coming-soon chybí text souhlasu')
         norm = lambda t: ' '.join(re.sub(r'<[^>]+>', ' ', t).split())
         self.assertEqual(norm(shown.group(1)), norm(server.WAITLIST_CONSENT_TEXT))
