@@ -29,7 +29,20 @@ body{
   padding:32px 24px;
   -webkit-font-smoothing:antialiased;
 }
-.wrap{max-width:360px;width:100%;text-align:center}
+.wrap{max-width:460px;width:100%;text-align:center}
+/* Stránka dlouho říkala jen „zapiš se". Návštěvník ani ověřovatel u Mety
+   se z ní nedozvěděli, co InkLink vlastně je — a Meta u ověření firmy
+   chce web, na kterém je služba popsaná. */
+.about{margin-top:44px;padding-top:26px;border-top:1px solid var(--border);
+  text-align:left}
+.about h2{font-size:11px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--txt3);margin:0 0 12px;font-weight:500}
+.about p{font-size:13.5px;line-height:1.7;color:var(--txt2);margin:0 0 14px}
+.about ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:9px}
+.about li{font-size:13px;line-height:1.6;color:var(--txt2)}
+.about li b{color:var(--txt);font-weight:500}
+.about .who{font-size:12px;line-height:1.7;color:var(--txt3);margin:18px 0 0}
+.about .who a{color:var(--txt3);text-decoration:underline}
 
 /* Logo je průhledné PNG, takže sedí přímo na krémovém pozadí. */
 .logo{
@@ -106,6 +119,28 @@ body{
       Nothing else, no sharing with anyone. Unsubscribe from that email or write to us
       and we delete your address. <a href="/privacy">Privacy</a></p>
     <p class="wl-biz">A brand that belongs with tattooing? <a href="/partners">Let's talk</a></p>
+  </div>
+
+  <div class="about">
+    <h2>What InkLink is</h2>
+    <p>A booking platform for tattoo artists and their clients. Artists publish
+      their portfolio and the dates they are free; clients browse the work, pick
+      a design and book a slot — with the deposit paid up front instead of
+      haggled over in direct messages.</p>
+    <ol>
+      <li><b>Find an artist.</b> Browse healed work and available designs, filter
+        by style, city or price, or look them up on the map.</li>
+      <li><b>Book a slot.</b> Open the artist's calendar, pick a free block and
+        pay the deposit or the full price through Stripe.</li>
+      <li><b>Get tattooed.</b> The money is held by Stripe and released to the
+        artist once the session is confirmed as done — safer for both sides.</li>
+    </ol>
+    <p class="who">Artists can pull their existing portfolio straight from their
+      Instagram business account instead of re-uploading it, keep a calendar,
+      message clients and take deposits in one place.<br><br>
+      Operated by Matěj Gajdoš, sole trader, ID 29532744, Náchod, Czech Republic.
+      See our <a href="/terms">terms</a> and <a href="/privacy">privacy policy</a>,
+      or write to <a href="mailto:contact@inklink.club">contact@inklink.club</a>.</p>
   </div>
 
 </div>
