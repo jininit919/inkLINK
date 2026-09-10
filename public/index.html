@@ -321,8 +321,8 @@ main{padding:24px 24px 80px;min-width:0;position:relative}
   </div>
 </nav>
 <script src="/notifs.js?v=20"></script>
-<script src="/add-portfolio.js?v=4"></script>
-<script src="/i18n.js?v=22"></script>
+<script src="/add-portfolio.js?v=5"></script>
+<script src="/i18n.js?v=23"></script>
 <script src="/mobile-nav.js?v=30"></script>
 <script src="/voucher-buy.js?v=16"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();
@@ -920,6 +920,7 @@ async function toggleLike(id, el) {
     }
     const r = await resp.json();
     console.log('[toggleLike] response', r);
+    if (window.ilHaptic) ilHaptic(r.liked ? 'light' : 'medium');
     el.classList.toggle('on', !!r.liked);
     const sp = el.querySelector('span');
     if (sp) sp.textContent = r.like_count;

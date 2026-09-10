@@ -386,6 +386,7 @@ async function toggleLike() {
     if (!r) return;
     item.liked = r.liked;
     item.like_count = r.like_count;
+    if (window.ilHaptic) ilHaptic(r.liked ? 'light' : 'medium');
     btn.classList.toggle('liked', r.liked);
     btn.title = r.liked ? 'Odebrat z lajků' : 'Lajknout';
     document.getElementById('likeCnt').textContent = r.like_count;

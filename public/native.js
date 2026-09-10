@@ -218,6 +218,10 @@
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
+  // Krátká forma pro místa v aplikaci. Na webu nedělá nic a nikdy nevyhodí,
+  // takže se nemusí na každém call site hlídat, jestli obal vůbec běží.
+  window.ilHaptic = function (kind) { try { haptic(kind); } catch (e) {} };
+
   window.InkLinkNative = {
     isNative: isCapacitor,
     platform: platform,

@@ -325,8 +325,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
   <a class="nav-icon" id="setupLink" href="/artist-setup" title="Edit profile" style="display:none"><svg class="icon"><use href="#i-settings"/></svg></a>
 </nav>
 <script src="/notifs.js?v=20"></script>
-<script src="/add-portfolio.js?v=4"></script>
-<script src="/i18n.js?v=22"></script>
+<script src="/add-portfolio.js?v=5"></script>
+<script src="/i18n.js?v=23"></script>
 <script src="/mobile-nav.js?v=30"></script>
 <script src="/bookings-panel.js?v=16"></script>
 <script src="/voucher-buy.js?v=16"></script>
@@ -1750,6 +1750,7 @@ async function submitBook() {
   // Demo mode or live without PI (legacy)
   document.getElementById('bm-flash').innerHTML =
     `<div class="flash-modal ok">${tr('pf.bookingCreated')} ${j.demo_mode ? tr('pf.demoMode') : ''}</div>`;
+  if (window.ilHaptic) ilHaptic('success');
   setTimeout(() => location.href = '/my-bookings', 900);
 }
 

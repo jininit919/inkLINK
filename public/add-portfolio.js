@@ -38,6 +38,17 @@
 .addp-field input[type="file"]{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;color:var(--txt2);padding:8px 0}
 .addp-field input[type="file"]::-webkit-file-upload-button{background:var(--bg3);border:1px solid var(--border2);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;padding:7px 12px;border-radius:6px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;margin-right:10px}
 .addp-field input[type="file"]::-webkit-file-upload-button:hover{background:var(--bg4)}
+/* V aplikaci nabídneme systémový fotoaparát a galerii — proti webovému
+   výběru souboru je to znát hned a tatér vyfotí čerstvou práci na místě.
+   Na webu tlačítko zůstává schované. */
+.addp-camera{display:none;align-items:center;justify-content:center;gap:8px;
+  width:100%;margin-top:8px;padding:11px;background:var(--bg3);
+  border:1px solid var(--border2);border-radius:6px;color:var(--txt);
+  font-family:inherit;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;
+  cursor:pointer}
+.addp-camera:not([hidden]){display:flex}
+.addp-camera:hover{background:var(--bg4)}
+.addp-camera .icon{width:15px;height:15px}
 #addpPreview{display:none;grid-template-columns:repeat(4,1fr);gap:6px;max-width:340px;margin-top:8px}
 #addpPreview.show{display:grid}
 #addpPreview img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid var(--border2)}
@@ -129,6 +140,10 @@
       <div class="addp-field">
         <label>Images <span class="hint">(1-4, JPG/PNG/WEBP, up to 10 MB)</span></label>
         <input type="file" id="addpImage" accept="image/jpeg,image/png,image/webp" multiple required>
+        <button type="button" id="addpCamera" class="addp-camera" hidden>
+          <svg class="icon"><use href="#i-camera"/></svg>
+          <span data-i18n="fd.takePhoto">Take a photo</span>
+        </button>
         <div id="addpPreview"></div>
       </div>
 
@@ -399,9 +414,47 @@
 
   // Handlery se nedrátují na DOMContentLoaded, ale hned po vložení markupu —
   // modal do stránky přidáváme až při prvním otevření.
+  // Fotky vybrané systémovým výběrem. Formulář je použije místo <input
+  // type=file>, protože do něj soubory programově vložit nejdou.
+  let nativePicks = [];
+
+  function renderPicks() {
+    const preview = document.getElementById('addpPreview');
+    if (!preview) return;
+    preview.innerHTML = nativePicks
+      .map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join('');
+    preview.classList.toggle('show', nativePicks.length > 0);
+  }
+
+  function dataUrlToFile(dataUrl, format) {
+    const [head, b64] = dataUrl.split(',');
+    const mime = (head.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return new File([buf], `photo-${Date.now()}.${format || 'jpg'}`, { type: mime });
+  }
+
   function wire() {
     const imageInput = document.getElementById('addpImage');
     const preview = document.getElementById('addpPreview');
+    const cam = document.getElementById('addpCamera');
+    const NP = window.InkLinkNative;
+    if (cam && NP && NP.isNative && NP.pickImage) {
+      cam.hidden = false;
+      // Vlastní kontrola v submitu stačí; prohlížečová validace by jinak
+      // na prázdném <input type=file> zastavila i odeslání s nafocenými
+      // fotkami.
+      if (imageInput) imageInput.required = false;
+      cam.addEventListener('click', async () => {
+        if (nativePicks.length >= 4) return;
+        const shot = await NP.pickImage();
+        if (!shot || !shot.dataUrl) return;
+        nativePicks.push(dataUrlToFile(shot.dataUrl, shot.format));
+        if (window.ilHaptic) ilHaptic('light');
+        renderPicks();
+      });
+    }
     if (imageInput && preview) {
       imageInput.addEventListener('change', () => {
         const files = Array.from(imageInput.files || []).slice(0, 4);
@@ -420,7 +473,9 @@
     const flash = document.getElementById('addpFlash');
     const submitBtn = document.getElementById('addpSubmit');
     const imageInput = document.getElementById('addpImage');
-    const files = Array.from(imageInput.files || []).slice(0, 4);
+    const files = nativePicks.length
+      ? nativePicks.slice(0, 4)
+      : Array.from(imageInput.files || []).slice(0, 4);
     if (!files.length) {
       flash.innerHTML = `<div class="addp-flash err">${t('fd.pickImage')}</div>`;
       return;
@@ -443,6 +498,7 @@
       if (r.ok) {
         flash.innerHTML = `<div class="addp-flash ok">${t('fd.itemAdded')}</div>`;
         e.target.reset();
+        nativePicks = [];
         document.getElementById('addpPreview').innerHTML = '';
         document.getElementById('addpPreview').classList.remove('show');
         document.querySelectorAll('#addpStylesGrid .addp-style-chip.on').forEach(c => {

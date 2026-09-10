@@ -7422,5 +7422,42 @@ class NativePushIsReachableTests(unittest.TestCase):
                          'endpoint na registraci pushe je definovaný víckrát')
 
 
+class NativeFeaturesAreUsedTests(unittest.TestCase):
+    """`native.js` nabízel haptiku i systémový výběr fotky od začátku,
+    ale nikdo je nevolal. Nativní schopnost, kterou nic nespustí, je
+    z pohledu uživatele i recenzenta App Store totéž co neexistující —
+    a právě na tom stojí obrana proti guideline 4.2."""
+
+    def all_js(self):
+        out = {}
+        for name in ('index.html', 'sketch.html', 'profile.html',
+                     'add-portfolio.js', 'notifs.js'):
+            with open('public/' + name, encoding='utf-8') as f:
+                out[name] = f.read()
+        return out
+
+    def test_haptics_fire_somewhere(self):
+        src = self.all_js()
+        users = [n for n, t in src.items() if 'ilHaptic' in t]
+        self.assertTrue(users, 'haptiku nikdo nespouští')
+
+    def test_camera_is_offered_when_adding_work(self):
+        src = self.all_js()['add-portfolio.js']
+        self.assertIn('pickImage', src, 'systémový fotoaparát se nenabízí')
+        self.assertIn('addpCamera', src)
+
+    def test_camera_photos_actually_get_uploaded(self):
+        """Vyfocená fotka se do <input type=file> vložit nedá, takže ji
+        musí odeslání brát odjinud — jinak by tlačítko jen ukázalo náhled
+        a nahrálo prázdno."""
+        src = self.all_js()['add-portfolio.js']
+        i = src.index('async function submitAddPortfolio')
+        self.assertIn('nativePicks', src[i:i + 700])
+
+    def test_camera_icon_exists_in_the_sprite(self):
+        with open('public/icons.svg', encoding='utf-8') as f:
+            self.assertIn('id="i-camera"', f.read())
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
