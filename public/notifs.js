@@ -71,8 +71,9 @@
     /* Panel je na telefonu list přes celou šířku. Musí se vejít mezi
        horní lištu a spodní navigaci, jinak se obsah ořízne a odhlášení
        z pushu zůstane pod okrajem. */
-    .il-notif-panel{right:8px !important;left:8px;width:auto;top:60px !important;
-      max-height:calc(100vh - 60px - 110px - env(safe-area-inset-bottom))}
+    .il-notif-panel{right:0 !important;left:0;width:auto;top:56px !important;
+      border-left:none;border-right:none;
+      max-height:calc(100vh - 56px - 110px - env(safe-area-inset-bottom))}
   }
   `;
 
