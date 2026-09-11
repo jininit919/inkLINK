@@ -21,25 +21,39 @@
   if (window.InkLinkMobileNav) return;
 
   const CSS = `
-  .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:rgba(18,16,13,0.94) !important;backdrop-filter:blur(16px) saturate(1.1);-webkit-backdrop-filter:blur(16px) saturate(1.1);border-top:1px solid rgba(255,255,255,0.07);display:none;height:calc(62px + env(safe-area-inset-bottom) + 12px) !important;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;-webkit-tap-highlight-color:transparent;padding:0 0 calc(env(safe-area-inset-bottom) + 12px) 0 !important;margin:0 !important}
-  .il-mnav-grid{display:grid;grid-template-columns:repeat(5,1fr);height:100%}
-  .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8d867a;text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;font-family:inherit;position:relative;padding:8px 4px}
+  /* Lišta je papír jako zbytek aplikace. Černý blok byl jediná tmavá
+     plocha v celém produktu a četl se jako přilepený odjinud; hranici
+     mezi obsahem a ovládáním teď dělá vlásková linka. */
+  .il-mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;z-index:9999 !important;background:var(--bg,#faf8f3) !important;backdrop-filter:blur(16px) saturate(1.1);-webkit-backdrop-filter:blur(16px) saturate(1.1);border-top:1px solid var(--border2,#ded9cc);display:none;height:auto !important;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;-webkit-tap-highlight-color:transparent;padding:0 0 env(safe-area-inset-bottom) 0 !important;margin:0 !important}
+  .il-mnav-grid{display:grid;grid-template-columns:repeat(5,1fr);height:auto}
+  /* Bez verzálek: prostrkané kapitálky patří k nadpisům v obsahu,
+     v liště jen přidávaly na výšce a „Feed" mezi nimi trčel jako
+     nepřeložené slovo. */
+  .il-mnav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--txt3,#5a5a5a);text-decoration:none;cursor:pointer;font-size:10px;letter-spacing:0.02em;text-transform:none;background:none;border:none;font-family:inherit;position:relative;padding:7px 4px}
   .il-mnav-item .ico{line-height:1;display:flex;align-items:center;justify-content:center}
   .il-mnav-item .ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-  .il-mnav-item .lbl{font-size:9px;letter-spacing:0.06em;color:#8d867a;white-space:nowrap;transition:color .15s}
-  .il-mnav-item.active{color:#b49bf5}
-  .il-mnav-item.active .lbl{color:#b49bf5}
+  .il-mnav-item .lbl{font-size:10px;letter-spacing:0.02em;color:var(--txt3,#5a5a5a);white-space:nowrap;transition:color .15s}
+  /* Stencil je obtisk — tenká stopa pod vybranou položkou, ne vyplněná
+     plocha. Odtud ta linka místo obarvené ikony. */
+  .il-mnav-item.active{color:var(--txt,#0a0a0a)}
+  .il-mnav-item.active .lbl{color:var(--txt,#0a0a0a)}
+  .il-mnav-item.active::after{content:'';position:absolute;left:30%;right:30%;bottom:2px;height:2px;background:#6d4fc4;border-radius:1px}
   .il-mnav-item:active .ico{transform:scale(0.92)}
-  .il-mnav-item.primary{justify-content:flex-end;padding-bottom:8px}
-  .il-mnav-item.primary .ico-circle{position:absolute;top:-14px;left:50%;margin-left:-23px;width:46px;height:46px;border-radius:50%;background:#6d4fc4;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(70,44,140,0.45);transition:transform 0.15s,box-shadow 0.15s;overflow:hidden}
-  .il-mnav-item.primary .ico-circle.bristol-plus{font-family:'Bristol','Caveat',cursive;font-size:42px;line-height:1;padding:0}
+  /* Vystouplé kolečko je pryč: dělalo z „Přidat" nejdůležitější věc na
+     obrazovce a zařezávalo se do obrysu lišty. Zůstává pátá rovnocenná
+     položka; třídy v markupu zůstávají, jen se chovají jako ostatní. */
+  .il-mnav-item.primary{justify-content:center;padding-bottom:7px}
+  .il-mnav-item.primary .ico-circle{position:static;margin:0;width:auto;height:auto;border-radius:0;background:none;color:inherit;display:flex;align-items:center;justify-content:center;box-shadow:none;overflow:visible}
+  .il-mnav-item.primary .ico-circle.bristol-plus{font-family:'Bristol','Caveat',cursive;font-size:26px;line-height:22px;height:22px;padding:0}
   .il-mnav-item.primary .ico-circle.bristol-plus > span{display:block;line-height:1;transform:translateY(0.02em)}
-  .il-mnav-item.primary .ico-circle svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .il-mnav-item.primary:active .ico-circle{transform:scale(0.92);box-shadow:0 2px 8px rgba(20,16,8,0.10)}
-  .il-mnav-item.primary .lbl{color:#cdbcf7;font-weight:500}
-  .il-mnav-badge{position:absolute;top:6px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:#f4f1e9;border:1.5px solid #12100d;font-size:9px;color:#12100d;display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
+  .il-mnav-item.primary .ico-circle svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .il-mnav-item.primary:active .ico-circle{transform:scale(0.92);box-shadow:none}
+  .il-mnav-item.primary .lbl{color:inherit;font-weight:400}
+  /* Na papíru se odznak i tečka obracejí: dřív byly světlé s tmavým
+     lemem kvůli černé liště. */
+  .il-mnav-badge{position:absolute;top:4px;right:calc(50% - 18px);min-width:14px;height:14px;border-radius:7px;background:var(--txt,#0a0a0a);border:1.5px solid var(--bg,#faf8f3);font-size:9px;color:var(--bg,#faf8f3);display:none;align-items:center;justify-content:center;padding:0 3px;font-weight:700;line-height:1}
   .il-mnav-badge.show{display:flex}
-  .il-mnav-dot{position:absolute;top:8px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:#b49bf5;border:1.5px solid #12100d;display:none}
+  .il-mnav-dot{position:absolute;top:6px;right:calc(50% - 14px);width:7px;height:7px;border-radius:50%;background:#6d4fc4;border:1.5px solid var(--bg,#faf8f3);display:none}
   .il-mnav-dot.show{display:block}
 
   #il-abar{display:flex;gap:2px;align-items:center;margin-left:18px;
@@ -69,7 +83,7 @@
     body.has-abar{padding-top:0}
     body.has-abar nav{top:0 !important}
     .il-mnav{display:block}
-    body{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+    body{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
     nav .nav-icons,
     nav .nav-links{display:none !important}
     nav > .nav-icon{display:none !important}
