@@ -48,10 +48,14 @@ img, video {
   -webkit-touch-callout: none;
 }
 
-/* Capacitor body — disable overscroll bounce nahoru/dolů */
+/* Gumové odskakování v nativním obalu.
+   Pravidlo bylo jen na `body`, jenže dokument ve WebView roluje `html` —
+   takže odskok zůstával. Při něm se zdánlivě pohnou i pevné lišty a celé
+   to působí jako web v prohlížeči. Na webu odskok necháváme, tam patří
+   k věci (a drží tažení pro obnovení stránky). */
+html.capacitor-app,
 html.capacitor-app body {
-  overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
 }
 
 /* ── Paper theme (off-white + ink) — NOVÝ DEFAULT pro redesign ─────────────

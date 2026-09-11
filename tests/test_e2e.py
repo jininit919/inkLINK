@@ -7777,5 +7777,40 @@ class MobilePanelsFitTheScreenTests(unittest.TestCase):
             self.assertEqual('never', json.load(f)['ios']['contentInset'])
 
 
+class NativeFeelTests(unittest.TestCase):
+    """Věci, po kterých aplikace přestane působit jako web v prohlížeči."""
+
+    def theme(self):
+        with open('public/theme.css', encoding='utf-8') as f:
+            return f.read()
+
+    def test_overscroll_is_disabled_on_the_document(self):
+        """Dokument ve WebView roluje `html`, ne `body`. Pravidlo jen na
+        `body` odskok nezastaví — a při něm se zdánlivě hýbou i pevné
+        lišty, protože obsah se sveze pod ně."""
+        css = self.theme()
+        i = css.index('overscroll-behavior')
+        blok = css[max(0, i - 300):i]
+        self.assertIn('html.capacitor-app,', blok,
+                      'pravidlo není na html, jen na body — odskok zůstane')
+
+    def test_overscroll_stays_on_the_web(self):
+        """V prohlížeči odskok patří k věci a drží tažení pro obnovení."""
+        css = self.theme()
+        for line in css.split('\n'):
+            if 'overscroll-behavior' in line:
+                continue
+        i = css.index('overscroll-behavior')
+        selector = css[max(0, i - 300):i]
+        self.assertIn('capacitor-app', selector,
+                      'odskok se vypíná i na webu')
+
+    def test_theme_is_versioned(self):
+        """Neverzovaný soubor se drží v cache hodinu — oprava vzhledu by
+        se k člověku dostala se zpožděním."""
+        with open('public/index.html', encoding='utf-8') as f:
+            self.assertIn('theme.css?v=', f.read())
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
