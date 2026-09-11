@@ -48,7 +48,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
 /* LAYOUT */
 .wrap{max-width:1240px;margin:0 auto;padding:80px 24px 100px}
-@media(max-width:560px){.wrap{padding:72px 16px 100px}}
+@media(max-width:560px){.wrap{padding:88px 16px 100px}}
 
 /* HERO */
 .cal-hero{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap}
@@ -56,11 +56,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 .cal-hero .sub{font-size:12px;color:var(--txt3);letter-spacing:0.08em;margin-top:6px;text-transform:uppercase}
 
 /* WEEK NAV (Apple-style segmented) */
-.week-nav{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-md);padding:4px}
+.week-nav{display:flex;align-items:center;gap:2px;background:none;border:none;border-radius:0;padding:0;width:100%}
+  .week-nav .spacer{flex:1}
+  .week-nav [hidden]{display:none}
+  /* Stejná stencil stopa jako v liště — drží datum a spodní navigaci
+     v jedné řeči. */
+  .week-nav .label::after{content:'';display:block;height:2px;width:52px;background:#6d4fc4;border-radius:1px;margin:7px auto 0}
 .week-nav button{background:transparent;border:none;color:var(--txt2);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;padding:6px 10px;border-radius:5px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px;letter-spacing:0.04em}
 .week-nav button:hover{background:var(--bg3);color:var(--txt)}
 .week-nav button.today{background:var(--bg3);color:var(--txt);font-weight:500;padding:6px 12px}
-.week-nav .label{font-size:12px;color:var(--txt);letter-spacing:0.06em;padding:0 8px;min-width:140px;text-align:center}
+.week-nav .label{font-size:17px;color:var(--txt);letter-spacing:0.01em;padding:0 4px;min-width:0;text-align:center;white-space:nowrap}
 .week-nav .icon{width:14px;height:14px}
 
 /* WEEK GRID */
@@ -334,21 +339,20 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,16,0.7
 
   <div id="cal" style="display:none">
     <div class="cal-hero">
-      <div>
-        <!-- Nadpis „Můj kalendář" byl dvakrát totéž: v liště dole stojí
-             Kalendář. Navíc se ořezával o pevnou hlavičku. -->
-        <div class="sub" id="weekRange" data-i18n="cal.loading">Loading…</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <!-- Datum je hlavní věc na řádku, šipky patří k němu a zakládání akce
+           je vedlejší, proto vpravo. Rámeček kolem přepínače nic nedělal —
+           tři ovládací prvky se čtou jako celek i bez krabice. -->
+      <div class="week-nav">
+        <button onclick="shiftWeek(-1)" data-i18n-attr="cal.prevWeek:title" title="Previous week"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
+        <span class="label" id="weekLabel" data-i18n="cal.week">Week</span>
+        <button onclick="shiftWeek(1)" data-i18n-attr="cal.nextWeek:title" title="Next week"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+        <!-- „Dnes" svítilo pořád, i když na dnešku zrovna jsi a nikam
+             nevede. Ukáže se až po odklikání jinam. -->
+        <button class="today" id="todayBtn" onclick="goToToday()" data-i18n="cal.today" hidden>Today</button>
+        <span class="spacer"></span>
         <!-- Akce se zakládají na /events, kde je celý formulář (místo, mapa,
              fotky). Duplikovat ho sem by znamenalo dvě místa k opravě. -->
         <a class="add-event-link" href="/events" data-i18n="cal.addEvent">+ Event</a>
-        <div class="week-nav">
-          <button onclick="shiftWeek(-1)" data-i18n-attr="cal.prevWeek:title" title="Previous week"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
-          <span class="label" id="weekLabel" data-i18n="cal.week">Week</span>
-          <button class="today" onclick="goToToday()" data-i18n="cal.today">Today</button>
-          <button onclick="shiftWeek(1)" data-i18n-attr="cal.nextWeek:title" title="Next week"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
-        </div>
       </div>
     </div>
 
@@ -554,7 +558,18 @@ function fmtDate(d){
 }
 function fmtDayNum(d){ return d.getDate().toString().padStart(2,'0'); }
 function dayName(d){ return d.toLocaleDateString(locale(), {weekday:'short'}).replace('.','').toUpperCase(); }
-function csMonth(d){ return d.toLocaleDateString(locale(), {month:'long'}); }
+// Intl skloňuje sám: pro cs-CZ vrátí „13. září", ne „Září“. Den začátku
+// se opakovat nemusí, měsíc a rok nese konec — pokud týden nepřesahuje do
+// dalšího měsíce, pak se vypíšou oba.
+function weekLabelText(start, end) {
+  const loc = locale();
+  const cs = loc.startsWith('cs');
+  const full = d => d.toLocaleDateString(loc, {day:'numeric', month:'long', year:'numeric'});
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${start.getDate()}${cs ? '.' : ''}–${full(end)}`;
+  }
+  return `${start.toLocaleDateString(loc, {day:'numeric', month:'long'})} – ${full(end)}`;
+}
 function fmtTime(iso){ const d = new Date(iso); return d.toTimeString().slice(0,5); }
 // Pozor: fmtDate() vrací YYYY-MM-DD a bere Date — slouží jako klíč mřížky.
 // Tohle je jeho protějšek pro čtení: bere ISO řetězec a řídí se jazykem.
@@ -638,8 +653,12 @@ function render() {
   const weekEnd = addDays(weekStart, 6);
   const today = new Date(); today.setHours(0,0,0,0);
 
-  document.getElementById('weekLabel').textContent = `${weekStart.getDate()}.${weekStart.getMonth()+1}. – ${weekEnd.getDate()}.${weekEnd.getMonth()+1}.`;
-  document.getElementById('weekRange').textContent = `${csMonth(weekStart)} ${weekStart.getFullYear()}`;
+  document.getElementById('weekLabel').textContent = weekLabelText(weekStart, weekEnd);
+
+  // „Dnes" svítilo pořád, i když na dnešku zrovna jsi — tlačítko, které
+  // nikam nevede. Ukáže se, až se prokliká jinam.
+  const tb = document.getElementById('todayBtn');
+  if (tb) tb.hidden = today >= weekStart && today <= weekEnd;
 
   const slotsByDay = {};
   for (const s of slotsData) {

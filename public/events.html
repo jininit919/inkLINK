@@ -118,13 +118,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,10,10,0.9
 .photo-upload-area{display:block;border:1px dashed var(--border2);padding:12px;text-align:center;cursor:pointer;color:var(--txt3);font-size:15px;letter-spacing:0.06em;transition:border-color 0.2s;user-select:none}
 .photo-upload-area:hover{border-color:var(--red);color:var(--txt2)}
 .photo-upload-area input[type=file]{display:none}
-.photo-preview-strip{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:4px}
+.photo-preview-strip{display:flex;gap:8px;margin-top:8px;overflow-x:auto;padding-bottom:4px;overflow-y:hidden;overscroll-behavior-x:contain}
 .photo-preview-strip:empty{display:none}
 .photo-preview-thumb{position:relative;flex-shrink:0;width:72px;height:72px}
 .photo-preview-thumb img{width:72px;height:72px;object-fit:cover;display:block}
 .photo-preview-thumb .rm-photo{position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.75);color:#fff;border:none;width:18px;height:18px;font-size:15px;cursor:pointer;line-height:18px;text-align:center;padding:0}
 /* EVENT PHOTO STRIP (detail) */
-.event-photos{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;scroll-snap-type:x mandatory;border-radius:0}
+.event-photos{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;scroll-snap-type:x mandatory;border-radius:0;overflow-y:hidden;overscroll-behavior-x:contain}
 .event-photos img{flex-shrink:0;width:100%;max-width:calc(100% - 24px);height:200px;object-fit:cover;scroll-snap-align:start;cursor:pointer}
 .event-photos img:only-child{max-width:100%}
 /* TICKETS */

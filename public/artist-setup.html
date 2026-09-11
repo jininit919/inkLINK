@@ -82,7 +82,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
 .cal-nav button{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:11px;letter-spacing:0.08em;padding:6px 12px;background:transparent;border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase}
 .cal-nav button:hover{border-color:var(--red2);color:var(--red2)}
 
-.cal-grid{display:grid;grid-template-columns:50px repeat(7,1fr);background:var(--bg2);border:1px solid var(--border);overflow-x:auto}
+.cal-grid{display:grid;grid-template-columns:50px repeat(7,1fr);background:var(--bg2);border:1px solid var(--border);overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
 .cal-head{display:contents}
 .cal-head .h-cell{padding:10px 6px;text-align:center;font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:12px;letter-spacing:0.12em;color:var(--txt3);background:var(--bg3);border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
 .cal-head .h-cell.today{color:var(--red2)}
@@ -133,7 +133,7 @@ h1{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:34px;le
   .cal-booking{font-size:8px;padding:2px 3px}
 }
 
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;overflow-y:hidden;overscroll-behavior-x:contain}
 .tabs::-webkit-scrollbar{display:none}
 .tab{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:16px;letter-spacing:0.18em;padding:12px 18px;cursor:pointer;color:var(--txt3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;flex-shrink:0}
 .tab.active{color:var(--red2);border-bottom-color:var(--red2)}
