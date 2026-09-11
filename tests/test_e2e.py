@@ -7719,5 +7719,63 @@ class PushToggleReflectsServerTests(unittest.TestCase):
         self.assertIn('push_native', src[i:i + 1600])
 
 
+class StaticFilesAreCacheableTests(unittest.TestCase):
+    """Flask posílal u každého souboru `no-cache`, takže se při každém
+    prokliku všechno ověřovalo u serveru. Na mobilu to znamená stovky
+    milisekund navíc za každý soubor — a i18n.js má přes 160 kB.
+    Číslování `?v=` v adresách přitom existuje právě proto, aby se
+    cachovat daly: jiná verze = jiná adresa."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def test_versioned_asset_is_cached_for_long(self):
+        cc = self.client.get('/i18n.js?v=99').headers.get('Cache-Control', '')
+        self.assertIn('max-age=', cc)
+        self.assertNotIn('no-cache', cc)
+        age = int(cc.split('max-age=')[1].split(',')[0])
+        self.assertGreater(age, 86400, 'verzovaný soubor se má držet dlouho')
+
+    def test_unversioned_asset_is_cached_briefly(self):
+        cc = self.client.get('/theme.css').headers.get('Cache-Control', '')
+        self.assertIn('max-age=', cc)
+
+    def test_pages_are_never_cached(self):
+        """Stránka v cache by znamenala, že se nasazená verze k člověku
+        nedostane."""
+        for path in ('/', '/login'):
+            cc = self.client.get(path).headers.get('Cache-Control', '')
+            self.assertIn('no-cache', cc, f'{path} se cachuje')
+
+
+class MobilePanelsFitTheScreenTests(unittest.TestCase):
+    """Tři věci, které na telefonu končily pod spodní lištou nebo mimo
+    obrazovku. V prohlížeči na počítači se to neprojeví."""
+
+    def test_notification_panel_is_not_positioned_by_the_bell_on_mobile(self):
+        """Zvoneček sedí na telefonu vlevo u loga. Výpočet „odsaď zprava
+        podle tlačítka\" panel odstrčil o půl obrazovky."""
+        with open('public/notifs.js', encoding='utf-8') as f:
+            src = f.read()
+        i = src.index('function placePanel')
+        self.assertIn('innerWidth', src[i:i + 700])
+
+    def test_filter_modal_clears_the_bottom_bar(self):
+        with open('public/index.html', encoding='utf-8') as f:
+            src = f.read()
+        i = src.index('#filterModal.show')
+        self.assertIn('padding-bottom', src[i:i + 400])
+
+    def test_app_webview_covers_the_whole_screen(self):
+        """S contentInset "always" webview nesahal až dolů a pod lištou
+        zůstal pruh pozadí."""
+        import json
+        p = 'native/capacitor.config.json'
+        if not os.path.exists(p):
+            self.skipTest('nativní obal zatím neexistuje')
+        with open(p, encoding='utf-8') as f:
+            self.assertEqual('never', json.load(f)['ios']['contentInset'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

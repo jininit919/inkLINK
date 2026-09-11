@@ -68,7 +68,11 @@
   .il-notif-push-btn.muted:hover{color:var(--red2,#e8e8e8);border-color:var(--red2,#e8e8e8)}
 
   @media(max-width:560px){
-    .il-notif-panel{right:8px;left:8px;width:auto;top:60px}
+    /* Panel je na telefonu list přes celou šířku. Musí se vejít mezi
+       horní lištu a spodní navigaci, jinak se obsah ořízne a odhlášení
+       z pushu zůstane pod okrajem. */
+    .il-notif-panel{right:8px !important;left:8px;width:auto;top:60px !important;
+      max-height:calc(100vh - 60px - 110px - env(safe-area-inset-bottom))}
   }
   `;
 
@@ -204,6 +208,15 @@
     const btn = document.getElementById('il-notif-btn');
     const panel = document.getElementById('il-notif-panel');
     if (!btn || !panel) return;
+    // Na úzké obrazovce je panel přes celou šířku a umisťuje ho CSS.
+    // Zvoneček tam sedí vlevo u loga, takže výpočet „odsaď zprava podle
+    // tlačítka" panel odstrčil o půl obrazovky a zbyl z něj proužek —
+    // a inline styl navíc přebil pravidlo z media query.
+    if (window.innerWidth <= 560) {
+      panel.style.top = '';
+      panel.style.right = '';
+      return;
+    }
     const r = btn.getBoundingClientRect();
     panel.style.top = Math.round(r.bottom + 10) + 'px';
     panel.style.right = Math.max(10, Math.round(window.innerWidth - r.right)) + 'px';

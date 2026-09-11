@@ -400,6 +400,39 @@ def cron_heartbeat(resp):
     return resp
 
 
+# Soubory, které se nikdy nemění pod stejnou adresou. Stránky mezi ně
+# nepatří — ty musí zůstat čerstvé, jinak by se nasazená verze
+# k člověku nedostala.
+_CACHEABLE_EXT = ('.js', '.css', '.svg', '.png', '.jpg', '.jpeg', '.webp',
+                  '.woff', '.woff2', '.ico')
+
+
+@app.after_request
+def cache_static(resp):
+    """Statické soubory se mají držet v zařízení.
+
+    Flask jim posílal `no-cache`, takže se při každém prokliku všechno
+    ověřovalo u serveru — na mobilu stovky milisekund navíc za každý
+    soubor, a i18n.js má 160 kB. Celé číslování `?v=` v adresách přitom
+    existuje právě proto, aby se cachovat daly: jiná verze = jiná adresa.
+    """
+    try:
+        if request.method != 'GET' or resp.status_code != 200:
+            return resp
+        path = request.path.lower()
+        if not path.endswith(_CACHEABLE_EXT):
+            return resp
+        if request.args.get('v'):
+            # Adresa nese verzi, takže se obsah pod ní už nezmění.
+            resp.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        else:
+            # Bez verze se drží krátce — deploy se tak projeví do hodiny.
+            resp.headers['Cache-Control'] = 'public, max-age=3600'
+    except Exception:
+        pass
+    return resp
+
+
 @app.after_request
 def security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
