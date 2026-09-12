@@ -222,7 +222,7 @@ let me = null;
 function escapeHtml(s){return(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 function fmtKc(cents) {
-  if (!cents) return '0 CZK';
+  if (!cents) return InkLinkI18N.money(0, window.myCurrency || 'CZK');
   const sign = cents < 0 ? '−' : '';
   const abs = Math.abs(Math.round(cents / 100));
   return sign + InkLinkI18N.money(abs, window.myCurrency || 'CZK');

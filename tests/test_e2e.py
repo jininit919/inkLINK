@@ -7949,5 +7949,34 @@ class DesignRequestIsTranslatedOnDisplayTests(unittest.TestCase):
         self.assertIn('mt(', page[i:i + 160])
 
 
+class IconSpriteIsLoadedTests(unittest.TestCase):
+    """Sada ikon se vkládá skriptem. Bez něj se `<use href="#i-…">`
+    vykreslí jako prázdná plocha a nikdo se nedozví proč — přesně tak
+    zmizely ikony ze spodní lišty na stránce klientů."""
+
+    def test_every_page_using_icons_loads_the_sprite(self):
+        import glob, os
+        chybi = []
+        for f in glob.glob('public/*.html'):
+            with open(f, encoding='utf-8') as fh:
+                src = fh.read()
+            if 'href="#i-' in src and 'icons.js' not in src:
+                chybi.append(os.path.basename(f))
+        self.assertEqual([], chybi,
+                         f'stránky používají ikony bez sady: {chybi}')
+
+
+class EarningsCurrencyTests(unittest.TestCase):
+    """Na jedné obrazovce stálo „8 142 Kč" i „0 CZK" — nula se vypisovala
+    napevno s kódem měny, nenulové hodnoty přes formátování."""
+
+    def test_zero_goes_through_the_formatter(self):
+        with open('public/earnings.html', encoding='utf-8') as f:
+            src = f.read()
+        self.assertNotIn("return '0 CZK'", src,
+                         'nula se pořád vypisuje napevno')
+        self.assertIn('InkLinkI18N.money(0', src)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
