@@ -290,7 +290,7 @@
     { href: '/',             ico: 'i-home',     lbl: T('mnav.feed',     'Feed') },
     { href: '/calendar',     ico: 'i-calendar', lbl: T('anav.calendar', 'Calendar') },
     { href: '/earnings',     ico: 'i-trending', lbl: T('anav.earnings', 'Earnings') },
-    { href: '/premium',      ico: 'i-star',     lbl: T('anav.premium',  'Premium') },
+    { href: '/aftercare',    ico: 'i-mail',     lbl: T('anav.aftercare','Aftercare') },
   ];
 
   // Šipka „zpět" byla na dvanácti stránkách a na patnácti chyběla, a

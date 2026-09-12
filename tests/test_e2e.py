@@ -3069,67 +3069,114 @@ class DynamicTranslationTests(unittest.TestCase):
         self.assertIn('document.querySelectorAll(I18N_SEL).forEach(applyToEl)', src)
 
 
-class PremiumGateTests(_Sprint2Base):
-    """Premium přidává, nikdy neubírá.
+class EverythingIsFreeTests(_Sprint2Base):
+    """Předplatné je zrušené — všechny funkce má tatér zdarma.
 
-    Denní práce tatéra — kalendář, rezervace, zprávy, nabídky — musí
-    zůstat celá zdarma. Za peníze je jen to, co otevře jednou za měsíc."""
+    Dřív tu stálo, že účetnictví a statistiky vrací 402. Teď to hlídá
+    opačný směr: že se nic nezamklo zpátky. Paywall se totiž dá vrátit
+    omylem jedním `require_premium`, který někdo zkopíruje z okolí, a na
+    produkci se to pozná až tím, že tatér nahlásí zamčenou funkci.
+    """
 
-    PAID = ('/api/me/accounting/export', '/api/me/stats')
-    FREE = ('/api/me/slots', '/api/me/bookings/artist', '/api/me/calendar',
-            '/api/messages/conversations', '/api/me/earnings', '/api/clients')
+    VSE = ('/api/me/accounting/export', '/api/me/stats', '/api/me/slots',
+           '/api/me/bookings/artist', '/api/me/calendar',
+           '/api/messages/conversations', '/api/me/earnings', '/api/clients',
+           '/api/me/aftercare', '/api/me/campaigns')
 
-    def _as_artist(self, premium=False):
+    @staticmethod
+    def _src(name):
+        cesta = name if name == 'server.py' else os.path.join('public', name)
+        with open(cesta, encoding='utf-8') as fh:
+            return fh.read()
+
+    def _as_artist(self):
         import sqlite3
         from werkzeug.security import generate_password_hash
         conn = sqlite3.connect(self.db)
         conn.execute('UPDATE users SET password_hash=? WHERE id=1',
                      (generate_password_hash('pass1234', method='pbkdf2:sha256'),))
-        if premium:
-            conn.execute('UPDATE users SET premium_until=? WHERE id=1',
-                         ((self._now() + timedelta(days=30)).isoformat(),))
         conn.commit(); conn.close()
         self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
 
-    def test_daily_work_stays_free(self):
-        self._as_artist(premium=False)
-        for path in self.FREE:
+    def test_nothing_asks_for_money(self):
+        """Nikde 402. Účet bez jediné platby v historii."""
+        self._as_artist()
+        for path in self.VSE:
             r = self.client.get(path)
-            self.assertNotEqual(r.status_code, 402, f'{path} se zamklo za paywall')
+            self.assertNotEqual(r.status_code, 402,
+                                f'{path} se zamklo za paywall')
 
-    def test_premium_features_are_gated(self):
-        """402, ne 403: 403 znamená 'nemáš právo', tohle znamená
-        'ještě nezaplaceno' a frontend na to umí nabídnout předplatné."""
-        self._as_artist(premium=False)
-        for path in self.PAID:
-            r = self.client.get(path)
-            self.assertEqual(r.status_code, 402, path)
-            self.assertTrue(r.get_json().get('premium_required'), path)
-
-    def test_premium_opens_them(self):
-        self._as_artist(premium=True)
-        for path in self.PAID:
-            self.assertEqual(self.client.get(path).status_code, 200, path)
-
-    def test_expired_premium_closes_again(self):
-        import sqlite3
-        self._as_artist(premium=True)
-        conn = sqlite3.connect(self.db)
-        conn.execute('UPDATE users SET premium_until=? WHERE id=1',
-                     ((self._now() - timedelta(days=1)).isoformat(),))
-        conn.commit(); conn.close()
-        self.assertEqual(self.client.get('/api/me/stats').status_code, 402)
-
-    def test_anonymous_gets_401_not_402(self):
-        """Nepřihlášenému nemá smysl nabízet předplatné."""
+    def test_anonymous_still_needs_login(self):
+        """Zdarma neznamená veřejné — čísla tatéra jsou pořád jeho."""
         self.client.post('/api/logout')
-        self.assertEqual(self.client.get('/api/me/stats').status_code, 401)
+        for path in ('/api/me/stats', '/api/me/accounting/export',
+                     '/api/me/earnings'):
+            self.assertEqual(self.client.get(path).status_code, 401, path)
 
-    def test_me_reports_premium(self):
-        self._as_artist(premium=True)
-        me = self.client.get('/api/me').get_json()
-        self.assertTrue(me['premium'])
-        self.assertTrue(me['premium_until'])
+    def test_subscription_endpoints_are_gone(self):
+        """Zůstat by znamenalo, že se z aplikace dá pořád začít platit —
+        a tím by se vrátil i problém s pravidly Applu."""
+        for path in ('/api/premium/status', '/api/premium/checkout',
+                     '/api/premium/portal'):
+            self.assertEqual(self.client.get(path).status_code, 404, path)
+
+    def test_no_gate_left_in_source(self):
+        """Po paywallu nesmí zůstat funkce, která vždycky říká ano.
+
+        Takový zbytek je horší než žádný: kdo ho příště přečte, uvěří, že
+        něco kontroluje. Proto jsou pryč celé, ne znetvořené."""
+        src = self._src('server.py')
+        for fn in ('def require_premium(', 'def _is_premium(',
+                   'def _is_premium_from_row(', 'def _apply_premium_subscription(',
+                   'PREMIUM_PRICES'):
+            self.assertNotIn(fn, src, f'{fn} zůstalo v kódu')
+
+    def test_artist_tools_check_the_role(self):
+        """Kontrolu „jsi tatér?" dělal paywall, a to jen náhodou — klient
+        neměl zaplaceno, tak ho odmítl. Bez něj by se nástroje otevřely
+        komukoli, takže tu roli musí hlídat někdo pořádně."""
+        src = self._src('server.py')
+        self.assertIn('def require_artist():', src)
+        self.assertEqual(src.count('err = require_artist()'), 5,
+                         'některý nástroj tatéra přišel o kontrolu role')
+
+    def test_aftercare_page_loads_without_subscription_state(self):
+        """Načítání na stránce viselo na stavu předplatného. Když ten
+        zmizel, vyšla stránka prázdná a v konzoli nic — takže se to
+        hlídá, ne odhaduje."""
+        html = self._src('aftercare.html')
+        self.assertNotIn('/api/premium/', html)
+        self.assertNotIn('premium.active', html)
+        self.assertIn('loadAftercare()', html)
+
+    def test_old_premium_link_still_lands_somewhere(self):
+        """Adresa /premium je v už odeslaných mailech a v záložkách."""
+        r = self.client.get('/premium')
+        self.assertEqual(r.status_code, 301)
+        self.assertTrue(r.headers['Location'].endswith('/aftercare'))
+        self.assertEqual(self.client.get('/aftercare').status_code, 200)
+
+    def test_accounting_and_stats_moved_to_earnings(self):
+        """Přestěhování je snadné udělat napůl: HTML přenést a obsluhu
+        nechat za sebou. Pak je na stránce prázdný rámeček a nic nehlásí."""
+        ea = self._src('earnings.html')
+        for el in ('id="accFrom"', 'id="accTo"', 'id="statsBody"',
+                   'function downloadAccounting', 'async function loadStats',
+                   'accounting/export', '/api/me/stats'):
+            self.assertIn(el, ea, el)
+        # A hlavně: někdo to musí zavolat.
+        self.assertIn('\n  loadStats();', ea, 'loadStats() nikdo nevolá')
+        self.assertNotIn('href="/premium"', ea)
+
+    def test_aftercare_sequence_actually_sends(self):
+        """Tohle byla tichá brána: sekvence po sezení visela na premiu,
+        takže po zrušení předplatného by nedošla nikomu."""
+        src = self._src('server.py')
+        self.assertNotIn('skipped_not_premium', src)
+        for fn in ('def _send_aftercare_first', 'def cron_aftercare'):
+            i = src.index(fn)
+            self.assertNotIn('premium', src[i:i + 2500],
+                             f'{fn} se ptá na premium, takže zase mlčí')
 
 
 class AccountingExportTests(_Sprint2Base):
@@ -3323,12 +3370,12 @@ class CampaignTests(_Sprint2Base):
         r = self.client.post('/api/me/campaigns', json={'subject': 'Flash day', 'body': 'ahoj'})
         self.assertEqual(r.status_code, 400)
 
-    def test_free_artist_cannot_send(self):
+    def test_artist_who_never_paid_can_send(self):
         import sqlite3
         conn = sqlite3.connect(self.db)
         conn.execute('UPDATE users SET premium_until=NULL WHERE id=1')
         conn.commit(); conn.close()
-        self.assertEqual(self.client.get('/api/me/campaigns/recipients').status_code, 402)
+        self.assertEqual(self.client.get('/api/me/campaigns/recipients').status_code, 200)
 
     def test_only_own_clients(self):
         """Souhlas dal klient konkrétnímu tatérovi, ne studiu."""
@@ -3520,15 +3567,17 @@ class AftercareTests(_Sprint2Base):
         self._run()
         self.assertEqual(self._sent_steps(), [])
 
-    def test_free_artist_sends_nothing(self):
+    def test_artist_who_never_paid_still_sends(self):
+        """Tenhle test dřív tvrdil opak: bez předplatného neposílat nic.
+        Sekvence tím ale visela na placení, takže po jeho zrušení by
+        nedošla nikomu a nikde by to nebylo vidět. Teď hlídá, že odejde."""
         import sqlite3
         conn = sqlite3.connect(self.db)
         conn.execute('UPDATE users SET premium_until=NULL WHERE id=1')
         conn.commit(); conn.close()
         self._complete_days_ago(7)
-        d = self._run()
-        self.assertEqual(self._sent_steps(), [])
-        self.assertEqual(d['skipped_not_premium'], 1)
+        self._run()
+        self.assertEqual(self._sent_steps(), ['day7'])
 
     def test_artist_can_switch_it_off(self):
         import sqlite3
@@ -4084,52 +4133,6 @@ class MoneyFormatTests(unittest.TestCase):
         self.assertEqual(bad, [])
 
 
-class PremiumPricingTests(_Sprint2Base):
-    """Cena premia je pro každou měnu vlastní, ne přepočtená kurzem.
-
-    Rozhodující důvod je technický: Stripe Billing účtuje předplatné přes
-    Price objekt a libovolnou přepočtenou částku poslat nejde — cena musí
-    ve Stripe existovat. K tomu by kurzem přepočtená cena vypadala jako
-    15,83 € a měnila se každý den."""
-
-    def _as_artist_with(self, currency):
-        import sqlite3
-        from werkzeug.security import generate_password_hash
-        conn = sqlite3.connect(self.db)
-        conn.execute('UPDATE users SET password_hash=?, currency=? WHERE id=1',
-                     (generate_password_hash('pass1234', method='pbkdf2:sha256'), currency))
-        conn.commit(); conn.close()
-        self.client.post('/api/login', json={'username': 'artist1', 'password': 'pass1234'})
-
-    def test_price_follows_the_currency(self):
-        import server
-        for cur, expected in server.PREMIUM_PRICES.items():
-            self._as_artist_with(cur)
-            d = self.client.get('/api/premium/status').get_json()
-            self.assertEqual((d['currency'], d['price']), (cur, expected), cur)
-
-    def test_prices_are_round(self):
-        """Kdo platí v eurech, čeká kulaté euro číslo, ne 15,83."""
-        import server
-        for cur, price in server.PREMIUM_PRICES.items():
-            self.assertEqual(price, int(price), cur)
-
-    def test_every_currency_has_a_price(self):
-        """Chybějící cena by tatéra poslala na checkout, který spadne."""
-        import server
-        self.assertEqual(set(server.PREMIUM_PRICES), set(server.CURRENCIES))
-
-    def test_checkout_refuses_a_currency_without_a_stripe_price(self):
-        """Tlačítko, které spadne, je horší než chybějící tlačítko."""
-        self._as_artist_with('PLN')
-        r = self.client.post('/api/premium/checkout')
-        self.assertIn(r.status_code, (503, 409))
-
-    def test_unavailable_when_stripe_price_is_missing(self):
-        self._as_artist_with('EUR')
-        self.assertFalse(self.client.get('/api/premium/status').get_json()['available'])
-
-
 class CreditCurrencyTests(_Sprint2Base):
     """Kurzové riziko u kreditu se odstranit nedá — poukaz koupený
     v korunách se může utratit u eurového tatéra. Musí ale být vidět:
@@ -4421,7 +4424,7 @@ class PremiumFeaturesTests(_Sprint2Base):
         conn.commit(); conn.close()
 
     def test_every_premium_endpoint_answers(self):
-        for path in ('/api/premium/status', '/api/me/stats', '/api/me/aftercare',
+        for path in ('/api/me/stats', '/api/me/aftercare',
                      '/api/me/campaigns', '/api/me/campaigns/recipients',
                      '/api/me/accounting/export?from=2026-01-01&to=2026-12-31'):
             r = self.client.get(path)
@@ -4497,22 +4500,21 @@ class PremiumFeaturesTests(_Sprint2Base):
         subjects = [c['subject'] for c in self.client.get('/api/me/campaigns').get_json()]
         self.assertNotIn('Cizí rozesílka', subjects)
 
-    def test_history_is_behind_the_paywall(self):
+    def test_history_is_open(self):
         import sqlite3
         conn = sqlite3.connect(self.db)
         conn.execute('UPDATE users SET premium_until=NULL WHERE id=1')
         conn.commit(); conn.close()
-        self.assertEqual(self.client.get('/api/me/campaigns').status_code, 402)
+        self.assertEqual(self.client.get('/api/me/campaigns').status_code, 200)
 
-    def test_mail_features_sit_in_one_block(self):
+    def test_mail_features_sit_on_their_own_page(self):
         """Hojení a rozesílky spolu souvisí — dřív je na stránce dělilo
-        účetnictví, takže to nebylo poznat."""
-        page = open('public/premium.html', encoding='utf-8').read()
-        self.assertIn('id="featMail"', page)
-        self.assertLess(page.index('id="featMail"'), page.index('id="featAccounting"'))
-        block = page[page.index('id="featMail"'):page.index('id="featAccounting"')]
-        for el in ('acEnabled', 'campSubject', 'campHistory'):
-            self.assertIn(el, block, el)
+        účetnictví. Teď mají vlastní stránku a účetnictví je ve Výdělcích."""
+        page = open('public/aftercare.html', encoding='utf-8').read()
+        for el in ('acEnabled', 'acText', 'campSubject', 'campHistory'):
+            self.assertIn(el, page, el)
+        for cizi in ('accFrom', 'statsBody', 'accounting/export'):
+            self.assertNotIn(cizi, page, f'{cizi} se vrátilo na stránku aftercare')
 
 
 class PremiumIsolationTests(_Sprint2Base):
@@ -4561,18 +4563,19 @@ class PremiumIsolationTests(_Sprint2Base):
             self.assertNotIn('Tajná rozesílka Alfy', body, path)
             self.assertNotIn('Klient Alfy', body, path)
 
-    def test_a_client_gets_no_premium_data(self):
-        """Klient není tatér. Paywall ho odmítne; /api/me/aftercare projde,
-        ale vrací JEHO vlastní (prázdné) nastavení, ne cizí."""
+    def test_a_client_gets_no_artist_data(self):
+        """Klient není tatér — a dřív ho odmítal paywall, ne kontrola role.
+        Po zrušení předplatného by se mu nástroje tatéra otevřely, takže
+        to teď hlídá require_artist a tenhle test hlídá jeho."""
         self._as(2)
         for path in self.PREMIUM_PATHS:
             r = self.client.get(path)
             if path == '/api/me/aftercare':
-                d = r.get_json()
-                self.assertFalse(d['premium'])
-                self.assertEqual(d['text'], '')
+                # Vlastní (prázdné) nastavení klientovi projde — je jeho.
+                self.assertEqual(r.get_json()['text'], '')
             else:
-                self.assertIn(r.status_code, (402, 403), f'{path}: {r.status_code}')
+                self.assertEqual(r.status_code, 403, f'{path}: {r.status_code}')
+                self.assertTrue(r.get_json().get('artist_required'), path)
 
     def test_logged_out_gets_nothing(self):
         self.client.post('/api/logout')

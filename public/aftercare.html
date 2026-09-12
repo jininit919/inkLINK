@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<style>html,body{background:#faf8f3;margin:0}</style>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#faf8f3">
+<meta name="apple-mobile-web-app-title" content="InkLink">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Aftercare — InkLink</title>
+<script>document.documentElement.dataset.theme='paper';try{localStorage.setItem('hmo_theme','paper')}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css?v=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf8f3;--bg2:#f5f1e8;--bg3:#ede8db;--bg4:#e3ddca;
+  --red:#1a1a1a;--red2:#0a0a0a;
+  --txt:#0a0a0a;--txt2:#2a2a2a;--txt3:#5a5a5a;
+  --border:#d4cfbf;--border2:#a8a399;
+  --ok:#7fc97f;--warn:#e8c87f;--err:#c62828;
+  --stencil:#6d4fc4;
+}
+body{background:var(--bg);color:var(--txt);font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,0.92);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:76px;gap:12px}
+.nav-logo{font-family:'Bristol','Caveat',cursive;font-size:44px;line-height:0.9;flex:1}
+.nav-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt3)}
+.wrap{max-width:760px;margin:0 auto;padding:100px 24px 90px}
+
+h1{font-size:34px;letter-spacing:0.1em;margin-bottom:8px}
+.sub{font-size:13px;color:var(--txt3);letter-spacing:0.04em;line-height:1.7;margin-bottom:36px;max-width:540px}
+@media(max-width:560px){.wrap{padding:92px 14px 90px}h1{font-size:26px}.sub{margin-bottom:26px}}
+
+/* Sekce jsou samostatné, ne krabice v krabici. Dřív tu byl jeden rámeček
+   .feat a v něm dva .mailsub — s jedinou funkcí na stránce byl vnější
+   rámeček už jen chrome navíc. */
+.sec{margin-bottom:38px}
+.sec > h2{font-size:13px;letter-spacing:0.16em;text-transform:uppercase;color:var(--txt);
+  padding-bottom:8px;position:relative;margin-bottom:4px}
+.sec > h2::after{content:'';position:absolute;left:0;bottom:0;width:34px;height:2px;background:var(--stencil)}
+.sec > .lead{font-size:12.5px;color:var(--txt2);line-height:1.75;margin:12px 0 18px;max-width:560px}
+
+.card{border:1px solid var(--border);background:var(--bg2);padding:18px 20px}
+@media(max-width:560px){.card{padding:16px 14px}}
+
+/* Sekvence je časová osa, ne odstavec. Tatér potřebuje vidět, co klientovi
+   přijde a kdy — z věty „v den dokončení, sedmý den, třicátý den" se to
+   četlo hůř, než se to dá ukázat. */
+.tl{display:grid;gap:0;margin-bottom:20px}
+.tl-step{display:grid;grid-template-columns:62px 1fr;gap:14px;position:relative;padding:0 0 18px}
+.tl-step:last-child{padding-bottom:0}
+.tl-step::before{content:'';position:absolute;left:7px;top:18px;bottom:0;width:1px;background:var(--border2)}
+.tl-step:last-child::before{display:none}
+.tl-when{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--txt3);
+  padding-left:20px;position:relative;line-height:15px;white-space:nowrap}
+.tl-when::before{content:'';position:absolute;left:3px;top:4px;width:9px;height:9px;
+  border-radius:50%;background:var(--bg2);border:1px solid var(--border2)}
+.tl-step.now .tl-when{color:var(--txt)}
+.tl-step.now .tl-when::before{background:var(--stencil);border-color:var(--stencil)}
+.tl-what{font-size:12.5px;color:var(--txt2);line-height:1.6}
+@media(max-width:430px){
+  .tl-step{grid-template-columns:1fr;gap:5px}
+  .tl-step::before{display:none}
+  .tl-what{padding-left:20px}
+}
+
+.acsw{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--txt);cursor:pointer;
+  padding:11px 0;border-top:1px solid var(--border);margin-top:4px}
+.acsw input{width:16px;height:16px;accent-color:var(--stencil);cursor:pointer}
+
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3)}
+input,textarea{background:var(--bg3);border:1px solid var(--border2);
+  color:var(--txt);font-family:inherit;font-size:13px;padding:10px 11px;outline:none;width:100%}
+input:focus,textarea:focus{border-color:var(--stencil)}
+textarea{min-height:104px;resize:vertical;line-height:1.6}
+.hint{font-size:11px;color:var(--txt3);line-height:1.6;margin-top:8px}
+
+.btn{font-size:11px;letter-spacing:0.1em;padding:10px 18px;background:transparent;
+  border:1px solid var(--border2);color:var(--txt2);cursor:pointer;text-transform:uppercase;
+  font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;width:auto}
+.btn:hover{border-color:var(--txt);color:var(--txt)}
+.btn.primary{background:var(--txt);border-color:var(--txt);color:var(--bg)}
+.btn.primary:hover{opacity:0.85}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* Počet příjemců je to jediné, co si člověk ověřuje těsně před odesláním —
+   dřív to byla drobná šedá nápověda pod nadpisem. */
+.rcpt-box{border:1px solid var(--border);background:var(--bg);padding:13px 15px;margin-bottom:16px}
+.rcpt-n{font-size:19px;letter-spacing:0.02em;line-height:1.2}
+.rcpt-l{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3);margin-top:3px}
+.rcpt-names{font-size:12px;color:var(--txt2);line-height:1.65;margin-top:9px;
+  padding-top:9px;border-top:1px solid var(--border)}
+.rcpt-names .more{color:var(--txt3)}
+
+.flash{font-size:12px;letter-spacing:0.03em;margin-top:10px;min-height:16px}
+.flash.err{color:var(--err)}
+.flash.ok{color:var(--txt2)}
+
+.camp-hist{margin-top:22px}
+.camp-hist .hh{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px}
+.camp-hist .row-i{display:flex;gap:4px 12px;align-items:baseline;padding:10px 0;
+  border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap}
+.camp-hist .row-i .s{flex:1 1 100%;min-width:0;color:var(--txt);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(min-width:520px){.camp-hist .row-i .s{flex:1 1 auto}}
+.camp-hist .row-i .m{color:var(--txt3);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* Nula se nezvýrazňuje — zvýraznit „0 rezervací" je posměch. */
+.camp-hist .row-i .m.good{color:var(--txt);font-weight:600}
+.camp-hist .note{font-size:11px;color:var(--txt3);margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="/">inklink</a>
+  <a class="nav-icon" href="/earnings" title="Výdělky"><svg class="icon"><use href="#i-trending"/></svg></a>
+  <a class="nav-icon" href="/artist-setup" title="Nastavení">⚙</a>
+</nav>
+<script src="/notifs.js?v=23"></script>
+<script src="/i18n.js?v=29"></script>
+<script src="/mobile-nav.js?v=34"></script>
+<script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
+
+<div class="wrap">
+  <h1 data-i18n="ac.title">Aftercare</h1>
+  <p class="sub" data-i18n="ac.sub">Péče o klienta po sezení — automaticky i ručně. Obojí jde jen těm, kdo u tebe opravdu byli, a v každém mailu je jednoklikové odhlášení.</p>
+
+  <div class="sec">
+    <h2 data-i18n="ac.autoTitle">Automaticky po sezení</h2>
+    <p class="lead" data-i18n="ac.autoLead">Jakmile rezervaci označíš za dokončenou, rozjede se sekvence sama. Klient ji může kdykoli zastavit jedním klikem.</p>
+
+    <div class="card">
+      <div class="tl">
+        <div class="tl-step now">
+          <div class="tl-when" data-i18n="ac.d0">Hned</div>
+          <div class="tl-what" data-i18n="ac.d0w">Tvoje instrukce k hojení. Odchází při dokončení rezervace, ne dalším dnem — klient je má mít, než odejde ze studia.</div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-when" data-i18n="ac.d7">7. den</div>
+          <div class="tl-what" data-i18n="ac.d7w">Krátká kontrola, jak se hojí. Odpověď ti přijde do zpráv.</div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-when" data-i18n="ac.d30">30. den</div>
+          <div class="tl-what" data-i18n="ac.d30w">Prosba o fotku zhojené práce a o recenzi.</div>
+        </div>
+      </div>
+
+      <div class="fld"><label for="acText" data-i18n="ac.acText">Tvoje instrukce k hojení</label>
+        <textarea id="acText" maxlength="2000" data-i18n-attr="ac.acTextPh:placeholder" placeholder="Fólii nech 24 h. Pak omýt vlažnou vodou…" onblur="saveAftercare()"></textarea></div>
+      <div class="hint" data-i18n="ac.acHint">Píšeš je ty, ne my — každý má svůj postup a platforma nemá co radit v něčem zdravotním. Když pole necháš prázdné, mail jen odkáže na to, co jsi klientovi řekl.</div>
+
+      <label class="acsw"><input type="checkbox" id="acEnabled" onchange="saveAftercare()"> <span data-i18n="ac.acEnabled">Posílat sekvenci automaticky</span></label>
+      <div class="flash" id="acFlash"></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2 data-i18n="ac.campTitle">Rozesílka</h2>
+    <p class="lead" data-i18n="ac.campLead">Když chceš dát vědět o volných termínech nebo flash dni. Jde tvým klientům, ne cizím lidem — kdo se odhlásí, už ho mezi příjemci neuvidíš.</p>
+
+    <div class="card">
+      <div class="rcpt-box" id="campCount"></div>
+
+      <div class="fld"><label for="campSubject" data-i18n="ac.subject">Předmět</label>
+        <input id="campSubject" maxlength="150" data-i18n-attr="ac.subjectPh:placeholder" placeholder="Flash day 12. října"></div>
+      <div class="fld" style="margin-top:12px"><label for="campBody" data-i18n="ac.message">Zpráva</label>
+        <textarea id="campBody" maxlength="4000" data-i18n-attr="ac.messagePh:placeholder" placeholder="Co chceš klientům vzkázat…"></textarea></div>
+      <div style="margin-top:14px">
+        <button class="btn primary" id="campBtn" onclick="sendCampaign()">
+          <svg class="icon"><use href="#i-send"/></svg> <span data-i18n="ac.send">Odeslat</span></button>
+      </div>
+      <div class="flash" id="campFlash"></div>
+
+      <!-- Historie: bez ní tatér při druhé rozesílce netuší, jestli se
+           neopakuje, a nemá čím doložit, co komu poslal. -->
+      <div id="campHistory" class="camp-hist"></div>
+    </div>
+  </div>
+
+</div>
+<script>
+const t = k => window.InkLinkI18N ? InkLinkI18N.t(k) : k;
+const esc = s => (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const locale = () => (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs' ? 'cs-CZ' : 'en-GB';
+
+async function init() {
+  const me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  if (!me) { location.href = '/login'; return; }
+  if (window.InkLinkI18N) InkLinkI18N.setCurrency(me.currency || 'CZK');
+  loadAftercare(); loadCampaignCount(); loadCampaignHistory();
+}
+
+async function loadAftercare() {
+  const d = await fetch('/api/me/aftercare').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!d) return;
+  document.getElementById('acEnabled').checked = d.enabled;
+  document.getElementById('acText').value = d.text;
+}
+
+async function saveAftercare() {
+  const f = document.getElementById('acFlash');
+  try {
+    const r = await fetch('/api/me/aftercare', {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: document.getElementById('acEnabled').checked,
+                            text: document.getElementById('acText').value}),
+    });
+    if (!r.ok) throw new Error();
+    f.className = 'flash ok'; f.textContent = t('ac.saved');
+    setTimeout(() => { f.textContent = ''; }, 2000);
+  } catch (e) { f.className = 'flash err'; f.textContent = t('ac.failed'); }
+}
+
+// Čeština má u počtů tři tvary: 1 / 2–4 / 5+. Angličtina dva. Bez tohohle
+// vzniká „1 rezervací" a „1 příjemcům", což vypadá jako strojový překlad.
+function plural(n, key) {
+  const cs = (window.InkLinkI18N ? InkLinkI18N.get() : 'en') === 'cs';
+  const forms = {
+    rcpt:   cs ? ['příjemce', 'příjemci', 'příjemců'] : ['recipient', 'recipients', 'recipients'],
+    booked: cs ? ['rezervace', 'rezervace', 'rezervací'] : ['booking', 'bookings', 'bookings'],
+  }[key];
+  const i = n === 1 ? 0 : (n >= 2 && n <= 4 ? 1 : 2);
+  return forms[i];
+}
+
+async function loadCampaignCount() {
+  const d = await fetch('/api/me/campaigns/recipients').then(r => r.ok ? r.json() : null).catch(() => null);
+  const el = document.getElementById('campCount');
+  const btn = document.getElementById('campBtn');
+  if (!d) { el.style.display = 'none'; btn.disabled = true; return; }
+  // Samotné číslo nedá jistotu, že mail jde těm správným lidem.
+  // Jména ano — adresy schválně ne, ať z toho není exportovatelný seznam.
+  const names = (d.names || []).map(esc);
+  const more = d.count - names.length;
+  el.innerHTML = `<div class="rcpt-n">${d.count}</div>`
+    + `<div class="rcpt-l">${esc(plural(d.count, 'rcpt'))}</div>`
+    + (names.length ? `<div class="rcpt-names">${names.join(' · ')}`
+        + (more > 0 ? ` <span class="more">${esc(t('ac.andMore').replace('{n}', more))}</span>` : '')
+        + '</div>' : '');
+  btn.disabled = d.count === 0;
+}
+
+async function loadCampaignHistory() {
+  const el = document.getElementById('campHistory');
+  if (!el) return;
+  const list = await fetch('/api/me/campaigns').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!list || !list.length) { el.innerHTML = ''; return; }
+  const when = iso => {
+    try { return new Date(String(iso).replace(' ', 'T'))
+      .toLocaleDateString(locale(), {day:'numeric', month:'numeric', year:'numeric'}); }
+    catch (e) { return ''; }
+  };
+  el.innerHTML = `<div class="hh">${esc(t('ac.campSent'))}</div>` + list.map(c => `
+    <div class="row-i">
+      <span class="s">${esc(c.subject)}</span>
+      <span class="m">${c.recipients}&nbsp;${esc(plural(c.recipients, 'rcpt'))}</span>
+      <span class="m ${c.booked ? 'good' : ''}">${c.booked}&nbsp;${esc(plural(c.booked, 'booked'))}</span>
+      <span class="m">${esc(when(c.created_at))}</span>
+    </div>`).join('')
+    + `<div class="note">${esc(t('ac.campNote'))}</div>`;
+}
+
+async function sendCampaign() {
+  const f = document.getElementById('campFlash');
+  const subject = document.getElementById('campSubject').value.trim();
+  const body    = document.getElementById('campBody').value.trim();
+  // Číslo pro potvrzení ber z prvního prvku, ne regexem přes celý blok —
+  // ten teď obsahuje i jména klientů a číslo v nich by přebilo počet.
+  const nEl = document.querySelector('#campCount .rcpt-n');
+  const n = nEl ? nEl.textContent.trim() : '0';
+  if (!confirm(t('ac.confirmSend').replace('{n}', n))) return;
+  const b = document.getElementById('campBtn');
+  b.disabled = true;
+  f.className = 'flash'; f.textContent = '';
+  try {
+    const r = await fetch('/api/me/campaigns', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({subject, body}),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || '');
+    f.className = 'flash ok';
+    f.textContent = t('ac.sent').replace('{n}', j.sent) + (j.failed ? ' ' + t('ac.someFailed').replace('{n}', j.failed) : '');
+    document.getElementById('campSubject').value = '';
+    document.getElementById('campBody').value = '';
+    loadCampaignHistory();
+  } catch (e) {
+    f.className = 'flash err'; f.textContent = e.message || t('ac.failed');
+  }
+  b.disabled = false;
+}
+
+init();
+</script>
+<script src="/icons.js?v=16"></script>
+<script src="/ink-trail.js?v=16"></script>
+<script src="/cookie-consent.js?v=17"></script>
+<script src="/native.js?v=18"></script>
+</body>
+</html>

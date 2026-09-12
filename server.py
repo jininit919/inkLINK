@@ -1534,9 +1534,9 @@ def init_db():
     add_col('slots', 'is_private INTEGER DEFAULT 0')
     add_col('slots', "currency TEXT DEFAULT 'CZK'")
 
-    # InkLink Premium — placený tarif jednotlivého tatéra.
-    # premium_until je datum, do kdy má zaplaceno; zrušení předplatného
-    # ho nezkracuje, jen se přestane prodlužovat.
+    # Zbytek po zrušeném předplatném. Sloupce se už nečtou ani nezapisují;
+    # zůstávají, protože existující databáze je mají a mazání sloupce je
+    # nevratné. Kdyby se někdy vracelo placení, nezačíná se od nuly.
     # Měna tatéra. Termíny, ceníky i rezervace ji dědí; změna se projeví
     # až na nově vypsaných termínech, aby se nepřepsaly už slíbené ceny.
     # Fakturační údaje tatéra. Bez nich se dá vystavit jen potvrzení
@@ -1561,8 +1561,8 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_campaigns_artist ON campaigns(artist_id)')
 
     # Komu rozesílka doopravdy šla. Dřív se ukládal jen počet, takže se
-    # nedalo zjistit, jestli z ní něco bylo — a to je jediné číslo, kvůli
-    # kterému si tatér premium zaplatí podruhé.
+    # nedalo zjistit, jestli z ní něco bylo — a to je jediné číslo, které
+    # tatérovi řekne, jestli má cenu rozesílat znovu.
     c.execute("""CREATE TABLE IF NOT EXISTS campaign_recipients (
         campaign_id INTEGER NOT NULL,
         client_id   INTEGER NOT NULL,
@@ -1572,7 +1572,7 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_camp_rcpt_user '
               'ON campaign_recipients(user_id)')
 
-    # Hojení — automatická sekvence po sezení (premium).
+    # Hojení — automatická sekvence po sezení.
     # Text instrukcí píše tatér: každý má svůj protokol (fólie vs. Second
     # Skin, jiná mast) a platforma nemá co radit v něčem zdravotním.
     add_col('users', 'aftercare_enabled INTEGER DEFAULT 1')
@@ -2403,48 +2403,23 @@ SUBSCRIPTION_TIER_RANK = {'free': 0, 'studio': 1, 'studio_pro': 2}
 # nabídky) zůstává celá zdarma. Za peníze je to, co tatér otevře jednou za
 # měsíc — účetnictví, čísla, rozesílání.
 
-PREMIUM_PRICE_CZK = int(os.environ.get('PREMIUM_PRICE_CZK', '390'))   # jen CZK; ostatní viz PREMIUM_PRICES
-PREMIUM_FEATURES  = ('accounting', 'stats', 'campaigns')
+def require_artist():
+    """Nástroje tatéra jsou pro tatéry, ne pro každého přihlášeného.
 
-
-def _premium_until(conn, user_id):
-    row = conn.execute('SELECT premium_until FROM users WHERE id=?', (user_id,)).fetchone()
-    return (row['premium_until'] if row else None) or None
-
-
-def _is_premium_from_row(row):
-    until = (row.get('premium_until') if isinstance(row, dict) else row['premium_until']) or None
-    if not until:
-        return False
-    try:
-        return _naive_dt(until) > _prague_now_naive()
-    except (ValueError, TypeError):
-        return False
-
-
-def _is_premium(conn, user_id):
-    """Premium platí do data, které zaplatil. Zrušení předplatného nic
-    neodebírá hned — za období, které má zaplacené, ho dostat má."""
-    until = _premium_until(conn, user_id)
-    if not until:
-        return False
-    try:
-        return _naive_dt(until) > _prague_now_naive()
-    except (ValueError, TypeError):
-        return False
-
-
-def require_premium():
-    """Vrátí chybovou odpověď, nebo None. 402 schválně: 403 znamená
-    'nemáš právo', tohle znamená 'ještě nezaplaceno' a frontend na to
-    umí nabídnout předplatné."""
+    Vzniklo to při rušení předplatného: kontrolu „jsi tatér?" do té doby
+    dělal paywall, a to jen náhodou — klient neměl zaplaceno, tak ho
+    odmítl. Bez paywallu by se rozesílání i statistiky otevřely komukoli,
+    a jelikož jsou to vlastní data každého účtu, nešlo by o únik, jen
+    o funkci, která klientovi nemá co nabídnout a nedopočítá se správně.
+    """
     err = require_login()
     if err: return err
     conn = get_db()
-    ok = _is_premium(conn, session['user_id'])
+    u = conn.execute('SELECT is_artist FROM users WHERE id=?',
+                     (session['user_id'],)).fetchone()
     conn.close()
-    if not ok:
-        return jsonify({'error': 'InkLink Premium required', 'premium_required': True}), 402
+    if not u or not u['is_artist']:
+        return jsonify({'error': 'Jen pro tatéry', 'artist_required': True}), 403
     return None
 
 
@@ -2683,9 +2658,19 @@ def calendar_page():
     return send_from_directory('public', 'calendar.html')
 
 
+@app.route('/aftercare')
+def aftercare_page():
+    # Sousedí s /aftercare/stop a /aftercare/photo z mailů klientům; jsou
+    # to samostatná pravidla, takže si nepřekážejí.
+    return send_from_directory('public', 'aftercare.html')
+
+
 @app.route('/premium')
 def premium_page():
-    return send_from_directory('public', 'premium.html')
+    # Stránka se rozdělila: maily klientům zůstaly, účetnictví a čísla se
+    # přestěhovala do Výdělků. Přesměrování je tu kvůli starým záložkám
+    # a odkazům v už odeslaných mailech.
+    return redirect('/aftercare', code=301)
 
 
 @app.route('/liked')
@@ -3235,7 +3220,7 @@ def me():
                                   stripe_payouts_enabled, stripe_details_submitted,
                                   deletion_requested_at,
                                   artist_terms_accepted_at,
-                                  premium_until, premium_cancel_at_period_end, currency
+                                  currency
                            FROM users WHERE id = ?''',
                         (session['user_id'],)).fetchone()
     if user is None:
@@ -3255,8 +3240,6 @@ def me():
     d['is_artist'] = bool(d.get('is_artist'))
     d['can_accept_bookings'] = bool(d.get('stripe_charges_enabled'))
     d['currency'] = _norm_currency(d.get('currency'))
-    d['premium'] = _is_premium_from_row(d)
-    d['premium_until'] = d.get('premium_until')
     d['push_subscriptions'] = push_n
     # Zvlášť zařízení s nativní aplikací. Aplikace se podle toho pozná,
     # jestli je přihlášená k pushi — systémové oprávnění na to nestačí,
@@ -13445,12 +13428,10 @@ def _send_aftercare_first(conn, booking_id):
         b = conn.execute('''
             SELECT b.id, b.client_id, ua.display_name AS artist_name,
                    ua.username AS artist_username, ua.aftercare_text,
-                   ua.premium_until, ua.aftercare_enabled
+                   ua.aftercare_enabled
             FROM bookings b JOIN users ua ON ua.id = b.artist_id
             WHERE b.id = ?''', (booking_id,)).fetchone()
         if not b or not b['aftercare_enabled']:
-            return False
-        if not _is_premium_from_row({'premium_until': b['premium_until']}):
             return False
         if conn.execute('SELECT 1 FROM aftercare_sent WHERE booking_id=? AND step=?',
                         (booking_id, AFTERCARE_FIRST_STEP)).fetchone():
@@ -13479,7 +13460,7 @@ def cron_aftercare():
     err = _check_cron_auth()
     if err: return err
     conn = get_db()
-    sent, skipped = [], 0
+    sent = []
 
     for step, days in AFTERCARE_STEPS:
         # completed_at se ukládá v UTC, takže i hranice musí být v UTC.
@@ -13488,7 +13469,7 @@ def cron_aftercare():
         rows = conn.execute('''
             SELECT b.id, b.client_id, b.artist_id, b.completed_at,
                    ua.display_name AS artist_name, ua.username AS artist_username,
-                   ua.aftercare_text, ua.premium_until, ua.aftercare_enabled,
+                   ua.aftercare_text, ua.aftercare_enabled,
                    uc.display_name AS client_name,
                    (SELECT COUNT(*) FROM reviews r WHERE r.booking_id = b.id) AS has_review
             FROM bookings b
@@ -13504,10 +13485,6 @@ def cron_aftercare():
         ''', (newest, oldest, step)).fetchall()
 
         for b in rows:
-            # Sekvence je premium funkce tatéra, ne klienta.
-            if not _is_premium_from_row({'premium_until': b['premium_until']}):
-                skipped += 1
-                continue
             token = _aftercare_token(b['id'])
             subject, html = _aftercare_email(step, {
                 'client_name': b['client_name'],
@@ -13531,8 +13508,7 @@ def cron_aftercare():
             if u and u['email'] and send_email(u['email'], subject, html):
                 sent.append({'booking': b['id'], 'step': step})
     conn.close()
-    return jsonify({'ok': True, 'sent': len(sent), 'skipped_not_premium': skipped,
-                    'detail': sent})
+    return jsonify({'ok': True, 'sent': len(sent), 'detail': sent})
 
 
 @app.route('/aftercare/stop')
@@ -13638,13 +13614,12 @@ def my_aftercare():
             conn.execute('UPDATE users SET aftercare_enabled=? WHERE id=?',
                          (1 if data.get('enabled') else 0, uid))
         conn.commit()
-    u = conn.execute('SELECT aftercare_text, aftercare_enabled, premium_until '
+    u = conn.execute('SELECT aftercare_text, aftercare_enabled '
                      'FROM users WHERE id=?', (uid,)).fetchone()
     conn.close()
     return jsonify({
         'text': u['aftercare_text'] or '',
         'enabled': bool(u['aftercare_enabled']),
-        'premium': _is_premium_from_row({'premium_until': u['premium_until']}),
         'steps': [{'step': s, 'days': d} for s, d in AFTERCARE_STEPS],
     })
 
@@ -13712,7 +13687,7 @@ def _campaign_recipients(conn, artist_id, tag=None):
 
 @app.route('/api/me/campaigns/recipients')
 def campaign_recipients():
-    err = require_premium()
+    err = require_artist()
     if err: return err
     conn = get_db()
     rows = _campaign_recipients(conn, session['user_id'],
@@ -13744,7 +13719,7 @@ def _campaign_window_end(created_at):
 def campaign_history():
     """Co už tatér rozeslal. Bez tohohle rozešle mail a nikdy se nedozví
     komu, co a kdy — a při druhé rozesílce netuší, jestli se neopakuje."""
-    err = require_premium()
+    err = require_artist()
     if err: return err
     conn = get_db()
     uid = session['user_id']
@@ -13781,7 +13756,7 @@ def campaign_history():
 @app.route('/api/me/campaigns', methods=['POST'])
 @limiter.limit('6 per hour')
 def send_campaign():
-    err = require_premium()
+    err = require_artist()
     if err: return err
     uid  = session['user_id']
     data = request.get_json(silent=True) or {}
@@ -13896,10 +13871,10 @@ def unsubscribe_page():
 # ── Premium: statistiky ───────────────────────────────────────────────────
 
 @app.route('/api/me/stats')
-def premium_stats():
+def artist_stats():
     """Čísla, na která se tatér dívá jednou za měsíc. Nic z toho nemění
     denní práci — proto to smí být placené."""
-    err = require_premium()
+    err = require_artist()
     if err: return err
     uid  = session['user_id']
     conn = get_db()
@@ -14057,7 +14032,7 @@ def _accounting_rows(conn, artist_id, date_from, date_to):
 
 @app.route('/api/me/accounting/export')
 def accounting_export():
-    err = require_premium()
+    err = require_artist()
     if err: return err
     uid = session['user_id']
 
@@ -14106,184 +14081,6 @@ def accounting_export():
     return Response('﻿' + buf.getvalue(),
                     mimetype='text/csv; charset=utf-8',
                     headers={'Content-Disposition': f'attachment; filename="{name}"'})
-
-
-# ── Premium: předplatné ───────────────────────────────────────────────────
-#
-# Stripe Billing, ne Connect. Connect posílá peníze OD klienta TATÉROVI;
-# tohle je platba OD tatéra NÁM. Jsou to dva různé produkty a míchat je
-# do jednoho toku by znamenalo, že provize a předplatné sdílí osud.
-
-PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '').strip()
-
-
-# Cena premia je pro každou měnu vlastní, ne přepočtená kurzem. Tři důvody,
-# a ten první je rozhodující:
-#
-#   1. Stripe Billing předplatné účtuje přes Price objekt. Nedá se poslat
-#      libovolná přepočtená částka — cena musí ve Stripe existovat.
-#   2. Kurzem přepočtená cena vypadá jako 15,83 € a mění se každý den.
-#   3. Kdo platí v eurech, čeká kulaté euro číslo.
-#
-# Čísla jsou přibližný ekvivalent 390 Kč, zaokrouhlený nahoru na hezkou
-# hodnotu. Kurz se hýbe; tahle tabulka schválně ne.
-PREMIUM_PRICES = {'CZK': PREMIUM_PRICE_CZK, 'EUR': 16, 'USD': 17, 'GBP': 14, 'PLN': 79}
-
-
-def _premium_price(currency):
-    cur = _norm_currency(currency)
-    return cur, PREMIUM_PRICES.get(cur, PREMIUM_PRICES[DEFAULT_CURRENCY])
-
-
-def _premium_price_id(currency):
-    """Stripe Price pro danou měnu. Chybějící znamená, že se v ní zatím
-    předplatit nedá — a frontend pak nabídne kontakt místo tlačítka,
-    které by stejně spadlo."""
-    cur = _norm_currency(currency)
-    return (os.environ.get(f'STRIPE_PREMIUM_PRICE_ID_{cur}', '').strip()
-            or (PREMIUM_PRICE_ID if cur == DEFAULT_CURRENCY else ''))
-
-
-
-@app.route('/api/premium/status')
-def premium_status():
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    u = conn.execute('SELECT premium_until, premium_subscription_id, '
-                     'premium_cancel_at_period_end, currency FROM users WHERE id=?',
-                     (session['user_id'],)).fetchone()
-    conn.close()
-    cur, price = _premium_price(u['currency'] if 'currency' in u.keys() else None)
-    return jsonify({
-        'active':          _is_premium_from_row(dict(u)),
-        'until':           u['premium_until'],
-        'cancel_at_end':   bool(u['premium_cancel_at_period_end']),
-        'has_subscription': bool(u['premium_subscription_id']),
-        'currency':        cur,
-        'price':           price,
-        'features':        list(PREMIUM_FEATURES),
-        # Bez ceníku ve Stripe se v téhle měně předplatit nedá; frontend
-        # pak nabídne kontakt místo tlačítka, které by stejně spadlo.
-        'available':       bool(STRIPE_SECRET_KEY and _premium_price_id(cur)),
-    })
-
-
-@app.route('/api/premium/checkout', methods=['POST'])
-def premium_checkout():
-    err = require_login()
-    if err: return err
-    if not STRIPE_SECRET_KEY:
-        return jsonify({'error': 'Předplatné zatím není spuštěné.'}), 503
-    uid  = session['user_id']
-    conn = get_db()
-    u = conn.execute('SELECT username, email, display_name, premium_customer_id, currency '
-                     'FROM users WHERE id=?', (uid,)).fetchone()
-    price_id = _premium_price_id(u['currency'] if 'currency' in u.keys() else None)
-    if not price_id:
-        conn.close()
-        return jsonify({'error': 'V téhle měně zatím předplatné nenabízíme. '
-                                 'Napiš nám a domluvíme se.'}), 503
-    if _is_premium(conn, uid):
-        conn.close()
-        return jsonify({'error': 'Premium už máš aktivní.'}), 409
-
-    customer_id = u['premium_customer_id']
-    try:
-        if not customer_id:
-            cust = stripe.Customer.create(
-                email=u['email'] or None,
-                name=u['display_name'] or u['username'],
-                metadata={'inklink_user_id': str(uid), 'username': u['username']},
-            )
-            customer_id = cust.id
-            conn.execute('UPDATE users SET premium_customer_id=? WHERE id=?', (customer_id, uid))
-            conn.commit()
-
-        sess = stripe.checkout.Session.create(
-            mode='subscription',
-            customer=customer_id,
-            line_items=[{'price': price_id, 'quantity': 1}],
-            # Uživatele hledáme podle metadat, ne podle e-mailu — ten si
-            # může kdykoliv změnit a přiřazení by se rozpadlo.
-            subscription_data={'metadata': {'inklink_user_id': str(uid)}},
-            metadata={'inklink_user_id': str(uid)},
-            success_url=f'{APP_BASE_URL}/premium?paid=1',
-            cancel_url=f'{APP_BASE_URL}/premium',
-            locale='cs',
-        )
-    except Exception as e:
-        conn.close()
-        app.logger.error(f'[premium] checkout failed for user {uid}: {e}')
-        return jsonify({'error': 'Platbu se nepovedlo založit.'}), 502
-    conn.close()
-    return jsonify({'url': sess.url})
-
-
-@app.route('/api/premium/portal', methods=['POST'])
-def premium_portal():
-    """Správu i zrušení předplatného řeší Stripe. Vlastní zrušovací
-    formulář by znamenal držet stav na dvou místech."""
-    err = require_login()
-    if err: return err
-    conn = get_db()
-    u = conn.execute('SELECT premium_customer_id FROM users WHERE id=?',
-                     (session['user_id'],)).fetchone()
-    conn.close()
-    if not u or not u['premium_customer_id']:
-        return jsonify({'error': 'Nemáš žádné předplatné.'}), 404
-    try:
-        portal = stripe.billing_portal.Session.create(
-            customer=u['premium_customer_id'],
-            return_url=f'{APP_BASE_URL}/premium',
-        )
-    except Exception as e:
-        app.logger.error(f'[premium] portal failed: {e}')
-        return jsonify({'error': 'Správu předplatného se nepovedlo otevřít.'}), 502
-    return jsonify({'url': portal.url})
-
-
-def _premium_user_from_subscription(conn, sub):
-    """Najdi tatéra podle metadat, jinak podle customer id."""
-    meta = (sub.get('metadata') or {}) if isinstance(sub, dict) else (sub.metadata or {})
-    uid = meta.get('inklink_user_id')
-    if uid:
-        try:
-            return int(uid)
-        except (TypeError, ValueError):
-            pass
-    cust = sub.get('customer') if isinstance(sub, dict) else sub.customer
-    if cust:
-        row = conn.execute('SELECT id FROM users WHERE premium_customer_id=?', (cust,)).fetchone()
-        if row:
-            return row['id']
-    return None
-
-
-def _apply_premium_subscription(conn, sub):
-    """Zdrojem pravdy je Stripe. Ukládáme si jen datum, do kdy je
-    zaplaceno — kdyby webhook vypadl, premium samo doběhne a nezůstane
-    zapnuté napořád."""
-    uid = _premium_user_from_subscription(conn, sub)
-    if not uid:
-        return None
-    g = (lambda k: sub.get(k)) if isinstance(sub, dict) else (lambda k: getattr(sub, k, None))
-    status = g('status')
-    period_end = g('current_period_end')
-    cancel_at_end = 1 if g('cancel_at_period_end') else 0
-    sub_id = g('id')
-
-    if status in ('active', 'trialing', 'past_due') and period_end:
-        until = datetime.utcfromtimestamp(int(period_end)).isoformat()
-        conn.execute('UPDATE users SET premium_until=?, premium_subscription_id=?, '
-                     'premium_cancel_at_period_end=? WHERE id=?',
-                     (until, sub_id, cancel_at_end, uid))
-    elif status in ('canceled', 'unpaid', 'incomplete_expired'):
-        # Datum nezkracujeme: za období, které má zaplacené, ho dostat má.
-        conn.execute('UPDATE users SET premium_subscription_id=NULL, '
-                     'premium_cancel_at_period_end=0 WHERE id=?', (uid,))
-    conn.commit()
-    return uid
 
 
 @app.route('/api/stripe/webhook', methods=['POST'])
@@ -14349,17 +14146,9 @@ def stripe_webhook():
                 conn_v.close()
         return '', 200
 
-    if etype in ('customer.subscription.created', 'customer.subscription.updated',
-                 'customer.subscription.deleted'):
-        conn_sub = get_db()
-        try:
-            uid = _apply_premium_subscription(conn_sub, obj)
-            app.logger.info(f'[premium] {etype} → user {uid}')
-        except Exception as e:
-            app.logger.error(f'[premium] {etype} failed: {e}')
-        finally:
-            conn_sub.close()
-        return '', 200
+    # Předplatné jsme zrušili, takže tyhle události od Stripu už nemají
+    # co obsluhovat. Kdyby nějaká dojela ze starých časů, projde bez
+    # reakce — nic se tím nerozbije.
 
     if etype == 'account.updated':
         acct_id = obj['id'] if isinstance(obj, dict) else obj.id

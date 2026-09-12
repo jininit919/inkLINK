@@ -105,6 +105,36 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 .report-flash.err{background:rgba(229,135,135,0.1);color:var(--bad);border:1px solid rgba(229,135,135,0.3)}
 .report-flash.ok{background:rgba(127,201,127,0.1);color:var(--good);border:1px solid rgba(127,201,127,0.3)}
 #reportPreview{margin-top:6px;display:none}
+.report-alt{border-top:1px solid var(--border);margin-top:4px;padding-top:16px;
+  display:flex;flex-direction:column;gap:12px}
+
+/* Statistiky — stejný tvar jako report-card, ať stránka nemá dva jazyky. */
+.stats-card{margin:14px 0 28px;padding:22px 24px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;display:flex;flex-direction:column;gap:14px}
+.stats-card h3{font-family:'Helvetica Neue','Helvetica','Arial',sans-serif;font-size:18px;
+  letter-spacing:0.16em;color:var(--txt);font-weight:400;display:flex;align-items:center;gap:10px}
+.stats-card h3 .icon{width:18px;height:18px;color:var(--txt3)}
+.stats-card p{font-size:12px;color:var(--txt2);line-height:1.6;letter-spacing:0.02em;max-width:620px}
+.skpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.skpi > div{border:1px solid var(--border);border-radius:6px;padding:12px 14px;background:var(--bg)}
+.skpi .n{font-size:19px;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)}
+.skpi .l{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--txt3);margin-top:3px}
+.sgroup{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--txt3);margin:6px 0 2px}
+.sbars{display:flex;flex-direction:column;gap:6px}
+.sbar{display:grid;grid-template-columns:84px 1fr auto;gap:10px;align-items:center;font-size:12px}
+.sbar .t{color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbar .g{height:8px;background:var(--bg4);border-radius:4px;overflow:hidden}
+.sbar .g i{display:block;height:100%;background:var(--red2)}
+.sbar .v{color:var(--txt3);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.snote{font-size:11px;color:var(--txt3);line-height:1.6}
+@media(max-width:560px){
+  .stats-card{padding:18px 15px}
+  .sbar{grid-template-columns:64px 1fr auto;gap:8px;font-size:11.5px}
+  /* Názvy skic se do úzkého sloupce nevejdou a ořežou se na půl slova.
+     Dostanou proto vlastní řádek; u měsíců to potřeba není. */
+  .sbar.wide{grid-template-columns:1fr auto;gap:3px 10px}
+  .sbar.wide .t{grid-column:1/-1;white-space:normal}
+}
 #reportPreview pre{font-size:11px;background:var(--bg3);padding:14px;border:1px solid var(--border2);border-radius:6px;max-height:320px;overflow:auto;white-space:pre-wrap;color:var(--txt2);letter-spacing:0.02em}
 </style>
 </head>
@@ -151,8 +181,16 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       </div>
     </div>
 
+    <!-- Statistiky navazují na dlaždice výš: ty říkají kolik, tenhle blok
+         čím. Záměrně tu není znovu tržba — tu už KPI mají. -->
+    <div class="stats-card" id="statsCard">
+      <h3><svg class="icon"><use href="#i-trending"/></svg> <span data-i18n="ea.statsTitle">Statistics</span></h3>
+      <p data-i18n="ea.statsSub">Last six months. The last block matters most: which sketches get booked and which just sit there.</p>
+      <div id="statsBody"></div>
+    </div>
+
     <div class="report-card">
-      <h3><svg class="icon"><use href="#i-credit-card"/></svg> <span data-i18n="ea.monthlyReport">Monthly report</span></h3>
+      <h3><svg class="icon"><use href="#i-credit-card"/></svg> <span data-i18n="ea.acctTitle">Paperwork for your accountant</span></h3>
       <p>
         <span data-i18n="ea.reportIntro">Download the PDF report for the selected month — it includes all bookings, paid deposits, on-site cash, InkLink commission and net income. Suitable for tax records.</span>
       </p>
@@ -172,12 +210,26 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
       </form>
       <div id="reportFlash"></div>
       <div id="reportPreview"><pre id="reportJson"></pre></div>
+
+      <!-- Druhý výstup ze stejných dat, ne druhá karta: PDF za měsíc pro
+           archiv, CSV za libovolné období pro účetní. Dřív bydlely na dvou
+           různých stránkách a vypadaly jako dvě nesouvisející funkce. -->
+      <div class="report-alt">
+        <p data-i18n="ea.csvIntro">Or a spreadsheet over any period: one row per booking — session date, client, price, deposit, balance, cash on site, commission and net. Plus totals.</p>
+        <div class="report-row">
+          <div class="fld"><label data-i18n="ea.from">From</label><input type="date" id="accFrom"></div>
+          <div class="fld"><label data-i18n="ea.to">To</label><input type="date" id="accTo"></div>
+          <button class="report-btn" type="button" onclick="downloadAccounting()">
+            <svg class="icon"><use href="#i-arrow-right"/></svg> <span data-i18n="ea.downloadCsv">Download CSV</span>
+          </button>
+        </div>
+        <div id="accFlash"></div>
+      </div>
     </div>
 
     <div class="section-head">
       <h2 class="section-title" data-i18n="ea.last30">Last 30 transactions</h2>
       <a class="section-sub" href="/my-bookings" style="text-decoration:underline" data-i18n="ea.allBookings">All bookings →</a>
-      <a class="section-sub" href="/premium" style="text-decoration:underline;margin-left:14px" data-i18n="ea.premium">Účetní export a statistiky →</a>
     </div>
     <div id="txList" class="tx-table"></div>
     <div id="txEmpty" class="empty" style="display:none">
@@ -212,8 +264,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 </div>
 
 <script src="/notifs.js?v=23"></script>
-<script src="/i18n.js?v=28"></script>
-<script src="/mobile-nav.js?v=33"></script>
+<script src="/i18n.js?v=29"></script>
+<script src="/mobile-nav.js?v=34"></script>
 <script>InkLinkNotifs.init(); InkLinkMobileNav.init();</script>
 
 <script>
@@ -298,6 +350,11 @@ async function init() {
 
   document.getElementById('loading').style.display = 'none';
   document.getElementById('content').style.display = 'block';
+
+  // Statistiky až tady: #content je do téhle chvíle display:none a měření
+  // šířky pruhů by v skrytém prvku vyšlo na nulu. Volá se bez await —
+  // stránka na ně nemá čekat.
+  loadStats();
 
   // KPIs
   document.getElementById('kpiThisMonth').textContent = fmtKc(data.this_month.net_cents);
@@ -389,11 +446,79 @@ async function previewReport() {
   box.style.display = 'block';
 }
 
-// Pre-fill report month = aktuální měsíc
+function downloadAccounting() {
+  const from = document.getElementById('accFrom').value;
+  const to   = document.getElementById('accTo').value;
+  const f = document.getElementById('accFlash');
+  if (!from || !to) { f.innerHTML = `<div class="report-flash err">${tr('ea.pickRange')}</div>`; return; }
+  f.innerHTML = `<div class="report-flash ok">${tr('ea.preparing')}</div>`;
+  window.location.href = `/api/me/accounting/export?from=${from}&to=${to}`;
+  setTimeout(() => { f.innerHTML = ''; }, 3000);
+}
+
+async function loadStats() {
+  const box = document.getElementById('statsBody');
+  if (!box) return;
+  const d = await fetch('/api/me/stats').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!d) { box.innerHTML = `<div class="snote">${tr('ea.loadFailed')}</div>`; return; }
+  const T = d.totals;
+  // Tržba tu schválně není jako dlaždice — tu ukazují KPI nad tím.
+  // Pozor na rozdíl: KPI je ČISTÝ příjem z online plateb po provizi,
+  // kdežto tyhle sloupce jsou HRUBÁ tržba včetně hotovosti na místě.
+  // Obě čísla jsou správně, ale vedle sebe bez popisku vypadají jako
+  // chyba — proto to ea.byMonth říká nahlas.
+  const kpis = [
+    [T.done, tr('ea.kSessions')],
+    [`${T.hours} h`, tr('ea.kHours')],
+    [`${T.cancelled_pct} %`, tr('ea.kCancelled')],
+  ];
+  // „2026-09" je strojový tvar. Krátký název měsíce se vejde i do úzkého
+  // sloupce a dá se přečíst bez přemýšlení.
+  const mLabel = ym => {
+    const [y, m] = String(ym).split('-');
+    if (!m) return ym;
+    try {
+      return new Date(Number(y), Number(m) - 1, 1)
+        .toLocaleDateString(locale(), {month: 'short'}) + ' ' + y.slice(2);
+    } catch (e) { return ym; }
+  };
+  const months = d.by_month.slice(-6);
+  const maxRev = Math.max(1, ...months.map(m => m.revenue));
+  const sketches = d.sketches.slice(0, 8);
+  const maxBooked = Math.max(1, ...sketches.map(s => s.booked));
+
+  box.innerHTML = `
+    <div class="skpi">${kpis.map(([n, l]) =>
+      `<div><div class="n">${escapeHtml(String(n))}</div><div class="l">${escapeHtml(l)}</div></div>`).join('')}</div>
+    ${T.unpaid_deposit ? `<div class="snote" style="margin-top:10px">${escapeHtml(tr('ea.unpaid').replace('{n}', T.unpaid_deposit))}</div>` : ''}
+    <div class="sgroup" style="margin-top:16px">${escapeHtml(tr('ea.byMonth'))}</div>
+    <div class="sbars">${months.map(m => `
+      <div class="sbar"><span class="t">${escapeHtml(mLabel(m.month))}</span>
+        <span class="g"><i style="width:${Math.round(m.revenue / maxRev * 100)}%"></i></span>
+        <span class="v">${escapeHtml(fmtKc(m.revenue * 100))}</span></div>`).join('')}</div>
+    <div class="sgroup" style="margin-top:18px">${escapeHtml(tr('ea.sketchPerf'))}</div>
+    ${sketches.length ? `<div class="sbars">${sketches.map(s => `
+      <div class="sbar wide"><span class="t">${escapeHtml(s.caption || tr('ea.untitled'))}</span>
+        <span class="g"><i style="width:${Math.round(s.booked / maxBooked * 100)}%"></i></span>
+        <span class="v">${s.booked ? escapeHtml(tr('ea.booked').replace('{n}', s.booked))
+          : (s.age_days >= 30 ? escapeHtml(tr('ea.idle').replace('{n}', Math.round(s.age_days / 30)))
+                              : escapeHtml(tr('ea.noneYet')))}</span>
+      </div>`).join('')}</div>` : `<div class="snote">${escapeHtml(tr('ea.noSketches'))}</div>`}`;
+}
+
+// Předvyplnění: měsíc u PDF, aktuální měsíc jako rozsah u CSV.
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   const el = document.getElementById('reportMonth');
   if (el) el.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  // Lokální datum, ne toISOString: ten převádí do UTC a prvního v měsíci
+  // by v našem pásmu ukázal poslední den měsíce předchozího.
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const from = document.getElementById('accFrom');
+  const to   = document.getElementById('accTo');
+  if (from) from.value = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+  if (to)   to.value   = ymd(now);
 });
 
 init();
