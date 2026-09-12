@@ -2120,10 +2120,26 @@ def allowed_video(file_storage):
     return check_magic(file_storage.stream, AUDIO_MAGIC + VIDEO_MAGIC)
 
 
+def iso_utc(dt_str):
+    """Uložený čas jako ISO s výslovným UTC, ať ho klient nečte jako místní.
+
+    V databázi je `2026-09-12 06:33:12` bez zóny. `new Date()` v prohlížeči
+    takový zápis bere jako místní čas, takže by se to rozešlo o posun pásma.
+    """
+    if not dt_str:
+        return None
+    t = str(dt_str).strip().replace(' ', 'T')
+    if t.endswith('Z') or '+' in t[10:]:
+        return t
+    return t + 'Z'
+
+
 def time_ago(dt_str):
     try:
         dt = datetime.fromisoformat(dt_str)
-        diff = datetime.now() - dt
+        # `datetime.now()` je místní čas, ale ukládá se UTC — všechno tím
+        # bylo posunuté o pásmo a zpráva poslaná právě teď hlásila „2h ago".
+        diff = datetime.utcnow() - dt
         secs = int(diff.total_seconds())
         if secs < 60:
             return 'právě teď'
@@ -3360,6 +3376,7 @@ def feed():
             'price_kc':        p['price_kc'],
             'estimated_hours': p['estimated_hours'],
             'created_at':    time_ago(p['created_at']),
+            'created_at_iso':    iso_utc(p['created_at']),
             'user': {
                 'currency':     _norm_currency(p['currency'] if 'currency' in p.keys() else None),
                 'username':     p['username'],
@@ -3430,6 +3447,7 @@ def liked_feed():
             'price_kc':        p['price_kc'],
             'estimated_hours': p['estimated_hours'],
             'created_at':    time_ago(p['created_at']),
+            'created_at_iso':    iso_utc(p['created_at']),
             'user': {
                 'currency':     _norm_currency(p['currency'] if 'currency' in p.keys() else None),
                 'username':     p['username'],
@@ -3505,6 +3523,7 @@ def sketch_detail(item_id):
         'price_kc':        p['price_kc'],
         'estimated_hours': p['estimated_hours'],
         'created_at':    time_ago(p['created_at']),
+        'created_at_iso':    iso_utc(p['created_at']),
         'user': {
             'username':     p['username'],
             'display_name': p['display_name'],
@@ -3843,6 +3862,7 @@ def get_notifications():
         'message':        r['message'],
         'read':           bool(r['read']),
         'created_at':     time_ago(r['created_at']),
+        'created_at_iso':    iso_utc(r['created_at']),
         'actor_username': r['actor_username'],
         'actor_avatar':   f'/uploads/{r["actor_avatar"]}' if r['actor_avatar'] else None,
         'actor_initials': initials(r['actor_name'] or '?'),
@@ -4342,6 +4362,7 @@ def get_profile(username):
             'price_kc':        p['price_kc'],
             'estimated_hours': p['estimated_hours'],
             'created_at':      time_ago(p['created_at']),
+            'created_at_iso':    iso_utc(p['created_at']),
         } for p in portfolio],
         'slots': [{
             'id':          s['id'],
@@ -8943,7 +8964,7 @@ def cron_account_deletions():
         'ok': True,
         'purged_count': len(purged_ids),
         'purged_user_ids': purged_ids,
-        'cutoff_iso': cutoff,
+        'cutoff_iso': iso_utc(cutoff),
     })
 
 
@@ -10304,6 +10325,7 @@ def conversations():
         'initials':     initials(r['display_name']),
         'last_msg':     r['last_msg'] if r['last_msg'] else '📷 Fotka',   # nabídka nese text v content
         'last_at':      time_ago(r['last_at']),
+        'last_at_iso':    iso_utc(r['last_at']),
         'unread':       r['unread'],
     } for r in rows])
 
@@ -10360,6 +10382,7 @@ def get_messages(other_id):
             'offer':        offers.get(m['offer_id']) if m['offer_id'] else None,
             'mine':         m['sender_id'] == session['user_id'],
             'created_at':   time_ago(m['created_at']),
+            'created_at_iso':    iso_utc(m['created_at']),
         } for m in rows]
     })
 

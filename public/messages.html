@@ -221,14 +221,14 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
   <!-- CONVERSATIONS -->
   <div class="conv-panel">
     <div class="conv-header">
-      <span class="conv-header-title">Messages</span>
-      <button class="new-msg-btn" onclick="openNewMsg()">+ New</button>
+      <span class="conv-header-title" data-i18n="ms.title">Messages</span>
+      <button class="new-msg-btn" onclick="openNewMsg()" data-i18n="ms.new">+ New</button>
     </div>
     <div class="conv-search">
       <input type="text" id="convSearch" data-i18n-attr="ms.searchPh:placeholder" placeholder="Search conversations...">
     </div>
     <div class="conv-list" id="convList">
-      <div class="il-loading-row"><span class="il-spinner"></span> Loading conversations…</div>
+      <div class="il-loading-row"><span class="il-spinner"></span> <span data-i18n="ms.loading">Loading conversations…</span></div>
     </div>
   </div>
 
@@ -236,7 +236,7 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
   <div class="chat-panel" id="chatPanel">
     <div class="chat-empty" id="chatEmpty">
       <svg class="icon icon-2xl" style="opacity:0.3"><use href="#i-message"/></svg>
-      <p>Select a conversation<br>or start a new message.</p>
+      <p><span data-i18n="ms.selectConv">Select a conversation</span><br><span data-i18n="ms.selectConvSub">or start a new message.</span></p>
     </div>
   </div>
 
@@ -246,15 +246,15 @@ nav{flex-shrink:0;position:sticky;top:0;z-index:100;background:rgba(14,10,10,0.9
 <div class="modal-overlay" id="newMsgModal">
   <div class="modal">
     <div class="modal-title">
-      New message
+      <span data-i18n="ms.newTitle">New message</span>
       <button class="modal-close" onclick="closeNewMsg()">✕</button>
     </div>
     <div class="modal-err" id="newMsgErr"></div>
     <div class="mfield">
-      <label>Recipient username</label>
+      <label data-i18n="ms.recipient">Recipient username</label>
       <input type="text" id="newMsgUser" placeholder="username">
     </div>
-    <button class="modal-btn" onclick="startConversation()">OPEN CONVERSATION</button>
+    <button class="modal-btn" onclick="startConversation()" data-i18n="ms.openConv">Open conversation</button>
   </div>
 </div>
 
@@ -418,7 +418,7 @@ function convItemHTML(c, isSuggestion) {
       <div class="conv-preview">${isSuggestion ? '+ New message' : esc(c.last_msg)}</div>
     </div>
     <div class="conv-meta">
-      <div class="conv-time">${esc(c.last_at)}</div>
+      <div class="conv-time" data-ago="${esc(c.last_at_iso || '')}">${esc(window.ilAgo ? ilAgo(c.last_at_iso) : c.last_at)}</div>
       ${c.unread > 0 ? `<div class="conv-unread">${c.unread}</div>` : ''}
     </div>
   </div>`;
@@ -698,7 +698,7 @@ async function fetchMessages(userId) {
       ${avatarHTML}
       <div>
         <div class="msg-bubble ${m.mine ? 'mine' : 'theirs'}" style="${m.content_type==='image'?'padding:4px;background:transparent;border:none':''}">${bubbleContent}</div>
-        <div class="msg-time" style="${m.mine ? 'text-align:right' : ''}">${esc(m.created_at)}</div>
+        <div class="msg-time" data-ago="${esc(m.created_at_iso || '')}" style="${m.mine ? 'text-align:right' : ''}">${esc(window.ilAgo ? ilAgo(m.created_at_iso) : m.created_at)}</div>
       </div>
     </div>`;
   }).join('');
@@ -729,7 +729,7 @@ function closeChatMobile() {
     panel.innerHTML = `
       <div class="chat-empty" id="chatEmpty">
         <svg class="icon icon-2xl" style="opacity:0.3"><use href="#i-message"/></svg>
-        <p>Select a conversation<br>or start a new message.</p>
+        <p><span data-i18n="ms.selectConv">Select a conversation</span><br><span data-i18n="ms.selectConvSub">or start a new message.</span></p>
       </div>`;
   }
   document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
@@ -893,7 +893,7 @@ function escJs(s) {
 init();
 </script>
 
-<script src="/i18n.js?v=24"></script>
+<script src="/i18n.js?v=26"></script>
 <script src="/mobile-nav.js?v=33"></script>
 <script>InkLinkMobileNav && InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>

@@ -322,6 +322,13 @@
       'pr.sent':               'Odesláno {n} klientům.',
       'pr.someFailed':         '{n} se nepodařilo doručit.',
       'ms.searchPh':           'Hledat v konverzacích…',
+      'ms.title':              'Zprávy',
+      'ms.new':                '+ Nová',
+      'ms.selectConv':         'Vyber konverzaci',
+      'ms.selectConvSub':      'nebo napiš novou zprávu.',
+      'ms.newTitle':           'Nová zpráva',
+      'ms.recipient':          'Uživatelské jméno adresáta',
+      'ms.openConv':           'Otevřít konverzaci',
       'ms.none':               'Zatím žádné zprávy',
       'ms.photo':              'Fotka',
       'ms.photoGone':          'Fotka už není dostupná',
@@ -1619,6 +1626,13 @@
       'pr.sent':               'Sent to {n} clients.',
       'pr.someFailed':         '{n} could not be delivered.',
       'ms.searchPh':           'Search conversations…',
+      'ms.title':              'Messages',
+      'ms.new':                '+ New',
+      'ms.selectConv':         'Select a conversation',
+      'ms.selectConvSub':      'or start a new message.',
+      'ms.newTitle':           'New message',
+      'ms.recipient':          'Recipient username',
+      'ms.openConv':           'Open conversation',
       'ms.none':               'No messages yet',
       'ms.photo':              'Photo',
       'ms.photoGone':          'Photo is no longer available',
@@ -2761,6 +2775,38 @@
   }
 
   function get() { return lang; }
+
+  // Relativní čas skládal server, a to anglicky („7d ago"), takže s ním
+  // klient nemohl nic dělat. Intl to zvládne v obou jazycích a česky
+  // i správně skloní — „před 7 dny", ne „7 dny zpět".
+  window.ilAgo = function (iso) {
+    if (!iso) return '';
+    const then = new Date(iso);
+    if (isNaN(then)) return String(iso);
+    const secs = Math.round((Date.now() - then.getTime()) / 1000);
+    const lang = (window.InkLinkI18N && InkLinkI18N.get()) === 'cs' ? 'cs' : 'en';
+    try {
+      const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+      if (secs < 60) return rtf.format(0, 'minute');
+      if (secs < 3600) return rtf.format(-Math.floor(secs / 60), 'minute');
+      if (secs < 86400) return rtf.format(-Math.floor(secs / 3600), 'hour');
+      if (secs < 2592000) return rtf.format(-Math.floor(secs / 86400), 'day');
+      if (secs < 31536000) return rtf.format(-Math.floor(secs / 2592000), 'month');
+      return rtf.format(-Math.floor(secs / 31536000), 'year');
+    } catch (e) {
+      return then.toLocaleDateString();
+    }
+  };
+
+  // Prvky s `data-ago="<ISO>"` si čas přepíšou samy po přepnutí jazyka.
+  // Bez toho by zůstal v jazyce, ve kterém se seznam vykreslil.
+  function refreshAgo(root) {
+    (root || document).querySelectorAll('[data-ago]').forEach(el => {
+      el.textContent = window.ilAgo(el.getAttribute('data-ago'));
+    });
+  }
+  document.addEventListener('il-i18n-applied', () => refreshAgo());
+  window.ilRefreshAgo = refreshAgo;
 
   window.InkLinkI18N = { t, set, get, apply, money, currencySymbol, setCurrency,
                          currency: () => pageCurrency, supported: SUPPORTED };

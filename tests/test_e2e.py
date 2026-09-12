@@ -7812,5 +7812,96 @@ class NativeFeelTests(unittest.TestCase):
             self.assertIn('theme.css?v=', f.read())
 
 
+class RelativeTimeTests(unittest.TestCase):
+    """Relativní čas skládal server, a to anglicky — takže „7d ago" mezi
+    českým textem a klient s tím nemohl nic dělat. Navíc porovnával
+    uložený UTC s místním časem, takže zpráva poslaná právě teď hlásila
+    „2h ago"."""
+
+    def setUp(self):
+        self.client, self.db = _fresh_client()
+
+    def test_just_now_is_not_hours_ago(self):
+        """Tohle je ta tichá chyba: posun celého časového pásma."""
+        import server
+        from datetime import datetime
+        now = datetime.utcnow().isoformat(sep=' ', timespec='seconds')
+        self.assertEqual('právě teď', server.time_ago(now))
+
+    def test_iso_marks_utc(self):
+        """Bez značky zóny by `new Date()` v prohlížeči čekal místní čas
+        a rozešlo by se to o posun pásma."""
+        import server
+        self.assertTrue(server.iso_utc('2026-09-12 06:33:12').endswith('Z'))
+        self.assertIn('T', server.iso_utc('2026-09-12 06:33:12'))
+
+    def test_iso_keeps_existing_zone(self):
+        import server
+        self.assertEqual('2026-09-12T06:33:12Z',
+                         server.iso_utc('2026-09-12T06:33:12Z'))
+
+    def test_iso_survives_empty(self):
+        import server
+        self.assertIsNone(server.iso_utc(None))
+
+    def test_conversations_send_machine_readable_time(self):
+        _register(self.client, 'pisatel')
+        _login(self.client, 'pisatel')
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO users (username, display_name, password_hash,"
+                     " email) VALUES ('druhy','Druhy','x','d@t.cz')")
+        conn.commit(); conn.close()
+        self.client.post('/api/messages/2', json={'content': 'ahoj'})
+        d = self.client.get('/api/messages/conversations').get_json()
+        self.assertTrue(d, 'konverzace se nezaložila')
+        self.assertIn('last_at_iso', d[0])
+        self.assertTrue(str(d[0]['last_at_iso']).endswith('Z'))
+
+    def test_client_can_format_it_itself(self):
+        """Bez pomocníka na klientovi by čas zůstal v jazyce serveru."""
+        with open('public/i18n.js', encoding='utf-8') as f:
+            src = f.read()
+        self.assertIn('RelativeTimeFormat', src)
+        self.assertIn('window.ilAgo', src)
+
+    def test_times_refresh_when_language_changes(self):
+        """Čas se skládá při vykreslení seznamu, takže po přepnutí jazyka
+        by zůstal v tom starém."""
+        with open('public/i18n.js', encoding='utf-8') as f:
+            self.assertIn('data-ago', f.read())
+
+
+class MessagesPageIsTranslatedTests(unittest.TestCase):
+    """Stránka byla přeložená jen z poloviny: „MESSAGES", „+ NEW",
+    „OPEN CONVERSATION" a prázdný stav zůstávaly anglicky."""
+
+    def page(self):
+        with open('public/messages.html', encoding='utf-8') as f:
+            return f.read()
+
+    def test_labels_carry_a_translation(self):
+        """Anglický text uvnitř prvku je záložní hodnota — nesmí tam být
+        sám, bez `data-i18n`."""
+        page = self.page()
+        for text, key in (('Messages</span>', 'ms.title'),
+                          ('+ New</button>', 'ms.new'),
+                          ('Open conversation</button>', 'ms.openConv'),
+                          ('Recipient username</label>', 'ms.recipient')):
+            i = page.find(text)
+            self.assertNotEqual(-1, i, f'text {text!r} ve stránce není')
+            zacatek = page.rfind('<', 0, i)
+            self.assertIn(key, page[zacatek:i],
+                          f'{text!r} nemá navěšený překlad {key}')
+
+    def test_keys_exist_in_both_languages(self):
+        with open('public/i18n.js', encoding='utf-8') as f:
+            i18n = f.read()
+        for key in ('ms.title', 'ms.new', 'ms.openConv', 'ms.selectConv',
+                    'ms.recipient'):
+            self.assertEqual(2, i18n.count(f"'{key}'"),
+                             f'{key} chybí v jednom z jazyků')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
