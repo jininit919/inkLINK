@@ -166,8 +166,17 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 #creditStrip{display:none;margin-top:14px}
 #creditStrip.on{display:block}
 
-#creditStrip.empty{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
-  padding:10px 0;border-top:1px solid var(--border)}
+#creditStrip.on{display:flex;align-items:center;gap:10px;
+  padding:12px 0;border-top:1px solid var(--border)}
+  .cs-ico{width:17px;height:17px;flex:none;color:var(--txt3)}
+  #creditStrip.funded .cs-ico{color:#6d4fc4}
+  .cs-main{flex:1;min-width:0}
+  .cs-bal{flex:1;font-size:12.5px;color:var(--txt3);text-align:left}
+  /* Jediná akce u prázdného stavu je obyčejný text — pilulka by z ní
+     dělala nabídku, i když není co uplatnit. */
+  .cs-plain{background:none;border:none;padding:0;cursor:pointer;
+  font-family:inherit;font-size:12px;color:var(--txt);letter-spacing:0.02em}
+  .cs-plain:hover{color:var(--txt2)}
 #creditStrip.empty .cs-bal{font-size:12.5px;color:var(--txt3);margin:0}
 #creditStrip.empty .cs-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
 #creditStrip.empty /* Podtržené odkazy vypadaly jako nestylovaná stránka. Tiché pilulky
@@ -189,11 +198,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 #creditStrip.funded .cs-actions .btn{padding:9px 15px;letter-spacing:0.06em;
   font-size:11px;white-space:nowrap}
 @media(max-width:460px){
-  #creditStrip.empty{flex-direction:column;align-items:flex-start;gap:9px}
-  #creditStrip.empty .cs-actions{margin-left:0}
-  #creditStrip.funded{gap:12px}
-  #creditStrip.funded .cs-actions{margin-left:0;width:100%}
-  #creditStrip.funded .cs-actions .btn{flex:1;text-align:center}
+  #creditStrip.on{gap:8px}
+  .cs-amount{font-size:17px}
 }
 .badge{display:inline-block;font-size:10px;padding:2px 8px;border:1px solid var(--red);color:var(--red2);letter-spacing:0.1em;margin-left:8px;vertical-align:middle}
 
@@ -349,7 +355,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,248,243,
 </nav>
 <script src="/notifs.js?v=23"></script>
 <script src="/add-portfolio.js?v=5"></script>
-<script src="/i18n.js?v=26"></script>
+<script src="/i18n.js?v=27"></script>
 <script src="/mobile-nav.js?v=33"></script>
 <script src="/bookings-panel.js?v=16"></script>
 <script src="/voucher-buy.js?v=16"></script>
@@ -1626,27 +1632,30 @@ function renderCreditStrip() {
   InkLinkVoucher.options().then(d => {
     const c = (d.credit_cents || 0) / 100;
     const funded = c > 0;
-    // Bez kreditu jsou to textové odkazy, s kreditem tlačítka — jinak by
-    // nabídka vypadala důležitěji než samotný zůstatek.
-    const cls = funded ? 'btn muted' : 'cs-link';
-    const btns = [
-      `<button class="${cls}" type="button" onclick="InkLinkVoucher.openRedeem()">${tr('pf.redeemVoucherShort')}</button>`,
-      `<button class="${cls}" type="button" onclick="InkLinkVoucher.openBuy()">${tr('pf.buyVoucherShort')}</button>`,
-    ];
-    // „Moje poukazy" jen tomu, kdo nějaký koupil — jinak by to bylo tlačítko
-    // do prázdna.
-    if (d.bought_count > 0) {
-      btns.splice(1, 0,
-        `<button class="${cls}" type="button" onclick="InkLinkVoucher.openMine()">${tr('pf.myVouchers')}</button>`);
-    }
+    // Prázdný stav zabíral stejně místa jako plný — tři tlačítka, i když
+    // nebylo co uplatnit. Bez kreditu zbyde jeden tichý řádek s jedinou
+    // akcí; „Moje poukazy" nemá smysl, když žádné nemáš, a „Koupit" patří
+    // do feedu, kde na poukaz člověk narazí sám.
     el.className = 'on ' + (funded ? 'funded' : 'empty');
-    el.innerHTML = (funded
-        ? `<div><div class="cs-amount">${InkLinkI18N.money(c, d.currency)}</div>`
-          + `<div class="cs-label">${tr('pf.creditLabel')}</div></div>`
-        : `<div class="cs-bal">${tr('pf.creditNone')}</div>`)
-      + `<div class="cs-actions">${btns.join('')}</div>`;
+    if (funded) {
+      const dalsi = d.bought_count > 0
+        ? `<button class="cs-link" type="button" onclick="InkLinkVoucher.openMine()">${tr('pf.myVouchers')}</button>`
+        : `<button class="cs-link" type="button" onclick="InkLinkVoucher.openRedeem()">${tr('pf.redeemVoucherShort')}</button>`;
+      el.innerHTML =
+        `<svg class="cs-ico icon"><use href="#i-credit-card"/></svg>`
+        + `<div class="cs-main"><div class="cs-amount">${InkLinkI18N.money(c, d.currency)}</div>`
+        + `<div class="cs-label">${tr('pf.creditLabel')}</div></div>`
+        + `<div class="cs-actions">${dalsi}</div>`;
+    } else {
+      el.innerHTML =
+        `<svg class="cs-ico icon"><use href="#i-credit-card"/></svg>`
+        + `<span class="cs-bal">${tr('pf.creditNone')}</span>`
+        + `<button class="cs-plain" type="button" onclick="InkLinkVoucher.openRedeem()">`
+        + `${tr('pf.redeemVoucherShort')}</button>`;
+    }
   }).catch(() => { /* zůstatek není kritický, profil jede dál */ });
 }
+
 document.addEventListener('inklink:credit-changed', renderCreditStrip);
 
 function closeBook() {

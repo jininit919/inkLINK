@@ -7884,7 +7884,7 @@ class MessagesPageIsTranslatedTests(unittest.TestCase):
         """Anglický text uvnitř prvku je záložní hodnota — nesmí tam být
         sám, bez `data-i18n`."""
         page = self.page()
-        for text, key in (('Messages</span>', 'ms.title'),
+        for text, key in (('Search</span>', 'ms.search'),
                           ('+ New</button>', 'ms.new'),
                           ('Open conversation</button>', 'ms.openConv'),
                           ('Recipient username</label>', 'ms.recipient')):
@@ -7897,7 +7897,7 @@ class MessagesPageIsTranslatedTests(unittest.TestCase):
     def test_keys_exist_in_both_languages(self):
         with open('public/i18n.js', encoding='utf-8') as f:
             i18n = f.read()
-        for key in ('ms.title', 'ms.new', 'ms.openConv', 'ms.selectConv',
+        for key in ('ms.search', 'ms.new', 'ms.openConv', 'ms.selectConv',
                     'ms.recipient'):
             self.assertEqual(2, i18n.count(f"'{key}'"),
                              f'{key} chybí v jednom z jazyků')
