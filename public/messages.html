@@ -409,7 +409,8 @@ function renderConvsWithSuggestions(convs, newUsers) {
     html += newUsers.map(u => convItemHTML({
       user_id: u.id, username: u.username, display_name: u.display_name,
       avatar: u.avatar, initials: u.initials,
-      last_msg: u.is_artist ? '@' + u.username + ' · artist' : '@' + u.username,
+      last_msg: u.is_artist ? '@' + u.username + ' · ' + mt('ms.suggestArtist', 'artist')
+                            : '@' + u.username,
       last_at: '', unread: 0
     }, true)).join('');
   }
@@ -427,7 +428,8 @@ function convItemHTML(c, isSuggestion) {
     ${avatarHTML}
     <div class="conv-info">
       <div class="conv-name">${esc(c.display_name)}</div>
-      <div class="conv-preview">${isSuggestion ? '+ New message' : esc(c.last_msg)}</div>
+      <div class="conv-preview">${isSuggestion ? esc(mt('ms.newMessage', '+ New message'))
+        : isDesignRequest(c.last_msg) ? esc(drTitle()) : esc(c.last_msg)}</div>
     </div>
     <div class="conv-meta">
       <div class="conv-time" data-ago="${esc(c.last_at_iso || '')}">${esc(window.ilAgo ? ilAgo(c.last_at_iso) : c.last_at)}</div>
@@ -705,7 +707,7 @@ async function fetchMessages(userId) {
       ? `<img class="msg-image" src="/uploads/${esc(m.image)}" alt="${mt('ms.photo', 'Photo')}"
              onclick="openImgFull(this.src)"
              onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'msg-img-gone',textContent:'${mt('ms.photoGone', 'Photo is no longer available')}'}))">`
-      : esc(m.content);
+      : esc(isDesignRequest(m.content) ? drBody(m.content) : m.content);
     return `<div class="msg-row ${m.mine ? 'mine' : ''}">
       ${avatarHTML}
       <div>
@@ -850,6 +852,30 @@ function openImgFull(src) {
 // ── New message modal ─────────────────────────────────────────────────────────
 // Lupa se rozbalí do pole a zavře se, když se nic nehledá — aby
 // vyhledávání nezabíralo místo, dokud ho nikdo nechce.
+// Poptávku vlastního návrhu skládá server, aby měla jako trvalý záznam
+// pořád stejný tvar — proto je uvnitř anglicky. Přeloží se až tady, při
+// zobrazení: v náhledu zbyde jen popisek, ve vlákně i jeho položky.
+const DR_MARK = 'Custom design request';
+const DR_LABELS = {Motif:'ms.drMotif', Placement:'ms.drPlacement',
+                   Size:'ms.drSize', Budget:'ms.drBudget', Timing:'ms.drTiming'};
+
+function isDesignRequest(text) {
+  return typeof text === 'string' && text.startsWith(DR_MARK);
+}
+
+function drTitle() { return mt('ms.designRequest', 'Custom design request'); }
+
+function drBody(text) {
+  const lines = String(text).split('\n').slice(1);
+  const prelozene = lines.map(l => {
+    const i = l.indexOf(':');
+    if (i < 0) return l;
+    const key = DR_LABELS[l.slice(0, i).trim()];
+    return key ? `${mt(key, l.slice(0, i))}:${l.slice(i + 1)}` : l;
+  });
+  return [drTitle(), ...prelozene].join('\n');
+}
+
 function toggleConvSearch() {
   const inp = document.getElementById('convSearch');
   const btn = document.querySelector('.conv-search-toggle');
@@ -921,7 +947,7 @@ function escJs(s) {
 init();
 </script>
 
-<script src="/i18n.js?v=27"></script>
+<script src="/i18n.js?v=28"></script>
 <script src="/mobile-nav.js?v=33"></script>
 <script>InkLinkMobileNav && InkLinkMobileNav.init();</script>
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");</script>

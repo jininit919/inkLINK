@@ -7903,5 +7903,51 @@ class MessagesPageIsTranslatedTests(unittest.TestCase):
                              f'{key} chybí v jednom z jazyků')
 
 
+class DesignRequestIsTranslatedOnDisplayTests(unittest.TestCase):
+    """Poptávku vlastního návrhu skládá server, aby měla jako trvalý
+    záznam pořád stejný tvar — a proto je uvnitř anglicky. V náhledu
+    konverzace se tím ale objevila slepená věta „Custom design request
+    Motif: Vlk v geometrickém rámu…", anglicky i česky zároveň."""
+
+    def page(self):
+        with open('public/messages.html', encoding='utf-8') as f:
+            return f.read()
+
+    def test_server_keeps_one_stable_shape(self):
+        """Text se nemá skládat v prohlížeči — zpráva je záznam."""
+        with open('server.py', encoding='utf-8') as f:
+            self.assertIn("'Custom design request", f.read())
+
+    def test_preview_shows_only_the_label(self):
+        page = self.page()
+        i = page.index('<div class="conv-preview">')
+        self.assertIn('drTitle', page[i:i + 300],
+                      'náhled vypisuje celou slepenou zprávu')
+
+    def test_thread_translates_the_field_labels(self):
+        page = self.page()
+        self.assertIn('DR_LABELS', page)
+        for key in ('ms.drMotif', 'ms.drPlacement', 'ms.drSize',
+                    'ms.drBudget', 'ms.drTiming'):
+            self.assertIn(key, page, f'{key} se nepoužívá')
+
+    def test_keys_exist_in_both_languages(self):
+        with open('public/i18n.js', encoding='utf-8') as f:
+            i18n = f.read()
+        for key in ('ms.designRequest', 'ms.drMotif', 'ms.drPlacement',
+                    'ms.drSize', 'ms.drBudget', 'ms.drTiming',
+                    'ms.suggestArtist', 'ms.newMessage'):
+            self.assertEqual(2, i18n.count(f"'{key}'"),
+                             f'{key} chybí v jednom z jazyků')
+
+    def test_page_uses_its_own_translation_helper(self):
+        """Stránka má `mt(key, fallback)`, ne `t(key)` jako ostatní —
+        záměna shodila vykreslení seznamu konverzací."""
+        page = self.page()
+        self.assertIn('function mt(', page)
+        i = page.index('function drTitle')
+        self.assertIn('mt(', page[i:i + 160])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
